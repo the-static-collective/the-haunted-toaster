@@ -1,0 +1,64 @@
+{
+  "name": "full-measure",
+  "productName": "Full Measure",
+  "version": "0.3.1",
+  "description": "A local-first desktop instrument that turns a finished song into a finished music video.",
+  "author": "The Static Collective",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22"
+  },
+  "main": "src/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "test": "node --test tests/*.test.cjs",
+    "check": "node scripts/check.cjs",
+    "smoke": "node scripts/smoke-render.cjs",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "ffmpeg-static": "5.3.0",
+    "ffprobe-static": "3.1.0"
+  },
+  "devDependencies": {
+    "electron": "43.2.0",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "org.staticcollective.fullmeasure",
+    "productName": "Full Measure",
+    "artifactName": "Full-Measure-${version}-${arch}.${ext}",
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/ffmpeg-static/**",
+      "node_modules/ffprobe-static/**"
+    ],
+    "files": [
+      "src/**/*",
+      "docs/**/*",
+      "package.json",
+      "README.md",
+      "THIRD_PARTY_NOTICES.md"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.video"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "AudioVideo"
+    }
+  }
+}
