@@ -1,0 +1,47 @@
+{
+  "schema": "haunted-toaster/garment-constraints/v1",
+  "id": "porchlight-v1",
+  "topology": { "allowed": ["linear", "circle"] },
+  "motion": {
+    "grammar": { "allowed": ["still", "drift", "pulse", "orbit"] },
+    "amplitude": { "min": 0.12, "max": 0.72 },
+    "variance": { "min": 0.04, "max": 0.45 }
+  },
+  "palette": {
+    "logic": { "allowed": ["garment", "analogous", "duotone"] },
+    "bleed": { "min": 0.18, "max": 0.74 },
+    "contrastBias": { "min": -0.25, "max": 0.42 }
+  },
+  "material": {
+    "texture": { "allowed": ["clean", "grain", "gate-weave"] },
+    "imperfection": { "min": 0.04, "max": 0.48 }
+  },
+  "lyric": {
+    "placement": { "allowed": ["lower-third", "center", "ghost"] },
+    "densityBias": { "min": -0.35, "max": 0.35 }
+  },
+  "camera": {
+    "grammar": { "allowed": ["locked", "drift", "push", "orbit"] },
+    "variance": { "min": 0.02, "max": 0.42 }
+  },
+  "temporalDensity": { "allowed": ["frozen", "section", "phrase"] },
+  "influence": {
+    "energyBias": { "min": -0.5, "max": 0.6 },
+    "transientDensity": { "min": 0, "max": 0.55 },
+    "lyricDensity": { "min": 0, "max": 0.7 },
+    "contrastBias": { "min": -0.4, "max": 0.5 },
+    "motionVariance": { "min": 0, "max": 0.55 },
+    "imperfection": { "min": 0, "max": 0.5 }
+  },
+  "patchPolicy": {
+    "maxPatches": 16,
+    "entropyBudget": 40,
+    "axes": {
+      "motion": { "boundaries": ["section", "phrase"], "transition": "interpolate", "entropyCost": 4 },
+      "palette": { "boundaries": ["section"], "transition": "crossfade", "entropyCost": 5 },
+      "material": { "boundaries": ["section", "phrase"], "transition": "interpolate", "entropyCost": 3 },
+      "lyric": { "boundaries": ["phrase"], "transition": "crossfade", "entropyCost": 3 },
+      "camera": { "boundaries": ["section", "phrase"], "transition": "interpolate", "entropyCost": 4 }
+    }
+  }
+}
