@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <meta
+      name="description"
+      content="Full Measure turns any finished song into a finished music video—locally."
+    />
+    <title>Full Measure</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-one" aria-hidden="true"></div>
+    <div class="ambient ambient-two" aria-hidden="true"></div>
+
+    <header class="app-header">
+      <div class="brand-lockup">
+        <div class="brand-mark" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <div>
+          <div class="brand-line">
+            <h1>Full Measure</h1>
+            <span class="alpha-pill">Alpha <b id="versionLabel">0.1</b></span>
+          </div>
+          <p>Finished song in. Finished music video out.</p>
+        </div>
+      </div>
+      <div class="local-badge">
+        <span class="status-dot"></span>
+        <div>
+          <strong>Local only</strong>
+          <small>No upload. Zero credits.</small>
+        </div>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="panel inputs-panel" aria-labelledby="inputHeading">
+        <div class="panel-heading">
+          <span class="step-number">01</span>
+          <div>
+            <h2 id="inputHeading">Feed the toaster</h2>
+            <p>Your master stays on this machine.</p>
+          </div>
+        </div>
+
+        <button class="drop-zone audio-drop" id="audioDrop" type="button">
+          <div class="record-glyph" aria-hidden="true">
+            <span></span>
+          </div>
+          <div class="drop-copy">
+            <strong id="audioDropTitle">Drop a finished song</strong>
+            <span id="audioDropHint">MP3 or WAV · click to choose</span>
+          </div>
+          <span class="choose-chip" id="audioChooseChip">Choose file</span>
+        </button>
+
+        <div class="song-facts is-hidden" id="songFacts">
+          <div>
+            <span>Length</span>
+            <strong id="durationFact">—</strong>
+          </div>
+          <div>
+            <span>Sound</span>
+            <strong id="codecFact">—</strong>
+          </div>
+          <div>
+            <span>Shape</span>
+            <strong id="sectionFact">—</strong>
+          </div>
+        </div>
+
+        <button class="image-drop" id="imageDrop" type="button">
+          <span class="image-icon" aria-hidden="true"></span>
+          <span>
+            <strong id="imageDropTitle">Add one image</strong>
+            <small id="imageDropHint">Optional · PNG, JPG, or WebP</small>
+          </span>
+          <span class="plus-mark" id="imageAction">+</span>
+        </button>
+        <button
+          class="remove-image is-hidden"
+          id="removeImage"
+          type="button"
+        >
+          Remove image
+        </button>
+
+        <div class="field-row">
+          <label class="field">
+            <span>Title <em>optional</em></span>
+            <input
+              id="titleInput"
+              type="text"
+              maxlength="160"
+              placeholder="Use the filename"
+            />
+          </label>
+          <label class="field">
+            <span>Artist <em>optional</em></span>
+            <input
+              id="artistInput"
+              type="text"
+              maxlength="160"
+              placeholder="The Static Collective"
+            />
+          </label>
+        </div>
+
+        <div class="field words-field">
+          <div class="field-heading">
+            <label for="lyricsInput">Lyrics <em>optional</em></label>
+            <div class="lyrics-actions">
+              <button class="lyrics-import" id="lyricsImport" type="button">
+                Import timed file
+              </button>
+              <button
+                class="lyrics-sync"
+                id="lyricsAutoSync"
+                type="button"
+                disabled
+              >
+                Auto-sync vocals
+              </button>
+            </div>
+          </div>
+          <textarea
+            id="lyricsInput"
+            rows="7"
+            maxlength="250000"
+            placeholder="Paste plain lyrics—or timed LRC, SRT, VTT, or JSON for vocal-synchronized cues."
+          ></textarea>
+          <div class="lyrics-status" id="lyricsStatus">
+            <span class="timing-pill" id="timingPill">No lyrics</span>
+            <small id="lyricsStatusText"
+              ><b id="wordLineCount">0</b>
+              <span id="lyricsCountLabel">usable lines</span></small
+            >
+          </div>
+        </div>
+      </section>
+
+      <section class="panel garment-panel" aria-labelledby="garmentHeading">
+        <div class="panel-heading">
+          <span class="step-number">02</span>
+          <div>
+            <h2 id="garmentHeading">Choose a garment</h2>
+            <p>A reusable visual language, not a random clip pile.</p>
+          </div>
+        </div>
+
+        <div class="garment-list" role="radiogroup" aria-label="Visual garment">
+          <button
+            class="garment-card porchlight is-selected"
+            type="button"
+            data-preset="porchlight"
+            role="radio"
+            aria-checked="true"
+          >
+            <span class="garment-preview">
+              <i></i>
+              <i></i>
+              <i></i>
+            </span>
+            <span class="garment-copy">
+              <strong>Porchlight</strong>
+              <small>Warm grain · dusk signal · the house stays awake</small>
+            </span>
+            <span class="radio-mark"></span>
+          </button>
+
+          <button
+            class="garment-card wire-orchard"
+            type="button"
+            data-preset="wireOrchard"
+            role="radio"
+            aria-checked="false"
+          >
+            <span class="garment-preview">
+              <i></i>
+              <i></i>
+              <i></i>
+            </span>
+            <span class="garment-copy">
+              <strong>Wire Orchard</strong>
+              <small>Electric fruit · signal bloom · midnight circuitry</small>
+            </span>
+            <span class="radio-mark"></span>
+          </button>
+
+          <button
+            class="garment-card residual"
+            type="button"
+            data-preset="absoluteResidual"
+            role="radio"
+            aria-checked="false"
+          >
+            <span class="garment-preview">
+              <i></i>
+              <i></i>
+              <i></i>
+            </span>
+            <span class="garment-copy">
+              <strong>Absolute Residual</strong>
+              <small>Haunted photocopy · violet ash · revival flare</small>
+            </span>
+            <span class="radio-mark"></span>
+          </button>
+        </div>
+
+        <div class="shape-card">
+          <div class="shape-heading">
+            <span>Detected song shape</span>
+            <strong id="shapeState">Waiting for a song</strong>
+          </div>
+          <div class="timeline empty" id="timeline" aria-label="Song sections">
+            <span></span>
+          </div>
+          <div class="section-legend" id="sectionLegend">
+            The visual phases will change at musical energy boundaries.
+          </div>
+        </div>
+
+        <aside class="principle-note">
+          <span class="receipt-stamp">RECEIPT</span>
+          <p>
+            Every output includes its source hash, visual treatment, section
+            map, audio handling, output hash, and duration proof.
+          </p>
+        </aside>
+      </section>
+
+      <section class="panel render-panel" aria-labelledby="renderHeading">
+        <div class="panel-heading compact">
+          <span class="step-number">03</span>
+          <div>
+            <h2 id="renderHeading">Make the full measure</h2>
+            <p>One continuous 1080p MP4.</p>
+          </div>
+        </div>
+
+        <div class="slate">
+          <div class="slate-top">
+            <span>Render slate</span>
+            <b>ZERO-CREDIT</b>
+          </div>
+          <dl>
+            <div>
+              <dt>Timeline</dt>
+              <dd id="slateDuration">Waiting</dd>
+            </div>
+            <div>
+              <dt>Picture</dt>
+              <dd id="slatePicture">Procedural</dd>
+            </div>
+            <div>
+              <dt>Garment</dt>
+              <dd id="slateGarment">Porchlight</dd>
+            </div>
+            <div>
+              <dt>Soundtrack</dt>
+              <dd id="slateAudio">Original master</dd>
+            </div>
+            <div>
+              <dt>Output</dt>
+              <dd>1920 × 1080 · MP4</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="progress-card is-hidden" id="progressCard">
+          <div class="progress-heading">
+            <span id="phaseMessage">Preparing the instrument…</span>
+            <strong id="progressPercent">0%</strong>
+          </div>
+          <div class="progress-track">
+            <span id="progressFill"></span>
+          </div>
+          <small id="progressTime">0:00 of 0:00</small>
+        </div>
+
+        <div class="result-card is-hidden" id="resultCard">
+          <div class="result-check" aria-hidden="true">✓</div>
+          <div>
+            <span>Full measure rendered</span>
+            <strong id="resultName">video.mp4</strong>
+            <small id="resultProof">Receipt verified</small>
+          </div>
+          <div class="result-actions">
+            <button id="openResult" type="button">Play</button>
+            <button id="revealResult" type="button">Show file</button>
+          </div>
+        </div>
+
+        <div class="error-card is-hidden" id="errorCard" role="alert">
+          <strong>The toaster objected.</strong>
+          <p id="errorMessage"></p>
+        </div>
+
+        <button class="render-button" id="renderButton" type="button" disabled>
+          <span class="button-label">
+            <small>SONG IN → MP4 OUT</small>
+            <strong>Make full video</strong>
+          </span>
+          <span class="button-arrow" aria-hidden="true">→</span>
+        </button>
+        <button class="cancel-button is-hidden" id="cancelButton" type="button">
+          Cancel render
+        </button>
+
+        <p class="render-note">
+          Your song never leaves this computer. Generated media is not required.
+        </p>
+      </section>
+    </main>
+
+    <div
+      class="sync-dialog is-hidden"
+      id="syncDialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="syncDialogTitle"
+    >
+      <div class="sync-backdrop" data-sync-close></div>
+      <section class="sync-surface">
+        <header class="sync-header">
+          <div>
+            <span class="sync-kicker">FULL MEASURE LISTENER</span>
+            <h2 id="syncDialogTitle">Time the written words</h2>
+            <p id="syncDialogSubtitle">
+              The lyrics stay authoritative. The local listener only lends
+              timing.
+            </p>
+          </div>
+          <button
+            class="sync-close"
+            id="syncClose"
+            type="button"
+            aria-label="Close lyric sync"
+          >
+            ×
+          </button>
+        </header>
+
+        <div class="listener-setup is-hidden" id="listenerSetup">
+          <div class="listener-orbit" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </div>
+          <div class="listener-setup-copy">
+            <span>ONE-TIME LOCAL PACK</span>
+            <h3>Give the toaster ears.</h3>
+            <p id="listenerSetupMessage">
+              Install a verified local listening engine and compact English
+              model. Audio still never leaves this computer.
+            </p>
+            <dl>
+              <div>
+                <dt>Download</dt>
+                <dd id="listenerDownloadSize">about 68 MB</dd>
+              </div>
+              <div>
+                <dt>After setup</dt>
+                <dd>Offline · unlimited · zero credits</dd>
+              </div>
+              <div>
+                <dt>Text authority</dt>
+                <dd>Your supplied lyrics</dd>
+              </div>
+            </dl>
+            <button class="listener-install" id="listenerInstall" type="button">
+              Install local Listener
+            </button>
+            <button class="listener-manual" id="listenerManual" type="button">
+              Skip install · tap the lines manually
+            </button>
+            <div class="listener-install-progress is-hidden" id="listenerInstallProgress">
+              <div>
+                <span id="listenerInstallLabel">Preparing…</span>
+                <b id="listenerInstallPercent">0%</b>
+              </div>
+              <div class="listener-progress-track">
+                <span id="listenerInstallFill"></span>
+              </div>
+              <button id="listenerInstallCancel" type="button">Cancel setup</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sync-working is-hidden" id="syncWorking">
+          <div class="listening-glyph" aria-hidden="true">
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          </div>
+          <span>LOCAL LISTENING PASS</span>
+          <h3 id="syncWorkingTitle">Preparing a private listening copy…</h3>
+          <p>
+            The master stays untouched. This pass creates only temporary local
+            timing evidence.
+          </p>
+          <div class="sync-progress-track">
+            <span id="syncProgressFill"></span>
+          </div>
+          <b id="syncProgressPercent">0%</b>
+          <button id="syncCancel" type="button">Stop listening</button>
+        </div>
+
+        <div class="sync-editor is-hidden" id="syncEditor">
+          <div class="sync-editor-top">
+            <div class="sync-verdict">
+              <span id="syncVerdictPill">Listening complete</span>
+              <h3 id="syncVerdictTitle">Every line has a witness.</h3>
+              <p id="syncVerdictText">
+                Review anything marked yellow or red, then use the timing.
+              </p>
+            </div>
+            <div class="sync-counts" id="syncCounts"></div>
+          </div>
+
+          <audio id="syncAudio" controls preload="metadata"></audio>
+          <div class="sync-waveform-wrap">
+            <canvas
+              class="sync-waveform"
+              id="syncWaveform"
+              width="1000"
+              height="132"
+            ></canvas>
+            <div class="sync-playhead" id="syncPlayhead"></div>
+          </div>
+
+          <div class="tap-bar">
+            <p>
+              Select a line, play the song, and press
+              <kbd>Space</kbd> at the vocal entrance.
+            </p>
+            <div>
+              <button id="tapThrough" type="button">Tap through review lines</button>
+              <button id="relisten" type="button">Listen again</button>
+            </div>
+          </div>
+
+          <div class="cue-list" id="cueList"></div>
+
+          <footer class="sync-editor-actions">
+            <p id="syncSaveNote">
+              A same-named .lrc will be saved beside the song.
+            </p>
+            <div>
+              <button class="sync-secondary" id="syncEditorClose" type="button">
+                Keep current lyrics
+              </button>
+              <button class="sync-accept" id="syncAccept" type="button">
+                Use reviewed timing
+              </button>
+            </div>
+          </footer>
+        </div>
+      </section>
+    </div>
+
+    <footer>
+      <span>FULL MEASURE / VIDEO RECEIPT</span>
+      <p>Mildly haunted music-video toaster.</p>
+    </footer>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

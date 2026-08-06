@@ -1,0 +1,35 @@
+const crypto = require("node:crypto");
+const fs = require("node:fs");
+const fsPromises = require("node:fs/promises");
+const path = require("node:path");
+
+async function hashFile(filePath) {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash("sha256");
+    const stream = fs.createReadStream(filePath);
+    stream.on("error", reject);
+    stream.on("data", (chunk) => hash.update(chunk));
+    stream.on("end", () => resolve(hash.digest("hex")));
+  });
+}
+
+function receiptPathFor(outputPath) {
+  const parsed = path.parse(outputPath);
+  return path.join(parsed.dir, `${parsed.name}.video-receipt.json`);
+}
+
+async function writeReceipt(receipt, outputPath) {
+  const receiptPath = receiptPathFor(outputPath);
+  await fsPromises.writeFile(
+    receiptPath,
+    `${JSON.stringify(receipt, null, 2)}\n`,
+    "utf8",
+  );
+  return receiptPath;
+}
+
+module.exports = {
+  hashFile,
+  receiptPathFor,
+  writeReceipt,
+};

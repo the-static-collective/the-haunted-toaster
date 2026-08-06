@@ -1,0 +1,25 @@
+{
+  "schema": "full-measure.lyrics.v1",
+  "cues": [
+    {
+      "start": 0.65,
+      "end": 2.75,
+      "text": "The spoon remembers"
+    },
+    {
+      "start": 3,
+      "end": 5.65,
+      "text": "The porch light stays"
+    },
+    {
+      "start": 6.1,
+      "end": 8.25,
+      "text": "Song goes in"
+    },
+    {
+      "start": 8.7,
+      "end": 11.25,
+      "text": "Full measure comes out"
+    }
+  ]
+}
