@@ -12,10 +12,14 @@ on:
       - "**"
     tags:
       - "v*"
+  check_suite:
+    types:
+      - requested
+      - rerequested
   workflow_dispatch:
 
 concurrency:
-  group: haunted-toaster-${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
+  group: haunted-toaster-${{ github.workflow }}-${{ github.event.check_suite.head_sha || github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: true
 
 permissions:
@@ -33,7 +37,14 @@ jobs:
       run:
         working-directory: src/full-measure
     steps:
-      - name: Check out source
+      - name: Check out connector-authored head
+        if: github.event_name == 'check_suite'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.check_suite.head_sha }}
+
+      - name: Check out event source
+        if: github.event_name != 'check_suite'
         uses: actions/checkout@v4
 
       - name: Set up Node
