@@ -2,12 +2,21 @@ name: Haunted Toaster proof and package
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
   push:
     branches:
-      - main
+      - "**"
     tags:
       - "v*"
   workflow_dispatch:
+
+concurrency:
+  group: haunted-toaster-${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
