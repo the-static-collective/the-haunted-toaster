@@ -1,5 +1,7 @@
 # The Haunted Toaster
 
+[![Haunted Toaster proof and package](https://github.com/the-static-collective/the-haunted-toaster/actions/workflows/haunted-toaster.yml/badge.svg)](https://github.com/the-static-collective/the-haunted-toaster/actions/workflows/haunted-toaster.yml)
+
 > **SONG IN → FINISHED VIDEO OUT**
 
 The Haunted Toaster is a local-first desktop instrument that turns a finished song into one complete 1080p music video and writes a cryptographic Video Receipt beside it.
