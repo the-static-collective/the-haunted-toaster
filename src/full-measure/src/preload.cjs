@@ -1,5 +1,20 @@
 const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
+const PRODUCT_NAME = "The Haunted Toaster";
+
+window.addEventListener("DOMContentLoaded", () => {
+  document.title = PRODUCT_NAME;
+
+  const brandHeading = document.querySelector(".brand-line h1");
+  if (brandHeading) brandHeading.textContent = PRODUCT_NAME;
+
+  const listenerKicker = document.querySelector(".sync-kicker");
+  if (listenerKicker) listenerKicker.textContent = "HAUNTED TOASTER LISTENER";
+
+  const renderHeading = document.querySelector("#renderHeading");
+  if (renderHeading) renderHeading.textContent = "Make the full video";
+});
+
 function subscribe(channel, callback) {
   const listener = (_event, payload) => callback(payload);
   ipcRenderer.on(channel, listener);
