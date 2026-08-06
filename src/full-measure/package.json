@@ -1,8 +1,8 @@
 {
-  "name": "full-measure",
-  "productName": "Full Measure",
-  "version": "0.3.1",
-  "description": "A local-first desktop instrument that turns a finished song into a finished music video.",
+  "name": "haunted-toaster",
+  "productName": "The Haunted Toaster",
+  "version": "0.4.0",
+  "description": "A local-first desktop instrument that turns a finished song into a finished music video with a cryptographic receipt.",
   "author": "The Static Collective",
   "private": true,
   "license": "UNLICENSED",
@@ -28,9 +28,9 @@
     "electron-builder": "26.15.3"
   },
   "build": {
-    "appId": "org.staticcollective.fullmeasure",
-    "productName": "Full Measure",
-    "artifactName": "Full-Measure-${version}-${arch}.${ext}",
+    "appId": "org.staticcollective.hauntedtoaster",
+    "productName": "The Haunted Toaster",
+    "artifactName": "Haunted-Toaster-${version}-${arch}.${ext}",
     "asar": true,
     "asarUnpack": [
       "node_modules/ffmpeg-static/**",
@@ -41,6 +41,7 @@
       "docs/**/*",
       "package.json",
       "README.md",
+      "DEMO.md",
       "THIRD_PARTY_NOTICES.md"
     ],
     "directories": {
