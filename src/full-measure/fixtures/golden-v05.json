@@ -1,0 +1,249 @@
+{
+  "schema": "haunted-toaster/golden-v05/v1",
+  "profile": "toaster-raster-1.json",
+  "cases": [
+    {
+      "constraint": "porchlight.v1.json",
+      "analysis": "sparse.v1.json",
+      "seed": "42",
+      "scoreAddress": "htvs1_1e107dd46932dae94f6a22916a7ec5bf4be9246ad7f4185af7edd9de31a01b9b",
+      "timelineHash": "aa4015c20e2f1f220b16a8f36742d1d4d5a2aa5569318dbf6776e417360fc82f",
+      "topology": "linear",
+      "patchCount": 3
+    },
+    {
+      "constraint": "porchlight.v1.json",
+      "analysis": "sparse.v1.json",
+      "seed": "137",
+      "scoreAddress": "htvs1_d19aa3c2e2d453e3cac14a576cfe32f3c68754b4f5193ae2230d033e0eadec14",
+      "timelineHash": "8168ea8f34043c45b30cee04ccc564ef778046b9276e511c986a4fc7c66f5f9f",
+      "topology": "linear",
+      "patchCount": 0
+    },
+    {
+      "constraint": "porchlight.v1.json",
+      "analysis": "sparse.v1.json",
+      "seed": "22100",
+      "scoreAddress": "htvs1_77caf0182681b63d871806674e05bee6faeecb35548ae2dc5f9c25913ca3395a",
+      "timelineHash": "0519783854375252c364e17a41df9ee9b42936bdff036dd3941dad3fb469bb0c",
+      "topology": "linear",
+      "patchCount": 0
+    },
+    {
+      "constraint": "porchlight.v1.json",
+      "analysis": "dense.v1.json",
+      "seed": "42",
+      "scoreAddress": "htvs1_1e107dd46932dae94f6a22916a7ec5bf4be9246ad7f4185af7edd9de31a01b9b",
+      "timelineHash": "e6de03924a8dd1597139aef2a44b8dd0b659951361f142cc9b28724abe0d9e6e",
+      "topology": "linear",
+      "patchCount": 7
+    },
+    {
+      "constraint": "porchlight.v1.json",
+      "analysis": "dense.v1.json",
+      "seed": "137",
+      "scoreAddress": "htvs1_d19aa3c2e2d453e3cac14a576cfe32f3c68754b4f5193ae2230d033e0eadec14",
+      "timelineHash": "8e83c22c6718051b1098d8aee4b4cae99006447702ec1c4d48f84411ca356747",
+      "topology": "linear",
+      "patchCount": 0
+    },
+    {
+      "constraint": "porchlight.v1.json",
+      "analysis": "dense.v1.json",
+      "seed": "22100",
+      "scoreAddress": "htvs1_77caf0182681b63d871806674e05bee6faeecb35548ae2dc5f9c25913ca3395a",
+      "timelineHash": "97e32e88e6a928f2eec108afd1d8ff2111380f8e7d1f64b77d21cfe03c9cddfb",
+      "topology": "linear",
+      "patchCount": 0
+    },
+    {
+      "constraint": "porchlight.v1.json",
+      "analysis": "sectional.v1.json",
+      "seed": "42",
+      "scoreAddress": "htvs1_1e107dd46932dae94f6a22916a7ec5bf4be9246ad7f4185af7edd9de31a01b9b",
+      "timelineHash": "6ec58fd46ea91650f2da1a88e4de04a6d8b8439dd3cfff1562f0fdd7c66a02d1",
+      "topology": "linear",
+      "patchCount": 7
+    },
+    {
+      "constraint": "porchlight.v1.json",
+      "analysis": "sectional.v1.json",
+      "seed": "137",
+      "scoreAddress": "htvs1_d19aa3c2e2d453e3cac14a576cfe32f3c68754b4f5193ae2230d033e0eadec14",
+      "timelineHash": "c8977f1b62360bb017a4109320d75c837f535076aac8488fefbd78171d2ded5c",
+      "topology": "linear",
+      "patchCount": 0
+    },
+    {
+      "constraint": "porchlight.v1.json",
+      "analysis": "sectional.v1.json",
+      "seed": "22100",
+      "scoreAddress": "htvs1_77caf0182681b63d871806674e05bee6faeecb35548ae2dc5f9c25913ca3395a",
+      "timelineHash": "e605b5fc50d07c4fb4e1d35ebf5100233901e7daa00ea3f85e491c093c82634d",
+      "topology": "linear",
+      "patchCount": 0
+    },
+    {
+      "constraint": "wire-orchard.v1.json",
+      "analysis": "sparse.v1.json",
+      "seed": "42",
+      "scoreAddress": "htvs1_98532e4755c0c52bc2fb9bb1e27d1fc33137f07afbbb0772a26f25801aa4a695",
+      "timelineHash": "0313872b6ea4ab922e74034a8760efb71aa26bef7399ce3399a518b9ac438f0a",
+      "topology": "circle",
+      "patchCount": 1
+    },
+    {
+      "constraint": "wire-orchard.v1.json",
+      "analysis": "sparse.v1.json",
+      "seed": "137",
+      "scoreAddress": "htvs1_3047c7671499dc723884e84e65ac5f3a7cf24a78cd8c19414dd9bc8c4d7a0ab6",
+      "timelineHash": "6274e75c4a5d2bb46f7090e0ab10cfa749614e4658be03506f3036e27b1809a6",
+      "topology": "circle",
+      "patchCount": 1
+    },
+    {
+      "constraint": "wire-orchard.v1.json",
+      "analysis": "sparse.v1.json",
+      "seed": "22100",
+      "scoreAddress": "htvs1_246ca2fb9a5233f89247dac2b0b69320d37c3debaa5cadb1de7f15180c9ce59a",
+      "timelineHash": "82bae3189df78c64c394d43bfa055ea7a0b1aaa559447478a1fdad4478cc21a6",
+      "topology": "linear",
+      "patchCount": 1
+    },
+    {
+      "constraint": "wire-orchard.v1.json",
+      "analysis": "dense.v1.json",
+      "seed": "42",
+      "scoreAddress": "htvs1_98532e4755c0c52bc2fb9bb1e27d1fc33137f07afbbb0772a26f25801aa4a695",
+      "timelineHash": "5718f9acbf87acd9c562cdb23b3562a20cbc44fcfbc1dfe601d766aa63e865fa",
+      "topology": "circle",
+      "patchCount": 8
+    },
+    {
+      "constraint": "wire-orchard.v1.json",
+      "analysis": "dense.v1.json",
+      "seed": "137",
+      "scoreAddress": "htvs1_3047c7671499dc723884e84e65ac5f3a7cf24a78cd8c19414dd9bc8c4d7a0ab6",
+      "timelineHash": "b6edce33eebcbdd6a60a58294b618f6cdd5299c708e4171f8f90c2ff28414baa",
+      "topology": "circle",
+      "patchCount": 3
+    },
+    {
+      "constraint": "wire-orchard.v1.json",
+      "analysis": "dense.v1.json",
+      "seed": "22100",
+      "scoreAddress": "htvs1_246ca2fb9a5233f89247dac2b0b69320d37c3debaa5cadb1de7f15180c9ce59a",
+      "timelineHash": "85df8dcb0191d0ee6733a070dad793012801734979a17a5aa7baf1b1c47dd6cb",
+      "topology": "linear",
+      "patchCount": 3
+    },
+    {
+      "constraint": "wire-orchard.v1.json",
+      "analysis": "sectional.v1.json",
+      "seed": "42",
+      "scoreAddress": "htvs1_98532e4755c0c52bc2fb9bb1e27d1fc33137f07afbbb0772a26f25801aa4a695",
+      "timelineHash": "73bf20125269217e651677f06133809f2b821d4c48f105359cdc86ae3c0963d6",
+      "topology": "circle",
+      "patchCount": 4
+    },
+    {
+      "constraint": "wire-orchard.v1.json",
+      "analysis": "sectional.v1.json",
+      "seed": "137",
+      "scoreAddress": "htvs1_3047c7671499dc723884e84e65ac5f3a7cf24a78cd8c19414dd9bc8c4d7a0ab6",
+      "timelineHash": "9dedfccd54523cb925557ebd79bbb285af07f62bb6318984555bbdf955ab2394",
+      "topology": "circle",
+      "patchCount": 3
+    },
+    {
+      "constraint": "wire-orchard.v1.json",
+      "analysis": "sectional.v1.json",
+      "seed": "22100",
+      "scoreAddress": "htvs1_246ca2fb9a5233f89247dac2b0b69320d37c3debaa5cadb1de7f15180c9ce59a",
+      "timelineHash": "0ae395b168bb87ff6a2a8813de837a7bd4f8cd87be819743363dfd8e043d811b",
+      "topology": "linear",
+      "patchCount": 3
+    },
+    {
+      "constraint": "absolute-residual.v1.json",
+      "analysis": "sparse.v1.json",
+      "seed": "42",
+      "scoreAddress": "htvs1_e9bc89a669922c429c15529191f61ce05d178f0a6907d4e40a94ddfe2c5d8dd0",
+      "timelineHash": "9bb6e518b0ef6ca711c90e00b7fe49b3216a4b20bd046182dc9ae619b606c954",
+      "topology": "circle",
+      "patchCount": 1
+    },
+    {
+      "constraint": "absolute-residual.v1.json",
+      "analysis": "sparse.v1.json",
+      "seed": "137",
+      "scoreAddress": "htvs1_d69f01d70a0507e78ad87893070ed6ba6dfa725240d1aba63c8b16d406a5cced",
+      "timelineHash": "de694892b7b9eb2e3d245c627c441348f7e5b45f202c10c9f876a0f3de171c15",
+      "topology": "circle",
+      "patchCount": 1
+    },
+    {
+      "constraint": "absolute-residual.v1.json",
+      "analysis": "sparse.v1.json",
+      "seed": "22100",
+      "scoreAddress": "htvs1_c0ff4f47031fd0266241f4a1ba41f1b8026e148a213697a0b371729a7dde0a9b",
+      "timelineHash": "f162026f6003cdacee95e7f6b39dfba1fea7ea8c444eb48622d4099f0f2ecf23",
+      "topology": "circle",
+      "patchCount": 1
+    },
+    {
+      "constraint": "absolute-residual.v1.json",
+      "analysis": "dense.v1.json",
+      "seed": "42",
+      "scoreAddress": "htvs1_e9bc89a669922c429c15529191f61ce05d178f0a6907d4e40a94ddfe2c5d8dd0",
+      "timelineHash": "88b9155d0aa7849ca84ece36eae6252df333329059397edb51bcfa7767f5528e",
+      "topology": "circle",
+      "patchCount": 8
+    },
+    {
+      "constraint": "absolute-residual.v1.json",
+      "analysis": "dense.v1.json",
+      "seed": "137",
+      "scoreAddress": "htvs1_d69f01d70a0507e78ad87893070ed6ba6dfa725240d1aba63c8b16d406a5cced",
+      "timelineHash": "c7229d833cb145c570347d4f4728cc6d3fb64af46791402a7fbcccb555413d3c",
+      "topology": "circle",
+      "patchCount": 3
+    },
+    {
+      "constraint": "absolute-residual.v1.json",
+      "analysis": "dense.v1.json",
+      "seed": "22100",
+      "scoreAddress": "htvs1_c0ff4f47031fd0266241f4a1ba41f1b8026e148a213697a0b371729a7dde0a9b",
+      "timelineHash": "7e078f7f935e176e1414a418ab44dd543938e9baabf1caca4e69c6ef6413bef8",
+      "topology": "circle",
+      "patchCount": 3
+    },
+    {
+      "constraint": "absolute-residual.v1.json",
+      "analysis": "sectional.v1.json",
+      "seed": "42",
+      "scoreAddress": "htvs1_e9bc89a669922c429c15529191f61ce05d178f0a6907d4e40a94ddfe2c5d8dd0",
+      "timelineHash": "ba7622936e238925a69e6f6fc70dba0a662878ed57ccce85446471c729f62675",
+      "topology": "circle",
+      "patchCount": 4
+    },
+    {
+      "constraint": "absolute-residual.v1.json",
+      "analysis": "sectional.v1.json",
+      "seed": "137",
+      "scoreAddress": "htvs1_d69f01d70a0507e78ad87893070ed6ba6dfa725240d1aba63c8b16d406a5cced",
+      "timelineHash": "14e21b2697741c892cd2358a1b1af69502d8a8c832c9d3926bc37f605fd1dd44",
+      "topology": "circle",
+      "patchCount": 3
+    },
+    {
+      "constraint": "absolute-residual.v1.json",
+      "analysis": "sectional.v1.json",
+      "seed": "22100",
+      "scoreAddress": "htvs1_c0ff4f47031fd0266241f4a1ba41f1b8026e148a213697a0b371729a7dde0a9b",
+      "timelineHash": "ba7453d9d40d784cac09ff83f201f097a2d137078b48d96cc737bbfb82cab4fa",
+      "topology": "circle",
+      "patchCount": 3
+    }
+  ]
+}

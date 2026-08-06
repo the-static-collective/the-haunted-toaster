@@ -1,0 +1,29 @@
+{
+  "schema": "haunted-toaster/audio-analysis-fixture/v1",
+  "durationSeconds": 48,
+  "sections": [
+    { "startSeconds": 0, "endSeconds": 12, "energy": 0.62, "label": "Open" },
+    { "startSeconds": 12, "endSeconds": 24, "energy": 0.84, "label": "Drive" },
+    { "startSeconds": 24, "endSeconds": 36, "energy": 0.93, "label": "Peak" },
+    { "startSeconds": 36, "endSeconds": 48, "energy": 0.76, "label": "Return" }
+  ],
+  "phrases": [
+    { "atSeconds": 6, "energy": 0.58 },
+    { "atSeconds": 12, "energy": 0.76 },
+    { "atSeconds": 18, "energy": 0.88 },
+    { "atSeconds": 24, "energy": 0.94 },
+    { "atSeconds": 30, "energy": 0.9 },
+    { "atSeconds": 36, "energy": 0.8 },
+    { "atSeconds": 42, "energy": 0.72 }
+  ],
+  "transients": [
+    { "atSeconds": 3, "energy": 0.71 },
+    { "atSeconds": 9, "energy": 0.8 },
+    { "atSeconds": 15, "energy": 0.92 },
+    { "atSeconds": 21, "energy": 0.97 },
+    { "atSeconds": 27, "energy": 1 },
+    { "atSeconds": 33, "energy": 0.95 },
+    { "atSeconds": 39, "energy": 0.84 },
+    { "atSeconds": 45, "energy": 0.78 }
+  ]
+}
