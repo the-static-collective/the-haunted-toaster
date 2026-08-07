@@ -1,7 +1,6 @@
 const {
   canonicalStringify,
   deepFreeze,
-  hashCanonical,
 } = require("./canonical.cjs");
 const { PRNG_ID, createPrng } = require("./prng.cjs");
 const {
@@ -11,7 +10,6 @@ const {
   scoreWithinConstraints,
   validateConstraints,
 } = require("./schema.cjs");
-const { resolve } = require("./resolver.cjs");
 
 function clamp(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, Number(value)));
