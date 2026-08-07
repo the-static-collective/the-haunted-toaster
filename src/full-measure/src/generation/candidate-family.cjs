@@ -70,10 +70,18 @@ function normalizeLocks(locks, hasParent) {
   return normalized;
 }
 
-function deriveSeed({ rootSeed, parentScoreRef, slotIndex, attempt }) {
+function deriveBaselineSeed(rootSeed) {
+  return `ht-baseline:${hashCanonical(
+    { rootSeed: String(rootSeed) },
+    "HauntedToaster-CandidateBaseline-v1",
+  )}`;
+}
+
+function deriveSeed({ rootSeed, parentScoreRef, baselineScoreRef, slotIndex, attempt }) {
   const digest = hashCanonical(
     {
       attempt,
+      baselineScoreRef,
       parentScoreRef: parentScoreRef || null,
       rootSeed: String(rootSeed),
       slotIndex,
@@ -177,13 +185,14 @@ function creativeState(score) {
 }
 
 function changedAxes(left, right) {
-  if (!left) return LOCKABLE_AXES.filter((axis) => Object.hasOwn(right, axis));
   return LOCKABLE_AXES.filter(
     (axis) => canonicalStringify(left[axis]) !== canonicalStringify(right[axis]),
   );
 }
 
 function makeCandidate({
+  baseline,
+  baselineScoreRef,
   constraints,
   locks,
   parent,
@@ -193,18 +202,18 @@ function makeCandidate({
   slot,
   attempt,
 }) {
-  const seed = deriveSeed({ rootSeed, parentScoreRef, slotIndex, attempt });
+  const seed = deriveSeed({
+    rootSeed,
+    parentScoreRef,
+    baselineScoreRef,
+    slotIndex,
+    attempt,
+  });
   const prng = createPrng(`${seed}:${slot.role}`);
-  let score;
-
-  if (parent) {
-    score = structuredClone(parent);
-    score.schema = VISUAL_SCORE_SCHEMA;
-    score.seed = seed;
-    score.prng = PRNG_ID;
-  } else {
-    score = structuredClone(createVisualScore({ seed, constraints }).score);
-  }
+  const score = structuredClone(baseline);
+  score.schema = VISUAL_SCORE_SCHEMA;
+  score.seed = seed;
+  score.prng = PRNG_ID;
 
   const unlockedAxes = slot.axes.filter((axis) => !locks.includes(axis));
   for (const axis of unlockedAxes) {
@@ -223,6 +232,7 @@ function makeCandidate({
     policy: {
       candidatePolicy: CANDIDATE_FAMILY_POLICY,
       rootSeed: String(rootSeed),
+      baselineScoreRef,
       derivedSeed: seed,
       slotIndex,
       role: slot.role,
@@ -258,6 +268,11 @@ function generateCandidateSet({
   const parent = parentScore ? assertScore(parentScore, constraints) : null;
   const parentScoreRef = parent ? addressVisualScore(parent) : null;
   const normalizedLocks = normalizeLocks(locks, Boolean(parent));
+  const baselineArtifact = parent
+    ? null
+    : createVisualScore({ seed: deriveBaselineSeed(rootSeed), constraints });
+  const baseline = parent || baselineArtifact.score;
+  const baselineScoreRef = parentScoreRef || baselineArtifact.address;
   const candidates = [];
   const seenCreativeStates = new Set();
   const exhaustedRoles = [];
@@ -267,6 +282,8 @@ function generateCandidateSet({
     let accepted = null;
     for (let attempt = 0; attempt < 24; attempt += 1) {
       const scoreArtifact = makeCandidate({
+        baseline,
+        baselineScoreRef,
         constraints,
         locks: normalizedLocks,
         parent,
@@ -295,7 +312,7 @@ function generateCandidateSet({
       role: slot.role,
       scoreAddress: accepted.address,
       scoreArtifact: accepted,
-      changedAxes: changedAxes(parent, accepted.score),
+      changedAxes: changedAxes(baseline, accepted.score),
       timeline,
       timelineHash: timeline.timelineHash,
     }));
@@ -309,12 +326,20 @@ function generateCandidateSet({
         exhaustedRoles,
       }
     : null;
+  const firstTimeline = candidates[0].timeline;
 
   const familyCore = {
     schema: CANDIDATE_FAMILY_SCHEMA,
     policy: CANDIDATE_FAMILY_POLICY,
+    scoreSchema: VISUAL_SCORE_SCHEMA,
+    prng: PRNG_ID,
     rootSeed: String(rootSeed),
     parentScoreRef,
+    baselineScoreRef,
+    constraintPackId: constraints.id,
+    analysisHash: firstTimeline.analysisHash,
+    constraintsHash: firstTimeline.constraintsHash,
+    rendererProfileHash: firstTimeline.rendererProfileHash,
     locks: normalizedLocks,
     requestedCount: count,
     producedCount: candidates.length,
