@@ -4,4 +4,5 @@ module.exports = {
   ...require("./schema.cjs"),
   ...require("./resolver.cjs"),
   ...require("./operations.cjs"),
+  ...require("./candidate-family.cjs"),
 };
