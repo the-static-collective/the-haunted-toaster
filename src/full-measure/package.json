@@ -10,6 +10,10 @@
     "node": ">=22"
   },
   "main": "src/main.cjs",
+  "exports": {
+    ".": "./src/main.cjs",
+    "./generation": "./src/generation/index.cjs"
+  },
   "scripts": {
     "start": "electron .",
     "dev": "electron .",

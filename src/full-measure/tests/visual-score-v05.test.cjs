@@ -74,6 +74,15 @@ test("VisualScore is portable and rejects target-bound or unknown fields", () =>
   assert.ok(result.errors.some((item) => item.code === "UNKNOWN_FIELD"));
 });
 
+test("supported package bridge exposes the canonical generation oracle", () => {
+  const probe = spawnSync(
+    process.execPath,
+    ["-e", "const g=require('haunted-toaster/generation'); if(typeof g.createVisualScore!=='function'||typeof g.resolve!=='function'||typeof g.addressVisualScore!=='function') process.exit(2);"],
+    { cwd: root, encoding: "utf8" },
+  );
+  assert.equal(probe.status, 0, probe.stderr || probe.stdout);
+});
+
 test("the same score binds to multiple tracks without changing address", () => {
   const artifact = generation.createVisualScore({
     seed: "same-score",
