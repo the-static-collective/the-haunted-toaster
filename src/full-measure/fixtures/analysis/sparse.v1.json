@@ -1,0 +1,16 @@
+{
+  "schema": "haunted-toaster/audio-analysis-fixture/v1",
+  "durationSeconds": 60,
+  "sections": [
+    { "startSeconds": 0, "endSeconds": 30, "energy": 0.18, "label": "Hush" },
+    { "startSeconds": 30, "endSeconds": 60, "energy": 0.38, "label": "Lift" }
+  ],
+  "phrases": [
+    { "atSeconds": 15, "energy": 0.2 },
+    { "atSeconds": 30, "energy": 0.35 },
+    { "atSeconds": 45, "energy": 0.4 }
+  ],
+  "transients": [
+    { "atSeconds": 30, "energy": 0.48 }
+  ]
+}
