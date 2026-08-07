@@ -13,6 +13,11 @@ const {
   createTimelineExecution,
 } = require("./timeline-execution.cjs");
 const { compileTimelineFilterGraph } = require("./timeline-filter.cjs");
+const {
+  assertScoreTimelineBinding,
+  removeCanonicalExecutionSidecars,
+  writeCanonicalExecutionSidecars,
+} = require("./sidecars.cjs");
 
 async function safeUnlink(filePath) {
   try {
@@ -75,9 +80,10 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
     if (!analysis.audio) throw new Error("No audio stream was found.");
 
     // Score-driven execution has exactly one semantic authority: the accepted timeline.
-    // Validation/resolution remain outside render; this adapter is read-only.
+    // Validation/resolution remain outside render; these checks only bind accepted artifacts.
     const execution = createTimelineExecution(config.resolvedTimeline);
     assertTimelineDuration(execution.timeline, analysis.duration);
+    const scoreAddress = assertScoreTimelineBinding(config.visualScore, execution.timeline);
 
     const sourceHash = await hashFile(audioPath);
     const proceduralPath = path.join(tempDirectory, "garment.ppm");
@@ -166,6 +172,11 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
     }
 
     const outputHash = await hashFile(outputPath);
+    const sidecars = await writeCanonicalExecutionSidecars({
+      outputPath,
+      score: config.visualScore,
+      timeline: execution.timeline,
+    });
     const finishedAt = new Date();
     const receipt = {
       schema: "full-measure.video-receipt.v1",
@@ -180,6 +191,15 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
         durationSeconds: analysis.duration,
         format: analysis.formatName,
         audio: analysis.audio,
+      },
+      canonicalExecution: {
+        scoreAddress,
+        timelineHash: execution.timelineHash,
+        analysisHash: execution.timeline.analysisHash || null,
+        constraintsHash: execution.timeline.constraintsHash || null,
+        rendererProfileHash: execution.timeline.rendererProfileHash || null,
+        scoreSidecar: path.basename(sidecars.scorePath),
+        timelineSidecar: path.basename(sidecars.timelinePath),
       },
       treatment: {
         title: title || path.parse(analysis.filename).name,
@@ -251,9 +271,20 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
     const receiptPath = await writeReceipt(receipt, outputPath);
     hooks.onProgress?.({ ratio: 1, renderedSeconds: analysis.duration, duration: analysis.duration });
 
-    return { jobId, outputPath, receiptPath, receipt, analysis };
+    return {
+      jobId,
+      outputPath,
+      receiptPath,
+      scorePath: sidecars.scorePath,
+      timelinePath: sidecars.timelinePath,
+      receipt,
+      analysis,
+    };
   } catch (error) {
-    await safeUnlink(outputPath);
+    await Promise.all([
+      safeUnlink(outputPath),
+      removeCanonicalExecutionSidecars(outputPath),
+    ]);
     throw error;
   } finally {
     await fs.rm(tempDirectory, { recursive: true, force: true });
