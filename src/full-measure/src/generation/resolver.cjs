@@ -242,25 +242,9 @@ function stateAtTick(timeline, tick) {
   return state;
 }
 
-function verifyReplay(expectedTimeline, analysis, score, constraints, profile) {
-  const actual = resolve(analysis, score, constraints, profile);
-  return {
-    ok: expectedTimeline?.timelineHash === actual.timelineHash,
-    expectedTimelineHash: expectedTimeline?.timelineHash || null,
-    actualTimelineHash: actual.timelineHash,
-    scoreAddressMatches: expectedTimeline?.scoreAddress === actual.scoreAddress,
-    analysisHashMatches: expectedTimeline?.analysisHash === actual.analysisHash,
-    constraintsHashMatches: expectedTimeline?.constraintsHash === actual.constraintsHash,
-    rendererProfileHashMatches:
-      expectedTimeline?.rendererProfileHash === actual.rendererProfileHash,
-    timeline: actual,
-  };
-}
-
 module.exports = {
   applyPatch,
   boundariesFor,
   resolve,
   stateAtTick,
-  verifyReplay,
 };
