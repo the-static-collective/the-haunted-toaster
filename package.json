@@ -1,0 +1,15 @@
+{
+  "name": "haunted-toaster",
+  "version": "0.4.0",
+  "private": true,
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    "./generation": "./src/full-measure/src/generation/index.cjs"
+  },
+  "files": [
+    "src/full-measure/src/generation/**/*"
+  ]
+}
