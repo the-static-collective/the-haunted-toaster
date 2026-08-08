@@ -142,6 +142,7 @@ async function renderCandidateFamilyPreviews(config, family, hooks = {}) {
         outputPath,
       );
       await runProcess(resolveFfmpeg(), args, {
+        cwd: tempDirectory,
         signal: hooks.signal,
         collectStdout: false,
         collectStderr: true,
