@@ -101,3 +101,28 @@ jobs:
             src/full-measure/release/*.exe
             src/full-measure/release/*.yml
           if-no-files-found: error
+
+  release:
+    name: Publish GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package-windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Windows package
+        uses: actions/download-artifact@v4
+        with:
+          name: Haunted-Toaster-Windows-${{ github.ref_name }}
+          path: release-assets
+
+      - name: Publish tagged release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            release-assets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Haunted Toaster $GITHUB_REF_NAME" \
+            --generate-notes \
+            --prerelease
