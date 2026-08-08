@@ -31,7 +31,7 @@ function resolveFieldEnvelope(state, frame = {}) {
     });
   }
 
-  if (topology !== "circle" && topology !== "mirrored-ring") {
+  if (!["circle", "mirrored-ring", "spiral", "quad-mirror"].includes(topology)) {
     throw new TypeError(`Unsupported field-envelope topology: ${String(topology)}.`);
   }
 

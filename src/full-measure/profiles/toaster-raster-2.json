@@ -1,0 +1,17 @@
+{
+  "schema": "haunted-toaster/renderer-profile/v1",
+  "id": "toaster-raster-2",
+  "canvas": { "width": 1920, "height": 1080, "fps": 30 },
+  "timebase": 1000,
+  "colorSpace": "srgb",
+  "fontAssets": {
+    "title": "a286eb923f951bebbfdd3dac0cf7aa1b1ddafb651e80ffde8200a7279151bad3",
+    "lyrics": "267de93f73f627e99cd996d3412a94509e715ab29b4dd98869f2c02e85c64392"
+  },
+  "encoder": {
+    "codec": "h264",
+    "profile": "high-4.2",
+    "pixelFormat": "yuv420p",
+    "crf": 19
+  }
+}
