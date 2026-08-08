@@ -1,11 +1,13 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const porchlight = require("../constraints/porchlight.v1.json");
+const wireOrchard = require("../constraints/wire-orchard.v1.json");
 const generation = require("../src/generation/index.cjs");
 const {
   LAB_PROPOSAL_SCHEMA,
   admitLabProposal,
   parseLabProposalTransfer,
+  suggestionOverrides,
 } = require("../src/lab-proposal.cjs");
 
 function transfer(overrides = {}) {
@@ -72,11 +74,47 @@ test("Haunted Toaster admits the partial suggestion through its own canonical sc
   assert.equal("authority" in admitted.scoreArtifact.score, false);
 });
 
-test("garment constraints can refuse a Lab suggestion before it becomes a parent", () => {
-  assert.throws(
-    () => admitLabProposal(transfer({ topology: "mirrored-ring" }), porchlight),
-    /topology/,
+test("keeps a Lab value unchanged when the selected garment already allows it", () => {
+  const admitted = admitLabProposal(
+    transfer({ palette: { logic: "analogous" } }),
+    porchlight,
   );
+  assert.equal(admitted.scoreArtifact.score.palette.logic, "analogous");
+});
+
+test("translates analogous palette intent into a lawful Wire Orchard palette", () => {
+  const admitted = admitLabProposal(
+    transfer({ palette: { logic: "analogous" } }),
+    wireOrchard,
+  );
+  assert.equal(admitted.scoreArtifact.score.palette.logic, "split-complement");
+  assert.equal(
+    wireOrchard.palette.logic.allowed.includes(admitted.scoreArtifact.score.palette.logic),
+    true,
+  );
+});
+
+test("unsupported Lab vocabulary is omitted instead of being passed into canonical generation", () => {
+  const proposal = transfer({ material: { texture: "liquid-mercury" } });
+  const overrides = suggestionOverrides(proposal, wireOrchard);
+  assert.equal("material" in overrides, false);
+
+  const admitted = admitLabProposal(proposal, wireOrchard);
+  assert.equal(
+    wireOrchard.material.texture.allowed.includes(admitted.scoreArtifact.score.material.texture),
+    true,
+  );
+  assert.notEqual(admitted.scoreArtifact.score.material.texture, "liquid-mercury");
+});
+
+test("garment-incompatible suggestions fall back to deterministic lawful generation", () => {
+  const proposal = transfer({ topology: "mirrored-ring" });
+  const overrides = suggestionOverrides(proposal, porchlight);
+  assert.equal("topology" in overrides, false);
+
+  const admitted = admitLabProposal(proposal, porchlight);
+  assert.equal(porchlight.topology.allowed.includes(admitted.scoreArtifact.score.topology), true);
+  assert.notEqual(admitted.scoreArtifact.score.topology, "mirrored-ring");
 });
 
 test("equivalent Lab suggestions admit to the same canonical score address", () => {
