@@ -19,6 +19,15 @@ const legacyProfile = readJson("profiles/toaster-raster-1.json");
 const profile = readJson("profiles/toaster-raster-2.json");
 const analysis = readJson("fixtures/analysis/sectional.v1.json");
 
+const BASE_STATE = Object.freeze({
+  topology: "linear",
+  motion: Object.freeze({ grammar: "still", amplitude: 0.58, variance: 0.47 }),
+  material: Object.freeze({ texture: "clean", imperfection: 0.52 }),
+  camera: Object.freeze({ grammar: "locked", variance: 0.46 }),
+  palette: Object.freeze({ logic: "garment", bleed: 0.61, contrastBias: 0.32 }),
+  lyric: Object.freeze({ placement: "center", densityBias: 0 }),
+});
+
 function productionLikeGraph() {
   return [
     "[0:a]aformat=channel_layouts=stereo[waveAudio]",
@@ -35,8 +44,13 @@ function artifact(overrides = {}, seed = "visual-language-v1") {
 }
 
 function statePlan(overrides = {}) {
-  const score = artifact(overrides, `state-plan-${JSON.stringify(overrides)}`).score;
-  return compileVisualLanguageOperators("stage0", score, {
+  const state = structuredClone(BASE_STATE);
+  for (const [axis, value] of Object.entries(overrides)) {
+    state[axis] = value && typeof value === "object" && !Array.isArray(value)
+      ? { ...state[axis], ...value }
+      : value;
+  }
+  return compileVisualLanguageOperators("stage0", state, {
     width: 320,
     height: 180,
     fps: 12,
@@ -86,10 +100,10 @@ test("spiral and quad-mirror validate, resolve, and compile through the static t
 
 test("motion, material, camera, and palette categories compile to distinct structural laws", () => {
   const axes = [
-    ["motion", ["drift", "pulse", "orbit", "fracture"], (value) => ({ motion: { grammar: value } })],
-    ["material", ["grain", "photocopy", "gate-weave"], (value) => ({ material: { texture: value } })],
-    ["camera", ["drift", "push", "orbit"], (value) => ({ camera: { grammar: value } })],
-    ["palette", ["garment", "split-complement", "duotone"], (value) => ({ palette: { logic: value } })],
+    ["motion", ["still", "drift", "pulse", "orbit", "fracture"], (value) => ({ motion: { grammar: value } })],
+    ["material", ["clean", "grain", "photocopy", "gate-weave"], (value) => ({ material: { texture: value } })],
+    ["camera", ["locked", "drift", "push", "orbit"], (value) => ({ camera: { grammar: value } })],
+    ["palette", ["garment", "analogous", "split-complement", "duotone"], (value) => ({ palette: { logic: value } })],
   ];
 
   for (const [axis, values, overrideFor] of axes) {
