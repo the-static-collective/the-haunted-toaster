@@ -1,16 +1,13 @@
-const { resolveFieldEnvelope } = require("./field-envelope.cjs");
-
-const SUPPORTED_TOPOLOGIES = new Set(["linear", "circle", "mirrored-ring"]);
-
-const PRODUCTION_WAVE_SEAM = /\[waveAudio\]showwaves=s=(\d+)x(\d+):mode=cline:rate=([0-9.]+):[^;\n]+\[wave\];\n\[wave\]pad=(\d+):(\d+):0:(\d+):color=black@0\.0\[waveFull\]/;
+const {
+  LEGACY_RENDERER_POLICY,
+  VISUAL_LANGUAGE_RENDERER_POLICY,
+} = require("../generation/renderer-policy.cjs");
+const { compileProductionTopology } = require("./topology-compilers.cjs");
+const { compileVisualLanguageOperators } = require("./visual-language.cjs");
 
 function quantize(value, places = 6) {
   const scale = 10 ** places;
   return Math.round(Number(value) * scale) / scale;
-}
-
-function clamp(value, minimum, maximum) {
-  return Math.min(maximum, Math.max(minimum, Number(value)));
 }
 
 function rendererValues(state) {
@@ -34,67 +31,12 @@ function ffmpegNumber(value) {
   return String(quantize(number));
 }
 
-function frozenTopology(execution) {
-  const topology = execution?.timeline?.baseState?.topology;
-  if (!SUPPORTED_TOPOLOGIES.has(topology)) {
-    throw new TypeError(`Unsupported ResolvedTimeline topology: ${String(topology)}.`);
+function rendererPolicyForTimeline(timeline) {
+  if (!timeline?.rendererPolicy) return LEGACY_RENDERER_POLICY;
+  if (timeline.rendererPolicy !== VISUAL_LANGUAGE_RENDERER_POLICY) {
+    throw new TypeError(`Unsupported ResolvedTimeline renderer policy: ${String(timeline.rendererPolicy)}.`);
   }
-  for (const segment of execution.segments || []) {
-    if (segment.state?.topology !== topology) {
-      throw new Error("ResolvedTimeline topology must remain frozen for production execution.");
-    }
-  }
-  return topology;
-}
-
-function compileProductionTopology(graph, execution) {
-  const topology = frozenTopology(execution);
-  if (topology === "linear") return { graph, topology, fieldEnvelope: null };
-
-  const match = graph.match(PRODUCTION_WAVE_SEAM);
-  if (!match) {
-    throw new Error("Production filter graph is missing the canonical wave topology seam.");
-  }
-
-  const width = Number(match[4]);
-  const height = Number(match[5]);
-  const fps = Number(match[3]);
-  const baseState = execution.timeline.baseState;
-  const motion = baseState.motion || {};
-  const duration = Math.max(0.1, execution.durationTicks / execution.timebase);
-  const opacity = quantize(clamp(0.38 + (Number(motion.amplitude) || 0) * 0.5, 0.2, 0.95), 3);
-  const envelope = resolveFieldEnvelope(baseState, { width, height });
-  const scopeWidth = envelope.envelope.width;
-  const scopeHeight = envelope.envelope.height;
-  const expansion = envelope.safeExpansion.pixels;
-  const working = envelope.working;
-  const zoom = quantize(1.25 + (Number(motion.amplitude) || 0) * 1.15, 3);
-  const turns = topology === "mirrored-ring"
-    ? 0.55 + (Number(motion.variance) || 0)
-    : 0.25 + (Number(motion.variance) || 0) * 0.5;
-  const radians = quantize(turns * 2 * Math.PI);
-  const scopeFilter = `aformat=channel_layouts=stereo,avectorscope=s=${scopeWidth}x${scopeHeight}:mode=lissajous_xy:draw=line:scale=sqrt:zoom=${ffmpegNumber(zoom)}:rate=${ffmpegNumber(fps)},format=rgba,colorkey=black:0.08:0.0,colorchannelmixer=aa=${ffmpegNumber(opacity)}`;
-  const finish = [
-    `pad=${working.width}:${working.height}:${expansion}:${expansion}:color=black@0.0`,
-    `rotate='${ffmpegNumber(radians)}*t/${ffmpegNumber(duration)}':ow=iw:oh=ih:c=black@0`,
-    `pad=${working.stageWidth}:${working.stageHeight}:${working.stageX}:${working.stageY}:color=black@0.0`,
-    `crop=${width}:${height}:${working.cropX}:${working.cropY}`,
-  ].join(",");
-
-  const replacement = topology === "mirrored-ring"
-    ? [
-        "[waveAudio]asplit=2[scoreScopeA][scoreScopeB]",
-        `[scoreScopeA]${scopeFilter}[scoreRingA]`,
-        `[scoreScopeB]${scopeFilter},hflip[scoreRingB]`,
-        `[scoreRingA][scoreRingB]blend=all_mode=screen,${finish}[waveFull]`,
-      ].join(";\n")
-    : `[waveAudio]${scopeFilter},${finish}[waveFull]`;
-
-  return {
-    graph: graph.replace(PRODUCTION_WAVE_SEAM, replacement),
-    topology,
-    fieldEnvelope: envelope,
-  };
+  return timeline.rendererPolicy;
 }
 
 function compileTimelineFilterGraph(graph, execution) {
@@ -112,7 +54,20 @@ function compileTimelineFilterGraph(graph, execution) {
   const prefix = topologyCompiled.graph.slice(0, markerIndex);
   const suffix = topologyCompiled.graph.slice(markerIndex).replace(/^\[stage0\]/, "[timelineFinal]");
   const filters = [];
+  const rendererPolicy = rendererPolicyForTimeline(execution.timeline);
   let input = "stage0";
+  let operators = Object.freeze([]);
+
+  if (rendererPolicy === VISUAL_LANGUAGE_RENDERER_POLICY) {
+    const visualLanguage = compileVisualLanguageOperators(
+      input,
+      execution.timeline.baseState,
+      topologyCompiled.geometry,
+    );
+    filters.push(...visualLanguage.lines);
+    input = visualLanguage.output;
+    operators = visualLanguage.operators;
+  }
 
   execution.segments.forEach((segment, index) => {
     if (segment.endSeconds <= segment.startSeconds) return;
@@ -125,16 +80,16 @@ function compileTimelineFilterGraph(graph, execution) {
     input = output;
   });
 
-  if (!filters.length) {
-    filters.push("[stage0]null[timelineFinal]");
-  } else {
-    filters.push(`[${input}]null[timelineFinal]`);
-  }
+  filters.push(`[${input}]null[timelineFinal]`);
 
   return {
     graph: `${prefix}${filters.join(";\n")};\n${suffix}`,
+    rendererPolicy,
     topology: topologyCompiled.topology,
+    topologyCompiler: topologyCompiled.topologyCompiler,
     fieldEnvelope: topologyCompiled.fieldEnvelope,
+    geometry: topologyCompiled.geometry,
+    operators,
     segments: execution.segments.map((segment) => ({
       startTick: segment.startTick,
       endTick: segment.endTick,
@@ -149,5 +104,6 @@ function compileTimelineFilterGraph(graph, execution) {
 module.exports = {
   compileProductionTopology,
   compileTimelineFilterGraph,
+  rendererPolicyForTimeline,
   rendererValues,
 };
