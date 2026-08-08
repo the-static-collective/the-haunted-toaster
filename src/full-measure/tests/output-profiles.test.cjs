@@ -21,7 +21,7 @@ test("delivery is the portable default and remains downstream transport", () => 
     ffmpegArgs: ["-c:a", "copy"],
   };
   const audioPlan = resolveProfileAudioPlan(profile, sourcePlan);
-  assert.deepEqual(audioPlan.ffmpegArgs, ["-c:a", "aac", "-b:a", "192k"]);
+  assert.deepEqual(audioPlan.ffmpegArgs, ["-c:a", "aac", "-b:a", "320k"]);
 
   assert.deepEqual(transportReceipt(profile, audioPlan), {
     profileId: "delivery",
@@ -38,7 +38,7 @@ test("delivery is the portable default and remains downstream transport", () => 
     audio: {
       mode: "delivery-aac-encode",
       codec: "aac",
-      bitrate: "192k",
+      bitrate: "320k",
     },
     movflags: "+faststart",
   });
