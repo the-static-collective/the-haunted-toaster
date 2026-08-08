@@ -1,6 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const porchlight = require("../constraints/porchlight.v1.json");
+const generation = require("../src/generation/index.cjs");
 const {
   LAB_PROPOSAL_SCHEMA,
   admitLabProposal,
@@ -59,7 +60,10 @@ test("accepts only the explicit Lab proposal-transfer envelope", () => {
 test("Haunted Toaster admits the partial suggestion through its own canonical score API", () => {
   const admitted = admitLabProposal(transfer(), porchlight);
   assert.equal(admitted.scoreArtifact.schema, "haunted-toaster/score-artifact/v1");
-  assert.match(admitted.scoreArtifact.address, /^htscore:/);
+  assert.equal(
+    admitted.scoreArtifact.address,
+    generation.addressVisualScore(admitted.scoreArtifact.score),
+  );
   assert.equal(admitted.scoreArtifact.score.topology, "circle");
   assert.equal(admitted.scoreArtifact.score.motion.grammar, "pulse");
   assert.equal(admitted.scoreArtifact.score.material.texture, "grain");
