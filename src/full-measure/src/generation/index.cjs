@@ -5,4 +5,5 @@ module.exports = {
   ...require("./resolver.cjs"),
   ...require("./operations.cjs"),
   ...require("./candidate-family.cjs"),
+  ...require("./diversity-engine.cjs"),
 };
