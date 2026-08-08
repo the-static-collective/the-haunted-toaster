@@ -56,9 +56,9 @@ const MOTION_COMPILERS = Object.freeze({
         `[${input}]${zoompan({
           ...geometry,
           z: "1.09",
-          x: "iw/2-(iw/zoom/2)+cos(on/(fps*0.72))*iw*0.014",
-          y: "ih/2-(ih/zoom/2)+sin(on/(fps*0.72))*ih*0.014",
-        }).replace(/fps/g, ffmpegNumber(geometry.fps))},rotate='${radians}*sin(t*0.55)':ow=iw:oh=ih:c=black[${output}]`,
+          x: `iw/2-(iw/zoom/2)+cos(on/(${ffmpegNumber(geometry.fps)}*0.72))*iw*0.014`,
+          y: `ih/2-(ih/zoom/2)+sin(on/(${ffmpegNumber(geometry.fps)}*0.72))*ih*0.014`,
+        })},rotate='${radians}*sin(t*0.55)':ow=iw:oh=ih:c=black[${output}]`,
       ];
     },
   }),
@@ -151,9 +151,9 @@ const CAMERA_COMPILERS = Object.freeze({
         `[${input}]${zoompan({
           ...geometry,
           z: "1.085",
-          x: "iw/2-(iw/zoom/2)+cos(on/(fps*1.15))*iw*0.012",
-          y: "ih/2-(ih/zoom/2)+sin(on/(fps*1.15))*ih*0.012",
-        }).replace(/fps/g, ffmpegNumber(geometry.fps))},rotate='${radians}*sin(t*0.31)':ow=iw:oh=ih:c=black[${output}]`,
+          x: `iw/2-(iw/zoom/2)+cos(on/(${ffmpegNumber(geometry.fps)}*1.15))*iw*0.012`,
+          y: `ih/2-(ih/zoom/2)+sin(on/(${ffmpegNumber(geometry.fps)}*1.15))*ih*0.012`,
+        })},rotate='${radians}*sin(t*0.31)':ow=iw:oh=ih:c=black[${output}]`,
       ];
     },
   }),
