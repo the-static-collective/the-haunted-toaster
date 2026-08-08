@@ -35,7 +35,7 @@ const OUTPUT_PROFILES = Object.freeze({
     audio: Object.freeze({
       mode: "aac-encode",
       codec: "aac",
-      bitrate: "192k",
+      bitrate: "320k",
     }),
     movflags: "+faststart",
   }),
