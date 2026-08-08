@@ -1327,6 +1327,35 @@ footer p {
   letter-spacing: 0;
 }
 
+.build-info {
+  position: relative;
+  color: var(--faint);
+  text-align: right;
+}
+
+.build-info summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.build-info summary::-webkit-details-marker {
+  display: none;
+}
+
+.build-info span {
+  position: absolute;
+  right: 0;
+  bottom: 16px;
+  width: min(420px, 74vw);
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #111015;
+  color: var(--muted);
+  font-size: 7px;
+  line-height: 1.5;
+}
+
 body.has-dialog {
   overflow: hidden;
 }
