@@ -17,6 +17,12 @@
 .candidate-launch small { color: var(--gold); font-size: 9px; font-weight: 700; letter-spacing: 1.15px; }
 .candidate-launch strong { margin-top: 4px; font-size: 14px; }
 .candidate-launch b { color: var(--mint); font-size: 22px; }
+.lab-proposal-toggle { display: flex; align-items: center; gap: 10px; margin: -4px 2px 14px; color: var(--muted); cursor: pointer; }
+.lab-proposal-toggle input { width: 18px; height: 18px; accent-color: var(--mint); }
+.lab-proposal-toggle span { display: grid; gap: 2px; }
+.lab-proposal-toggle small { color: var(--faint); font-size: 8px; font-weight: 700; letter-spacing: 1px; }
+.lab-proposal-toggle strong { color: var(--paper); font-size: 11px; }
+.lab-proposal-toggle:has(input:disabled) { cursor: default; opacity: .45; }
 .has-candidate-modal { overflow: hidden; }
 .candidate-modal { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; padding: 28px; }
 .candidate-modal.is-hidden { display: none; }

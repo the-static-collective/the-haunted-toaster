@@ -34,6 +34,13 @@ function subscribe(channel, callback) {
   return () => ipcRenderer.removeListener(channel, listener);
 }
 
+function withLabInfluence(config = {}) {
+  return {
+    ...config,
+    useLabProposal: Boolean(document.querySelector("#useLabProposal")?.checked),
+  };
+}
+
 contextBridge.exposeInMainWorld("fullMeasure", {
   chooseAudio: () => ipcRenderer.invoke("dialog:choose-audio"),
   chooseImage: () => ipcRenderer.invoke("dialog:choose-image"),
@@ -57,7 +64,8 @@ contextBridge.exposeInMainWorld("fullMeasure", {
     ipcRenderer.invoke("listener:cancel-install"),
   autoSyncLyrics: (config) => ipcRenderer.invoke("lyrics:auto-sync", config),
   cancelLyricSync: () => ipcRenderer.invoke("lyrics:cancel-sync"),
-  generateCandidates: (config) => ipcRenderer.invoke("candidate:generate", config),
+  generateCandidates: (config) =>
+    ipcRenderer.invoke("candidate:generate", withLabInfluence(config)),
   stageLabProposal: (transfer) => ipcRenderer.invoke("candidate:stage-lab-proposal", transfer),
   importLabProposal: (config) => ipcRenderer.invoke("candidate:import-lab-proposal", config),
   mutateCandidates: (config) => ipcRenderer.invoke("candidate:mutate", config),
