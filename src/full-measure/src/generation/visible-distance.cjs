@@ -23,6 +23,10 @@ function normalizedDelta(left, right, range) {
   return Math.min(1, Math.abs(left - right) / (range.max - range.min));
 }
 
+function categoricalWeight(axis) {
+  return CATEGORICAL_FIELDS.find((field) => field.key === axis)?.weight || 0;
+}
+
 function visibleSemanticDistance(left, right, constraints) {
   let distance = 0;
   for (const field of CATEGORICAL_FIELDS) {
@@ -63,6 +67,7 @@ module.exports = {
   NUMERIC_FIELDS,
   categoricalBreaks,
   categoricalCoverage,
+  categoricalWeight,
   minimumSiblingDistance,
   visibleSemanticDistance,
 };
