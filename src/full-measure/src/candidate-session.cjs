@@ -138,6 +138,7 @@ function createCandidateSession() {
         parentScore: admitted?.scoreArtifact.score || null,
         rootSeed: config.rootSeed,
         count: 6,
+        phase: "initial",
       });
       const view = await materialize(nextFamily, config, signal);
       if (admitted) stagedLabProposal = null;
@@ -170,6 +171,7 @@ function createCandidateSession() {
         locks: config.locks || [],
         rootSeed: config.rootSeed,
         count: 6,
+        phase: "branch",
       });
       return await materialize(nextFamily, config, signal);
     } finally {
