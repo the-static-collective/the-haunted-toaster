@@ -13,7 +13,9 @@ const root = path.resolve(__dirname, "..");
 const readJson = (relativePath) =>
   JSON.parse(fs.readFileSync(path.join(root, relativePath), "utf8"));
 const constraints = readJson("constraints/wire-orchard.v1.json");
+const visualConstraints = readJson("constraints/wire-orchard.v2.json");
 const profile = readJson("profiles/toaster-raster-1.json");
+const visualProfile = readJson("profiles/toaster-raster-2.json");
 const analysis = readJson("fixtures/analysis/sectional.v1.json");
 
 function executionFixture(topology) {
@@ -24,6 +26,24 @@ function executionFixture(topology) {
   });
   return createTimelineExecution(
     generation.resolve(analysis, artifact.score, constraints, profile),
+  );
+}
+
+function visualExecutionFixture(topology) {
+  const artifact = generation.createVisualScore({
+    seed: `issue-41-ffmpeg-${topology}`,
+    constraints: visualConstraints,
+    overrides: {
+      topology,
+      temporalDensity: "section",
+      motion: { grammar: "fracture" },
+      material: { texture: "photocopy" },
+      camera: { grammar: "orbit" },
+      palette: { logic: "duotone" },
+    },
+  });
+  return createTimelineExecution(
+    generation.resolve(analysis, artifact.score, visualConstraints, visualProfile),
   );
 }
 
@@ -54,46 +74,67 @@ const assFixture = [
   "",
 ].join("\n");
 
-test("circle and mirrored-ring compile actual FFmpeg frames through the production compiler", async () => {
+async function smokeGraph(temp, topology, execution) {
+  const compiled = compileTimelineFilterGraph(productionLikeGraph(), execution);
+  const graphPath = path.join(temp, `${topology}.ffgraph`);
+  await fsPromises.writeFile(graphPath, `${compiled.graph}\n`, "utf8");
+
+  await runProcess(
+    resolveFfmpeg(),
+    [
+      "-y",
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-f",
+      "lavfi",
+      "-i",
+      "sine=frequency=220:duration=1:sample_rate=48000",
+      "-f",
+      "lavfi",
+      "-i",
+      "color=c=black:s=320x180:r=12:d=1",
+      "-filter_complex_script",
+      graphPath,
+      "-map",
+      "[vout]",
+      "-frames:v",
+      "2",
+      "-f",
+      "null",
+      "-",
+    ],
+    { cwd: temp },
+  );
+  return compiled;
+}
+
+test("circle and mirrored-ring compile actual FFmpeg frames through the legacy production compiler", async () => {
   const temp = await fsPromises.mkdtemp(path.join(os.tmpdir(), "ht-topology-smoke-"));
   try {
     await fsPromises.writeFile(path.join(temp, "topology-smoke.ass"), assFixture, "utf8");
 
     for (const topology of ["circle", "mirrored-ring"]) {
-      const execution = executionFixture(topology);
-      const compiled = compileTimelineFilterGraph(productionLikeGraph(), execution);
-      const graphPath = path.join(temp, `${topology}.ffgraph`);
-      await fsPromises.writeFile(graphPath, `${compiled.graph}\n`, "utf8");
-
-      await runProcess(
-        resolveFfmpeg(),
-        [
-          "-y",
-          "-hide_banner",
-          "-loglevel",
-          "error",
-          "-f",
-          "lavfi",
-          "-i",
-          "sine=frequency=220:duration=1:sample_rate=48000",
-          "-f",
-          "lavfi",
-          "-i",
-          "color=c=black:s=320x180:r=12:d=1",
-          "-filter_complex_script",
-          graphPath,
-          "-map",
-          "[vout]",
-          "-frames:v",
-          "2",
-          "-f",
-          "null",
-          "-",
-        ],
-        { cwd: temp },
-      );
-
+      const compiled = await smokeGraph(temp, topology, executionFixture(topology));
       assert.equal(compiled.topology, topology);
+      assert.equal(compiled.rendererPolicy, generation.LEGACY_RENDERER_POLICY);
+    }
+  } finally {
+    await fsPromises.rm(temp, { recursive: true, force: true });
+  }
+});
+
+test("spiral and quad-mirror compile actual FFmpeg frames with visual-language-v1 operators", async () => {
+  const temp = await fsPromises.mkdtemp(path.join(os.tmpdir(), "ht-visual-language-smoke-"));
+  try {
+    await fsPromises.writeFile(path.join(temp, "topology-smoke.ass"), assFixture, "utf8");
+
+    for (const topology of ["spiral", "quad-mirror"]) {
+      const compiled = await smokeGraph(temp, topology, visualExecutionFixture(topology));
+      assert.equal(compiled.topology, topology);
+      assert.equal(compiled.rendererPolicy, generation.VISUAL_LANGUAGE_RENDERER_POLICY);
+      assert.equal(compiled.operators.length, 4);
+      assert.equal(compiled.fieldEnvelope.policy, "bounded-full-height-v1");
     }
   } finally {
     await fsPromises.rm(temp, { recursive: true, force: true });
