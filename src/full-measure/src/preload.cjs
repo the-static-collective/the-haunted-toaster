@@ -13,6 +13,15 @@ window.addEventListener("DOMContentLoaded", () => {
 
   const renderHeading = document.querySelector("#renderHeading");
   if (renderHeading) renderHeading.textContent = "Make the full video";
+
+  const candidateStyle = document.createElement("link");
+  candidateStyle.rel = "stylesheet";
+  candidateStyle.href = "./candidate-ui.css";
+  document.head.append(candidateStyle);
+
+  const candidateScript = document.createElement("script");
+  candidateScript.src = "./candidate-ui.js";
+  document.body.append(candidateScript);
 });
 
 function subscribe(channel, callback) {
@@ -44,6 +53,11 @@ contextBridge.exposeInMainWorld("fullMeasure", {
     ipcRenderer.invoke("listener:cancel-install"),
   autoSyncLyrics: (config) => ipcRenderer.invoke("lyrics:auto-sync", config),
   cancelLyricSync: () => ipcRenderer.invoke("lyrics:cancel-sync"),
+  generateCandidates: (config) => ipcRenderer.invoke("candidate:generate", config),
+  mutateCandidates: (config) => ipcRenderer.invoke("candidate:mutate", config),
+  selectCandidate: (config) => ipcRenderer.invoke("candidate:select", config),
+  clearCandidates: () => ipcRenderer.invoke("candidate:clear"),
+  clearCandidateImage: () => ipcRenderer.invoke("candidate:clear-image"),
   startRender: (config) => ipcRenderer.invoke("render:start", config),
   cancelRender: () => ipcRenderer.invoke("render:cancel"),
   revealFile: (filePath) => ipcRenderer.invoke("shell:reveal", filePath),
