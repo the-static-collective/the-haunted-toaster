@@ -67,6 +67,8 @@
     renderButton: $("#renderButton"),
     cancelButton: $("#cancelButton"),
     versionLabel: $("#versionLabel"),
+    buildInfoSummary: $("#buildInfoSummary"),
+    buildInfoDetails: $("#buildInfoDetails"),
     syncDialog: $("#syncDialog"),
     syncClose: $("#syncClose"),
     syncDialogSubtitle: $("#syncDialogSubtitle"),
@@ -1229,6 +1231,19 @@ function selectCueForTime(cues, timestampSeconds, mediaDuration) {
       elements.versionLabel.textContent = version;
     })
     .catch(() => {});
+
+  api
+    .getBuildInfo()
+    .then((info) => {
+      const capabilities = Array.isArray(info.capabilities) && info.capabilities.length
+        ? info.capabilities.join(", ")
+        : "source mode / no packaged capability manifest";
+      elements.buildInfoSummary.textContent = `Build ${info.version} · ${info.commit}`;
+      elements.buildInfoDetails.textContent = `Built ${info.builtAt} · ${info.rendererProfileGeneration} · ${capabilities}`;
+    })
+    .catch(() => {
+      elements.buildInfoDetails.textContent = "Build provenance unavailable.";
+    });
 
   renderTimeline();
   refreshSlate();
