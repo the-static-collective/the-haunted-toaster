@@ -1,0 +1,180 @@
+const fs = require("node:fs/promises");
+const os = require("node:os");
+const path = require("node:path");
+const legacy = require("./render-legacy.cjs");
+const { createProceduralPpm } = require("./artwork.cjs");
+const { getPreset } = require("./presets.cjs");
+const {
+  assertTimelineDuration,
+  createTimelineExecution,
+} = require("./timeline-execution.cjs");
+const { compileTimelineFilterGraph } = require("./timeline-filter.cjs");
+const { createTimelinePreview } = require("./timeline-preview.cjs");
+const { resolveFfmpeg, runProcess } = require("./tooling.cjs");
+
+const PREVIEW_WIDTH = 480;
+const PREVIEW_HEIGHT = 270;
+const PREVIEW_FPS = 12;
+const PREVIEW_SAMPLE_SECONDS = 2;
+
+function previewSampleFor(candidate) {
+  if (!candidate?.timeline) {
+    throw new TypeError("Candidate preview requires an accepted ResolvedTimeline.");
+  }
+  const preview = createTimelinePreview(candidate.timeline);
+  if (candidate.timelineHash !== preview.timelineHash) {
+    throw new Error("Candidate timelineHash does not match its accepted ResolvedTimeline.");
+  }
+  if (candidate.scoreAddress !== preview.scoreAddress) {
+    throw new Error("Candidate scoreAddress does not match its accepted ResolvedTimeline.");
+  }
+  const durationSeconds = preview.timeline.durationTicks / preview.timeline.timebase;
+  const seconds = Math.min(PREVIEW_SAMPLE_SECONDS, Math.max(0, durationSeconds / 2));
+  return preview.sampleAtSeconds(seconds);
+}
+
+function semanticSignature(score) {
+  return [
+    score.topology,
+    score.motion.grammar,
+    score.palette.logic,
+    score.material.texture,
+  ].join(" · ");
+}
+
+function candidatePreviewPlan(candidate) {
+  const sample = previewSampleFor(candidate);
+  return Object.freeze({
+    index: candidate.index,
+    role: candidate.role,
+    scoreAddress: candidate.scoreAddress,
+    timelineHash: candidate.timelineHash,
+    changedAxes: Object.freeze([...(candidate.changedAxes || [])]),
+    signature: semanticSignature(candidate.scoreArtifact.score),
+    sample,
+  });
+}
+
+async function renderCandidateFamilyPreviews(config, family, hooks = {}) {
+  if (!family?.candidates?.length) {
+    throw new TypeError("CandidateFamily with at least one candidate is required.");
+  }
+  const audioPath = path.resolve(config.audioPath);
+  const imagePath = config.imagePath ? path.resolve(config.imagePath) : null;
+  const analysis = config.analysis;
+  if (!analysis?.audio || !Number.isFinite(Number(analysis.duration))) {
+    throw new TypeError("Media analysis is required for candidate previews.");
+  }
+
+  const preset = getPreset(config.presetId);
+  const width = Number(config.width) || PREVIEW_WIDTH;
+  const height = Number(config.height) || PREVIEW_HEIGHT;
+  const fps = Number(config.fps) || PREVIEW_FPS;
+  const title = legacy.cleanText(config.title, 160);
+  const artist = legacy.cleanText(config.artist, 160);
+  const lyrics = legacy.cleanText(config.lyrics, 250_000);
+  const tempDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "haunted-toaster-six-up-"));
+
+  try {
+    const proceduralPath = path.join(tempDirectory, "garment.ppm");
+    await createProceduralPpm(proceduralPath, preset);
+    const baseFilter = await legacy.buildFilterGraph({
+      tempDirectory,
+      analysis,
+      preset,
+      title,
+      artist,
+      lyrics,
+      hasImage: Boolean(imagePath),
+      width,
+      height,
+      fps,
+    });
+
+    const previews = [];
+    for (const candidate of family.candidates) {
+      hooks.onCandidate?.({
+        index: candidate.index,
+        count: family.candidates.length,
+        role: candidate.role,
+      });
+      const plan = candidatePreviewPlan(candidate);
+      const execution = createTimelineExecution(candidate.timeline);
+      assertTimelineDuration(execution.timeline, analysis.duration);
+      const compiled = compileTimelineFilterGraph(baseFilter.graph, execution);
+      const filterPath = path.join(tempDirectory, `candidate-${candidate.index}.ffgraph`);
+      const outputPath = path.join(tempDirectory, `candidate-${candidate.index}.png`);
+      await fs.writeFile(filterPath, `${compiled.graph}\n`, "utf8");
+
+      const args = [
+        "-y",
+        "-hide_banner",
+        "-nostdin",
+        "-i",
+        audioPath,
+        "-loop",
+        "1",
+        "-framerate",
+        String(fps),
+        "-i",
+        proceduralPath,
+      ];
+      if (imagePath) {
+        args.push(
+          "-loop",
+          "1",
+          "-framerate",
+          String(fps),
+          "-i",
+          imagePath,
+        );
+      }
+      args.push(
+        "-filter_complex_script",
+        filterPath,
+        "-map",
+        "[vout]",
+        "-ss",
+        String(plan.sample.seconds),
+        "-frames:v",
+        "1",
+        "-an",
+        outputPath,
+      );
+      await runProcess(resolveFfmpeg(), args, {
+        signal: hooks.signal,
+        collectStdout: false,
+        collectStderr: true,
+      });
+      const bytes = await fs.readFile(outputPath);
+      previews.push(Object.freeze({
+        ...plan,
+        thumbnailDataUrl: `data:image/png;base64,${bytes.toString("base64")}`,
+      }));
+    }
+
+    return Object.freeze({
+      familyHash: family.familyHash,
+      rootSeed: family.rootSeed,
+      parentScoreRef: family.parentScoreRef,
+      locks: Object.freeze([...(family.locks || [])]),
+      producedCount: family.producedCount,
+      requestedCount: family.requestedCount,
+      shortfall: family.shortfall ? structuredClone(family.shortfall) : null,
+      candidates: Object.freeze(previews),
+    });
+  } finally {
+    await fs.rm(tempDirectory, { recursive: true, force: true });
+  }
+}
+
+module.exports = {
+  PREVIEW_FPS,
+  PREVIEW_HEIGHT,
+  PREVIEW_SAMPLE_SECONDS,
+  PREVIEW_WIDTH,
+  candidatePreviewPlan,
+  previewSampleFor,
+  renderCandidateFamilyPreviews,
+  semanticSignature,
+};

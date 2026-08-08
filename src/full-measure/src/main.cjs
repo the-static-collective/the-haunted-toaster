@@ -21,6 +21,7 @@ const {
   installListenerPack,
   listenerPackStatus,
 } = require("./align/listener-pack.cjs");
+const { createCandidateSession } = require("./candidate-session.cjs");
 const { inspectAudio } = require("./render/analyze.cjs");
 const {
   MAX_CUES,
@@ -51,6 +52,7 @@ let mainWindow = null;
 let activeRender = null;
 let activeListen = null;
 let activeListenerInstall = null;
+const candidateSession = createCandidateSession();
 
 function listenerRoot() {
   return path.join(app.getPath("userData"), "listener");
@@ -105,7 +107,15 @@ function createWindow() {
   });
 }
 
+function assertCandidateAvailable() {
+  if (activeRender || activeListen || activeListenerInstall) {
+    throw new Error("Finish the current render, listening, or setup job first.");
+  }
+}
+
 function registerIpc() {
+  candidateSession.registerIpc(ipcMain, assertCandidateAvailable);
+
   ipcMain.handle("dialog:choose-audio", async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
       title: "Choose the finished song",
@@ -131,7 +141,14 @@ function registerIpc() {
         },
       ],
     });
-    return result.canceled ? null : result.filePaths[0];
+    if (result.canceled) return null;
+    const imagePath = await assertLocalFile(
+      result.filePaths[0],
+      IMAGE_EXTENSIONS,
+      "image",
+    );
+    candidateSession.noteImage(imagePath);
+    return imagePath;
   });
 
   ipcMain.handle("dialog:choose-lyrics", async () => {
@@ -183,7 +200,9 @@ function registerIpc() {
       AUDIO_EXTENSIONS,
       "song",
     );
-    return inspectAudio(audioPath);
+    const analysis = await inspectAudio(audioPath);
+    candidateSession.noteAudio(audioPath, analysis);
+    return analysis;
   });
 
   ipcMain.handle("lyrics:inspect", (_event, value, duration) =>
@@ -395,6 +414,11 @@ function registerIpc() {
       ? await assertLocalFile(config.imagePath, IMAGE_EXTENSIONS, "image")
       : null;
     const outputPath = path.resolve(config.outputPath);
+    const selectedExecution = candidateSession.executionForRender({
+      audioPath,
+      imagePath,
+      presetId: config.presetId,
+    });
     const controller = new AbortController();
     activeRender = controller;
 
@@ -402,6 +426,7 @@ function registerIpc() {
       return await renderVideo(
         {
           ...config,
+          ...(selectedExecution || {}),
           audioPath,
           imagePath,
           outputPath,
