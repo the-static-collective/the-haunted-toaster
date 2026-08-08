@@ -1,7 +1,6 @@
 {
-  "schema": "haunted-toaster/garment-constraints/v2",
+  "schema": "haunted-toaster/garment-constraints/v1",
   "id": "wire-orchard-v2",
-  "rendererPolicy": "visual-language-v1",
   "topology": { "allowed": ["linear", "circle", "mirrored-ring", "spiral", "quad-mirror"] },
   "motion": {
     "grammar": { "allowed": ["drift", "pulse", "orbit", "fracture"] },
