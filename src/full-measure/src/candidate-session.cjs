@@ -79,6 +79,7 @@ function createCandidateSession() {
   function stageLabProposal(transfer) {
     const parsed = parseLabProposalTransfer(transfer);
     stagedLabProposal = parsed;
+    clearCandidates();
     return {
       schema: parsed.schema,
       proposalId: parsed.proposal?.id || null,
@@ -99,7 +100,7 @@ function createCandidateSession() {
     if (busy) throw new Error("Candidate previews are already being generated.");
   }
 
-  async function materialize(nextFamily, config, signal) {
+  async function materialize(nextFamily, config, signal, influence = null) {
     const previewView = await renderCandidateFamilyPreviews(
       {
         audioPath,
@@ -118,9 +119,13 @@ function createCandidateSession() {
       audioPath,
       imagePath,
       presetId: config.presetId,
+      labInfluence: influence,
     };
     selection = null;
-    return previewView;
+    return {
+      ...previewView,
+      labInfluence: influence,
+    };
   }
 
   async function generate(config = {}, signal) {
@@ -128,9 +133,21 @@ function createCandidateSession() {
     busy = true;
     try {
       const constraints = currentConstraints(config.presetId);
-      const admitted = stagedLabProposal
+      const useLabProposal = config.useLabProposal === true;
+      if (useLabProposal && !stagedLabProposal) {
+        throw new Error("Use Lab Proposal is on, but no Lab proposal is staged.");
+      }
+      const admitted = useLabProposal
         ? admitLabProposal(stagedLabProposal, constraints)
         : null;
+      const influence = admitted
+        ? {
+            enabled: true,
+            proposalId: stagedLabProposal.proposal?.id || null,
+            proposalTitle: stagedLabProposal.proposal?.title || "Lab proposal",
+            admittedScoreAddress: admitted.scoreArtifact.address,
+          }
+        : { enabled: false };
       const nextFamily = generation.generateCandidateSet({
         analysis: toGenerationAnalysis(mediaAnalysis),
         garmentConstraints: constraints,
@@ -140,9 +157,7 @@ function createCandidateSession() {
         count: 6,
         phase: "initial",
       });
-      const view = await materialize(nextFamily, config, signal);
-      if (admitted) stagedLabProposal = null;
-      return view;
+      return await materialize(nextFamily, config, signal, influence);
     } finally {
       busy = false;
     }
@@ -150,7 +165,7 @@ function createCandidateSession() {
 
   async function importLabProposal(config = {}, signal) {
     stageLabProposal(config.transfer);
-    return generate(config, signal);
+    return generate({ ...config, useLabProposal: true }, signal);
   }
 
   async function mutate(config = {}, signal) {
@@ -173,7 +188,7 @@ function createCandidateSession() {
         count: 6,
         phase: "branch",
       });
-      return await materialize(nextFamily, config, signal);
+      return await materialize(nextFamily, config, signal, familyBinding?.labInfluence || null);
     } finally {
       busy = false;
     }
@@ -191,6 +206,7 @@ function createCandidateSession() {
       index: candidate.index,
       scoreAddress: candidate.scoreAddress,
       timelineHash: candidate.timelineHash,
+      labInfluence: familyBinding?.labInfluence || { enabled: false },
     };
   }
 
@@ -203,6 +219,7 @@ function createCandidateSession() {
       visualScore: selection.scoreArtifact.score,
       resolvedTimeline: selection.timeline,
       analysis: mediaAnalysis,
+      labInfluence: familyBinding.labInfluence || { enabled: false },
     };
   }
 
