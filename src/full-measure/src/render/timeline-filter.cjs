@@ -1,3 +1,5 @@
+const { resolveFieldEnvelope } = require("./field-envelope.cjs");
+
 const SUPPORTED_TOPOLOGIES = new Set(["linear", "circle", "mirrored-ring"]);
 
 const PRODUCTION_WAVE_SEAM = /\[waveAudio\]showwaves=s=(\d+)x(\d+):mode=cline:rate=([0-9.]+):[^;\n]+\[wave\];\n\[wave\]pad=(\d+):(\d+):0:(\d+):color=black@0\.0\[waveFull\]/;
@@ -47,7 +49,7 @@ function frozenTopology(execution) {
 
 function compileProductionTopology(graph, execution) {
   const topology = frozenTopology(execution);
-  if (topology === "linear") return { graph, topology };
+  if (topology === "linear") return { graph, topology, fieldEnvelope: null };
 
   const match = graph.match(PRODUCTION_WAVE_SEAM);
   if (!match) {
@@ -57,19 +59,27 @@ function compileProductionTopology(graph, execution) {
   const width = Number(match[4]);
   const height = Number(match[5]);
   const fps = Number(match[3]);
-  const motion = execution.timeline.baseState.motion || {};
+  const baseState = execution.timeline.baseState;
+  const motion = baseState.motion || {};
   const duration = Math.max(0.1, execution.durationTicks / execution.timebase);
   const opacity = quantize(clamp(0.38 + (Number(motion.amplitude) || 0) * 0.5, 0.2, 0.95), 3);
-  const scope = Math.max(64, Math.round(Math.min(width, height) * 0.82));
-  const x = Math.floor((width - scope) / 2);
-  const y = Math.floor((height - scope) / 2);
+  const envelope = resolveFieldEnvelope(baseState, { width, height });
+  const scopeWidth = envelope.envelope.width;
+  const scopeHeight = envelope.envelope.height;
+  const expansion = envelope.safeExpansion.pixels;
+  const working = envelope.working;
   const zoom = quantize(1.25 + (Number(motion.amplitude) || 0) * 1.15, 3);
   const turns = topology === "mirrored-ring"
     ? 0.55 + (Number(motion.variance) || 0)
     : 0.25 + (Number(motion.variance) || 0) * 0.5;
   const radians = quantize(turns * 2 * Math.PI);
-  const scopeFilter = `aformat=channel_layouts=stereo,avectorscope=s=${scope}x${scope}:mode=lissajous_xy:draw=line:scale=sqrt:zoom=${ffmpegNumber(zoom)}:rate=${ffmpegNumber(fps)},format=rgba,colorkey=black:0.08:0.0,colorchannelmixer=aa=${ffmpegNumber(opacity)}`;
-  const finish = `rotate='${ffmpegNumber(radians)}*t/${ffmpegNumber(duration)}':ow=iw:oh=ih:c=black@0,pad=${width}:${height}:${x}:${y}:color=black@0.0`;
+  const scopeFilter = `aformat=channel_layouts=stereo,avectorscope=s=${scopeWidth}x${scopeHeight}:mode=lissajous_xy:draw=line:scale=sqrt:zoom=${ffmpegNumber(zoom)}:rate=${ffmpegNumber(fps)},format=rgba,colorkey=black:0.08:0.0,colorchannelmixer=aa=${ffmpegNumber(opacity)}`;
+  const finish = [
+    `pad=${working.width}:${working.height}:${expansion}:${expansion}:color=black@0.0`,
+    `rotate='${ffmpegNumber(radians)}*t/${ffmpegNumber(duration)}':ow=iw:oh=ih:c=black@0`,
+    `pad=${working.stageWidth}:${working.stageHeight}:${working.stageX}:${working.stageY}:color=black@0.0`,
+    `crop=${width}:${height}:${working.cropX}:${working.cropY}`,
+  ].join(",");
 
   const replacement = topology === "mirrored-ring"
     ? [
@@ -83,6 +93,7 @@ function compileProductionTopology(graph, execution) {
   return {
     graph: graph.replace(PRODUCTION_WAVE_SEAM, replacement),
     topology,
+    fieldEnvelope: envelope,
   };
 }
 
@@ -123,6 +134,7 @@ function compileTimelineFilterGraph(graph, execution) {
   return {
     graph: `${prefix}${filters.join(";\n")};\n${suffix}`,
     topology: topologyCompiled.topology,
+    fieldEnvelope: topologyCompiled.fieldEnvelope,
     segments: execution.segments.map((segment) => ({
       startTick: segment.startTick,
       endTick: segment.endTick,
