@@ -29,6 +29,7 @@ const {
   summarizeLyricTrack,
 } = require("./render/lyrics.cjs");
 const { renderVideo } = require("./render/render.cjs");
+const buildInfo = require("./build-info.cjs");
 
 const AUDIO_EXTENSIONS = new Set([".mp3", ".wav", ".m4a", ".aac", ".flac"]);
 const IMAGE_EXTENSIONS = new Set([
@@ -88,7 +89,7 @@ function createWindow() {
     minWidth: 1080,
     minHeight: 720,
     backgroundColor: "#09080b",
-    title: "Full Measure",
+    title: "The Haunted Toaster",
     show: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
@@ -468,6 +469,10 @@ function registerIpc() {
   });
 
   ipcMain.handle("app:version", () => app.getVersion());
+  ipcMain.handle("app:build-info", () => ({
+    ...buildInfo,
+    version: app.getVersion(),
+  }));
 }
 
 app.whenReady().then(() => {
