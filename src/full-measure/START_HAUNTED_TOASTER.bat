@@ -3,7 +3,7 @@ setlocal
 cd /d "%~dp0"
 
 echo.
-echo THE HAUNTED TOASTER 0.4.0
+echo THE HAUNTED TOASTER
 echo SONG IN ^> FINISHED VIDEO OUT
 echo.
 
