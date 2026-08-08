@@ -383,7 +383,7 @@ function alignLyricsToTranscript(
       nextLineSimilarity >= candidate.similarity + 0.16
     );
 
-    if (!candidate || confidence.status === "low" || stealsNextLine) {
+    if (!candidate || stealsNextLine) {
       cues.push({
         lineIndex,
         text: line,
