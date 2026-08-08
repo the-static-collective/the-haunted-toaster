@@ -150,7 +150,7 @@ test("evenlyDistributedCues does not cause interval drift", () => {
   assert.ok(cues[2].end <= 120);
 });
 
-test("selectCueForTime follows explicit interval semantics", () => {
+test("selectCueForTime bounds inferred cue visibility while preserving explicit intervals", () => {
   const cues = [
     { start: 1, end: 2.5, text: "A" },
     { start: 2, end: null, text: "B" },
@@ -165,7 +165,9 @@ test("selectCueForTime follows explicit interval semantics", () => {
   assert.equal(selectCueForTime(timeline, 2.0).text, "B");
   assert.equal(selectCueForTime(timeline, 2.99).text, "B");
   assert.equal(selectCueForTime(timeline, 3.0).text, "D");
-  assert.equal(selectCueForTime(timeline, 9.99).text, "D");
+  assert.equal(selectCueForTime(timeline, 4.49).text, "D");
+  assert.equal(selectCueForTime(timeline, 4.5), null);
+  assert.equal(selectCueForTime(timeline, 9.99), null);
   assert.equal(selectCueForTime(timeline, 10.0), null);
 });
 
@@ -176,6 +178,8 @@ test("selectCueForTime long song tests", () => {
   const timeline = normalizeCueTimeline(cues, 7200);
   assert.equal(selectCueForTime(timeline, 3599.9), null);
   assert.equal(selectCueForTime(timeline, 3600.0).text, "An hour");
-  assert.equal(selectCueForTime(timeline, 7199.9).text, "An hour");
+  assert.equal(selectCueForTime(timeline, 3601.65).text, "An hour");
+  assert.equal(selectCueForTime(timeline, 3601.66), null);
+  assert.equal(selectCueForTime(timeline, 7199.9), null);
   assert.equal(selectCueForTime(timeline, 7200.0), null);
 });

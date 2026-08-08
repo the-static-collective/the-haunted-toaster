@@ -331,7 +331,7 @@ function finalizeTimedCues(cues, duration) {
       cue.text !== sorted[index - 1].text,
   );
 
-  return unique.map((cue, index) => {
+  return unique.map((cue) => {
     return {
       start: Number(cue.start.toFixed(3)),
       end: Number.isFinite(cue.end) ? Number(cue.end.toFixed(3)) : null,
@@ -448,7 +448,6 @@ function summarizeLyricTrack(value, duration) {
   };
 }
 
-
 function normalizeCueTimeline(cues, mediaDuration) {
   if (!cues || !cues.length) return [];
   const duration = Number.isFinite(mediaDuration) ? mediaDuration : Infinity;
@@ -456,24 +455,26 @@ function normalizeCueTimeline(cues, mediaDuration) {
   const normalized = [];
   for (let index = 0; index < cues.length; index += 1) {
     const cue = cues[index];
+    const nextStart = index + 1 < cues.length ? cues[index + 1].start : duration;
     let end = Number.isFinite(cue.end) ? cue.end : null;
 
     if (end === null) {
-      if (index + 1 < cues.length) {
-        end = cues[index + 1].start;
-      } else {
-        end = duration;
-      }
+      const visibilityEnd = cue.start + readingDuration(cue.text);
+      end = Math.min(nextStart, visibilityEnd, duration);
     }
 
-    if (index + 1 < cues.length && end > cues[index + 1].start) {
-      end = cues[index + 1].start;
+    if (index + 1 < cues.length && end > nextStart) {
+      end = nextStart;
+    }
+
+    if (end > duration) {
+      end = duration;
     }
 
     if (end > cue.start) {
       normalized.push({
         ...cue,
-        end
+        end,
       });
     }
   }
