@@ -22,6 +22,10 @@ window.addEventListener("DOMContentLoaded", () => {
   const candidateScript = document.createElement("script");
   candidateScript.src = "./candidate-ui.js";
   document.body.append(candidateScript);
+
+  const labProposalScript = document.createElement("script");
+  labProposalScript.src = "./lab-proposal-ui.js";
+  document.body.append(labProposalScript);
 });
 
 function subscribe(channel, callback) {
@@ -54,6 +58,8 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   autoSyncLyrics: (config) => ipcRenderer.invoke("lyrics:auto-sync", config),
   cancelLyricSync: () => ipcRenderer.invoke("lyrics:cancel-sync"),
   generateCandidates: (config) => ipcRenderer.invoke("candidate:generate", config),
+  stageLabProposal: (transfer) => ipcRenderer.invoke("candidate:stage-lab-proposal", transfer),
+  importLabProposal: (config) => ipcRenderer.invoke("candidate:import-lab-proposal", config),
   mutateCandidates: (config) => ipcRenderer.invoke("candidate:mutate", config),
   selectCandidate: (config) => ipcRenderer.invoke("candidate:select", config),
   clearCandidates: () => ipcRenderer.invoke("candidate:clear"),

@@ -1,5 +1,6 @@
 const path = require("node:path");
 const generation = require("./generation/index.cjs");
+const { admitLabProposal, parseLabProposalTransfer } = require("./lab-proposal.cjs");
 const { renderCandidateFamilyPreviews } = require("./render/candidate-preview.cjs");
 const porchlight = require("../constraints/porchlight.v1.json");
 const wireOrchard = require("../constraints/wire-orchard.v1.json");
@@ -53,6 +54,7 @@ function createCandidateSession() {
   let family = null;
   let familyBinding = null;
   let selection = null;
+  let stagedLabProposal = null;
   let busy = false;
 
   function clearCandidates() {
@@ -72,6 +74,16 @@ function createCandidateSession() {
     const resolved = nextImagePath ? path.resolve(nextImagePath) : null;
     if (!sameOptionalPath(imagePath, resolved)) clearCandidates();
     imagePath = resolved;
+  }
+
+  function stageLabProposal(transfer) {
+    const parsed = parseLabProposalTransfer(transfer);
+    stagedLabProposal = parsed;
+    return {
+      schema: parsed.schema,
+      proposalId: parsed.proposal?.id || null,
+      title: parsed.proposal?.title || "Lab proposal",
+    };
   }
 
   function currentConstraints(presetId) {
@@ -116,17 +128,28 @@ function createCandidateSession() {
     busy = true;
     try {
       const constraints = currentConstraints(config.presetId);
+      const admitted = stagedLabProposal
+        ? admitLabProposal(stagedLabProposal, constraints)
+        : null;
       const nextFamily = generation.generateCandidateSet({
         analysis: toGenerationAnalysis(mediaAnalysis),
         garmentConstraints: constraints,
         rendererProfile,
+        parentScore: admitted?.scoreArtifact.score || null,
         rootSeed: config.rootSeed,
         count: 6,
       });
-      return await materialize(nextFamily, config, signal);
+      const view = await materialize(nextFamily, config, signal);
+      if (admitted) stagedLabProposal = null;
+      return view;
     } finally {
       busy = false;
     }
+  }
+
+  async function importLabProposal(config = {}, signal) {
+    stageLabProposal(config.transfer);
+    return generate(config, signal);
   }
 
   async function mutate(config = {}, signal) {
@@ -186,6 +209,14 @@ function createCandidateSession() {
       assertAvailable();
       return generate(config);
     });
+    ipcMain.handle("candidate:stage-lab-proposal", (_event, transfer) => {
+      assertAvailable();
+      return stageLabProposal(transfer);
+    });
+    ipcMain.handle("candidate:import-lab-proposal", (_event, config) => {
+      assertAvailable();
+      return importLabProposal(config);
+    });
     ipcMain.handle("candidate:mutate", (_event, config) => {
       assertAvailable();
       return mutate(config);
@@ -208,11 +239,13 @@ function createCandidateSession() {
     clearCandidates,
     executionForRender,
     generate,
+    importLabProposal,
     mutate,
     noteAudio,
     noteImage,
     registerIpc,
     select,
+    stageLabProposal,
   };
 }
 
