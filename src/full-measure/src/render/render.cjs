@@ -7,6 +7,11 @@ const { createProceduralPpm } = require("./artwork.cjs");
 const { inspectAudio, probeMedia } = require("./analyze.cjs");
 const { getPreset } = require("./presets.cjs");
 const { hashFile, writeReceipt } = require("./receipt.cjs");
+const {
+  getOutputProfile,
+  resolveProfileAudioPlan,
+  transportReceipt,
+} = require("./output-profiles.cjs");
 const { resolveFfmpeg, runProcess } = require("./tooling.cjs");
 const {
   assertTimelineDuration,
@@ -50,6 +55,7 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
   const height = Number(config.height) || 1080;
   const fps = Number(config.fps) || 30;
   const preset = getPreset(config.presetId);
+  const outputProfile = getOutputProfile(config.outputProfileId);
   const title = legacy.cleanText(config.title, 160);
   const artist = legacy.cleanText(config.artist, 160);
   const lyrics = legacy.cleanText(config.lyrics, 250_000);
@@ -112,6 +118,7 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
     await fs.writeFile(filterPath, `${filter.graph}\n`, "utf8");
 
     const sourceAudioPlan = legacy.audioPlan(analysis.audio.codec);
+    const encodeAudioPlan = resolveProfileAudioPlan(outputProfile, sourceAudioPlan);
     const ffmpegArgs = [
       "-y", "-hide_banner", "-nostdin", "-i", audioPath,
       "-loop", "1", "-framerate", String(fps), "-i", proceduralPath,
@@ -125,14 +132,14 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       "-filter_complex_script", filterPath,
       "-map", "[vout]",
       "-map", "0:a:0",
-      "-c:v", "libx264",
-      "-preset", config.encoderPreset || "medium",
-      "-crf", String(config.crf || 19),
-      "-profile:v", "high",
-      "-level", "4.2",
-      "-pix_fmt", "yuv420p",
-      ...sourceAudioPlan.ffmpegArgs,
-      "-movflags", "+faststart",
+      "-c:v", outputProfile.video.encoder,
+      "-preset", outputProfile.video.preset,
+      "-crf", String(outputProfile.video.crf),
+      "-profile:v", outputProfile.video.profile,
+      "-level", outputProfile.video.level,
+      "-pix_fmt", outputProfile.video.pixelFormat,
+      ...encodeAudioPlan.ffmpegArgs,
+      "-movflags", outputProfile.movflags,
       "-shortest",
       "-max_interleave_delta", "0",
       "-progress", "pipe:1",
@@ -140,7 +147,7 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       outputPath,
     );
 
-    hooks.onPhase?.("rendering", "Rendering the resolved timeline…");
+    hooks.onPhase?.("rendering", `Rendering the resolved timeline · ${outputProfile.label}…`);
     let progressBuffer = "";
     await runProcess(resolveFfmpeg(), ffmpegArgs, {
       cwd: tempDirectory,
@@ -240,10 +247,11 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
         framesPerSecond: fps,
         videoCodec: outputMedia.video.codec,
         pixelFormat: outputMedia.video.pixelFormat,
+        transportEncoding: transportReceipt(outputProfile, encodeAudioPlan),
         sourceAudioHandling: {
-          mode: sourceAudioPlan.mode,
-          codec: sourceAudioPlan.codec,
-          statement: sourceAudioPlan.statement,
+          mode: encodeAudioPlan.mode,
+          codec: encodeAudioPlan.codec,
+          statement: encodeAudioPlan.statement,
         },
         startedAt: startedAt.toISOString(),
         finishedAt: finishedAt.toISOString(),
