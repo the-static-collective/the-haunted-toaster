@@ -77,6 +77,7 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   revealFile: (filePath) => ipcRenderer.invoke("shell:reveal", filePath),
   openFile: (filePath) => ipcRenderer.invoke("shell:open", filePath),
   getVersion: () => ipcRenderer.invoke("app:version"),
+  getBuildInfo: () => ipcRenderer.invoke("app:build-info"),
   pathForFile: (file) => webUtils.getPathForFile(file),
   onProgress: (callback) => subscribe("render:progress", callback),
   onPhase: (callback) => subscribe("render:phase", callback),
