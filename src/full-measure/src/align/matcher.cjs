@@ -373,16 +373,16 @@ function alignLyricsToTranscript(
         : null;
     const confidence = confidenceStatus(candidate);
 
-    if (!candidate) {
+    if (!candidate || confidence.status === "low") {
       cues.push({
         lineIndex,
         text: line,
         start: null,
         end: null,
-        status: confidence.status,
-        confidence: confidence.confidence,
-        similarity: 0,
-        heard: null,
+        status: "unmatched",
+        confidence: round(confidence.confidence, 4),
+        similarity: candidate ? round(candidate.similarity, 4) : 0,
+        heard: candidate?.heard || null,
       });
       continue;
     }
