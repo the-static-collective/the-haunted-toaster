@@ -1,5 +1,6 @@
 const path = require("node:path");
 const generation = require("./generation/index.cjs");
+const { admitLabProposal } = require("./lab-proposal.cjs");
 const { renderCandidateFamilyPreviews } = require("./render/candidate-preview.cjs");
 const porchlight = require("../constraints/porchlight.v1.json");
 const wireOrchard = require("../constraints/wire-orchard.v1.json");
@@ -129,6 +130,26 @@ function createCandidateSession() {
     }
   }
 
+  async function importLabProposal(config = {}, signal) {
+    assertReady();
+    busy = true;
+    try {
+      const constraints = currentConstraints(config.presetId);
+      const admitted = admitLabProposal(config.transfer, constraints);
+      const nextFamily = generation.generateCandidateSet({
+        analysis: toGenerationAnalysis(mediaAnalysis),
+        garmentConstraints: constraints,
+        rendererProfile,
+        parentScore: admitted.scoreArtifact.score,
+        rootSeed: config.rootSeed,
+        count: 6,
+      });
+      return await materialize(nextFamily, config, signal);
+    } finally {
+      busy = false;
+    }
+  }
+
   async function mutate(config = {}, signal) {
     assertReady();
     if (!family || family.familyHash !== config.familyHash) {
@@ -186,6 +207,10 @@ function createCandidateSession() {
       assertAvailable();
       return generate(config);
     });
+    ipcMain.handle("candidate:import-lab-proposal", (_event, config) => {
+      assertAvailable();
+      return importLabProposal(config);
+    });
     ipcMain.handle("candidate:mutate", (_event, config) => {
       assertAvailable();
       return mutate(config);
@@ -208,6 +233,7 @@ function createCandidateSession() {
     clearCandidates,
     executionForRender,
     generate,
+    importLabProposal,
     mutate,
     noteAudio,
     noteImage,
