@@ -550,11 +550,13 @@ function selectCueForTime(cues, timestampSeconds, mediaDuration) {
       nextIndex += 1;
     }
 
+    if (previousIndex < 0 && nextIndex >= cues.length) return 0;
+    if (previousIndex < 0) return cues[nextIndex].start;
+    if (nextIndex >= cues.length) return cues[previousIndex].start;
+
     const duration = state.audio?.duration || 0;
-    const previousTime =
-      previousIndex >= 0 ? cues[previousIndex].start : 0;
-    const nextTime =
-      nextIndex < cues.length ? cues[nextIndex].start : duration;
+    const previousTime = cues[previousIndex].start;
+    const nextTime = cues[nextIndex].start;
     const span = nextIndex - previousIndex;
     const ratio = span > 0 ? (index - previousIndex) / span : 0;
     return Math.max(0, Math.min(duration, previousTime + (nextTime - previousTime) * ratio));
