@@ -361,19 +361,29 @@ function alignLyricsToTranscript(
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
     const line = lines[lineIndex];
+    const nextLine = lines[lineIndex + 1] || null;
     const candidate =
       cursor < entries.length
         ? bestCandidate(
             line,
-            lines[lineIndex + 1],
+            nextLine,
             entries,
             cursor,
             lines.length - lineIndex,
           )
         : null;
     const confidence = confidenceStatus(candidate);
+    const nextLineSimilarity = candidate && nextLine
+      ? stringSimilarity(nextLine, candidate.heard)
+      : 0;
+    const stealsNextLine = Boolean(
+      candidate &&
+      nextLine &&
+      nextLineSimilarity >= 0.72 &&
+      nextLineSimilarity >= candidate.similarity + 0.16
+    );
 
-    if (!candidate || confidence.status === "low") {
+    if (!candidate || confidence.status === "low" || stealsNextLine) {
       cues.push({
         lineIndex,
         text: line,
