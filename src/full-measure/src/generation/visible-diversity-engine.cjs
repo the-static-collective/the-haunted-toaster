@@ -17,6 +17,7 @@ const legacyDiversity = require("./diversity-engine.cjs");
 const legacyFamily = require("./candidate-family.cjs");
 const {
   categoricalBreaks,
+  categoricalWeight,
   minimumSiblingDistance,
   visibleSemanticDistance,
 } = require("./visible-distance.cjs");
@@ -26,100 +27,39 @@ const VISIBLE_DISTANCE_POLICY = "visible-semantic-distance-v1";
 const MAX_ATTEMPTS = 48;
 
 const VISIBLE_BRANCH_SLOT_POLICIES = Object.freeze([
-  Object.freeze({
-    role: "anchor",
-    axes: ["motion"],
-    mode: "near",
-    categoricalAxes: [],
-    minCategoricalBreaks: 0,
-    minParentDistance: 0,
-    minSiblingDistance: 0,
-  }),
-  Object.freeze({
-    role: "motion-break",
-    axes: ["motion"],
-    mode: "break",
-    categoricalAxes: ["motion"],
-    minCategoricalBreaks: 1,
-    minParentDistance: 8,
-    minSiblingDistance: 7,
-  }),
-  Object.freeze({
-    role: "topology-composition-break",
-    axes: ["topology", "camera", "lyric"],
-    mode: "break",
-    categoricalAxes: ["topology", "camera", "lyric"],
-    minCategoricalBreaks: 1,
-    minParentDistance: 8,
-    minSiblingDistance: 7,
-  }),
-  Object.freeze({
-    role: "material-break",
-    axes: ["material"],
-    mode: "break",
-    categoricalAxes: ["material"],
-    minCategoricalBreaks: 1,
-    minParentDistance: 8,
-    minSiblingDistance: 7,
-  }),
-  Object.freeze({
-    role: "temporal-palette-break",
-    axes: ["temporalDensity", "palette"],
-    mode: "break",
-    categoricalAxes: ["temporalDensity", "palette"],
-    minCategoricalBreaks: 1,
-    minParentDistance: 5,
-    minSiblingDistance: 7,
-  }),
-  Object.freeze({
-    role: "risky-hybrid",
-    axes: ["topology", "motion", "palette", "material", "camera", "temporalDensity"],
-    mode: "break",
-    categoricalAxes: ["topology", "motion", "palette", "material", "camera", "temporalDensity"],
-    minCategoricalBreaks: 3,
-    minParentDistance: 18,
-    minSiblingDistance: 9,
-  }),
+  Object.freeze({ role: "anchor", axes: ["motion"], mode: "near", categoricalAxes: [], minCategoricalBreaks: 0, minParentDistance: 0, minSiblingDistance: 0 }),
+  Object.freeze({ role: "motion-break", axes: ["motion"], mode: "break", categoricalAxes: ["motion"], minCategoricalBreaks: 1, minParentDistance: 8, minSiblingDistance: 7 }),
+  Object.freeze({ role: "topology-composition-break", axes: ["topology", "camera", "lyric"], mode: "break", categoricalAxes: ["topology", "camera", "lyric"], minCategoricalBreaks: 1, minParentDistance: 8, minSiblingDistance: 7 }),
+  Object.freeze({ role: "material-break", axes: ["material"], mode: "break", categoricalAxes: ["material"], minCategoricalBreaks: 1, minParentDistance: 8, minSiblingDistance: 7 }),
+  Object.freeze({ role: "temporal-palette-break", axes: ["temporalDensity", "palette"], mode: "break", categoricalAxes: ["temporalDensity", "palette"], minCategoricalBreaks: 1, minParentDistance: 5, minSiblingDistance: 7 }),
+  Object.freeze({ role: "risky-hybrid", axes: ["topology", "motion", "palette", "material", "camera", "temporalDensity"], mode: "break", categoricalAxes: ["topology", "motion", "palette", "material", "camera", "temporalDensity"], minCategoricalBreaks: 3, minParentDistance: 18, minSiblingDistance: 9 }),
 ]);
 
 function assertConstraints(input) {
   const result = validateConstraints(input);
-  if (!result.ok) {
-    throw new TypeError(result.errors.map((item) => `${item.path}: ${item.message}`).join("; "));
-  }
+  if (!result.ok) throw new TypeError(result.errors.map((item) => `${item.path}: ${item.message}`).join("; "));
   return result.value;
 }
 
 function assertScore(input, constraints) {
   const source = input && input.score ? input.score : input;
   const parsed = parseVisualScore(source);
-  if (!parsed.ok) {
-    throw new TypeError(parsed.errors.map((item) => `${item.path}: ${item.message}`).join("; "));
-  }
+  if (!parsed.ok) throw new TypeError(parsed.errors.map((item) => `${item.path}: ${item.message}`).join("; "));
   const bounded = scoreWithinConstraints(parsed.value, constraints);
-  if (!bounded.ok) {
-    throw new TypeError(bounded.errors.map((item) => `${item.path}: ${item.message}`).join("; "));
-  }
+  if (!bounded.ok) throw new TypeError(bounded.errors.map((item) => `${item.path}: ${item.message}`).join("; "));
   return parsed.value;
 }
 
 function normalizeLocks(locks) {
   const normalized = [...new Set((locks || []).map(String))].sort();
   for (const lock of normalized) {
-    if (!legacyFamily.LOCKABLE_AXES.includes(lock)) {
-      throw new TypeError(`Unknown candidate lock: ${lock}`);
-    }
+    if (!legacyFamily.LOCKABLE_AXES.includes(lock)) throw new TypeError(`Unknown candidate lock: ${lock}`);
   }
   return normalized;
 }
 
 function deriveSeed({ rootSeed, parentScoreRef, slotIndex, attempt }) {
-  return `ht-visible-branch:${hashCanonical({
-    rootSeed: String(rootSeed),
-    parentScoreRef,
-    slotIndex,
-    attempt,
-  }, "HauntedToaster-VisibleBranchCandidateSeed-v2")}`;
+  return `ht-visible-branch:${hashCanonical({ rootSeed: String(rootSeed), parentScoreRef, slotIndex, attempt }, "HauntedToaster-VisibleBranchCandidateSeed-v2")}`;
 }
 
 function pickDifferent(prng, allowed, current) {
@@ -160,41 +100,39 @@ function categoricalAlternatives(constraints, axis, score) {
 }
 
 function mutateAxis(score, constraints, axis, prng, mode) {
-  const breakMode = mode === "break";
+  const breaking = mode === "break";
   if (axis === "topology") {
-    if (breakMode) score.topology = pickDifferent(prng, constraints.topology.allowed, score.topology);
-  } else if (axis === "motion") {
-    if (breakMode) score.motion.grammar = pickDifferent(prng, constraints.motion.grammar.allowed, score.motion.grammar);
-    score.motion.amplitude = breakMode
-      ? pushNumber(score.motion.amplitude, constraints.motion.amplitude, prng)
-      : nearNumber(score.motion.amplitude, constraints.motion.amplitude, prng);
-    score.motion.variance = breakMode
-      ? pushNumber(score.motion.variance, constraints.motion.variance, prng)
-      : nearNumber(score.motion.variance, constraints.motion.variance, prng);
-  } else if (axis === "palette") {
-    if (breakMode) score.palette.logic = pickDifferent(prng, constraints.palette.logic.allowed, score.palette.logic);
-    score.palette.bleed = breakMode
-      ? pushNumber(score.palette.bleed, constraints.palette.bleed, prng)
-      : nearNumber(score.palette.bleed, constraints.palette.bleed, prng);
-    score.palette.contrastBias = breakMode
-      ? pushNumber(score.palette.contrastBias, constraints.palette.contrastBias, prng)
-      : nearNumber(score.palette.contrastBias, constraints.palette.contrastBias, prng);
-  } else if (axis === "material") {
-    if (breakMode) score.material.texture = pickDifferent(prng, constraints.material.texture.allowed, score.material.texture);
-    score.material.imperfection = breakMode
-      ? pushNumber(score.material.imperfection, constraints.material.imperfection, prng)
-      : nearNumber(score.material.imperfection, constraints.material.imperfection, prng);
-  } else if (axis === "lyric") {
-    if (breakMode) score.lyric.placement = pickDifferent(prng, constraints.lyric.placement.allowed, score.lyric.placement);
-    score.lyric.densityBias = breakMode
-      ? pushNumber(score.lyric.densityBias, constraints.lyric.densityBias, prng)
-      : nearNumber(score.lyric.densityBias, constraints.lyric.densityBias, prng);
-  } else if (axis === "camera") {
-    if (breakMode) score.camera.grammar = pickDifferent(prng, constraints.camera.grammar.allowed, score.camera.grammar);
-    score.camera.variance = breakMode
-      ? pushNumber(score.camera.variance, constraints.camera.variance, prng)
-      : nearNumber(score.camera.variance, constraints.camera.variance, prng);
-  } else if (axis === "temporalDensity" && breakMode) {
+    if (breaking) score.topology = pickDifferent(prng, constraints.topology.allowed, score.topology);
+    return;
+  }
+  if (axis === "motion") {
+    if (breaking) score.motion.grammar = pickDifferent(prng, constraints.motion.grammar.allowed, score.motion.grammar);
+    score.motion.amplitude = breaking ? pushNumber(score.motion.amplitude, constraints.motion.amplitude, prng) : nearNumber(score.motion.amplitude, constraints.motion.amplitude, prng);
+    score.motion.variance = breaking ? pushNumber(score.motion.variance, constraints.motion.variance, prng) : nearNumber(score.motion.variance, constraints.motion.variance, prng);
+    return;
+  }
+  if (axis === "palette") {
+    if (breaking) score.palette.logic = pickDifferent(prng, constraints.palette.logic.allowed, score.palette.logic);
+    score.palette.bleed = breaking ? pushNumber(score.palette.bleed, constraints.palette.bleed, prng) : nearNumber(score.palette.bleed, constraints.palette.bleed, prng);
+    score.palette.contrastBias = breaking ? pushNumber(score.palette.contrastBias, constraints.palette.contrastBias, prng) : nearNumber(score.palette.contrastBias, constraints.palette.contrastBias, prng);
+    return;
+  }
+  if (axis === "material") {
+    if (breaking) score.material.texture = pickDifferent(prng, constraints.material.texture.allowed, score.material.texture);
+    score.material.imperfection = breaking ? pushNumber(score.material.imperfection, constraints.material.imperfection, prng) : nearNumber(score.material.imperfection, constraints.material.imperfection, prng);
+    return;
+  }
+  if (axis === "lyric") {
+    if (breaking) score.lyric.placement = pickDifferent(prng, constraints.lyric.placement.allowed, score.lyric.placement);
+    score.lyric.densityBias = breaking ? pushNumber(score.lyric.densityBias, constraints.lyric.densityBias, prng) : nearNumber(score.lyric.densityBias, constraints.lyric.densityBias, prng);
+    return;
+  }
+  if (axis === "camera") {
+    if (breaking) score.camera.grammar = pickDifferent(prng, constraints.camera.grammar.allowed, score.camera.grammar);
+    score.camera.variance = breaking ? pushNumber(score.camera.variance, constraints.camera.variance, prng) : nearNumber(score.camera.variance, constraints.camera.variance, prng);
+    return;
+  }
+  if (axis === "temporalDensity" && breaking) {
     score.temporalDensity = pickDifferent(prng, constraints.temporalDensity.allowed, score.temporalDensity);
   }
 }
@@ -204,31 +142,24 @@ function creativeState(score) {
 }
 
 function changedAxes(parent, child) {
-  return legacyFamily.LOCKABLE_AXES.filter(
-    (axis) => canonicalStringify(parent[axis]) !== canonicalStringify(child[axis]),
-  );
+  return legacyFamily.LOCKABLE_AXES.filter((axis) => canonicalStringify(parent[axis]) !== canonicalStringify(child[axis]));
 }
 
 function applicableCategoricalAxes(slot, parent, constraints, locks) {
-  return slot.categoricalAxes.filter(
-    (axis) => !locks.includes(axis) && categoricalAlternatives(constraints, axis, parent).length > 0,
-  );
+  return slot.categoricalAxes.filter((axis) => !locks.includes(axis) && categoricalAlternatives(constraints, axis, parent).length > 0);
 }
 
-function requiredCategoricalBreaks(slot, applicableAxes) {
-  return Math.min(slot.minCategoricalBreaks, applicableAxes.length);
+function roleThresholds(slot, applicableAxes) {
+  const availableCategoricalDistance = applicableAxes.reduce((sum, axis) => sum + categoricalWeight(axis), 0);
+  const requiredBreaks = Math.min(slot.minCategoricalBreaks, applicableAxes.length);
+  return {
+    requiredBreaks,
+    minParentDistance: requiredBreaks ? Math.min(slot.minParentDistance, availableCategoricalDistance) : 0,
+    minSiblingDistance: requiredBreaks ? Math.min(slot.minSiblingDistance, availableCategoricalDistance) : 0,
+  };
 }
 
-function makeVisibleBranchCandidate({
-  parent,
-  parentScoreRef,
-  constraints,
-  locks,
-  rootSeed,
-  slot,
-  slotIndex,
-  attempt,
-}) {
+function makeVisibleBranchCandidate({ parent, parentScoreRef, constraints, locks, rootSeed, slot, slotIndex, attempt }) {
   const seed = deriveSeed({ rootSeed, parentScoreRef, slotIndex, attempt });
   const prng = createPrng(`${seed}:${slot.role}`);
   const score = structuredClone(parent);
@@ -265,23 +196,10 @@ function makeVisibleBranchCandidate({
   });
 }
 
-function generateVisibleBranchCandidateSet({
-  analysis,
-  garmentConstraints,
-  constraints: constraintsAlias,
-  rendererProfile,
-  parentScore,
-  locks = [],
-  rootSeed,
-  count = 6,
-}) {
+function generateVisibleBranchCandidateSet({ analysis, garmentConstraints, constraints: constraintsAlias, rendererProfile, parentScore, locks = [], rootSeed, count = 6 }) {
   if (!parentScore) throw new TypeError("Branch exploration requires parentScore.");
-  if (rootSeed === undefined || rootSeed === null || String(rootSeed).length === 0) {
-    throw new TypeError("rootSeed is required.");
-  }
-  if (!Number.isInteger(count) || count < 1 || count > VISIBLE_BRANCH_SLOT_POLICIES.length) {
-    throw new TypeError(`count must be an integer from 1 to ${VISIBLE_BRANCH_SLOT_POLICIES.length}.`);
-  }
+  if (rootSeed === undefined || rootSeed === null || String(rootSeed).length === 0) throw new TypeError("rootSeed is required.");
+  if (!Number.isInteger(count) || count < 1 || count > VISIBLE_BRANCH_SLOT_POLICIES.length) throw new TypeError(`count must be an integer from 1 to ${VISIBLE_BRANCH_SLOT_POLICIES.length}.`);
 
   const constraints = assertConstraints(garmentConstraints || constraintsAlias);
   const parent = assertScore(parentScore, constraints);
@@ -295,33 +213,24 @@ function generateVisibleBranchCandidateSet({
   for (let slotIndex = 0; slotIndex < count; slotIndex += 1) {
     const slot = VISIBLE_BRANCH_SLOT_POLICIES[slotIndex];
     const applicableBreakAxes = applicableCategoricalAxes(slot, parent, constraints, normalizedLocks);
-    const requiredBreaks = requiredCategoricalBreaks(slot, applicableBreakAxes);
+    const thresholds = roleThresholds(slot, applicableBreakAxes);
     let accepted = null;
     let acceptedSiblingDistance = Infinity;
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
-      const scoreArtifact = makeVisibleBranchCandidate({
-        parent,
-        parentScoreRef,
-        constraints,
-        locks: normalizedLocks,
-        rootSeed,
-        slot,
-        slotIndex,
-        attempt,
-      });
+      const scoreArtifact = makeVisibleBranchCandidate({ parent, parentScoreRef, constraints, locks: normalizedLocks, rootSeed, slot, slotIndex, attempt });
       const key = canonicalStringify(creativeState(scoreArtifact.score));
       if (seenCreativeStates.has(key)) continue;
 
       const breaks = categoricalBreaks(parent, scoreArtifact.score);
       const roleBreakCount = applicableBreakAxes.filter((axis) => breaks.includes(axis)).length;
-      if (roleBreakCount < requiredBreaks) continue;
+      if (roleBreakCount < thresholds.requiredBreaks) continue;
 
       const parentDistance = visibleSemanticDistance(parent, scoreArtifact.score, constraints);
-      if (parentDistance < slot.minParentDistance && requiredBreaks > 0) continue;
+      if (parentDistance < thresholds.minParentDistance) continue;
 
       const siblingDistance = minimumSiblingDistance(scoreArtifact.score, acceptedScores, constraints);
-      if (siblingDistance < slot.minSiblingDistance) continue;
+      if (siblingDistance < thresholds.minSiblingDistance) continue;
 
       accepted = scoreArtifact;
       acceptedSiblingDistance = siblingDistance;
@@ -346,6 +255,8 @@ function generateVisibleBranchCandidateSet({
       categoricalBreaks: breaks,
       visibleDistanceFromParent: visibleSemanticDistance(parent, accepted.score, constraints),
       minimumSiblingDistance: Number.isFinite(acceptedSiblingDistance) ? acceptedSiblingDistance : null,
+      requiredParentDistance: thresholds.minParentDistance,
+      requiredSiblingDistance: thresholds.minSiblingDistance,
       timeline,
       timelineHash: timeline.timelineHash,
     }));
@@ -384,11 +295,7 @@ function generateVisibleBranchCandidateSet({
     shortfall,
   };
 
-  return deepFreeze({
-    ...familyCore,
-    familyHash: hashCanonical(familyCore, "HauntedToaster-CandidateFamily-v1"),
-    candidates,
-  });
+  return deepFreeze({ ...familyCore, familyHash: hashCanonical(familyCore, "HauntedToaster-CandidateFamily-v1"), candidates });
 }
 
 function generateCandidateSet(options = {}) {
@@ -397,15 +304,8 @@ function generateCandidateSet(options = {}) {
 }
 
 function replayCandidateFamily(family, options = {}) {
-  if (family?.policy !== VISIBLE_BRANCH_POLICY) {
-    return legacyDiversity.replayCandidateFamily(family, options);
-  }
-  const replayed = generateVisibleBranchCandidateSet({
-    ...options,
-    locks: family.locks,
-    rootSeed: family.rootSeed,
-    count: family.requestedCount,
-  });
+  if (family?.policy !== VISIBLE_BRANCH_POLICY) return legacyDiversity.replayCandidateFamily(family, options);
+  const replayed = generateVisibleBranchCandidateSet({ ...options, locks: family.locks, rootSeed: family.rootSeed, count: family.requestedCount });
   const addressesMatch = canonicalStringify(replayed.scoreAddresses) === canonicalStringify(family.scoreAddresses);
   const timelinesMatch = canonicalStringify(replayed.timelineHashes) === canonicalStringify(family.timelineHashes);
   const familyHashMatches = replayed.familyHash === family.familyHash;
