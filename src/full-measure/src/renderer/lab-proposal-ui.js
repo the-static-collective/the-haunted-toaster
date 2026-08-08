@@ -24,6 +24,19 @@
     `;
     generateButton.insertAdjacentElement("afterend", button);
 
+    const toggle = document.createElement("label");
+    toggle.className = "lab-proposal-toggle";
+    toggle.innerHTML = `
+      <input id="useLabProposal" type="checkbox" disabled />
+      <span>
+        <small>PROPOSAL INFLUENCE</small>
+        <strong>Use Lab Proposal</strong>
+      </span>
+    `;
+    button.insertAdjacentElement("afterend", toggle);
+
+    const checkbox = toggle.querySelector("#useLabProposal");
+
     button.addEventListener("click", () => input.click());
 
     input.addEventListener("change", async () => {
@@ -42,11 +55,12 @@
         const transfer = JSON.parse(await file.text());
         const staged = await api.stageLabProposal(transfer);
         if (label) label.textContent = `Imported · ${staged.title}`;
-
-        generateButton.click();
-        queueMicrotask(() => document.querySelector("#candidateRegenerate")?.click());
+        checkbox.disabled = false;
+        checkbox.checked = true;
       } catch (error) {
         if (label) label.textContent = `Import refused · ${error?.message || String(error)}`;
+        checkbox.checked = false;
+        checkbox.disabled = true;
       } finally {
         button.disabled = false;
       }
