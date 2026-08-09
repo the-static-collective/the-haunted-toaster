@@ -65,7 +65,7 @@
         </div>
         <div class="candidate-action-buttons">
           <button class="candidate-mutate" id="candidateMutate" type="button" disabled>Mutate six descendants</button>
-          <button class="candidate-mutate" id="candidateConverge" type="button" disabled>CONVERGE frontier</button>
+          <button class="candidate-mutate" id="candidateConverge" type="button" disabled title="Push the selected creature into underexplored lawful territory">CONVERGE · push this creature</button>
           <button class="candidate-use" id="candidateUse" type="button" disabled>Use selected timeline</button>
         </div>
       </footer>
@@ -131,11 +131,20 @@
     return [...lockList.querySelectorAll("input:checked")].map((input) => input.value);
   }
 
+  function frontierSummary(view) {
+    const frontier = (view.candidates || []).find((candidate) => candidate.role === "converge-frontier");
+    const target = frontier?.frontierEvidence?.selectedFrontierTarget;
+    if (!target) return null;
+    return [target.topology, target.motionGrammar, target.materialTexture]
+      .filter(Boolean)
+      .join(" × ");
+  }
+
   function setBusy(nextBusy, message) {
     busy = nextBusy;
     regenerate.disabled = nextBusy;
     mutate.disabled = nextBusy || selectedIndex === null;
-    converge.disabled = nextBusy || selectedIndex === null;
+    converge.disabled = nextBusy || !family;
     use.disabled = nextBusy || selectedIndex === null;
     launch.disabled = nextBusy;
     if (message) status.textContent = message;
@@ -229,12 +238,12 @@
     }
 
     const shortfall = view.shortfall ? ` · ${view.producedCount}/${view.requestedCount} materially distinct` : "";
-    const hasConverge = (view.candidates || []).some((candidate) => candidate.role === "converge-frontier");
-    status.textContent = hasConverge
-      ? `${view.producedCount} exact previews ready · slot 6 is the history-aware CONVERGE frontier.`
+    const frontier = frontierSummary(view);
+    status.textContent = frontier
+      ? `CONVERGE · underexplored ${frontier} · choose one.`
       : `${view.producedCount} exact previews ready${shortfall}. Choose one.`;
     mutate.disabled = true;
-    converge.disabled = true;
+    converge.disabled = !(view.candidates || []).length;
     use.disabled = true;
   }
 
@@ -257,11 +266,17 @@
   }
 
   async function mutateSix(useConverge = false) {
-    if (busy || !family || selectedIndex === null) return;
+    if (busy || !family) return;
+    if (selectedIndex === null) {
+      if (useConverge) {
+        status.textContent = "Choose the creature to push into new territory.";
+      }
+      return;
+    }
     setBusy(
       true,
       useConverge
-        ? "CONVERGE: finding one lawful underexplored frontier and compiling descendants…"
+        ? "CONVERGE: pushing this creature toward one lawful underexplored frontier…"
         : "Mutating unlocked axes and compiling exact descendants…",
     );
     try {
