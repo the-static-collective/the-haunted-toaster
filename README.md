@@ -8,6 +8,10 @@ The Haunted Toaster is a local-first music-video instrument. Give it a finished 
 
 It is not a preset browser and it is not a cloud video service. The machine keeps a canonical visual score and resolved timeline, uses the accepted timeline for preview and final render, and emits the artifacts that witnessed the render.
 
+> **A ghost is continuity without the original body. A receipt is continuity without the original event.**
+
+The video is the performance. The receipt is the ghost of that performance: residual proof that the encounter actually happened on these terms, with this score and timeline, producing these hashes. The same law governs Lyric Compost: when a supplied word loses its body as trustworthy timed lyric truth, it may survive instead as explicitly non-authoritative visual residue. The Toaster leaves ghosts on purpose.
+
 **Windows prerelease builds:** [GitHub Releases](https://github.com/the-static-collective/the-haunted-toaster/releases)
 
 ## What it does now
