@@ -1,4 +1,17 @@
 const PRESETS = {
+  openField: {
+    id: "openField",
+    name: "Open Field",
+    strapline: "Broad lawful field / ancestral signal / no fixed kingdom",
+    colors: ["#09090d", "#182331", "#6f4b67", "#d9754f", "#d8df93"],
+    waveColors: ["0xD8DF93", "0x83D1BF"],
+    spectrumColor: "intensity",
+    hueDrift: 11,
+    grain: 12,
+    blendMode: "softlight",
+    imageOpacity: 0.56,
+    seed: 137183,
+  },
   porchlight: {
     id: "porchlight",
     name: "Porchlight",

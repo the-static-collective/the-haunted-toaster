@@ -2,12 +2,14 @@ const path = require("node:path");
 const generation = require("./generation/index.cjs");
 const { admitLabProposal, parseLabProposalTransfer } = require("./lab-proposal.cjs");
 const { renderCandidateFamilyPreviews } = require("./render/candidate-preview.cjs");
+const openField = require("../constraints/open-field.v1.json");
 const porchlight = require("../constraints/porchlight.v2.json");
 const wireOrchard = require("../constraints/wire-orchard.v2.json");
 const absoluteResidual = require("../constraints/absolute-residual.v2.json");
 const rendererProfile = require("../profiles/toaster-raster-2.json");
 
 const CONSTRAINTS_BY_PRESET = Object.freeze({
+  openField,
   porchlight,
   wireOrchard,
   absoluteResidual,
