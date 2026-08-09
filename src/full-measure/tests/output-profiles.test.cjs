@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const {
   getOutputProfile,
   resolveProfileAudioPlan,
+  videoEncodingArgs,
   transportReceipt,
 } = require("../src/render/output-profiles.cjs");
 
@@ -22,6 +23,10 @@ test("delivery is the portable default and remains downstream transport", () => 
   };
   const audioPlan = resolveProfileAudioPlan(profile, sourcePlan);
   assert.deepEqual(audioPlan.ffmpegArgs, ["-c:a", "aac", "-b:a", "320k"]);
+  assert.deepEqual(videoEncodingArgs(profile), [
+    "-c:v", "libx264", "-preset", "medium", "-crf", "23",
+    "-profile:v", "high", "-level", "4.2", "-pix_fmt", "yuv420p",
+  ]);
 
   assert.deepEqual(transportReceipt(profile, audioPlan), {
     profileId: "delivery",
@@ -34,6 +39,7 @@ test("delivery is the portable default and remains downstream transport", () => 
       profile: "high",
       level: "4.2",
       pixelFormat: "yuv420p",
+      codecTag: null,
     },
     audio: {
       mode: "delivery-aac-encode",
@@ -42,6 +48,21 @@ test("delivery is the portable default and remains downstream transport", () => 
     },
     movflags: "+faststart",
   });
+});
+
+test("efficient is an explicit HEVC experiment without creative authority", () => {
+  const profile = getOutputProfile("efficient");
+  assert.equal(profile.video.encoder, "libx265");
+  assert.equal(profile.video.codec, "hevc");
+  assert.equal(profile.video.crf, 25);
+  assert.equal(profile.video.pixelFormat, "yuv420p");
+  assert.equal(profile.video.codecTag, "hvc1");
+  assert.equal(profile.video.profile, null);
+  assert.equal(profile.video.level, null);
+  assert.deepEqual(videoEncodingArgs(profile), [
+    "-c:v", "libx265", "-preset", "medium", "-crf", "25",
+    "-pix_fmt", "yuv420p", "-tag:v", "hvc1",
+  ]);
 });
 
 test("master preserves the proven CRF-19-ish path", () => {
@@ -59,5 +80,5 @@ test("master preserves the proven CRF-19-ish path", () => {
 });
 
 test("unknown output profiles refuse instead of silently changing transport", () => {
-  assert.throws(() => getOutputProfile("tiny-mystery"), /Expected master or delivery/);
+  assert.throws(() => getOutputProfile("tiny-mystery"), /Expected master, delivery, or efficient/);
 });
