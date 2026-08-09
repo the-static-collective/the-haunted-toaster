@@ -2,10 +2,13 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  TYPOGRAPHY_DOMAIN,
   TREATMENTS,
   applyCaseMode,
   assOverride,
+  deriveTypographyLineage,
   resolveHauntedTypography,
+  typographyEvidence,
 } = require("../src/render/haunted-typography.cjs");
 
 const CUES = [
@@ -27,6 +30,28 @@ test("same score and cue track resolve byte-identical typography plans", () => {
   const second = resolveHauntedTypography(input);
   assert.deepEqual(second, first);
   assert.equal(second.hash, first.hash);
+  assert.equal(second.lineage.childSeedSha256, first.lineage.childSeedSha256);
+});
+
+test("typography descends from a stable domain-separated child seed", () => {
+  const first = deriveTypographyLineage({
+    scoreIdentity: "htvs1_parent-a",
+    profileIdentity: "toaster-raster-2",
+  });
+  const second = deriveTypographyLineage({
+    scoreIdentity: "htvs1_parent-a",
+    profileIdentity: "toaster-raster-2",
+  });
+  const otherCandidate = deriveTypographyLineage({
+    scoreIdentity: "htvs1_parent-b",
+    profileIdentity: "toaster-raster-2",
+  });
+
+  assert.deepEqual(second, first);
+  assert.equal(first.domain, TYPOGRAPHY_DOMAIN);
+  assert.equal(first.rootCandidateIdentity, "htvs1_parent-a");
+  assert.match(first.childSeedSha256, /^[a-f0-9]{64}$/);
+  assert.notEqual(first.childSeedSha256, otherCandidate.childSeedSha256);
 });
 
 test("score identity participates in the treatment sequence", () => {
@@ -45,6 +70,20 @@ test("score identity participates in the treatment sequence", () => {
     first.cues.map((cue) => cue.identityHash),
     second.cues.map((cue) => cue.identityHash),
   );
+});
+
+test("receipt evidence exposes the root candidate and typography child seed", () => {
+  const plan = resolveHauntedTypography({
+    scoreIdentity: "htvs1_receipt-proof",
+    profileIdentity: "toaster-raster-2",
+    cues: CUES,
+  });
+  const evidence = typographyEvidence(plan);
+
+  assert.equal(evidence.domain, TYPOGRAPHY_DOMAIN);
+  assert.equal(evidence.rootCandidateIdentity, "htvs1_receipt-proof");
+  assert.equal(evidence.childSeedSha256, plan.lineage.childSeedSha256);
+  assert.equal(evidence.planSha256, plan.hash);
 });
 
 test("cue identity is stable and can vary treatment across one lyric track", () => {
@@ -73,6 +112,11 @@ test("resolved treatments contain only bounded declarative ASS morphology", () =
     assert.ok(cue.shadow >= 0 && cue.shadow <= 6);
     assert.match(assOverride(cue), /^\{\\fscx/);
   }
+  assert.ok(
+    TREATMENTS.some(
+      (treatment) => treatment.id === "inverted-emphasis" && treatment.angle === 180,
+    ),
+  );
 });
 
 test("case treatment is deterministic and does not rewrite non-letter content", () => {

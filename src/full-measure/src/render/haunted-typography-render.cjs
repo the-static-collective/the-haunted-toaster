@@ -8,6 +8,7 @@ const {
 } = require("./haunted-typography.cjs");
 
 const TEXT_OVERLAY_FILENAME = "text-overlay.ass";
+const LYRIC_PRIMARY_COLOUR = "&H33FFFFFF";
 
 function typographyContextForTimeline(scoreAddress, timeline = {}) {
   return Object.freeze({
@@ -52,6 +53,19 @@ function parseAssDialogue(line) {
   }
   fields.push(line.slice(start));
   return fields;
+}
+
+function integrateLyricAssStyle(line) {
+  if (!String(line || "").startsWith("Style: Lyrics,")) return line;
+  const fields = String(line).split(",");
+  if (fields.length < 23) return line;
+
+  // ASS alpha lives in the high byte: 0x33 is ~20% transparent / 80% visible.
+  fields[3] = LYRIC_PRIMARY_COLOUR;
+  fields[4] = LYRIC_PRIMARY_COLOUR;
+  // BorderStyle=1 keeps outline + shadow while removing the opaque subtitle plate.
+  fields[15] = "1";
+  return fields.join(",");
 }
 
 function caseAssText(value, mode) {
@@ -105,8 +119,9 @@ function applyTypographyToAss(content, plan) {
   const lines = String(content || "").split(/\r?\n/);
   return lines
     .map((line) => {
-      const fields = parseAssDialogue(line);
-      if (!fields) return line;
+      const styledLine = integrateLyricAssStyle(line);
+      const fields = parseAssDialogue(styledLine);
+      if (!fields) return styledLine;
       const style = fields[3];
       let treatment = null;
       if (style === "Title") treatment = plan.title;
@@ -119,7 +134,7 @@ function applyTypographyToAss(content, plan) {
         treatment = plan.cues?.[cueIndex] || null;
         cueIndex += 1;
       }
-      if (!treatment) return line;
+      if (!treatment) return styledLine;
       fields[9] = applyTreatmentToEventText(fields[9], treatment);
       return fields.join(",");
     })
@@ -159,11 +174,13 @@ async function buildHauntedFilterGraph({
 }
 
 module.exports = {
+  LYRIC_PRIMARY_COLOUR,
   TEXT_OVERLAY_FILENAME,
   applyTreatmentToEventText,
   applyTypographyToAss,
   buildHauntedFilterGraph,
   caseAssText,
+  integrateLyricAssStyle,
   parseAssDialogue,
   resolveOverlayTypography,
   typographyContextForTimeline,
