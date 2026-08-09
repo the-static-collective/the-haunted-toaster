@@ -17,6 +17,14 @@
     document.body.append(script);
   }
 
+  function loadLabUiRetirement() {
+    if (document.querySelector('script[data-retired-lab-ui="active"]')) return;
+    const script = document.createElement("script");
+    script.src = "./retire-lab-ui.js";
+    script.dataset.retiredLabUi = "active";
+    document.body.append(script);
+  }
+
   function editorIsActive() {
     const dialog = document.querySelector("#syncDialog");
     const editor = document.querySelector("#syncEditor");
@@ -68,6 +76,7 @@
     }
   });
 
+  loadLabUiRetirement();
   loadStartingFieldHierarchy();
   loadLyricFoundry();
 })();
