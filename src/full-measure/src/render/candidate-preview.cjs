@@ -5,6 +5,10 @@ const legacy = require("./render-legacy.cjs");
 const { createProceduralPpm } = require("./artwork.cjs");
 const { getPreset } = require("./presets.cjs");
 const {
+  buildHauntedFilterGraph,
+  typographyContextForTimeline,
+} = require("./haunted-typography-render.cjs");
+const {
   assertTimelineDuration,
   createTimelineExecution,
 } = require("./timeline-execution.cjs");
@@ -46,7 +50,7 @@ function semanticSignature(score) {
   ].join(" · ");
 }
 
-function candidatePreviewPlan(candidate) {
+function candidatePreviewPlan(candidate, typography = null) {
   const sample = previewSampleFor(candidate);
   return Object.freeze({
     index: candidate.index,
@@ -56,6 +60,7 @@ function candidatePreviewPlan(candidate) {
     changedAxes: Object.freeze([...(candidate.changedAxes || [])]),
     signature: semanticSignature(candidate.scoreArtifact.score),
     sample,
+    typography,
   });
 }
 
@@ -82,18 +87,6 @@ async function renderCandidateFamilyPreviews(config, family, hooks = {}) {
   try {
     const proceduralPath = path.join(tempDirectory, "garment.ppm");
     await createProceduralPpm(proceduralPath, preset);
-    const baseFilter = await legacy.buildFilterGraph({
-      tempDirectory,
-      analysis,
-      preset,
-      title,
-      artist,
-      lyrics,
-      hasImage: Boolean(imagePath),
-      width,
-      height,
-      fps,
-    });
 
     const previews = [];
     for (const candidate of family.candidates) {
@@ -102,7 +95,27 @@ async function renderCandidateFamilyPreviews(config, family, hooks = {}) {
         count: family.candidates.length,
         role: candidate.role,
       });
-      const plan = candidatePreviewPlan(candidate);
+      const typographyContext = typographyContextForTimeline(
+        candidate.scoreAddress,
+        candidate.timeline,
+      );
+      const baseFilter = await buildHauntedFilterGraph({
+        tempDirectory,
+        analysis,
+        preset,
+        title,
+        artist,
+        lyrics,
+        hasImage: Boolean(imagePath),
+        width,
+        height,
+        fps,
+        ...typographyContext,
+      });
+      const plan = candidatePreviewPlan(
+        candidate,
+        baseFilter.typographyEvidence,
+      );
       const execution = createTimelineExecution(candidate.timeline);
       assertTimelineDuration(execution.timeline, analysis.duration);
       const compiled = compileTimelineFilterGraph(baseFilter.graph, execution);
