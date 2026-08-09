@@ -1,6 +1,7 @@
 (() => {
   const api = window.fullMeasure;
-  if (!api?.stageLabProposal) return;
+  const stageCreativeImport = api?.stageCreativeImport || api?.stageLabProposal;
+  if (!stageCreativeImport) return;
 
   function install() {
     const generateButton = document.querySelector(".candidate-launch:not(.lab-proposal-import)");
@@ -17,8 +18,8 @@
     button.className = "candidate-launch lab-proposal-import";
     button.innerHTML = `
       <span>
-        <small>TOASTER LAB · PROPOSAL</small>
-        <strong>Import Lab Proposal</strong>
+        <small>CREATIVE OBJECT · JSON</small>
+        <strong>Bring a Score</strong>
       </span>
       <b aria-hidden="true">↗</b>
     `;
@@ -27,15 +28,15 @@
     const toggle = document.createElement("label");
     toggle.className = "lab-proposal-toggle";
     toggle.innerHTML = `
-      <input id="useLabProposal" type="checkbox" disabled />
+      <input id="useCreativeImport" type="checkbox" disabled />
       <span>
-        <small>PROPOSAL INFLUENCE</small>
-        <strong>Use Lab Proposal</strong>
+        <small>IMPORTED INFLUENCE</small>
+        <strong>Use imported score</strong>
       </span>
     `;
     button.insertAdjacentElement("afterend", toggle);
 
-    const checkbox = toggle.querySelector("#useLabProposal");
+    const checkbox = toggle.querySelector("#useCreativeImport");
 
     button.addEventListener("click", () => input.click());
 
@@ -46,15 +47,16 @@
 
       const label = button.querySelector("strong");
       button.disabled = true;
-      if (label) label.textContent = "Reading Lab proposal…";
+      if (label) label.textContent = "Reading creative object…";
 
       try {
         if (file.size > 2_000_000) {
-          throw new Error("Lab proposal is larger than the 2 MB safety limit.");
+          throw new Error("Creative object is larger than the 2 MB safety limit.");
         }
         const transfer = JSON.parse(await file.text());
-        const staged = await api.stageLabProposal(transfer);
-        if (label) label.textContent = `Imported · ${staged.title}`;
+        const staged = await stageCreativeImport(transfer);
+        const adapter = staged.adapterId ? ` · ${staged.sourceProducer} adapter` : "";
+        if (label) label.textContent = `Ready · ${staged.title}${adapter}`;
         checkbox.disabled = false;
         checkbox.checked = true;
       } catch (error) {
