@@ -22,13 +22,13 @@ test("serializes normalized cues identically from the canonical lyric timing law
 
   assert.deepEqual(canonicalSubtitleCues(cues, 10), [
     { start: 1, end: 2.5, text: "first line" },
-    { start: 4, end: 6.18, text: "second line" },
+    { start: 4, end: 5.66, text: "second line" },
     { start: 8, end: 10, text: "third line" },
   ]);
 
   assert.equal(
     serializeSrt(cues, 10),
-    "1\n00:00:01,000 --> 00:00:02,500\nfirst line\n\n2\n00:00:04,000 --> 00:00:06,180\nsecond line\n\n3\n00:00:08,000 --> 00:00:10,000\nthird line\n",
+    "1\n00:00:01,000 --> 00:00:02,500\nfirst line\n\n2\n00:00:04,000 --> 00:00:05,660\nsecond line\n\n3\n00:00:08,000 --> 00:00:10,000\nthird line\n",
   );
 });
 
