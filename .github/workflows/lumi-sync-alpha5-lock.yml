@@ -1,0 +1,37 @@
+name: One-shot sync alpha.5 lock
+
+on:
+  push:
+    branches:
+      - lumi/fix-alpha5-build-identity-test
+
+permissions:
+  contents: write
+
+jobs:
+  sync-lock:
+    if: contains(github.event.head_commit.message, 'Run alpha.5 lock sync')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: lumi/fix-alpha5-build-identity-test
+
+      - name: Sync root lockfile version metadata
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const file = 'src/full-measure/package-lock.json';
+          const lock = JSON.parse(fs.readFileSync(file, 'utf8'));
+          lock.version = '0.5.0-alpha.5';
+          lock.packages[''].version = '0.5.0-alpha.5';
+          fs.writeFileSync(file, `${JSON.stringify(lock, null, 2)}\n`);
+          NODE
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/full-measure/package-lock.json
+          git diff --cached --exit-code && exit 0
+          git commit -m 'Sync package lock to alpha.5'
+          git push origin HEAD:lumi/fix-alpha5-build-identity-test
