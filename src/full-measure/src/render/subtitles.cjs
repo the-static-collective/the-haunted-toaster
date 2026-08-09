@@ -18,12 +18,20 @@ function formatSubtitleTimestamp(seconds, separator) {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(wholeSeconds).padStart(2, "0")}${separator}${String(fraction).padStart(3, "0")}`;
 }
 
+function isAdmittedSubtitleCue(cue) {
+  if (!cue || cue.disposition === "composted" || cue.disposition === "ignored") return false;
+  if (cue.state == null) return true;
+  return cue.state === "aligned" || cue.state === "anchored";
+}
+
 function canonicalSubtitleCues(cues, mediaDuration) {
-  return normalizeCueTimeline(cues, mediaDuration).map((cue) => ({
-    start: Number(cue.start),
-    end: Number(cue.end),
-    text: normalizeSubtitleText(cue.text),
-  })).filter((cue) => cue.text && Number.isFinite(cue.start) && Number.isFinite(cue.end) && cue.end > cue.start);
+  return normalizeCueTimeline((cues || []).filter(isAdmittedSubtitleCue), mediaDuration)
+    .map((cue) => ({
+      start: Number(cue.start),
+      end: Number(cue.end),
+      text: normalizeSubtitleText(cue.text),
+    }))
+    .filter((cue) => cue.text && Number.isFinite(cue.start) && Number.isFinite(cue.end) && cue.end > cue.start);
 }
 
 function serializeSrt(cues, mediaDuration) {
@@ -48,6 +56,7 @@ function serializeWebVtt(cues, mediaDuration) {
 module.exports = {
   canonicalSubtitleCues,
   formatSubtitleTimestamp,
+  isAdmittedSubtitleCue,
   serializeSrt,
   serializeWebVtt,
 };
