@@ -1,6 +1,6 @@
 const path = require("node:path");
 const generation = require("./generation/index.cjs");
-const { admitLabProposal, parseLabProposalTransfer } = require("./lab-proposal.cjs");
+const { admitCreativeImport, parseCreativeImport } = require("./creative-import.cjs");
 const { renderCandidateFamilyPreviews } = require("./render/candidate-preview.cjs");
 const porchlight = require("../constraints/porchlight.v2.json");
 const wireOrchard = require("../constraints/wire-orchard.v2.json");
@@ -54,7 +54,7 @@ function createCandidateSession() {
   let family = null;
   let familyBinding = null;
   let selection = null;
-  let stagedLabProposal = null;
+  let stagedCreativeImport = null;
   let acceptedHistory = [];
   let busy = false;
 
@@ -80,15 +80,21 @@ function createCandidateSession() {
     imagePath = resolved;
   }
 
-  function stageLabProposal(transfer) {
-    const parsed = parseLabProposalTransfer(transfer);
-    stagedLabProposal = parsed;
+  function stageCreativeImport(input) {
+    const parsed = parseCreativeImport(input);
+    stagedCreativeImport = parsed;
     clearCandidates();
     return {
-      schema: parsed.schema,
-      proposalId: parsed.proposal?.id || null,
-      title: parsed.proposal?.title || "Lab proposal",
+      kind: parsed.kind,
+      title: parsed.title,
+      sourceProducer: parsed.sourceProducer,
+      adapterId: parsed.adapterId,
+      sourceObjectHash: parsed.sourceObjectHash,
     };
+  }
+
+  function stageLabProposal(transfer) {
+    return stageCreativeImport(transfer);
   }
 
   function currentConstraints(presetId) {
@@ -137,18 +143,17 @@ function createCandidateSession() {
     busy = true;
     try {
       const constraints = currentConstraints(config.presetId);
-      const useLabProposal = config.useLabProposal === true;
-      if (useLabProposal && !stagedLabProposal) {
-        throw new Error("Use Lab Proposal is on, but no Lab proposal is staged.");
+      const useCreativeImport = config.useCreativeImport === true || config.useLabProposal === true;
+      if (useCreativeImport && !stagedCreativeImport) {
+        throw new Error("Use imported score is on, but no creative object is staged.");
       }
-      const admitted = useLabProposal
-        ? admitLabProposal(stagedLabProposal, constraints)
+      const admitted = useCreativeImport
+        ? admitCreativeImport(stagedCreativeImport, constraints)
         : null;
       const influence = admitted
         ? {
             enabled: true,
-            proposalId: stagedLabProposal.proposal?.id || null,
-            proposalTitle: stagedLabProposal.proposal?.title || "Lab proposal",
+            ...admitted.provenance,
             admittedScoreAddress: admitted.scoreArtifact.address,
           }
         : { enabled: false };
@@ -168,8 +173,8 @@ function createCandidateSession() {
   }
 
   async function importLabProposal(config = {}, signal) {
-    stageLabProposal(config.transfer);
-    return generate({ ...config, useLabProposal: true }, signal);
+    stageCreativeImport(config.transfer);
+    return generate({ ...config, useCreativeImport: true }, signal);
   }
 
   async function mutate(config = {}, signal) {
@@ -249,6 +254,10 @@ function createCandidateSession() {
       assertAvailable();
       return generate(config);
     });
+    ipcMain.handle("candidate:stage-creative-import", (_event, input) => {
+      assertAvailable();
+      return stageCreativeImport(input);
+    });
     ipcMain.handle("candidate:stage-lab-proposal", (_event, transfer) => {
       assertAvailable();
       return stageLabProposal(transfer);
@@ -285,6 +294,7 @@ function createCandidateSession() {
     noteImage,
     registerIpc,
     select,
+    stageCreativeImport,
     stageLabProposal,
   };
 }
