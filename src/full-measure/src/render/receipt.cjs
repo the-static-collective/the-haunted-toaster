@@ -2,7 +2,6 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const fsPromises = require("node:fs/promises");
 const path = require("node:path");
-const buildInfo = require("../build-info.cjs");
 
 async function hashFile(filePath) {
   return new Promise((resolve, reject) => {
@@ -20,6 +19,9 @@ function receiptPathFor(outputPath) {
 }
 
 function buildProvenance() {
+  // Lazy loading avoids a renderer/build-capabilities CommonJS cycle while
+  // still stamping the exact build identity at the point the receipt exists.
+  const buildInfo = require("../build-info.cjs");
   return Object.freeze({
     version: buildInfo.version,
     commit: buildInfo.commit,
