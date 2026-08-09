@@ -55,6 +55,7 @@ function createCandidateSession() {
   let familyBinding = null;
   let selection = null;
   let stagedLabProposal = null;
+  let acceptedHistory = [];
   let busy = false;
 
   function clearCandidates() {
@@ -65,7 +66,10 @@ function createCandidateSession() {
 
   function noteAudio(nextAudioPath, nextMediaAnalysis) {
     const resolved = path.resolve(nextAudioPath);
-    if (audioPath !== resolved) clearCandidates();
+    if (audioPath !== resolved) {
+      clearCandidates();
+      acceptedHistory = [];
+    }
     audioPath = resolved;
     mediaAnalysis = nextMediaAnalysis;
   }
@@ -178,8 +182,9 @@ function createCandidateSession() {
     busy = true;
     try {
       const constraints = currentConstraints(config.presetId);
-      const nextFamily = generation.generateCandidateSet({
-        analysis: toGenerationAnalysis(mediaAnalysis),
+      const analysis = toGenerationAnalysis(mediaAnalysis);
+      let nextFamily = generation.generateCandidateSet({
+        analysis,
         garmentConstraints: constraints,
         rendererProfile,
         parentScore: parent.scoreArtifact.score,
@@ -188,6 +193,17 @@ function createCandidateSession() {
         count: 6,
         phase: "branch",
       });
+      if (config.converge === true) {
+        nextFamily = generation.replaceFinalCandidateWithConverge(nextFamily, {
+          history: acceptedHistory,
+          parentScore: parent.scoreArtifact.score,
+          locks: config.locks || [],
+          constraints,
+          analysis,
+          rendererProfile,
+          rootSeed: config.rootSeed,
+        });
+      }
       return await materialize(nextFamily, config, signal, familyBinding?.labInfluence || null);
     } finally {
       busy = false;
@@ -201,11 +217,16 @@ function createCandidateSession() {
     const candidate = family.candidates[Number(config.index)];
     if (!candidate) throw new TypeError("Choose a current candidate.");
     selection = candidate;
+    if (!acceptedHistory.some((score) => generation.addressVisualScore(score) === candidate.scoreAddress)) {
+      acceptedHistory.push(candidate.scoreArtifact.score);
+    }
     return {
       familyHash: family.familyHash,
       index: candidate.index,
       scoreAddress: candidate.scoreAddress,
       timelineHash: candidate.timelineHash,
+      frontierEvidence: candidate.frontierEvidence || null,
+      acceptedHistoryCount: acceptedHistory.length,
       labInfluence: familyBinding?.labInfluence || { enabled: false },
     };
   }

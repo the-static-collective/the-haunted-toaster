@@ -65,6 +65,7 @@
         </div>
         <div class="candidate-action-buttons">
           <button class="candidate-mutate" id="candidateMutate" type="button" disabled>Mutate six descendants</button>
+          <button class="candidate-mutate" id="candidateConverge" type="button" disabled>CONVERGE frontier</button>
           <button class="candidate-use" id="candidateUse" type="button" disabled>Use selected timeline</button>
         </div>
       </footer>
@@ -76,6 +77,7 @@
   const status = modal.querySelector("#candidateStatus");
   const regenerate = modal.querySelector("#candidateRegenerate");
   const mutate = modal.querySelector("#candidateMutate");
+  const converge = modal.querySelector("#candidateConverge");
   const use = modal.querySelector("#candidateUse");
   const lockList = modal.querySelector(".candidate-lock-list");
 
@@ -133,6 +135,7 @@
     busy = nextBusy;
     regenerate.disabled = nextBusy;
     mutate.disabled = nextBusy || selectedIndex === null;
+    converge.disabled = nextBusy || selectedIndex === null;
     use.disabled = nextBusy || selectedIndex === null;
     launch.disabled = nextBusy;
     if (message) status.textContent = message;
@@ -159,6 +162,7 @@
     grid.replaceChildren();
     status.textContent = "Generate six to begin.";
     mutate.disabled = true;
+    converge.disabled = true;
     use.disabled = true;
     launch.querySelector("strong").textContent = "Generate six visions";
     for (const input of lockList.querySelectorAll("input")) input.checked = false;
@@ -187,6 +191,7 @@
       card.setAttribute("aria-pressed", active ? "true" : "false");
     }
     mutate.disabled = busy;
+    converge.disabled = busy;
     use.disabled = busy;
     const candidate = family?.candidates?.find((item) => item.index === index);
     if (candidate) status.textContent = `Candidate ${index + 1} selected · ${candidate.signature}`;
@@ -224,8 +229,12 @@
     }
 
     const shortfall = view.shortfall ? ` · ${view.producedCount}/${view.requestedCount} materially distinct` : "";
-    status.textContent = `${view.producedCount} exact previews ready${shortfall}. Choose one.`;
+    const hasConverge = (view.candidates || []).some((candidate) => candidate.role === "converge-frontier");
+    status.textContent = hasConverge
+      ? `${view.producedCount} exact previews ready · slot 6 is the history-aware CONVERGE frontier.`
+      : `${view.producedCount} exact previews ready${shortfall}. Choose one.`;
     mutate.disabled = true;
+    converge.disabled = true;
     use.disabled = true;
   }
 
@@ -247,15 +256,21 @@
     }
   }
 
-  async function mutateSix() {
+  async function mutateSix(useConverge = false) {
     if (busy || !family || selectedIndex === null) return;
-    setBusy(true, "Mutating unlocked axes and compiling exact descendants…");
+    setBusy(
+      true,
+      useConverge
+        ? "CONVERGE: finding one lawful underexplored frontier and compiling descendants…"
+        : "Mutating unlocked axes and compiling exact descendants…",
+    );
     try {
       renderFamily(await api.mutateCandidates({
-        ...configFor("mutate"),
+        ...configFor(useConverge ? "converge" : "mutate"),
         familyHash: family.familyHash,
         parentIndex: selectedIndex,
         locks: selectedLocks(),
+        converge: useConverge,
       }));
     } catch (error) {
       status.textContent = error?.message || String(error);
@@ -287,7 +302,8 @@
     if (!family && songIsReady()) generateSix();
   });
   regenerate.addEventListener("click", generateSix);
-  mutate.addEventListener("click", mutateSix);
+  mutate.addEventListener("click", () => mutateSix(false));
+  converge.addEventListener("click", () => mutateSix(true));
   use.addEventListener("click", useSelected);
   for (const close of modal.querySelectorAll("[data-candidate-close]")) close.addEventListener("click", closeModal);
   window.addEventListener("keydown", (event) => {
