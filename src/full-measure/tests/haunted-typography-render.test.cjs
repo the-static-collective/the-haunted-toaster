@@ -4,8 +4,10 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const {
+  LYRIC_PRIMARY_COLOUR,
   applyTypographyToAss,
   caseAssText,
+  integrateLyricAssStyle,
   resolveOverlayTypography,
   typographyContextForTimeline,
 } = require("../src/render/haunted-typography-render.cjs");
@@ -29,7 +31,8 @@ const lyricGhostPlan = {
 test("candidate N preview plan hash equals accepted winner final-render plan hash", () => {
   const acceptedTimeline = {
     rendererPolicy: "visual-language-v1",
-    rendererProfileHash: "038e450ee3e74062991174a2dcf41bb58c70fb90a7e3a5391c52cc18b081015d",
+    rendererProfileHash:
+      "038e450ee3e74062991174a2dcf41bb58c70fb90a7e3a5391c52cc18b081015d",
   };
   const previewContext = typographyContextForTimeline(
     "htvs1_wire_orchard_candidate_4",
@@ -56,8 +59,19 @@ test("candidate N preview plan hash equals accepted winner final-render plan has
   });
 
   assert.equal(previewPlan.hash, finalPlan.hash);
-  assert.deepEqual(typographyEvidence(previewPlan), typographyEvidence(finalPlan));
+  assert.equal(
+    previewPlan.lineage.childSeedSha256,
+    finalPlan.lineage.childSeedSha256,
+  );
+  assert.deepEqual(
+    typographyEvidence(previewPlan),
+    typographyEvidence(finalPlan),
+  );
   assert.equal(typographyEvidence(finalPlan).planSha256, finalPlan.hash);
+  assert.equal(
+    typographyEvidence(finalPlan).rootCandidateIdentity,
+    "htvs1_wire_orchard_candidate_4",
+  );
 });
 
 test("candidate score identity changes the plan while profile and words stay fixed", () => {
@@ -78,6 +92,21 @@ test("candidate score identity changes the plan while profile and words stay fix
     ...typographyContextForTimeline("candidate-b", timeline),
   });
   assert.notEqual(first.hash, second.hash);
+  assert.notEqual(first.lineage.childSeedSha256, second.lineage.childSeedSha256);
+});
+
+test("lyric ASS style removes the box and keeps text at 80% visibility", () => {
+  const source =
+    "Style: Lyrics,Arial,48,&H00FFFFFF,&H00FFFFFF,&H90000000,&H96000000,-1,0,0,0,100,100,0,0,3,1.2,1.5,2,80,80,310,1";
+  const output = integrateLyricAssStyle(source);
+  const fields = output.split(",");
+
+  assert.equal(fields[3], LYRIC_PRIMARY_COLOUR);
+  assert.equal(fields[4], LYRIC_PRIMARY_COLOUR);
+  assert.equal(fields[6], "&H96000000");
+  assert.equal(fields[15], "1");
+  assert.equal(fields[16], "1.2");
+  assert.equal(fields[17], "1.5");
 });
 
 test("ASS morphology is applied after legacy event overrides without damaging line breaks", () => {
@@ -91,6 +120,8 @@ test("ASS morphology is applied after legacy event overrides without damaging li
     profileIdentity: "profile-a",
   });
   const source = [
+    "[V4+ Styles]",
+    "Style: Lyrics,Arial,48,&H00FFFFFF,&H00FFFFFF,&H90000000,&H96000000,-1,0,0,0,100,100,0,0,3,1.2,1.5,2,80,80,310,1",
     "[Events]",
     "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
     "Dialogue: 0,0:00:00.00,0:00:07.00,Title,,0,0,0,,{\\fad(220,380)}Wire Orchard",
@@ -99,6 +130,8 @@ test("ASS morphology is applied after legacy event overrides without damaging li
   ].join("\n");
   const output = applyTypographyToAss(source, plan);
 
+  assert.match(output, /Style: Lyrics,Arial,48,&H33FFFFFF,&H33FFFFFF/);
+  assert.match(output, /,1,1\.2,1\.5,2,80,80,310,1/);
   assert.match(output, /\\fad\(220,380\)\}\{\\fscx/);
   assert.match(output, /\\pos\(100,100\).*\}\{\\fscx/);
   assert.match(output, /\\fs48\\fad\(140,180\)\}\{\\fscx/);
