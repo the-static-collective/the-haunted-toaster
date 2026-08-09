@@ -18,7 +18,21 @@ function receiptPathFor(outputPath) {
   return path.join(parsed.dir, `${parsed.name}.video-receipt.json`);
 }
 
+function buildProvenance() {
+  // Lazy loading avoids a renderer/build-capabilities CommonJS cycle while
+  // still stamping the exact build identity at the point the receipt exists.
+  const buildInfo = require("../build-info.cjs");
+  return Object.freeze({
+    version: buildInfo.version,
+    commit: buildInfo.commit,
+    dirty: Boolean(buildInfo.dirty),
+    builtAt: buildInfo.builtAt || null,
+    sourceMode: Boolean(buildInfo.sourceMode),
+  });
+}
+
 async function writeReceipt(receipt, outputPath) {
+  receipt.build = buildProvenance();
   const receiptPath = receiptPathFor(outputPath);
   await fsPromises.writeFile(
     receiptPath,
@@ -29,6 +43,7 @@ async function writeReceipt(receipt, outputPath) {
 }
 
 module.exports = {
+  buildProvenance,
   hashFile,
   receiptPathFor,
   writeReceipt,
