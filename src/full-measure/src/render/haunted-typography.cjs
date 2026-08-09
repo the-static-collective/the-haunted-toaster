@@ -190,9 +190,11 @@ function resolveHauntedTypography({
   title = "",
   artist = "",
   cues = [],
+  ghosts = [],
 } = {}) {
   const context = { scoreIdentity, profileIdentity };
   const normalizedCues = Array.isArray(cues) ? cues : [];
+  const normalizedGhosts = Array.isArray(ghosts) ? ghosts : [];
   const titleTreatment = cleanText(title)
     ? resolveTreatment("title", title, 0, context)
     : null;
@@ -201,6 +203,9 @@ function resolveHauntedTypography({
     : null;
   const cueTreatments = normalizedCues.map((cue, index) =>
     resolveTreatment("lyric", cue?.text ?? cue, index, context),
+  );
+  const ghostTreatments = normalizedGhosts.map((ghost, index) =>
+    resolveTreatment("ghost", ghost?.text ?? ghost, index, context),
   );
 
   const body = {
@@ -211,11 +216,29 @@ function resolveHauntedTypography({
     title: titleTreatment,
     artist: artistTreatment,
     cues: cueTreatments,
+    ghosts: ghostTreatments,
   };
 
   return Object.freeze({
     ...body,
     hash: hashValue(body),
+  });
+}
+
+function typographyEvidence(plan) {
+  if (!plan) return null;
+  const specimens = [
+    plan.title,
+    plan.artist,
+    ...(plan.cues || []),
+    ...(plan.ghosts || []),
+  ].filter(Boolean);
+  const specimenIds = [...new Set(specimens.map((item) => item.treatmentId))].sort();
+  return Object.freeze({
+    policyVersion: plan.policyVersion,
+    vocabularyId: plan.vocabularyId,
+    specimenIds: Object.freeze(specimenIds),
+    planSha256: plan.hash,
   });
 }
 
@@ -261,4 +284,5 @@ module.exports = {
   assOverride,
   hashValue,
   resolveHauntedTypography,
+  typographyEvidence,
 };
