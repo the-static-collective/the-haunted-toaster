@@ -9,6 +9,14 @@
     document.body.append(script);
   }
 
+  function loadStartingFieldHierarchy() {
+    if (document.querySelector('script[data-starting-field="active"]')) return;
+    const script = document.createElement("script");
+    script.src = "./starting-field-ui.js";
+    script.dataset.startingField = "active";
+    document.body.append(script);
+  }
+
   function editorIsActive() {
     const dialog = document.querySelector("#syncDialog");
     const editor = document.querySelector("#syncEditor");
@@ -60,5 +68,6 @@
     }
   });
 
+  loadStartingFieldHierarchy();
   loadLyricFoundry();
 })();
