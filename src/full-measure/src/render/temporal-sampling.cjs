@@ -49,9 +49,25 @@ function resolveTemporalSampling(innerCadence, outerCadence = "30/1") {
   });
 }
 
+function applyTemporalSamplingToGraph(graph, innerCadence, outerCadence = "30/1") {
+  const policy = resolveTemporalSampling(innerCadence, outerCadence);
+  if (!policy) return Object.freeze({ graph, policy: null });
+  const marker = "[timelineFinal]ass=";
+  const markerIndex = graph.indexOf(marker);
+  if (markerIndex < 0) {
+    throw new Error("Production filter graph is missing the post-visual subtitle seam.");
+  }
+  const cadence = `[timelineFinal]${policy.ffmpegInnerFilter},${policy.ffmpegOuterFilter}[cadencedField];\n[cadencedField]ass=`;
+  return Object.freeze({
+    graph: `${graph.slice(0, markerIndex)}${cadence}${graph.slice(markerIndex + marker.length)}`,
+    policy,
+  });
+}
+
 module.exports = {
   HOLD_POLICY,
   INNER_CADENCE_23976,
+  applyTemporalSamplingToGraph,
   innerStateIndexForOutputFrame,
   rational,
   resolveTemporalSampling,
