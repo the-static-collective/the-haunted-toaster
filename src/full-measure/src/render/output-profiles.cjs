@@ -39,13 +39,34 @@ const OUTPUT_PROFILES = Object.freeze({
     }),
     movflags: "+faststart",
   }),
+  efficient: Object.freeze({
+    id: "efficient",
+    label: "Efficient HEVC 1080p30",
+    container: "mp4",
+    video: Object.freeze({
+      encoder: "libx265",
+      codec: "hevc",
+      preset: "medium",
+      crf: 25,
+      profile: null,
+      level: null,
+      pixelFormat: "yuv420p",
+      codecTag: "hvc1",
+    }),
+    audio: Object.freeze({
+      mode: "aac-encode",
+      codec: "aac",
+      bitrate: "320k",
+    }),
+    movflags: "+faststart",
+  }),
 });
 
 function getOutputProfile(profileId = "delivery") {
   const normalized = String(profileId || "delivery").trim().toLowerCase();
   const profile = OUTPUT_PROFILES[normalized];
   if (!profile) {
-    throw new Error(`Unknown output profile: ${profileId}. Expected master or delivery.`);
+    throw new Error(`Unknown output profile: ${profileId}. Expected master, delivery, or efficient.`);
   }
   return profile;
 }
@@ -62,6 +83,19 @@ function resolveProfileAudioPlan(profile, sourceAudioPlan) {
   return sourceAudioPlan;
 }
 
+function videoEncodingArgs(profile) {
+  const args = [
+    "-c:v", profile.video.encoder,
+    "-preset", profile.video.preset,
+    "-crf", String(profile.video.crf),
+  ];
+  if (profile.video.profile) args.push("-profile:v", profile.video.profile);
+  if (profile.video.level) args.push("-level", profile.video.level);
+  args.push("-pix_fmt", profile.video.pixelFormat);
+  if (profile.video.codecTag) args.push("-tag:v", profile.video.codecTag);
+  return args;
+}
+
 function transportReceipt(profile, audioPlan) {
   return {
     profileId: profile.id,
@@ -74,6 +108,7 @@ function transportReceipt(profile, audioPlan) {
       profile: profile.video.profile,
       level: profile.video.level,
       pixelFormat: profile.video.pixelFormat,
+      codecTag: profile.video.codecTag || null,
     },
     audio: {
       mode: audioPlan.mode,
@@ -88,5 +123,6 @@ module.exports = {
   OUTPUT_PROFILES,
   getOutputProfile,
   resolveProfileAudioPlan,
+  videoEncodingArgs,
   transportReceipt,
 };
