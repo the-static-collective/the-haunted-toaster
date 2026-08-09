@@ -1,12 +1,46 @@
-const { resolveFieldEnvelope } = require("./field-envelope.cjs");
+const {
+  PRODUCTION_WAVE_SEAM,
+  TOPOLOGY_COMPILERS,
+  compileProductionTopology,
+  frozenTopology,
+} = require("./topology-compilers.cjs");
+const {
+  LEGACY_RENDERER_POLICY,
+  VISUAL_LANGUAGE_RENDERER_POLICY,
+} = require("../generation/renderer-policy.cjs");
 
-const SUPPORTED_TOPOLOGIES = new Set(["linear", "circle", "mirrored-ring"]);
-const SUPPORTED_MOTION_GRAMMARS = new Set(["still", "drift", "pulse", "orbit", "fracture"]);
-const SUPPORTED_PALETTE_LOGICS = new Set(["garment", "analogous", "split-complement", "duotone"]);
-const SUPPORTED_MATERIAL_TEXTURES = new Set(["clean", "grain", "photocopy", "gate-weave"]);
-const SUPPORTED_CAMERA_GRAMMARS = new Set(["locked", "drift", "push", "orbit"]);
+const SEMANTIC_COMPILER_REGISTRIES = Object.freeze({
+  motion: Object.freeze({
+    still: "motion-still-v1",
+    drift: "motion-drift-v1",
+    pulse: "motion-pulse-v1",
+    orbit: "motion-orbit-v1",
+    fracture: "motion-fracture-v1",
+  }),
+  palette: Object.freeze({
+    garment: "palette-garment-v1",
+    analogous: "palette-analogous-v1",
+    "split-complement": "palette-split-complement-v1",
+    duotone: "palette-duotone-v1",
+  }),
+  material: Object.freeze({
+    clean: "material-clean-v1",
+    grain: "material-grain-v1",
+    photocopy: "material-photocopy-v1",
+    "gate-weave": "material-gate-weave-v1",
+  }),
+  camera: Object.freeze({
+    locked: "camera-locked-v1",
+    drift: "camera-drift-v1",
+    push: "camera-push-v1",
+    orbit: "camera-orbit-v1",
+  }),
+});
 
-const PRODUCTION_WAVE_SEAM = /\[waveAudio\]showwaves=s=(\d+)x(\d+):mode=cline:rate=([0-9.]+):[^;\n]+\[wave\];\n\[wave\]pad=(\d+):(\d+):0:(\d+):color=black@0\.0\[waveFull\]/;
+const SUPPORTED_MOTION_GRAMMARS = new Set(Object.keys(SEMANTIC_COMPILER_REGISTRIES.motion));
+const SUPPORTED_PALETTE_LOGICS = new Set(Object.keys(SEMANTIC_COMPILER_REGISTRIES.palette));
+const SUPPORTED_MATERIAL_TEXTURES = new Set(Object.keys(SEMANTIC_COMPILER_REGISTRIES.material));
+const SUPPORTED_CAMERA_GRAMMARS = new Set(Object.keys(SEMANTIC_COMPILER_REGISTRIES.camera));
 
 function quantize(value, places = 6) {
   const scale = 10 ** places;
@@ -57,17 +91,12 @@ function productionFrameGeometry(graph) {
   });
 }
 
-function frozenTopology(execution) {
-  const topology = execution?.timeline?.baseState?.topology;
-  if (!SUPPORTED_TOPOLOGIES.has(topology)) {
-    throw new TypeError(`Unsupported ResolvedTimeline topology: ${String(topology)}.`);
+function rendererPolicyForTimeline(timeline) {
+  if (!timeline?.rendererPolicy) return LEGACY_RENDERER_POLICY;
+  if (timeline.rendererPolicy !== VISUAL_LANGUAGE_RENDERER_POLICY) {
+    throw new TypeError(`Unsupported ResolvedTimeline renderer policy: ${String(timeline.rendererPolicy)}.`);
   }
-  for (const segment of execution.segments || []) {
-    if (segment.state?.topology !== topology) {
-      throw new Error("ResolvedTimeline topology must remain frozen for production execution.");
-    }
-  }
-  return topology;
+  return timeline.rendererPolicy;
 }
 
 function frozenSemanticGrammar(execution) {
@@ -117,98 +146,44 @@ function motionGrammarFilters(grammar, geometry) {
   const { width, height } = geometry;
   if (grammar === "still") return [];
   if (grammar === "drift") {
-    return [
-      geometryFilter(
-        width,
-        height,
-        1.045,
-        "(iw-ow)/2+sin(t*0.73)*(iw-ow)*0.34",
-        "(ih-oh)/2+cos(t*0.51)*(ih-oh)*0.34",
-      ),
-    ];
+    return [geometryFilter(width, height, 1.045, "(iw-ow)/2+sin(t*0.73)*(iw-ow)*0.34", "(ih-oh)/2+cos(t*0.51)*(ih-oh)*0.34")];
   }
   if (grammar === "pulse") {
-    return [
-      `scale=w='${width}*(1.035+0.018*sin(t*2.1))':h='${height}*(1.035+0.018*sin(t*2.1))':eval=frame,crop=${width}:${height}:x='(iw-ow)/2':y='(ih-oh)/2'`,
-    ];
+    return [`scale=w='${width}*(1.035+0.018*sin(t*2.1))':h='${height}*(1.035+0.018*sin(t*2.1))':eval=frame,crop=${width}:${height}:x='(iw-ow)/2':y='(ih-oh)/2'`];
   }
   if (grammar === "orbit") {
-    return [
-      geometryFilter(
-        width,
-        height,
-        1.08,
-        "(iw-ow)/2+sin(t*0.57)*(iw-ow)*0.43",
-        "(ih-oh)/2+cos(t*0.57)*(ih-oh)*0.43",
-      ),
-    ];
+    return [geometryFilter(width, height, 1.08, "(iw-ow)/2+sin(t*0.57)*(iw-ow)*0.43", "(ih-oh)/2+cos(t*0.57)*(ih-oh)*0.43")];
   }
-  return [
-    geometryFilter(
-      width,
-      height,
-      1.095,
-      "(iw-ow)/2+sin(t*6.2)*(iw-ow)*0.22+sin(t*13.7)*(iw-ow)*0.12",
-      "(ih-oh)/2+cos(t*5.1)*(ih-oh)*0.2+sin(t*11.3)*(ih-oh)*0.13",
-    ),
-  ];
+  return [geometryFilter(width, height, 1.095, "(iw-ow)/2+sin(t*6.2)*(iw-ow)*0.22+sin(t*13.7)*(iw-ow)*0.12", "(ih-oh)/2+cos(t*5.1)*(ih-oh)*0.2+sin(t*11.3)*(ih-oh)*0.13")];
 }
 
 function cameraGrammarFilters(grammar, geometry, duration) {
   const { width, height } = geometry;
   if (grammar === "locked") return [];
   if (grammar === "drift") {
-    return [
-      geometryFilter(
-        width,
-        height,
-        1.03,
-        "(iw-ow)/2+sin(t*0.19)*(iw-ow)*0.38",
-        "(ih-oh)/2+cos(t*0.16)*(ih-oh)*0.38",
-      ),
-    ];
+    return [geometryFilter(width, height, 1.03, "(iw-ow)/2+sin(t*0.19)*(iw-ow)*0.38", "(ih-oh)/2+cos(t*0.16)*(ih-oh)*0.38")];
   }
   if (grammar === "push") {
     const safeDuration = Math.max(0.1, Number(duration) || 0.1);
-    return [
-      `scale=w='${width}*(1.015+0.07*min(t/${ffmpegNumber(safeDuration)},1))':h='${height}*(1.015+0.07*min(t/${ffmpegNumber(safeDuration)},1))':eval=frame,crop=${width}:${height}:x='(iw-ow)/2':y='(ih-oh)/2'`,
-    ];
+    return [`scale=w='${width}*(1.015+0.07*min(t/${ffmpegNumber(safeDuration)},1))':h='${height}*(1.015+0.07*min(t/${ffmpegNumber(safeDuration)},1))':eval=frame,crop=${width}:${height}:x='(iw-ow)/2':y='(ih-oh)/2'`];
   }
-  return [
-    geometryFilter(
-      width,
-      height,
-      1.06,
-      "(iw-ow)/2+sin(t*0.24)*(iw-ow)*0.46",
-      "(ih-oh)/2+cos(t*0.24)*(ih-oh)*0.46",
-    ),
-  ];
+  return [geometryFilter(width, height, 1.06, "(iw-ow)/2+sin(t*0.24)*(iw-ow)*0.46", "(ih-oh)/2+cos(t*0.24)*(ih-oh)*0.46")];
 }
 
 function paletteGrammarFilters(logic) {
   if (logic === "garment") return [];
-  if (logic === "analogous") {
-    return ["hue=h=8:s=1.08"];
-  }
-  if (logic === "split-complement") {
-    return ["hue=h=-18:s=1.28", "eq=contrast=1.12"];
-  }
+  if (logic === "analogous") return ["hue=h=8:s=1.08"];
+  if (logic === "split-complement") return ["hue=h=-18:s=1.28", "eq=contrast=1.12"];
   return ["hue=s=0.28", "eq=contrast=1.2:gamma=0.94"];
 }
 
 function materialGrammarFilters(texture, state, geometry) {
   const imperfection = clamp(Number(state?.material?.imperfection) || 0, 0, 1);
   if (texture === "clean") return [];
-  if (texture === "grain") {
-    return [`noise=alls=${Math.round(4 + imperfection * 12)}:allf=t+u`];
-  }
+  if (texture === "grain") return [`noise=alls=${Math.round(4 + imperfection * 12)}:allf=t+u`];
   if (texture === "photocopy") {
     const contrast = quantize(1.28 + imperfection * 0.28, 3);
-    return [
-      "hue=s=0.18",
-      `eq=contrast=${ffmpegNumber(contrast)}:brightness=-0.035:gamma=0.92`,
-      "unsharp=5:5:0.8:3:3:0.2",
-    ];
+    return ["hue=s=0.18", `eq=contrast=${ffmpegNumber(contrast)}:brightness=-0.035:gamma=0.92`, "unsharp=5:5:0.8:3:3:0.2"];
   }
   const travel = quantize(1 + imperfection * 3, 3);
   const cropWidth = Math.max(2, geometry.width - 8);
@@ -229,60 +204,13 @@ function semanticGrammarFilters(execution, geometry) {
     ...paletteGrammarFilters(grammar.palette),
     ...materialGrammarFilters(grammar.material, state, geometry),
   ];
-  return Object.freeze({
-    ...grammar,
-    filters: Object.freeze(filters),
+  const compilers = Object.freeze({
+    motion: SEMANTIC_COMPILER_REGISTRIES.motion[grammar.motion],
+    palette: SEMANTIC_COMPILER_REGISTRIES.palette[grammar.palette],
+    material: SEMANTIC_COMPILER_REGISTRIES.material[grammar.material],
+    camera: SEMANTIC_COMPILER_REGISTRIES.camera[grammar.camera],
   });
-}
-
-function compileProductionTopology(graph, execution) {
-  const topology = frozenTopology(execution);
-  if (topology === "linear") return { graph, topology, fieldEnvelope: null };
-
-  const match = graph.match(PRODUCTION_WAVE_SEAM);
-  if (!match) {
-    throw new Error("Production filter graph is missing the canonical wave topology seam.");
-  }
-
-  const width = Number(match[4]);
-  const height = Number(match[5]);
-  const fps = Number(match[3]);
-  const baseState = execution.timeline.baseState;
-  const motion = baseState.motion || {};
-  const duration = Math.max(0.1, execution.durationTicks / execution.timebase);
-  const opacity = quantize(clamp(0.38 + (Number(motion.amplitude) || 0) * 0.5, 0.2, 0.95), 3);
-  const envelope = resolveFieldEnvelope(baseState, { width, height });
-  const scopeWidth = envelope.envelope.width;
-  const scopeHeight = envelope.envelope.height;
-  const expansion = envelope.safeExpansion.pixels;
-  const working = envelope.working;
-  const zoom = quantize(1.25 + (Number(motion.amplitude) || 0) * 1.15, 3);
-  const turns = topology === "mirrored-ring"
-    ? 0.55 + (Number(motion.variance) || 0)
-    : 0.25 + (Number(motion.variance) || 0) * 0.5;
-  const radians = quantize(turns * 2 * Math.PI);
-  const scopeFilter = `aformat=channel_layouts=stereo,avectorscope=s=${scopeWidth}x${scopeHeight}:mode=lissajous_xy:draw=line:scale=sqrt:zoom=${ffmpegNumber(zoom)}:rate=${ffmpegNumber(fps)},format=rgba,colorkey=black:0.08:0.0,colorchannelmixer=aa=${ffmpegNumber(opacity)}`;
-  const finish = [
-    `pad=${working.width}:${working.height}:${expansion}:${expansion}:color=black@0.0`,
-    `rotate='${ffmpegNumber(radians)}*t/${ffmpegNumber(duration)}':ow=iw:oh=ih:c=black@0`,
-    `pad=${working.stageWidth}:${working.stageHeight}:${working.stageX}:${working.stageY}:color=black@0.0`,
-    `crop=${width}:${height}:${working.cropX}:${working.cropY}`,
-  ].join(",");
-
-  const replacement = topology === "mirrored-ring"
-    ? [
-        "[waveAudio]asplit=2[scoreScopeA][scoreScopeB]",
-        `[scoreScopeA]${scopeFilter}[scoreRingA]`,
-        `[scoreScopeB]${scopeFilter},hflip[scoreRingB]`,
-        `[scoreRingA][scoreRingB]blend=all_mode=screen,${finish}[waveFull]`,
-      ].join(";\n")
-    : `[waveAudio]${scopeFilter},${finish}[waveFull]`;
-
-  return {
-    graph: graph.replace(PRODUCTION_WAVE_SEAM, replacement),
-    topology,
-    fieldEnvelope: envelope,
-  };
+  return Object.freeze({ ...grammar, filters: Object.freeze(filters), compilers });
 }
 
 function compileTimelineFilterGraph(graph, execution) {
@@ -314,22 +242,20 @@ function compileTimelineFilterGraph(graph, execution) {
     const values = rendererValues(segment.state);
     const output = `timeline${index + 1}`;
     const enable = `between(t,${ffmpegNumber(segment.startSeconds)},${ffmpegNumber(segment.endSeconds)})`;
-    filters.push(
-      `[${input}]hue=h=${ffmpegNumber(values.hue)}:s=${ffmpegNumber(values.saturation)}:enable='${enable}',eq=contrast=${ffmpegNumber(values.contrast)}:brightness=${ffmpegNumber(values.brightness)}:gamma=${ffmpegNumber(values.gamma)}:enable='${enable}'[${output}]`,
-    );
+    filters.push(`[${input}]hue=h=${ffmpegNumber(values.hue)}:s=${ffmpegNumber(values.saturation)}:enable='${enable}',eq=contrast=${ffmpegNumber(values.contrast)}:brightness=${ffmpegNumber(values.brightness)}:gamma=${ffmpegNumber(values.gamma)}:enable='${enable}'[${output}]`);
     input = output;
   });
 
-  if (!filters.length) {
-    filters.push("[stage0]null[timelineFinal]");
-  } else {
-    filters.push(`[${input}]null[timelineFinal]`);
-  }
+  if (!filters.length) filters.push("[stage0]null[timelineFinal]");
+  else filters.push(`[${input}]null[timelineFinal]`);
 
   return {
     graph: `${prefix}${filters.join(";\n")};\n${suffix}`,
+    rendererPolicy: rendererPolicyForTimeline(execution.timeline),
     topology: topologyCompiled.topology,
+    topologyCompiler: topologyCompiled.topologyCompiler,
     fieldEnvelope: topologyCompiled.fieldEnvelope,
+    geometry: topologyCompiled.geometry || geometry,
     semanticGrammar,
     segments: execution.segments.map((segment) => ({
       startTick: segment.startTick,
@@ -343,9 +269,13 @@ function compileTimelineFilterGraph(graph, execution) {
 }
 
 module.exports = {
+  SEMANTIC_COMPILER_REGISTRIES,
+  TOPOLOGY_COMPILERS,
   compileProductionTopology,
   compileTimelineFilterGraph,
   frozenSemanticGrammar,
+  frozenTopology,
+  rendererPolicyForTimeline,
   rendererValues,
   semanticGrammarFilters,
 };
