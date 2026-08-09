@@ -1,5 +1,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs/promises");
+const os = require("node:os");
+const path = require("node:path");
 
 const {
   GHOST_POLICY_VERSION,
@@ -7,6 +10,8 @@ const {
   extractCompostedFragments,
   resolveLyricGhostPlan,
 } = require("../src/render/lyric-ghosts.cjs");
+const { buildFilterGraph } = require("../src/render/render-legacy.cjs");
+const { getPreset } = require("../src/render/presets.cjs");
 
 test("extracts only explicit composted lyric material from rich lyric state", () => {
   const source = JSON.stringify({
@@ -68,4 +73,42 @@ test("plain lyrics do not silently become compost", () => {
   const plan = resolveLyricGhostPlan({ lyrics: "ordinary lyric line", duration: 10 });
   assert.equal(plan.apparitions.length, 0);
   assert.equal(plan.fragments.length, 0);
+});
+
+test("shared ASS overlay renders compost as Ghost events without admitting subtitle cues", async () => {
+  const tempDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "lyric-ghost-test-"));
+  try {
+    const lyrics = JSON.stringify({
+      resolution: [
+        { lineId: "truth", state: "aligned", start: 1, end: 2, text: "timed truth" },
+        { lineId: "lost", state: "composted", start: null, text: "lost in the house" },
+      ],
+    });
+    const filter = await buildFilterGraph({
+      tempDirectory,
+      analysis: {
+        filename: "fixture.wav",
+        duration: 12,
+        sections: [{ index: 0, label: "whole", start: 0, end: 12, energy: 0.5 }],
+      },
+      preset: getPreset("porchlight"),
+      title: "",
+      artist: "",
+      lyrics,
+      hasImage: false,
+      width: 1920,
+      height: 1080,
+      fps: 30,
+    });
+    const overlay = await fs.readFile(path.join(tempDirectory, "text-overlay.ass"), "utf8");
+
+    assert.equal(filter.lyricTrack.cues.some((cue) => cue.text === "lost in the house"), false);
+    assert.equal(filter.lyricGhostPlan.semanticTimingAuthority, "none");
+    assert.ok(filter.lyricGhostPlan.apparitions.length > 0);
+    assert.match(overlay, /Style: Ghost/);
+    assert.match(overlay, /,Ghost,/);
+    assert.match(overlay, /lost|house/);
+  } finally {
+    await fs.rm(tempDirectory, { recursive: true, force: true });
+  }
 });
