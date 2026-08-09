@@ -210,7 +210,13 @@ function semanticGrammarFilters(execution, geometry) {
     material: SEMANTIC_COMPILER_REGISTRIES.material[grammar.material],
     camera: SEMANTIC_COMPILER_REGISTRIES.camera[grammar.camera],
   });
-  return Object.freeze({ ...grammar, filters: Object.freeze(filters), compilers });
+  const operators = Object.freeze([
+    Object.freeze({ axis: "motion", value: grammar.motion, compiler: compilers.motion }),
+    Object.freeze({ axis: "material", value: grammar.material, compiler: compilers.material }),
+    Object.freeze({ axis: "camera", value: grammar.camera, compiler: compilers.camera }),
+    Object.freeze({ axis: "palette", value: grammar.palette, compiler: compilers.palette }),
+  ]);
+  return Object.freeze({ ...grammar, filters: Object.freeze(filters), compilers, operators });
 }
 
 function compileTimelineFilterGraph(graph, execution) {
@@ -257,6 +263,7 @@ function compileTimelineFilterGraph(graph, execution) {
     fieldEnvelope: topologyCompiled.fieldEnvelope,
     geometry: topologyCompiled.geometry || geometry,
     semanticGrammar,
+    operators: semanticGrammar.operators,
     segments: execution.segments.map((segment) => ({
       startTick: segment.startTick,
       endTick: segment.endTick,
