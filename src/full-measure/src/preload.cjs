@@ -44,10 +44,13 @@ function subscribe(channel, callback) {
   return () => ipcRenderer.removeListener(channel, listener);
 }
 
-function withLabInfluence(config = {}) {
+function withCreativeInfluence(config = {}) {
+  const control =
+    document.querySelector("#useCreativeImport") ||
+    document.querySelector("#useLabProposal");
   return {
     ...config,
-    useLabProposal: Boolean(document.querySelector("#useLabProposal")?.checked),
+    useCreativeImport: Boolean(control?.checked),
   };
 }
 
@@ -121,9 +124,13 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   autoSyncLyrics: (config) => ipcRenderer.invoke("lyrics:auto-sync", config),
   cancelLyricSync: () => ipcRenderer.invoke("lyrics:cancel-sync"),
   generateCandidates: (config) =>
-    ipcRenderer.invoke("candidate:generate", withLabInfluence(config)),
-  stageLabProposal: (transfer) => ipcRenderer.invoke("candidate:stage-lab-proposal", transfer),
-  importLabProposal: (config) => ipcRenderer.invoke("candidate:import-lab-proposal", config),
+    ipcRenderer.invoke("candidate:generate", withCreativeInfluence(config)),
+  stageCreativeImport: (input) =>
+    ipcRenderer.invoke("candidate:stage-creative-import", input),
+  stageLabProposal: (transfer) =>
+    ipcRenderer.invoke("candidate:stage-lab-proposal", transfer),
+  importLabProposal: (config) =>
+    ipcRenderer.invoke("candidate:import-lab-proposal", config),
   mutateCandidates: (config) => ipcRenderer.invoke("candidate:mutate", config),
   selectCandidate: (config) => ipcRenderer.invoke("candidate:select", config),
   clearCandidates: () => ipcRenderer.invoke("candidate:clear"),
