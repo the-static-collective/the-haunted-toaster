@@ -14,6 +14,12 @@ window.addEventListener("DOMContentLoaded", () => {
   const renderHeading = document.querySelector("#renderHeading");
   if (renderHeading) renderHeading.textContent = "Make the full video";
 
+  const listenCloser = document.querySelector("#lyricsAutoSync");
+  if (listenCloser) {
+    listenCloser.textContent = "Listen Closer";
+    listenCloser.title = "Optional · help the Toaster place lyrics more precisely";
+  }
+
   const candidateStyle = document.createElement("link");
   candidateStyle.rel = "stylesheet";
   candidateStyle.href = "./candidate-ui.css";
@@ -26,6 +32,10 @@ window.addEventListener("DOMContentLoaded", () => {
   const labProposalScript = document.createElement("script");
   labProposalScript.src = "./lab-proposal-ui.js";
   document.body.append(labProposalScript);
+
+  const lyricFoundryScript = document.createElement("script");
+  lyricFoundryScript.src = "./lyric-foundry-ui.js";
+  document.body.append(lyricFoundryScript);
 });
 
 function subscribe(channel, callback) {
@@ -38,6 +48,30 @@ function withLabInfluence(config = {}) {
   return {
     ...config,
     useLabProposal: Boolean(document.querySelector("#useLabProposal")?.checked),
+  };
+}
+
+async function withLyricFoundry(config = {}) {
+  const lyrics = String(config.lyrics || "");
+  if (!lyrics.trim()) return config;
+
+  const summary = await ipcRenderer.invoke("lyrics:inspect", lyrics, 86_400);
+  if (summary?.timed) return config;
+
+  return {
+    ...config,
+    // Plain/unresolved lyric text is evidence, not canonical timing truth.
+    // Until it has admitted timing, do not send it into the legacy parser that
+    // distributes lines across the song and makes synthetic times look real.
+    lyrics: "",
+    lyricProvenance: {
+      ...(config.lyricProvenance || {}),
+      mode: "prepared-unresolved",
+      policyVersion: "lyric-prep/v1",
+      preparedPhraseCount: Number(summary?.cueCount) || 0,
+      unresolvedCount: Number(summary?.cueCount) || 0,
+      semanticTimingAuthority: "none",
+    },
   };
 }
 
@@ -72,7 +106,8 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   selectCandidate: (config) => ipcRenderer.invoke("candidate:select", config),
   clearCandidates: () => ipcRenderer.invoke("candidate:clear"),
   clearCandidateImage: () => ipcRenderer.invoke("candidate:clear-image"),
-  startRender: (config) => ipcRenderer.invoke("render:start", config),
+  startRender: async (config) =>
+    ipcRenderer.invoke("render:start", await withLyricFoundry(config)),
   cancelRender: () => ipcRenderer.invoke("render:cancel"),
   revealFile: (filePath) => ipcRenderer.invoke("shell:reveal", filePath),
   openFile: (filePath) => ipcRenderer.invoke("shell:open", filePath),
