@@ -155,6 +155,9 @@ function countAlignment(cues, lineCount, transcriptEntryCount, anchors, windows)
   };
   const matchedCount = lineCount - counts.unmatched;
   const reviewCount = counts.medium + counts.low + counts.unmatched;
+  const monotonicAnchors = anchors.every(
+    (anchor, index) => index === 0 || anchor.time > anchors[index - 1].time,
+  );
 
   return {
     cues,
@@ -168,6 +171,7 @@ function countAlignment(cues, lineCount, transcriptEntryCount, anchors, windows)
     anchorGuided: {
       policyVersion: ANCHOR_GUIDED_POLICY_VERSION,
       anchorCount: anchors.length,
+      monotonicAnchors,
       windows,
     },
   };
@@ -191,6 +195,13 @@ function alignLyricsToTranscriptWithAnchors(
     unmatchedCue(lineIndex, lines[lineIndex]),
   );
   for (const anchor of anchors) cues[anchor.lineIndex] = anchorCue(anchor);
+
+  const monotonicAnchors = anchors.every(
+    (anchor, index) => index === 0 || anchor.time > anchors[index - 1].time,
+  );
+  if (!monotonicAnchors) {
+    return countAlignment(cues, lines.length, entries.length, anchors, []);
+  }
 
   const windows = [];
   let previousLine = -1;
