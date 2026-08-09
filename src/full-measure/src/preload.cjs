@@ -51,12 +51,34 @@ function withLabInfluence(config = {}) {
   };
 }
 
+function foundryEvidenceFromDom() {
+  const input = document.querySelector("#lyricsInput");
+  if (!input?.dataset?.lyricFoundryMode) return null;
+  return {
+    mode: input.dataset.lyricFoundryMode,
+    policyVersion: "lyric-prep/v1",
+    placedCount: Number(input.dataset.lyricFoundryPlacedCount) || 0,
+    unresolvedCount: Number(input.dataset.lyricFoundryUnresolvedCount) || 0,
+    humanAnchorCount: Number(input.dataset.lyricFoundryHumanAnchorCount) || 0,
+    semanticTimingAuthority: "admitted-only",
+  };
+}
+
 async function withLyricFoundry(config = {}) {
   const lyrics = String(config.lyrics || "");
-  if (!lyrics.trim()) return config;
+  const foundryEvidence = foundryEvidenceFromDom();
+  const lyricProvenance = foundryEvidence
+    ? { ...(config.lyricProvenance || {}), ...foundryEvidence }
+    : config.lyricProvenance;
+
+  if (!lyrics.trim()) {
+    return { ...config, lyricProvenance };
+  }
 
   const summary = await ipcRenderer.invoke("lyrics:inspect", lyrics, 86_400);
-  if (summary?.timed) return config;
+  if (summary?.timed) {
+    return { ...config, lyricProvenance };
+  }
 
   return {
     ...config,
@@ -65,7 +87,7 @@ async function withLyricFoundry(config = {}) {
     // distributes lines across the song and makes synthetic times look real.
     lyrics: "",
     lyricProvenance: {
-      ...(config.lyricProvenance || {}),
+      ...(lyricProvenance || {}),
       mode: "prepared-unresolved",
       policyVersion: "lyric-prep/v1",
       preparedPhraseCount: Number(summary?.cueCount) || 0,
