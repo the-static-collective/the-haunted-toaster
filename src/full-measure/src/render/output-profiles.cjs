@@ -3,40 +3,26 @@ const OUTPUT_PROFILES = Object.freeze({
     id: "master",
     label: "Master",
     container: "mp4",
-    video: Object.freeze({
-      encoder: "libx264",
-      codec: "h264",
-      preset: "medium",
-      crf: 19,
-      profile: "high",
-      level: "4.2",
-      pixelFormat: "yuv420p",
-    }),
-    audio: Object.freeze({
-      mode: "preserve-portable-source",
-      codec: "source-or-aac",
-      bitrate: "320k",
-    }),
+    video: Object.freeze({ encoder: "libx264", codec: "h264", preset: "medium", crf: 19, profile: "high", level: "4.2", pixelFormat: "yuv420p" }),
+    audio: Object.freeze({ mode: "preserve-portable-source", codec: "source-or-aac", bitrate: "320k" }),
     movflags: "+faststart",
   }),
   delivery: Object.freeze({
     id: "delivery",
     label: "Delivery 1080p30",
     container: "mp4",
-    video: Object.freeze({
-      encoder: "libx264",
-      codec: "h264",
-      preset: "medium",
-      crf: 23,
-      profile: "high",
-      level: "4.2",
-      pixelFormat: "yuv420p",
-    }),
-    audio: Object.freeze({
-      mode: "aac-encode",
-      codec: "aac",
-      bitrate: "320k",
-    }),
+    video: Object.freeze({ encoder: "libx264", codec: "h264", preset: "medium", crf: 23, profile: "high", level: "4.2", pixelFormat: "yuv420p" }),
+    audio: Object.freeze({ mode: "aac-encode", codec: "aac", bitrate: "320k" }),
+    movflags: "+faststart",
+  }),
+  efficient: Object.freeze({
+    id: "efficient",
+    label: "Efficient HEVC 1080p30 (experimental)",
+    container: "mp4",
+    // Initial empirical HEVC transport point. This is downstream transport evidence,
+    // not creative authority and not a permanent compatibility claim.
+    video: Object.freeze({ encoder: "libx265", codec: "hevc", preset: "medium", crf: 25, profile: "main", level: "4.1", pixelFormat: "yuv420p" }),
+    audio: Object.freeze({ mode: "aac-encode", codec: "aac", bitrate: "320k" }),
     movflags: "+faststart",
   }),
 });
@@ -44,9 +30,7 @@ const OUTPUT_PROFILES = Object.freeze({
 function getOutputProfile(profileId = "delivery") {
   const normalized = String(profileId || "delivery").trim().toLowerCase();
   const profile = OUTPUT_PROFILES[normalized];
-  if (!profile) {
-    throw new Error(`Unknown output profile: ${profileId}. Expected master or delivery.`);
-  }
+  if (!profile) throw new Error(`Unknown output profile: ${profileId}. Expected master, delivery, or efficient.`);
   return profile;
 }
 
@@ -84,9 +68,4 @@ function transportReceipt(profile, audioPlan) {
   };
 }
 
-module.exports = {
-  OUTPUT_PROFILES,
-  getOutputProfile,
-  resolveProfileAudioPlan,
-  transportReceipt,
-};
+module.exports = { OUTPUT_PROFILES, getOutputProfile, resolveProfileAudioPlan, transportReceipt };
