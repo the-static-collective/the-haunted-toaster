@@ -1,6 +1,7 @@
 const crypto = require("node:crypto");
 
-const TYPOGRAPHY_POLICY_VERSION = "haunted-typography/v1";
+const TYPOGRAPHY_POLICY_VERSION = "haunted-typography/v2";
+const TYPOGRAPHY_DOMAIN = "typography";
 
 const TREATMENTS = Object.freeze([
   Object.freeze({
@@ -148,20 +149,41 @@ function unitFromHash(hash, offset = 0) {
   return parseInt(hash.slice(start, start + 8), 16) / 0xffffffff;
 }
 
+function deriveTypographyLineage({
+  scoreIdentity = null,
+  profileIdentity = null,
+} = {}) {
+  const rootCandidateIdentity = scoreIdentity || null;
+  const normalizedProfileIdentity = profileIdentity || null;
+  const childSeedSha256 = hashValue({
+    domain: TYPOGRAPHY_DOMAIN,
+    policyVersion: TYPOGRAPHY_POLICY_VERSION,
+    rootCandidateIdentity,
+    profileIdentity: normalizedProfileIdentity,
+  });
+  return Object.freeze({
+    domain: TYPOGRAPHY_DOMAIN,
+    rootCandidateIdentity,
+    profileIdentity: normalizedProfileIdentity,
+    childSeedSha256,
+  });
+}
+
 function treatmentFor(identity) {
   const hash = hashValue(identity);
-  const index = Math.floor(unitFromHash(hash, 0) * TREATMENTS.length) % TREATMENTS.length;
+  const index =
+    Math.floor(unitFromHash(hash, 0) * TREATMENTS.length) % TREATMENTS.length;
   return TREATMENTS[index];
 }
 
 function resolveTreatment(role, text, index, context) {
   const identity = {
     policyVersion: TYPOGRAPHY_POLICY_VERSION,
+    domain: TYPOGRAPHY_DOMAIN,
+    childSeedSha256: context.lineage.childSeedSha256,
     role,
     text: cleanText(text),
     index,
-    scoreIdentity: context.scoreIdentity || null,
-    profileIdentity: context.profileIdentity || null,
   };
   const treatment = treatmentFor(identity);
   return Object.freeze({
@@ -192,7 +214,8 @@ function resolveHauntedTypography({
   cues = [],
   ghosts = [],
 } = {}) {
-  const context = { scoreIdentity, profileIdentity };
+  const lineage = deriveTypographyLineage({ scoreIdentity, profileIdentity });
+  const context = { lineage };
   const normalizedCues = Array.isArray(cues) ? cues : [];
   const normalizedGhosts = Array.isArray(ghosts) ? ghosts : [];
   const titleTreatment = cleanText(title)
@@ -213,6 +236,7 @@ function resolveHauntedTypography({
     vocabularyId: `${TYPOGRAPHY_POLICY_VERSION}:morphology-8`,
     scoreIdentity,
     profileIdentity,
+    lineage,
     title: titleTreatment,
     artist: artistTreatment,
     cues: cueTreatments,
@@ -233,10 +257,16 @@ function typographyEvidence(plan) {
     ...(plan.cues || []),
     ...(plan.ghosts || []),
   ].filter(Boolean);
-  const specimenIds = [...new Set(specimens.map((item) => item.treatmentId))].sort();
+  const specimenIds = [
+    ...new Set(specimens.map((item) => item.treatmentId)),
+  ].sort();
   return Object.freeze({
     policyVersion: plan.policyVersion,
     vocabularyId: plan.vocabularyId,
+    domain: plan.lineage?.domain || TYPOGRAPHY_DOMAIN,
+    rootCandidateIdentity:
+      plan.lineage?.rootCandidateIdentity ?? plan.scoreIdentity ?? null,
+    childSeedSha256: plan.lineage?.childSeedSha256 || null,
     specimenIds: Object.freeze(specimenIds),
     planSha256: plan.hash,
   });
@@ -251,7 +281,9 @@ function applyCaseMode(text, mode) {
     return [...value]
       .map((character) => {
         if (!/[A-Za-z]/.test(character)) return character;
-        const next = uppercase ? character.toUpperCase() : character.toLowerCase();
+        const next = uppercase
+          ? character.toUpperCase()
+          : character.toLowerCase();
         uppercase = !uppercase;
         return next;
       })
@@ -278,10 +310,12 @@ function assOverride(treatment, extra = "") {
 }
 
 module.exports = {
+  TYPOGRAPHY_DOMAIN,
   TYPOGRAPHY_POLICY_VERSION,
   TREATMENTS,
   applyCaseMode,
   assOverride,
+  deriveTypographyLineage,
   hashValue,
   resolveHauntedTypography,
   typographyEvidence,
