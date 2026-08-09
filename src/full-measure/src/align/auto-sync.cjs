@@ -7,6 +7,10 @@ const {
   extractLyricLines,
 } = require("./matcher.cjs");
 const {
+  alignLyricsToTranscriptWithAnchors,
+  unpackAnchorEnvelope,
+} = require("./anchor-guided.cjs");
+const {
   MODEL_ID,
   WHISPER_CPP_VERSION,
   listenerPackStatus,
@@ -72,7 +76,8 @@ async function readWhisperOutput(prefix) {
 
 async function autoSyncLyrics(config, hooks = {}) {
   const audioPath = path.resolve(config.audioPath);
-  const lyrics = String(config.lyrics || "");
+  const envelope = unpackAnchorEnvelope(config.lyrics);
+  const lyrics = envelope.lyrics;
   const lines = extractLyricLines(lyrics);
   if (!lines.length) {
     throw new Error("Paste the known lyrics before asking the toaster to listen.");
@@ -164,12 +169,22 @@ async function autoSyncLyrics(config, hooks = {}) {
     )
       ? Math.max(-2, Math.min(2, Number(config.placementLeadSeconds)))
       : DEFAULT_PLACEMENT_LEAD_SECONDS;
-    const alignment = alignLyricsToTranscript(
-      lyrics,
-      transcript,
-      Number(config.duration) || 0,
-      { leadSeconds: placementLeadSeconds },
-    );
+    const alignment = envelope.anchors.length
+      ? alignLyricsToTranscriptWithAnchors(
+          lyrics,
+          transcript,
+          Number(config.duration) || 0,
+          {
+            leadSeconds: placementLeadSeconds,
+            anchors: envelope.anchors,
+          },
+        )
+      : alignLyricsToTranscript(
+          lyrics,
+          transcript,
+          Number(config.duration) || 0,
+          { leadSeconds: placementLeadSeconds },
+        );
     if (!alignment.transcriptEntryCount) {
       throw new Error(
         "The listener did not detect usable vocals in this mix. Keep the lyrics, use tap-sync, or try a vocal stem.",
