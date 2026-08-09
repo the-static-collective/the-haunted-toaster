@@ -19,6 +19,10 @@ const {
 } = require("./timeline-execution.cjs");
 const { compileTimelineFilterGraph } = require("./timeline-filter.cjs");
 const {
+  INNER_CADENCE_23976,
+  applyTemporalSamplingToGraph,
+} = require("./temporal-sampling.cjs");
+const {
   assertScoreTimelineBinding,
   removeCanonicalExecutionSidecars,
   removeSubtitleSidecars,
@@ -111,20 +115,26 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       fps,
     });
     const compiledTimeline = compileTimelineFilterGraph(baseFilter.graph, execution);
+    const temporalSampling = applyTemporalSamplingToGraph(
+      compiledTimeline.graph,
+      INNER_CADENCE_23976,
+      `${fps}/1`,
+    );
     const visualCompiler = Object.freeze({
       policy: compiledTimeline.rendererPolicy,
       topology: compiledTimeline.topology,
       topologyCompiler: compiledTimeline.topologyCompiler,
       fieldEnvelopePolicy: compiledTimeline.fieldEnvelope?.policy || null,
       operators: compiledTimeline.operators,
+      temporalSampling: temporalSampling.policy,
       graphSha256: crypto
         .createHash("sha256")
-        .update(compiledTimeline.graph, "utf8")
+        .update(temporalSampling.graph, "utf8")
         .digest("hex"),
     });
     const filter = {
       ...baseFilter,
-      graph: compiledTimeline.graph,
+      graph: temporalSampling.graph,
       timelineSegments: compiledTimeline.segments,
       visualCompiler,
     };
