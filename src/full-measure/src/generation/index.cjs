@@ -6,6 +6,7 @@ module.exports = {
   ...require("./resolver.cjs"),
   ...require("./operations.cjs"),
   ...require("./candidate-family.cjs"),
+  ...require("./converge-frontier.cjs"),
   ...require("./diversity-engine.cjs"),
   ...require("./visible-distance.cjs"),
   ...require("./visible-diversity-engine.cjs"),
