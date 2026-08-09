@@ -1,6 +1,14 @@
 (() => {
   const SCRUB_SECONDS = 0.1;
 
+  function loadLyricFoundry() {
+    if (document.querySelector('script[data-lyric-foundry="active"]')) return;
+    const script = document.createElement("script");
+    script.src = "./lyric-foundry-ui.js";
+    script.dataset.lyricFoundry = "active";
+    document.body.append(script);
+  }
+
   function editorIsActive() {
     const dialog = document.querySelector("#syncDialog");
     const editor = document.querySelector("#syncEditor");
@@ -51,4 +59,6 @@
       scrubPlayhead(event.code === "ArrowLeft" ? -1 : 1);
     }
   });
+
+  loadLyricFoundry();
 })();

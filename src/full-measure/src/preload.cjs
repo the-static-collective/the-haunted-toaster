@@ -76,10 +76,6 @@ window.addEventListener("DOMContentLoaded", () => {
   const labProposalScript = document.createElement("script");
   labProposalScript.src = "./lab-proposal-ui.js";
   document.body.append(labProposalScript);
-
-  const lyricFoundryScript = document.createElement("script");
-  lyricFoundryScript.src = "./lyric-foundry-ui.js";
-  document.body.append(lyricFoundryScript);
 });
 
 function subscribe(channel, callback) {
