@@ -1,0 +1,32 @@
+name: Temporary build identity lock sync
+
+on:
+  push:
+    branches:
+      - agent/build-identity-71
+
+permissions:
+  contents: write
+
+jobs:
+  sync-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Regenerate lock metadata from package identity
+        run: npm --prefix src/full-measure install --package-lock-only --ignore-scripts
+      - name: Commit lockfile if changed
+        shell: bash
+        run: |
+          if git diff --quiet -- src/full-measure/package-lock.json; then
+            echo "Lockfile already synchronized."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/full-measure/package-lock.json
+          git commit -m "Sync package lock to alpha.4 (#71)"
+          git push
