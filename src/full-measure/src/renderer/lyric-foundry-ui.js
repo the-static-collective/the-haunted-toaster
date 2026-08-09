@@ -37,7 +37,15 @@
   function refreshMainLyricTruth() {
     if (!timingPill || !lyricsInput) return;
 
-    if (timingPill.textContent === "Approximate") {
+    if (lyricsInput.dataset.lyricFoundryMode === "listened-partial") {
+      const placed = Number(lyricsInput.dataset.lyricFoundryPlacedCount) || 0;
+      const unresolved = Number(lyricsInput.dataset.lyricFoundryUnresolvedCount) || 0;
+      timingPill.textContent = `Listened · ${placed} placed · ${unresolved} unresolved`;
+      if (countLabel) countLabel.textContent = "admitted timed cues";
+      if (statusText) {
+        statusText.textContent = "Create uses only admitted timing. Unresolved phrases remain unresolved.";
+      }
+    } else if (timingPill.textContent === "Approximate") {
       const count = phraseCount();
       timingPill.textContent = `Prepared · ${count} phrase${count === 1 ? "" : "s"}`;
       if (countLabel) countLabel.textContent = "timing unresolved";
