@@ -1,6 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
+const { deriveBuildCapabilities } = require("../src/build-capabilities.cjs");
 
 const root = path.resolve(__dirname, "..");
 const outputPath = path.join(root, "src", "build-info.cjs");
@@ -20,18 +21,16 @@ function gitValue(args) {
 const packageInfo = require(path.join(root, "package.json"));
 const commit = process.env.GITHUB_SHA || gitValue(["rev-parse", "--short=12", "HEAD"]);
 const builtAt = new Date().toISOString();
+const derived = deriveBuildCapabilities();
 const info = {
   version: packageInfo.version,
   commit,
   builtAt,
   sourceMode: false,
-  rendererProfileGeneration: "toaster-raster-1",
-  capabilities: [
-    "labProposalInfluenceToggle",
-    "deliveryProfile",
-    "boundedFieldEnvelopeV1",
-    "visualLanguageV2",
-  ],
+  rendererProfileGeneration: derived.rendererProfileGeneration,
+  capabilities: [...derived.capabilities],
+  topologyCompilers: derived.topologyCompilers,
+  semanticCompilers: derived.semanticCompilers,
 };
 
 fs.writeFileSync(
