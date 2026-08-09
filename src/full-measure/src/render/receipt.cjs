@@ -2,6 +2,7 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const fsPromises = require("node:fs/promises");
 const path = require("node:path");
+const buildInfo = require("../build-info.cjs");
 
 async function hashFile(filePath) {
   return new Promise((resolve, reject) => {
@@ -18,7 +19,18 @@ function receiptPathFor(outputPath) {
   return path.join(parsed.dir, `${parsed.name}.video-receipt.json`);
 }
 
+function buildProvenance() {
+  return Object.freeze({
+    version: buildInfo.version,
+    commit: buildInfo.commit,
+    dirty: Boolean(buildInfo.dirty),
+    builtAt: buildInfo.builtAt || null,
+    sourceMode: Boolean(buildInfo.sourceMode),
+  });
+}
+
 async function writeReceipt(receipt, outputPath) {
+  receipt.build = buildProvenance();
   const receiptPath = receiptPathFor(outputPath);
   await fsPromises.writeFile(
     receiptPath,
@@ -29,6 +41,7 @@ async function writeReceipt(receipt, outputPath) {
 }
 
 module.exports = {
+  buildProvenance,
   hashFile,
   receiptPathFor,
   writeReceipt,
