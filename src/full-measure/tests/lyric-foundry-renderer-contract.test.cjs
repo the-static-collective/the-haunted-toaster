@@ -57,9 +57,19 @@ test("Listener completion admits placed cues without requiring every line", () =
   assert.match(foundryUi, /syncEditorClose\?\.click\(\)/);
 });
 
-test("explicit human anchors survive re-listening", () => {
+test("Listen Again keeps human timing evidence and no longer presents a destructive contract", () => {
   assert.match(foundryUi, /collectHumanAnchors/);
-  assert.match(foundryUi, /pendingHumanAnchors = collectHumanAnchors\(\)/);
+  assert.match(foundryUi, /const sliderTime = Number\(row\.querySelector\("\.cue-slider"\)\?\.value\)/);
+  assert.match(foundryUi, /cueIndex: Number\(row\.dataset\.cueIndex\)/);
+  assert.match(foundryUi, /Number\(candidate\.dataset\.cueIndex\) === anchor\.cueIndex/);
   assert.match(foundryUi, /input\.dispatchEvent\(new Event\("change"/);
+  assert.match(
+    foundryUi,
+    /Re-listen around what you have already anchored\. Your human timing edits will be kept\./,
+  );
+  assert.match(
+    foundryUi,
+    /pendingHumanAnchors = collectHumanAnchors\(\);\s+\n\s+\/\/ Re-listening refreshes machine evidence/,
+  );
   assert.match(foundryUi, /window\.confirm = \(\) => true/);
 });
