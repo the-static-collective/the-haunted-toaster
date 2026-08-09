@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const {
   HOLD_POLICY,
   INNER_CADENCE_23976,
+  applyTemporalSamplingToGraph,
   innerStateIndexForOutputFrame,
   resolveTemporalSampling,
 } = require("../src/render/temporal-sampling.cjs");
@@ -34,6 +35,27 @@ test("sampling policy records exact outer and inner cadence plus hold semantics"
     ffmpegInnerFilter: "fps=fps=24000/1001:round=down",
     ffmpegOuterFilter: "fps=fps=30/1:round=down",
   });
+});
+
+test("visual cadence is restored to 30fps before lyrics are applied", () => {
+  const result = applyTemporalSamplingToGraph(
+    "[stage0]null[timelineFinal];\n[timelineFinal]ass=lyrics.ass[vout]",
+    INNER_CADENCE_23976,
+    "30/1",
+  );
+  assert.equal(result.policy.outerCadence, "30/1");
+  assert.equal(result.policy.innerCadence, INNER_CADENCE_23976);
+  assert.match(
+    result.graph,
+    /\[timelineFinal\]fps=fps=24000\/1001:round=down,fps=fps=30\/1:round=down\[cadencedField\];\n\[cadencedField\]ass=lyrics\.ass\[vout\]/,
+  );
+});
+
+test("temporal sampling refuses graphs without the post-visual lyric seam", () => {
+  assert.throws(
+    () => applyTemporalSamplingToGraph("[timelineFinal]null[vout]", INNER_CADENCE_23976),
+    /post-visual subtitle seam/,
+  );
 });
 
 test("sampling policy refuses decimal cadence approximations", () => {
