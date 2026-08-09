@@ -9,12 +9,16 @@ const {
   createTimelineExecution,
 } = require("./timeline-execution.cjs");
 const { compileTimelineFilterGraph } = require("./timeline-filter.cjs");
+const {
+  INNER_CADENCE_23976,
+  applyTemporalSamplingToGraph,
+} = require("./temporal-sampling.cjs");
 const { createTimelinePreview } = require("./timeline-preview.cjs");
 const { resolveFfmpeg, runProcess } = require("./tooling.cjs");
 
 const PREVIEW_WIDTH = 480;
 const PREVIEW_HEIGHT = 270;
-const PREVIEW_FPS = 12;
+const PREVIEW_FPS = 30;
 const PREVIEW_SAMPLE_SECONDS = 2;
 
 function previewSampleFor(candidate) {
@@ -102,9 +106,14 @@ async function renderCandidateFamilyPreviews(config, family, hooks = {}) {
       const execution = createTimelineExecution(candidate.timeline);
       assertTimelineDuration(execution.timeline, analysis.duration);
       const compiled = compileTimelineFilterGraph(baseFilter.graph, execution);
+      const temporalSampling = applyTemporalSamplingToGraph(
+        compiled.graph,
+        INNER_CADENCE_23976,
+        `${fps}/1`,
+      );
       const filterPath = path.join(tempDirectory, `candidate-${candidate.index}.ffgraph`);
       const outputPath = path.join(tempDirectory, `candidate-${candidate.index}.png`);
-      await fs.writeFile(filterPath, `${compiled.graph}\n`, "utf8");
+      await fs.writeFile(filterPath, `${temporalSampling.graph}\n`, "utf8");
 
       const args = [
         "-y",
@@ -150,6 +159,7 @@ async function renderCandidateFamilyPreviews(config, family, hooks = {}) {
       const bytes = await fs.readFile(outputPath);
       previews.push(Object.freeze({
         ...plan,
+        temporalSampling: temporalSampling.policy,
         thumbnailDataUrl: `data:image/png;base64,${bytes.toString("base64")}`,
       }));
     }
