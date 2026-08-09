@@ -41,7 +41,7 @@ test("Open Field is explicit in generation and rendering instead of falling thro
 test("starting-field UX keeps named garments as optional ancestors", () => {
   assert.match(preload, /Choose a starting field/);
   assert.match(preload, /Begin open, or inherit an ancestral garment\./);
-  assert.match(preload, /data-preset=\\"openField\\"/);
+  assert.match(preload, /card\.dataset\.preset = "openField"/);
   assert.match(preload, /ancestors, not walls/);
   assert.match(preload, /withSelectedStartingField/);
 });
