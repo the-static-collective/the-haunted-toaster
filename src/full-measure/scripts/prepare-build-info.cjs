@@ -24,6 +24,7 @@ const info = {
   version: packageInfo.version,
   commit,
   builtAt,
+  sourceMode: false,
   rendererProfileGeneration: "toaster-raster-1",
   capabilities: [
     "labProposalInfluenceToggle",

@@ -1239,7 +1239,10 @@ function selectCueForTime(cues, timestampSeconds, mediaDuration) {
         ? info.capabilities.join(", ")
         : "source mode / no packaged capability manifest";
       elements.buildInfoSummary.textContent = `Build ${info.version} · ${info.commit}`;
-      elements.buildInfoDetails.textContent = `Built ${info.builtAt} · ${info.rendererProfileGeneration} · ${capabilities}`;
+      const provenance = info.sourceMode || !info.builtAt
+        ? "Source checkout (not a packaged build)"
+        : `Built ${info.builtAt}`;
+      elements.buildInfoDetails.textContent = `${provenance} · ${info.rendererProfileGeneration} · ${capabilities}`;
     })
     .catch(() => {
       elements.buildInfoDetails.textContent = "Build provenance unavailable.";

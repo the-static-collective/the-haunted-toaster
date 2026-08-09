@@ -1,8 +1,11 @@
-// This placeholder serves source-mode launches. Packaging replaces it from the actual source tree.
+// Source-mode provenance. Packaging replaces this file with a witnessed build manifest.
+const packageInfo = require("../package.json");
+
 module.exports = Object.freeze({
-  version: "unknown",
-  commit: "unknown",
-  builtAt: "unknown",
+  version: packageInfo.version,
+  commit: "source",
+  builtAt: null,
+  sourceMode: true,
   rendererProfileGeneration: "toaster-raster-1",
   capabilities: [],
 });
