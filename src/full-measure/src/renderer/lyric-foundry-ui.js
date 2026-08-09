@@ -15,6 +15,7 @@
 
   let pendingHumanAnchors = [];
   let restoringAnchors = false;
+  let acceptingPartial = false;
 
   function parseDisplayedTime(value) {
     const normalized = String(value || "").trim().replace(",", ".");
@@ -100,35 +101,56 @@
   }
 
   async function acceptPartialListening(event) {
+    const acceptButton = event.target?.closest?.("#syncAccept");
+    if (acceptButton !== syncAccept) return;
+
     const missing = unresolvedCount();
     if (!missing) return;
 
+    // Intercept before the legacy target listener sees the click. The base
+    // renderer still rejects any alignment with an unplaced cue; Foundry law
+    // admits useful partial timing instead.
     event.preventDefault();
+    event.stopPropagation();
     event.stopImmediatePropagation();
+    if (acceptingPartial) return;
+    acceptingPartial = true;
 
     const placed = collectPlacedCues();
     const title = document.querySelector("#titleInput")?.value?.trim() || "";
     const artist = document.querySelector("#artistInput")?.value?.trim() || "";
     const humanCount = placed.filter((cue) => cue.status === "human").length;
 
-    const lrc = await api.formatLrc({
-      cues: placed,
-      title,
-      artist,
-      note: `${placed.length} admitted placements · ${missing} unresolved · ${humanCount} human anchors`,
-    });
+    try {
+      lyricsInput.dataset.lyricFoundryMode = "listened-partial";
+      lyricsInput.dataset.lyricFoundryPlacedCount = String(placed.length);
+      lyricsInput.dataset.lyricFoundryUnresolvedCount = String(missing);
+      lyricsInput.dataset.lyricFoundryHumanAnchorCount = String(humanCount);
 
-    lyricsInput.value = lrc;
-    lyricsInput.dataset.lyricFoundryMode = "listened-partial";
-    lyricsInput.dataset.lyricFoundryPlacedCount = String(placed.length);
-    lyricsInput.dataset.lyricFoundryUnresolvedCount = String(missing);
-    lyricsInput.dataset.lyricFoundryHumanAnchorCount = String(humanCount);
-    lyricsInput.dispatchEvent(new Event("input", { bubbles: true }));
+      if (placed.length) {
+        const lrc = await api.formatLrc({
+          cues: placed,
+          title,
+          artist,
+          note: `${placed.length} admitted placements · ${missing} unresolved · ${humanCount} human anchors`,
+        });
+        lyricsInput.value = lrc;
+        lyricsInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }
 
-    if (syncSaveNote) {
-      syncSaveNote.textContent = `${placed.length} placed · ${missing} unresolved. Only admitted timing will render.`;
+      if (syncSaveNote) {
+        syncSaveNote.textContent = `${placed.length} placed · ${missing} unresolved. Only admitted timing will render.`;
+      }
+      refreshMainLyricTruth();
+      syncEditorClose?.click();
+    } catch (error) {
+      if (syncSaveNote) {
+        syncSaveNote.textContent = `Could not admit the reviewed timing: ${error?.message || error}`;
+      }
+    } finally {
+      acceptingPartial = false;
+      refreshAcceptLaw();
     }
-    syncEditorClose?.click();
   }
 
   function restoreHumanAnchors() {
@@ -172,7 +194,7 @@
       restoreHumanAnchors();
     }).observe(cueList, { childList: true, subtree: true });
 
-  syncAccept?.addEventListener("click", acceptPartialListening, true);
+  document.addEventListener("click", acceptPartialListening, true);
 
   relisten?.addEventListener(
     "click",

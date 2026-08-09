@@ -44,9 +44,17 @@ test("renderer presents listening as optional precision work", () => {
 test("Listener completion admits placed cues without requiring every line", () => {
   assert.match(foundryUi, /syncAccept\.disabled = false/);
   assert.match(foundryUi, /syncAccept\.textContent = "Use what we know"/);
+  assert.match(
+    foundryUi,
+    /document\.addEventListener\("click", acceptPartialListening, true\)/,
+  );
+  assert.match(foundryUi, /event\.stopPropagation\(\)/);
+  assert.match(foundryUi, /event\.stopImmediatePropagation\(\)/);
   assert.match(foundryUi, /\.filter\(\(cue\) => cue\.text && Number\.isFinite\(cue\.start\)\)/);
+  assert.match(foundryUi, /if \(placed\.length\)/);
   assert.match(foundryUi, /lyricFoundryUnresolvedCount/);
   assert.match(foundryUi, /Only admitted timing will render/);
+  assert.match(foundryUi, /syncEditorClose\?\.click\(\)/);
 });
 
 test("explicit human anchors survive re-listening", () => {
