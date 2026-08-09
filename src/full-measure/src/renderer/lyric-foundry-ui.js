@@ -67,12 +67,19 @@
     return [...(cueList?.querySelectorAll(".cue-row") || [])];
   }
 
+  function preciseRowTime(row) {
+    const sliderTime = Number(row.querySelector(".cue-slider")?.value);
+    if (Number.isFinite(sliderTime)) return sliderTime;
+    return parseDisplayedTime(row.querySelector(".cue-time")?.value);
+  }
+
   function collectHumanAnchors() {
     return rows()
       .filter((row) => row.dataset.status === "human")
       .map((row) => ({
+        cueIndex: Number(row.dataset.cueIndex),
         text: row.querySelector(".cue-copy strong")?.textContent || "",
-        time: parseDisplayedTime(row.querySelector(".cue-time")?.value),
+        time: preciseRowTime(row),
       }))
       .filter((anchor) => anchor.text && Number.isFinite(anchor.time));
   }
@@ -162,10 +169,19 @@
     try {
       let restored = 0;
       for (const anchor of pendingHumanAnchors) {
-        const row = currentRows.find(
-          (candidate) =>
-            candidate.querySelector(".cue-copy strong")?.textContent === anchor.text,
-        );
+        const indexedRow = Number.isInteger(anchor.cueIndex)
+          ? currentRows.find(
+              (candidate) =>
+                Number(candidate.dataset.cueIndex) === anchor.cueIndex &&
+                candidate.querySelector(".cue-copy strong")?.textContent === anchor.text,
+            )
+          : null;
+        const row =
+          indexedRow ||
+          currentRows.find(
+            (candidate) =>
+              candidate.querySelector(".cue-copy strong")?.textContent === anchor.text,
+          );
         const input = row?.querySelector(".cue-time");
         if (!input) continue;
         input.value = String(anchor.time);
@@ -196,14 +212,19 @@
 
   document.addEventListener("click", acceptPartialListening, true);
 
+  if (relisten) {
+    relisten.title =
+      "Re-listen around what you have already anchored. Your human timing edits will be kept.";
+  }
+
   relisten?.addEventListener(
     "click",
     () => {
       pendingHumanAnchors = collectHumanAnchors();
-      if (!pendingHumanAnchors.length) return;
 
-      // The renderer's old confirmation claims re-listening discards edits.
-      // #62 changes that law: explicit human anchors survive the fresh pass.
+      // Re-listening refreshes machine evidence, but human timing evidence is
+      // durable. Suppress the legacy destructive warning for every re-listen;
+      // any collected human anchors are restored after the fresh pass renders.
       const originalConfirm = window.confirm;
       window.confirm = () => true;
       queueMicrotask(() => {
