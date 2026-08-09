@@ -1,0 +1,1 @@
+Draft implementation note: the pure haunted typography resolver is present, but renderer and six-up wiring must land before this branch is mergeable. See docs/haunted-typography-v1.md.
