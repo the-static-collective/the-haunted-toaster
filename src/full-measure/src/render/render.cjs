@@ -8,6 +8,10 @@ const { inspectAudio, probeMedia } = require("./analyze.cjs");
 const { getPreset } = require("./presets.cjs");
 const { hashFile, writeReceipt } = require("./receipt.cjs");
 const {
+  buildHauntedFilterGraph,
+  typographyContextForTimeline,
+} = require("./haunted-typography-render.cjs");
+const {
   getOutputProfile,
   resolveProfileAudioPlan,
   transportReceipt,
@@ -96,13 +100,17 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
     const execution = createTimelineExecution(config.resolvedTimeline);
     assertTimelineDuration(execution.timeline, analysis.duration);
     const scoreAddress = assertScoreTimelineBinding(config.visualScore, execution.timeline);
+    const typographyContext = typographyContextForTimeline(
+      scoreAddress,
+      execution.timeline,
+    );
 
     const sourceHash = await hashFile(audioPath);
     const proceduralPath = path.join(tempDirectory, "garment.ppm");
     await createProceduralPpm(proceduralPath, preset);
 
     hooks.onPhase?.("weaving", "Weaving the resolved visual timeline…");
-    const baseFilter = await legacy.buildFilterGraph({
+    const baseFilter = await buildHauntedFilterGraph({
       tempDirectory,
       analysis,
       preset,
@@ -113,6 +121,7 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       width,
       height,
       fps,
+      ...typographyContext,
     });
     const compiledTimeline = compileTimelineFilterGraph(baseFilter.graph, execution);
     const temporalSampling = applyTemporalSamplingToGraph(
@@ -242,6 +251,7 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
         title: title || path.parse(analysis.filename).name,
         artist: artist || null,
         garment: { id: preset.id, name: preset.name },
+        typography: filter.typographyEvidence,
         userImage: imagePath ? path.basename(imagePath) : null,
         wordsIncluded: filter.lyricTrack.cues.length > 0 || filter.lyricGhostPlan.apparitions.length > 0,
         wordLineCount: filter.lyricTrack.lines.length,
