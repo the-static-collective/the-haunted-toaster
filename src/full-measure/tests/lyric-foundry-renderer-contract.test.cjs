@@ -5,6 +5,14 @@ const test = require("node:test");
 
 const root = path.resolve(__dirname, "..");
 const preload = fs.readFileSync(path.join(root, "src", "preload.cjs"), "utf8");
+const rendererHtml = fs.readFileSync(
+  path.join(root, "src", "renderer", "index.html"),
+  "utf8",
+);
+const syncKeyboard = fs.readFileSync(
+  path.join(root, "src", "renderer", "sync-keyboard.js"),
+  "utf8",
+);
 const foundryUi = fs.readFileSync(
   path.join(root, "src", "renderer", "lyric-foundry-ui.js"),
   "utf8",
@@ -16,6 +24,14 @@ test("plain lyric evidence cannot enter render as synthetic canonical timing", (
   assert.match(preload, /lyrics: ""/);
   assert.match(preload, /mode: "prepared-unresolved"/);
   assert.match(preload, /semanticTimingAuthority: "none"/);
+});
+
+test("production renderer actually activates the Lyric Foundry review policy", () => {
+  assert.match(rendererHtml, /<script src="\.\/app\.js"><\/script>/);
+  assert.match(rendererHtml, /<script src="\.\/sync-keyboard\.js"><\/script>/);
+  assert.match(syncKeyboard, /script\.src = "\.\/lyric-foundry-ui\.js"/);
+  assert.match(syncKeyboard, /loadLyricFoundry\(\)/);
+  assert.doesNotMatch(preload, /lyricFoundryScript\.src/);
 });
 
 test("renderer presents listening as optional precision work", () => {
