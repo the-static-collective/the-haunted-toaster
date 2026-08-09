@@ -19,10 +19,6 @@ const {
 } = require("./timeline-execution.cjs");
 const { compileTimelineFilterGraph } = require("./timeline-filter.cjs");
 const {
-  INNER_CADENCE_23976,
-  applyTemporalSamplingToGraph,
-} = require("./temporal-sampling.cjs");
-const {
   assertScoreTimelineBinding,
   removeCanonicalExecutionSidecars,
   removeSubtitleSidecars,
@@ -115,26 +111,20 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       fps,
     });
     const compiledTimeline = compileTimelineFilterGraph(baseFilter.graph, execution);
-    const temporalSampling = applyTemporalSamplingToGraph(
-      compiledTimeline.graph,
-      INNER_CADENCE_23976,
-      `${fps}/1`,
-    );
     const visualCompiler = Object.freeze({
       policy: compiledTimeline.rendererPolicy,
       topology: compiledTimeline.topology,
       topologyCompiler: compiledTimeline.topologyCompiler,
       fieldEnvelopePolicy: compiledTimeline.fieldEnvelope?.policy || null,
       operators: compiledTimeline.operators,
-      temporalSampling: temporalSampling.policy,
       graphSha256: crypto
         .createHash("sha256")
-        .update(temporalSampling.graph, "utf8")
+        .update(compiledTimeline.graph, "utf8")
         .digest("hex"),
     });
     const filter = {
       ...baseFilter,
-      graph: temporalSampling.graph,
+      graph: compiledTimeline.graph,
       timelineSegments: compiledTimeline.segments,
       visualCompiler,
     };
@@ -243,8 +233,17 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
         artist: artist || null,
         garment: { id: preset.id, name: preset.name },
         userImage: imagePath ? path.basename(imagePath) : null,
-        wordsIncluded: filter.lyricTrack.cues.length > 0,
+        wordsIncluded: filter.lyricTrack.cues.length > 0 || filter.lyricGhostPlan.apparitions.length > 0,
         wordLineCount: filter.lyricTrack.lines.length,
+        lyricGhosts: filter.lyricGhostPlan.apparitions.length
+          ? {
+              policyVersion: filter.lyricGhostPlan.policyVersion,
+              semanticTimingAuthority: filter.lyricGhostPlan.semanticTimingAuthority,
+              fragmentCount: filter.lyricGhostPlan.fragments.length,
+              apparitionCount: filter.lyricGhostPlan.apparitions.length,
+              planSha256: filter.lyricGhostPlan.hash,
+            }
+          : null,
         wordTiming:
           filter.lyricTrack.mode === "evenly-distributed"
             ? "evenly-distributed-alpha-cues"

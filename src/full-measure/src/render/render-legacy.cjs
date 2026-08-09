@@ -8,6 +8,7 @@ const {
   createLyricTrack,
   normalizeLyrics,
 } = require("./lyrics.cjs");
+const { resolveLyricGhostPlan } = require("./lyric-ghosts.cjs");
 const { getPreset } = require("./presets.cjs");
 const { hashFile, writeReceipt } = require("./receipt.cjs");
 const { resolveFfmpeg, runProcess } = require("./tooling.cjs");
@@ -108,9 +109,6 @@ function assText(value) {
     .replace(/\r?\n/g, "\\N");
 }
 
-
-
-
 function assEvent(start, end, style, text, override = "") {
   let startCenti = Math.max(0, Math.round(Number(start) * 100));
   let endCenti = Math.max(startCenti + 1, Math.round(Number(end) * 100));
@@ -141,19 +139,38 @@ function assEvent(start, end, style, text, override = "") {
   ].join(",");
 }
 
-async function writeAssOverlay({
+function ghostOverride(apparition, width, height) {
+  const x = Math.round(width * apparition.x);
+  const y = Math.round(height * apparition.y);
+  const scale = Math.round(apparition.scale * 100);
+  const alpha = Math.max(0, Math.min(255, Math.round((1 - apparition.opacity) * 255)))
+    .toString(16)
+    .toUpperCase()
+    .padStart(2, "0");
+  const common = `\\pos(${x},${y})\\frz${apparition.rotationDegrees}\\fscx${scale}\\fscy${scale}\\alpha&H${alpha}&`;
+  if (apparition.treatmentId === "photocopy-flash") {
+    return `{${common}\\bord3\\shad0\\blur0.2}`;
+  }
+  if (apparition.treatmentId === "fragment-smear") {
+    return `{${common}\\fax0.18\\blur3.2\\bord0}`;
+  }
+  return `{${common}\\move(${x},${y},${Math.round(x + width * 0.035)},${Math.round(y - height * 0.018)})\\blur1.4}`;
+}
 
+async function writeAssOverlay({
   tempDirectory,
   analysis,
   title,
   artist,
   lyricTrack,
+  lyricGhostPlan,
   width,
   height,
 }) {
   const titleSize = Math.round(height * 0.044);
   const artistSize = Math.round(height * 0.021);
   const lyricSize = Math.round(height * 0.043);
+  const ghostSize = Math.round(height * 0.052);
   const markSize = Math.round(height * 0.014);
   const titleEnd = Math.min(7, analysis.duration);
   const events = [
@@ -172,6 +189,17 @@ async function writeAssOverlay({
     );
   }
 
+  for (const apparition of lyricGhostPlan?.apparitions || []) {
+    events.push(
+      assEvent(
+        apparition.start,
+        apparition.end,
+        "Ghost",
+        apparition.text,
+        ghostOverride(apparition, width, height),
+      ),
+    );
+  }
 
   for (let i = 0; i < lyricTrack.cues.length; i++) {
     const cue = lyricTrack.cues[i];
@@ -233,6 +261,7 @@ async function writeAssOverlay({
     `Style: Lyrics,Arial,${lyricSize},&H00FFFFFF,&H00FFFFFF,&H90000000,&H96000000,-1,0,0,0,100,100,0,0,3,1.2,1.5,2,${Math.round(
       width * 0.08,
     )},${Math.round(width * 0.08)},${Math.round(height * 0.31)},1`,
+    `Style: Ghost,Arial,${ghostSize},&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,-1,0,0,0,100,100,1.6,0,1,0,0,5,0,0,0,1`,
     `Style: Mark,Arial,${markSize},&H77FFFFFF,&H77FFFFFF,&HAA000000,&H00000000,0,0,0,0,100,100,0.5,0,1,0.8,1,3,20,${Math.round(
       width * 0.026,
     )},${Math.round(height * 0.026)},1`,
@@ -308,12 +337,18 @@ async function buildFilterGraph({
   );
 
   const lyricTrack = createLyricTrack(lyrics, analysis.duration);
+  const lyricGhostPlan = resolveLyricGhostPlan({
+    lyrics,
+    duration: analysis.duration,
+    sections: analysis.sections,
+  });
   const subtitleFile = await writeAssOverlay({
     tempDirectory,
     analysis,
     title,
     artist,
     lyricTrack,
+    lyricGhostPlan,
     width,
     height,
   });
@@ -325,6 +360,7 @@ async function buildFilterGraph({
     graph: filters.join(";\n"),
     lyricLines: lyricTrack.lines,
     lyricTrack,
+    lyricGhostPlan,
   };
 }
 
@@ -536,8 +572,17 @@ async function renderVideo(config, hooks = {}) {
           name: preset.name,
         },
         userImage: imagePath ? path.basename(imagePath) : null,
-        wordsIncluded: filter.lyricTrack.cues.length > 0,
+        wordsIncluded: filter.lyricTrack.cues.length > 0 || filter.lyricGhostPlan.apparitions.length > 0,
         wordLineCount: filter.lyricTrack.lines.length,
+        lyricGhosts: filter.lyricGhostPlan.apparitions.length
+          ? {
+              policyVersion: filter.lyricGhostPlan.policyVersion,
+              semanticTimingAuthority: filter.lyricGhostPlan.semanticTimingAuthority,
+              fragmentCount: filter.lyricGhostPlan.fragments.length,
+              apparitionCount: filter.lyricGhostPlan.apparitions.length,
+              planSha256: filter.lyricGhostPlan.hash,
+            }
+          : null,
         wordTiming:
           filter.lyricTrack.mode === "evenly-distributed"
             ? "evenly-distributed-alpha-cues"
