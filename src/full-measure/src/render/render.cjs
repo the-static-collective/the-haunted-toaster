@@ -109,10 +109,22 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       fps,
     });
     const compiledTimeline = compileTimelineFilterGraph(baseFilter.graph, execution);
+    const visualCompiler = Object.freeze({
+      policy: compiledTimeline.rendererPolicy,
+      topology: compiledTimeline.topology,
+      topologyCompiler: compiledTimeline.topologyCompiler,
+      fieldEnvelopePolicy: compiledTimeline.fieldEnvelope?.policy || null,
+      operators: compiledTimeline.operators,
+      graphSha256: crypto
+        .createHash("sha256")
+        .update(compiledTimeline.graph, "utf8")
+        .digest("hex"),
+    });
     const filter = {
       ...baseFilter,
       graph: compiledTimeline.graph,
       timelineSegments: compiledTimeline.segments,
+      visualCompiler,
     };
     const filterPath = path.join(tempDirectory, "render.ffgraph");
     await fs.writeFile(filterPath, `${filter.graph}\n`, "utf8");
@@ -205,6 +217,7 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
         analysisHash: execution.timeline.analysisHash || null,
         constraintsHash: execution.timeline.constraintsHash || null,
         rendererProfileHash: execution.timeline.rendererProfileHash || null,
+        rendererPolicy: execution.timeline.rendererPolicy || null,
         scoreSidecar: path.basename(sidecars.scorePath),
         timelineSidecar: path.basename(sidecars.timelinePath),
       },
@@ -247,6 +260,7 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
         framesPerSecond: fps,
         videoCodec: outputMedia.video.codec,
         pixelFormat: outputMedia.video.pixelFormat,
+        visualCompiler: filter.visualCompiler,
         transportEncoding: transportReceipt(outputProfile, encodeAudioPlan),
         sourceAudioHandling: {
           mode: encodeAudioPlan.mode,

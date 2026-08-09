@@ -4,53 +4,48 @@
 
 > **SONG IN → FINISHED VIDEO OUT**
 
-The Haunted Toaster is a local-first desktop instrument that turns a finished song into one complete 1080p music video and writes a cryptographic Video Receipt beside it.
+The Haunted Toaster is a local-first desktop instrument that turns a finished song into a finished music video and retains the score, resolved timeline, and provenance needed to witness that render.
 
-## 0.4.0 demo candidate
+## Repository and package authority
 
-This branch of the instrument includes:
+The repository root is the command entry point for people and automation. Its private `package.json` is deliberately an unversioned command facade; it is not an application package.
 
-- MP3, WAV, M4A, AAC, and FLAC ingestion;
-- optional image, title, artist, and lyrics;
-- Porchlight, Wire Orchard, and Absolute Residual visual garments;
-- audio-reactive motion and section-aware changes;
-- plain, LRC, SRT, VTT, and timestamped JSON lyrics;
-- optional verified local lyric Listener on 64-bit Windows;
-- manual lyric timing and correction;
-- preview/render cue-selection parity;
-- frame-rate-independent motion timing;
-- progress, safe cancellation, stream validation, and duration proof;
-- MP3/AAC stream copy where the MP4 container permits it;
-- source/output hashes and render provenance in every accepted receipt.
+[`src/full-measure/package.json`](src/full-measure/package.json) is the sole application manifest and version authority. Its version controls Electron's application version, generated package names, and Build Info. The matching lockfile is [`src/full-measure/package-lock.json`](src/full-measure/package-lock.json). The `full-measure` directory name and legacy `fullMeasure` IPC bridge remain only for compatibility; the product is **The Haunted Toaster**.
 
-The application source lives in [`src/full-measure/`](src/full-measure/). The folder name and legacy `fullMeasure` IPC bridge are retained temporarily for compatibility; the canonical product name is **The Haunted Toaster**.
+Build Info is derived rather than hand-maintained. A source launch reports the authoritative application version and clearly identifies itself as an unpackaged source checkout. Packaging generates the commit and build timestamp immediately before Electron Builder runs. A Git tag does not override the application version: release tags and the application manifest must match as described in [release versioning](docs/RELEASE_VERSIONING.md).
 
-## Run on Windows
+## Install and verify
 
-Install Node.js 22 or newer, then double-click:
-
-```text
-START_HAUNTED_TOASTER.bat
-```
-
-The first setup downloads dependencies. Rendering is local and offline afterward.
-
-For the exact presentation path, claims, boundaries, and release gate, use the [0.4.0 demo runbook](src/full-measure/DEMO.md).
-
-## Verify from source
+Node.js 22 or newer is required. Install the application dependencies from the locked manifest, then use the root proof command:
 
 ```bash
-cd src/full-measure
-npm ci
-npm run check
-npm test
-npm run smoke
+npm --prefix src/full-measure ci
+npm run verify
 ```
 
-The root GitHub Actions workflow runs the same proof on pull requests and `main`. Manual runs and version tags can also produce an unsigned Windows installer and portable executable.
+`verify` runs the source checks, deterministic tests, and smoke renders. It is the same consolidated proof entry point used by GitHub Actions.
 
-## Current boundary
+## Start from source
 
-Version 0.4.0 stabilizes and presents the existing renderer. The portable `VisualScore`, deterministic mutation engine, circular and mirrored topology, score diff/replay, and score breeding architecture remain intentionally outside this demo cut.
+```bash
+npm run start
+```
+
+On Windows, `START_HAUNTED_TOASTER.bat` remains the double-click entry point. The first setup downloads dependencies; rendering is local and offline afterward.
+
+## Build Windows artifacts
+
+```bash
+npm --prefix src/full-measure ci
+npm run dist:win
+```
+
+This creates unsigned Windows installer and portable artifacts under `src/full-measure/release/`. It does not tag or publish a release. The root workflow builds artifacts only for a manual run or a version tag, and publishes a GitHub prerelease only from a matching version tag.
+
+## Build and execution law
+
+For score-driven work, the accepted `ResolvedTimeline` is the semantic authority shared by production preview and final render. Score/timeline sidecars and the receipt must describe what was actually accepted and consumed; UI state, renderer defaults, wall-clock state, and unseeded randomness are not alternate authorities. The v0.4 execution floor remains an explicit compatibility constraint while v0.5 capabilities are introduced.
+
+Historical source ZIP snapshots are retained for archaeology under [`archive/source-zips/`](archive/source-zips/), outside the live application tree. They are not build inputs and must not be treated as current source.
 
 Full Measure is the separate world-layer project. The Haunted Toaster is the machine that turns a song into a witnessed video.

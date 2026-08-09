@@ -29,9 +29,6 @@ jobs:
     name: Verify renderer
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    defaults:
-      run:
-        working-directory: src/full-measure
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -44,19 +41,13 @@ jobs:
           cache-dependency-path: src/full-measure/package-lock.json
 
       - name: Install locked dependencies
-        run: npm ci
+        run: npm --prefix src/full-measure ci
 
-      - name: Check source structure
-        run: npm run check
-
-      - name: Run deterministic tests
-        run: npm test
+      - name: Run consolidated application proof
+        run: npm run verify
 
       - name: Audit runtime dependencies
-        run: npm audit --omit=dev --audit-level=high
-
-      - name: Prove complete renders and receipts
-        run: npm run smoke
+        run: npm --prefix src/full-measure audit --omit=dev --audit-level=high
 
       - name: Upload smoke proof
         uses: actions/upload-artifact@v4
@@ -71,9 +62,6 @@ jobs:
     needs: verify
     runs-on: windows-latest
     timeout-minutes: 35
-    defaults:
-      run:
-        working-directory: src/full-measure
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -86,10 +74,10 @@ jobs:
           cache-dependency-path: src/full-measure/package-lock.json
 
       - name: Install locked dependencies
-        run: npm ci
+        run: npm --prefix src/full-measure ci
 
       - name: Build unsigned Windows installer and portable app
-        run: npm run dist -- --win
+        run: npm run dist:win
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 

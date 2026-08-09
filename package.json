@@ -1,15 +1,14 @@
 {
-  "name": "haunted-toaster",
-  "version": "0.4.0",
+  "name": "haunted-toaster-repository",
   "private": true,
+  "description": "Repository command facade; src/full-measure/package.json is the application manifest and version authority.",
   "type": "commonjs",
   "engines": {
     "node": ">=22"
   },
-  "exports": {
-    "./generation": "./src/full-measure/src/generation/index.cjs"
-  },
-  "files": [
-    "src/full-measure/src/generation/**/*"
-  ]
+  "scripts": {
+    "verify": "npm --prefix src/full-measure run check && npm --prefix src/full-measure test && npm --prefix src/full-measure run smoke",
+    "start": "npm --prefix src/full-measure start",
+    "dist:win": "npm --prefix src/full-measure run dist -- --win"
+  }
 }

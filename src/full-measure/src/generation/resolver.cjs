@@ -4,6 +4,7 @@ const {
   hashCanonical,
 } = require("./canonical.cjs");
 const { createPrng } = require("./prng.cjs");
+const { rendererPolicyForProfile } = require("./renderer-policy.cjs");
 const {
   TIMELINE_SCHEMA,
   addressVisualScore,
@@ -173,6 +174,7 @@ function resolve(analysisInput, scoreInput, constraintsInput, profileInput) {
   const analysisHash = analysisResult.hash;
   const constraintsHash = constraintsResult.hash;
   const profileHash = profileResult.hash;
+  const rendererPolicy = rendererPolicyForProfile(profile);
   const durationTicks = Math.round(analysis.durationSeconds * profile.timebase);
   const prng = createPrng(`${score.seed}|${scoreAddress}|${analysisHash}|resolver-v1`);
   let state = stateFromScore(score);
@@ -211,6 +213,7 @@ function resolve(analysisInput, scoreInput, constraintsInput, profileInput) {
     analysisHash,
     constraintsHash,
     rendererProfileHash: profileHash,
+    ...(rendererPolicy ? { rendererPolicy } : {}),
     timebase: profile.timebase,
     durationTicks,
     baseState: stateFromScore(score),
