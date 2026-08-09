@@ -10,11 +10,29 @@ This file applies to the entire repository. Keep it to durable rules; issue-spec
 - Toaster Lab may propose inputs, but those proposals are non-authoritative until Haunted Toaster validates and canonicalizes them.
 - Derive capability and Build Info claims from the active registries and renderer profile actually used by `src/full-measure/`; never maintain a manually claimed feature list.
 
-## Execution invariants
+## Accepted execution chain
 
-Preserve deterministic semantic execution, complete and truthful receipts, replayable canonical artifacts, and production preview/render parity. Do not introduce UI state, renderer-only defaults, wall-clock state, ambient process state, or unseeded randomness as alternate semantic authority.
+For score-driven work, preserve this authority chain:
 
-Add or update executable tests whenever behavior changes. A failed render must not leave a receipt claiming successful completion.
+```text
+accepted VisualScore
+  -> canonical ResolvedTimeline
+  -> production preview
+  -> production render
+  -> retained score/timeline sidecars
+  -> receipt
+```
+
+The accepted `ResolvedTimeline` is the sole semantic execution authority after resolution. Preview and final render must consume the same accepted timeline semantics. Renderer code may compile concrete FFmpeg operations from that timeline, but it must not silently reinterpret or mutate accepted score/timeline state.
+
+## Determinism and compatibility
+
+- No hidden entropy: `Math.random()`, `Date.now()`, wall-clock state, ambient process state, UI state, renderer-only defaults, or unseeded randomness must not alter score-driven semantic choices.
+- Canonical score/timeline artifacts remain inspectable and replayable, and retained sidecars must describe exactly what was accepted and consumed.
+- A failed render must never leave a receipt claiming successful completion.
+- Compatibility is explicit. Preserve legacy v0.4/v1 score, garment, renderer-profile, and timeline behavior unless a requested slice deliberately migrates it. New profile generations must opt in rather than silently reinterpreting old artifacts.
+- Existing audio, lyric timing, muxing, cancellation, validation, preview/render parity, and provenance behavior are regression constraints, not incidental implementation details.
+- Local-first remains the default execution boundary unless a requested slice explicitly changes it.
 
 ## Root build door
 
@@ -30,13 +48,22 @@ npm run dist:win
 npm run start
 ```
 
-`npm run verify` runs check, test, and smoke. `pack` creates an unpacked application directory; `dist:win` creates Windows distribution artifacts. Report any generated or retained artifact impact.
+`npm run verify` runs check, deterministic tests, and smoke. `pack` creates an unpacked application directory; `dist:win` creates Windows distribution artifacts. Report any generated or retained artifact impact.
 
-## Delivery boundary
+## Proof before completion
 
-Do not tag, publish, release, merge, or otherwise promote artifacts unless explicitly requested. Before opening a PR, self-review the branch diff and report:
+Behavior changes require executable proof at the affected boundary. Do not report completion from inspection alone when the repository provides a runnable proof path.
+
+Before declaring a slice complete, report:
 
 - the exact checks run and their results;
 - every failure or environment limitation;
 - remaining uncertainty or unsupported cases;
-- artifact impact.
+- artifact impact;
+- whether the branch changed any canonical artifact, receipt, profile, or compatibility surface.
+
+If required proof cannot run in the available environment, state that limitation explicitly and rely only on proof that actually ran (for example GitHub Actions). Do not convert an unexecuted command into a claimed pass.
+
+## Delivery boundary
+
+Do not tag, publish, release, merge, or otherwise promote artifacts unless explicitly requested. Keep unfinished or unproved work on the requested branch/PR.
