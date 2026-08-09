@@ -76,6 +76,17 @@ jobs:
       - name: Install locked dependencies
         run: npm --prefix src/full-measure ci
 
+      - name: Refuse tag/package identity mismatch
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          $version = node -p "require('./src/full-measure/package.json').version"
+          $expectedTag = "v$version"
+          if ($env:GITHUB_REF_NAME -ne $expectedTag) {
+            throw "Release identity mismatch: tag $env:GITHUB_REF_NAME does not match package $version."
+          }
+          Write-Host "Release identity agrees: $expectedTag"
+
       - name: Build unsigned Windows installer and portable app
         run: npm run dist:win
         env:
