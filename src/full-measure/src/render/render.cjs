@@ -21,7 +21,9 @@ const { compileTimelineFilterGraph } = require("./timeline-filter.cjs");
 const {
   assertScoreTimelineBinding,
   removeCanonicalExecutionSidecars,
+  removeSubtitleSidecars,
   writeCanonicalExecutionSidecars,
+  writeSubtitleSidecars,
 } = require("./sidecars.cjs");
 
 async function safeUnlink(filePath) {
@@ -196,6 +198,11 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       score: config.visualScore,
       timeline: execution.timeline,
     });
+    const subtitleSidecars = await writeSubtitleSidecars({
+      outputPath,
+      cues: filter.lyricTrack.cues,
+      mediaDuration: analysis.duration,
+    });
     const finishedAt = new Date();
     const receipt = {
       schema: "full-measure.video-receipt.v1",
@@ -278,6 +285,18 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
         durationSeconds: outputMedia.duration,
         video: outputMedia.video,
         audio: outputMedia.audio,
+        subtitles: {
+          language: "en",
+          cueCount: subtitleSidecars.cueCount,
+          srt: {
+            filename: path.basename(subtitleSidecars.srtPath),
+            sha256: subtitleSidecars.srtSha256,
+          },
+          vtt: {
+            filename: path.basename(subtitleSidecars.vttPath),
+            sha256: subtitleSidecars.vttSha256,
+          },
+        },
       },
       validation: {
         playableStreamsPresent: true,
@@ -299,6 +318,8 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       receiptPath,
       scorePath: sidecars.scorePath,
       timelinePath: sidecars.timelinePath,
+      srtPath: subtitleSidecars.srtPath,
+      vttPath: subtitleSidecars.vttPath,
       receipt,
       analysis,
     };
@@ -306,6 +327,7 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
     await Promise.all([
       safeUnlink(outputPath),
       removeCanonicalExecutionSidecars(outputPath),
+      removeSubtitleSidecars(outputPath),
     ]);
     throw error;
   } finally {
