@@ -36,6 +36,12 @@ function allowedCategories(constraints, axis) {
   return [];
 }
 
+function normalizeArcLocks(locks = []) {
+  return [...new Set((locks || []).map(String))]
+    .filter((axis) => ARC_AXES.includes(axis))
+    .sort();
+}
+
 function sectionBoundaries(analysis) {
   const sections = Array.isArray(analysis?.sections) ? analysis.sections : [];
   return sections.slice(1).map((section, index) => {
@@ -65,10 +71,12 @@ function strongestBoundaries(analysis, maximum = MAX_ARC_TRANSITIONS) {
     .sort((left, right) => left.atSeconds - right.atSeconds);
 }
 
-function legalArcAxes(constraints) {
+function legalArcAxes(constraints, locks = []) {
+  const locked = new Set(normalizeArcLocks(locks));
   return ARC_AXES.filter((axis) => {
     const policy = constraints?.patchPolicy?.axes?.[axis];
     return Boolean(
+      !locked.has(axis) &&
       policy?.boundaries?.includes("section") &&
       allowedCategories(constraints, axis).length > 1,
     );
@@ -91,9 +99,9 @@ function pickDifferentCategory(axis, current, allowed, energyDelta, prng) {
   return prng.pick(alternatives);
 }
 
-function scheduledArcTransitions(timeline, analysis, score, constraints) {
+function scheduledArcTransitions(timeline, analysis, score, constraints, locks = []) {
   const boundaries = strongestBoundaries(analysis);
-  const legalAxes = legalArcAxes(constraints);
+  const legalAxes = legalArcAxes(constraints, locks);
   if (!boundaries.length || !legalAxes.length) return [];
 
   const prng = createPrng(
@@ -216,6 +224,7 @@ function applyPossessionArc(timelineInput, {
   analysis,
   score,
   constraints,
+  locks = [],
 } = {}) {
   if (!timelineInput || typeof timelineInput !== "object") {
     throw new TypeError("ResolvedTimeline is required for Possession Arc resolution.");
@@ -227,7 +236,14 @@ function applyPossessionArc(timelineInput, {
     throw new TypeError("Possession Arc requires analysis, score, and constraints.");
   }
 
-  const scheduled = scheduledArcTransitions(timelineInput, analysis, score, constraints);
+  const lockedAxes = normalizeArcLocks(locks);
+  const scheduled = scheduledArcTransitions(
+    timelineInput,
+    analysis,
+    score,
+    constraints,
+    lockedAxes,
+  );
   if (!scheduled.length) return timelineInput;
   const { patches, transitions } = interleaveTimeline(timelineInput, scheduled);
   const affectedAxes = [...new Set(transitions.map((transition) => transition.axis))];
@@ -235,6 +251,7 @@ function applyPossessionArc(timelineInput, {
     policyVersion: POSSESSION_ARC_POLICY,
     transitionPolicy: "cut",
     maxTransitions: MAX_ARC_TRANSITIONS,
+    lockedAxes,
     affectedAxes,
     transitions,
   };
@@ -298,11 +315,13 @@ function stateAtTick(timeline, tick) {
 }
 
 function rebuildFamilyWithArc(family, options) {
+  const locks = family.locks || options.locks || [];
   const candidates = family.candidates.map((candidate) => {
     const timeline = applyPossessionArc(candidate.timeline, {
       analysis: options.analysis,
       score: candidate.scoreArtifact.score,
       constraints: options.garmentConstraints || options.constraints,
+      locks,
     });
     return deepFreeze({
       ...candidate,
@@ -385,6 +404,8 @@ module.exports = {
   POSSESSION_ARC_POLICY,
   applyPossessionArc,
   generateCandidateSet,
+  legalArcAxes,
+  normalizeArcLocks,
   replaceFinalCandidateWithConverge,
   replayCandidateFamily,
   scheduledArcTransitions,
