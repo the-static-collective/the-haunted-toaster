@@ -67,6 +67,10 @@
         <div class="candidate-action-buttons">
           <button class="candidate-mutate" id="candidateMutate" type="button" disabled>Mutate six descendants</button>
           <button class="candidate-mutate" id="candidateConverge" type="button" disabled title="Push the selected creature into underexplored lawful territory">CONVERGE · push this creature</button>
+          <span class="candidate-stomp-control">
+            <button class="candidate-mutate candidate-stomp" id="candidateStomp" type="button" disabled>STOMP</button>
+            <small id="candidateStompHelp">Bored? Floor the next six.</small>
+          </span>
           <button class="candidate-use" id="candidateUse" type="button" disabled>Use selected timeline</button>
         </div>
       </footer>
@@ -79,6 +83,7 @@
   const regenerate = modal.querySelector("#candidateRegenerate");
   const mutate = modal.querySelector("#candidateMutate");
   const converge = modal.querySelector("#candidateConverge");
+  const stomp = modal.querySelector("#candidateStomp");
   const use = modal.querySelector("#candidateUse");
   const lockList = modal.querySelector(".candidate-lock-list");
 
@@ -146,6 +151,7 @@
     regenerate.disabled = nextBusy;
     mutate.disabled = nextBusy || selectedIndex === null;
     converge.disabled = nextBusy || !family;
+    stomp.disabled = nextBusy || selectedIndex === null;
     use.disabled = nextBusy || selectedIndex === null;
     launch.disabled = nextBusy;
     if (message) status.textContent = message;
@@ -173,6 +179,7 @@
     status.textContent = "Generate six to begin.";
     mutate.disabled = true;
     converge.disabled = true;
+    stomp.disabled = true;
     use.disabled = true;
     launch.querySelector("strong").textContent = "Generate six visions";
     for (const input of lockList.querySelectorAll("input")) input.checked = false;
@@ -202,6 +209,7 @@
     }
     mutate.disabled = busy;
     converge.disabled = busy;
+    stomp.disabled = busy;
     use.disabled = busy;
     const candidate = family?.candidates?.find((item) => item.index === index);
     if (candidate) status.textContent = `Candidate ${index + 1} selected · ${candidate.signature}`;
@@ -245,6 +253,7 @@
       : `${view.producedCount} exact previews ready${shortfall}. Choose one.`;
     mutate.disabled = true;
     converge.disabled = !(view.candidates || []).length;
+    stomp.disabled = true;
     use.disabled = true;
   }
 
@@ -295,6 +304,23 @@
     }
   }
 
+  async function stompSix() {
+    if (busy || !family || selectedIndex === null) return;
+    setBusy(true, "STOMP: riding the rails for six stranger descendants…");
+    try {
+      renderFamily(await api.stompCandidates({
+        ...configFor("stomp"),
+        familyHash: family.familyHash,
+        parentIndex: selectedIndex,
+        locks: selectedLocks(),
+      }));
+    } catch (error) {
+      status.textContent = error?.message || String(error);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function useSelected() {
     if (busy || !family || selectedIndex === null) return;
     setBusy(true, "Binding the exact winner to production render…");
@@ -320,6 +346,7 @@
   regenerate.addEventListener("click", generateSix);
   mutate.addEventListener("click", () => mutateSix(false));
   converge.addEventListener("click", () => mutateSix(true));
+  stomp.addEventListener("click", stompSix);
   use.addEventListener("click", useSelected);
   for (const close of modal.querySelectorAll("[data-candidate-close]")) close.addEventListener("click", closeModal);
   window.addEventListener("keydown", (event) => {

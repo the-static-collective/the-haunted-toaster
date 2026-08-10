@@ -15,4 +15,5 @@ module.exports = {
   ...require("./possession-arc.cjs"),
   ...require("./primitive-field-score.cjs"),
   ...require("./primitive-field-generation.cjs"),
+  ...require("./stomp-generation.cjs"),
 };

@@ -212,6 +212,31 @@ function createCandidateSession() {
     }
   }
 
+  async function stomp(config = {}, signal) {
+    assertReady();
+    if (!family || family.familyHash !== config.familyHash) {
+      throw new Error("Candidate family is no longer current; generate six again.");
+    }
+    const parent = family.candidates[Number(config.parentIndex)];
+    if (!parent) throw new TypeError("Choose a current candidate before stomping.");
+    busy = true;
+    try {
+      const constraints = currentConstraints(config.presetId);
+      const nextFamily = generation.generateStompCandidateSet({
+        analysis: toGenerationAnalysis(mediaAnalysis),
+        garmentConstraints: constraints,
+        rendererProfile,
+        parentScore: parent.scoreArtifact.score,
+        locks: config.locks || [],
+        rootSeed: config.rootSeed,
+        count: 6,
+      });
+      return await materialize(nextFamily, config, signal, familyBinding?.labInfluence || null);
+    } finally {
+      busy = false;
+    }
+  }
+
   function select(config = {}) {
     if (!family || family.familyHash !== config.familyHash) {
       throw new Error("Candidate family is no longer current; generate six again.");
@@ -263,6 +288,10 @@ function createCandidateSession() {
       assertAvailable();
       return mutate(config);
     });
+    ipcMain.handle("candidate:stomp", (_event, config) => {
+      assertAvailable();
+      return stomp(config);
+    });
     ipcMain.handle("candidate:select", (_event, config) => {
       assertAvailable();
       return select(config);
@@ -288,6 +317,7 @@ function createCandidateSession() {
     registerIpc,
     select,
     stageLabProposal,
+    stomp,
   };
 }
 
