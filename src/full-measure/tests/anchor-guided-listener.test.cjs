@@ -88,3 +88,22 @@ test("non-monotonic human anchors stay fixed and block machine guesses", () => {
   assert.equal(result.cues[2].start, null);
   assert.equal(result.cues[4].start, null);
 });
+
+test("human anchors remain authoritative at a location machine evidence would refuse", () => {
+  const result = alignLyricsToTranscriptWithAnchors(
+    "The spoon remembers",
+    { segments: [] },
+    90,
+    {
+      leadSeconds: 0,
+      anchors: [
+        { lineIndex: 0, text: "The spoon remembers", time: 54.27 },
+      ],
+    },
+  );
+
+  assert.equal(result.cues[0].status, "human");
+  assert.equal(result.cues[0].start, 54.27);
+  assert.equal(result.cues[0].humanCorrected, true);
+  assert.equal(result.anchorGuided.anchorCount, 1);
+});

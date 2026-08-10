@@ -122,6 +122,43 @@ test("leaves an honest gap when the singer cannot be matched", () => {
   assert.equal(result.cues[1].start, null);
 });
 
+test("rejects an isolated low-confidence first-line placement at 00:54.27", () => {
+  const result = alignLyricsToTranscript(
+    ["The spoon remembers", "The porch light stays"].join("\n"),
+    {
+      segments: [
+        { start: 54.27, end: 55.1, text: "we remember", confidence: 0.86 },
+      ],
+    },
+    90,
+  );
+
+  assert.equal(result.cues[0].status, "unmatched");
+  assert.equal(result.cues[0].start, null);
+  assert.equal(result.cues[0].end, null);
+  assert.equal(result.cues[0].heard, "we remember");
+  assert.ok(result.cues[0].confidence > 0);
+  assert.equal(result.matchedCount, 0);
+});
+
+test("keeps a low first-line placement when the next line corroborates the sequence", () => {
+  const result = alignLyricsToTranscript(
+    ["The spoon remembers", "The porch light stays"].join("\n"),
+    {
+      segments: [
+        { start: 10, end: 10.8, text: "we remember", confidence: 0.86 },
+        { start: 11, end: 12, text: "the porch light stays", confidence: 0.96 },
+      ],
+    },
+    20,
+  );
+
+  assert.equal(result.cues[0].status, "low");
+  assert.equal(result.cues[0].start, 10);
+  assert.equal(result.cues[1].status, "high");
+  assert.equal(result.cues[1].start, 11);
+});
+
 test("reads whisper.cpp offsets and omits special tokens", () => {
   const normalized = normalizeTranscript({
     transcription: [
