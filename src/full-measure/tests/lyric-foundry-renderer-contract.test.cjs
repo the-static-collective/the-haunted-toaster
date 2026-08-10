@@ -9,6 +9,10 @@ const rendererHtml = fs.readFileSync(
   path.join(root, "src", "renderer", "index.html"),
   "utf8",
 );
+const appJs = fs.readFileSync(
+  path.join(root, "src", "renderer", "app.js"),
+  "utf8",
+);
 const syncKeyboard = fs.readFileSync(
   path.join(root, "src", "renderer", "sync-keyboard.js"),
   "utf8",
@@ -42,19 +46,28 @@ test("renderer presents listening as optional precision work", () => {
 });
 
 test("Listener completion admits placed cues without requiring every line", () => {
-  assert.match(foundryUi, /syncAccept\.disabled = false/);
-  assert.match(foundryUi, /syncAccept\.textContent = "Use what we know"/);
+  assert.match(appJs, /elements\.syncAccept\.disabled = false/);
+  assert.match(appJs, /\? "Use what we know"/);
   assert.match(
-    foundryUi,
-    /document\.addEventListener\("click", acceptPartialListening, true\)/,
+    appJs,
+    /const admittedCues = cues\.filter\(\(cue\) => Number\.isFinite\(cue\.start\)\)/,
   );
-  assert.match(foundryUi, /event\.stopPropagation\(\)/);
-  assert.match(foundryUi, /event\.stopImmediatePropagation\(\)/);
-  assert.match(foundryUi, /\.filter\(\(cue\) => cue\.text && Number\.isFinite\(cue\.start\)\)/);
-  assert.match(foundryUi, /if \(placed\.length\)/);
-  assert.match(foundryUi, /lyricFoundryUnresolvedCount/);
-  assert.match(foundryUi, /Only admitted timing will render/);
-  assert.match(foundryUi, /syncEditorClose\?\.click\(\)/);
+  assert.match(appJs, /const unresolvedCount = cues\.length - admittedCues\.length/);
+  assert.match(appJs, /cues: admittedCues/);
+  assert.match(appJs, /matchedCount: admittedCues\.length/);
+  assert.match(appJs, /unresolvedCount,/);
+  assert.match(appJs, /Only admitted timing will render/);
+});
+
+test("legacy all-or-nothing lyric admission cannot return", () => {
+  assert.doesNotMatch(appJs, /syncAccept\.disabled = unplaced > 0/);
+  assert.doesNotMatch(appJs, /if \(unplaced\.length\) return;/);
+  assert.doesNotMatch(foundryUi, /acceptPartialListening/);
+  assert.doesNotMatch(foundryUi, /stopImmediatePropagation/);
+  assert.doesNotMatch(
+    foundryUi,
+    /document\.addEventListener\("click",[^\n]*syncAccept/,
+  );
 });
 
 test("explicit human anchors survive re-listening", () => {
