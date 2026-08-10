@@ -121,18 +121,22 @@ git commit -m "Add deterministic STOMP candidate policy"
 **Interfaces:**
 - Adds candidate-session `stomp(config, signal)` using the selected parent index/family hash contract.
 - Adds IPC `candidate:stomp`.
-- Adds preload method `stompCandidates(config)` (exact public name may follow existing naming convention but must be explicit and single-purpose).
+- Adds preload method `stompCandidates(config)`.
 
 - [ ] **Step 1: Write failing session/IPC tests**
 
-Prove:
-
 ```js
-await assert.rejects(() => session.stomp({ familyHash, parentIndex: null }), /Choose a current candidate/);
-await assert.rejects(() => session.stomp({ familyHash: "stale" }), /no longer current/);
+await assert.rejects(
+  () => session.stomp({ familyHash, parentIndex: null }),
+  /Choose a current candidate/,
+);
+await assert.rejects(
+  () => session.stomp({ familyHash: "stale", parentIndex: 0 }),
+  /no longer current/,
+);
 ```
 
-and that a valid request passes selected parent, locks, root seed, analysis, constraints, and profile to `generateStompCandidateSet()` before using the existing `materialize()` path.
+Also prove a valid request passes selected parent, locks, root seed, analysis, constraints, and profile to `generateStompCandidateSet()` before using the existing `materialize()` path.
 
 - [ ] **Step 2: Run focused tests and confirm failure**
 
@@ -151,7 +155,22 @@ async function stomp(config = {}, signal) {
   }
   const parent = family.candidates[Number(config.parentIndex)];
   if (!parent) throw new TypeError("Choose a current candidate before stomping.");
-  // set busy, call generation.generateStompCandidateSet(...), materialize(), finally clear busy
+  busy = true;
+  try {
+    const constraints = currentConstraints(config.presetId);
+    const nextFamily = generation.generateStompCandidateSet({
+      analysis: toGenerationAnalysis(mediaAnalysis),
+      garmentConstraints: constraints,
+      rendererProfile,
+      parentScore: parent.scoreArtifact.score,
+      locks: config.locks || [],
+      rootSeed: config.rootSeed,
+      count: 6,
+    });
+    return await materialize(nextFamily, config, signal, familyBinding?.labInfluence || null);
+  } finally {
+    busy = false;
+  }
 }
 ```
 
@@ -188,13 +207,13 @@ git commit -m "Expose one-shot STOMP candidate action"
 
 - [ ] **Step 1: Add failing UI contract tests**
 
-Test exact label/helper text, disabled state without selection, enabled state with selection, busy state during request, and request payload.
-
 ```js
 assert.equal(stompButton.textContent.trim(), "STOMP");
 assert.match(stompHelp.textContent, /Bored\? Floor the next six\./);
 assert.equal(stompButton.disabled, true);
 ```
+
+Also assert the button enables only after selection, disables while the candidate surface is busy, and sends exactly one explicit `stompCandidates()` request containing family hash, selected parent index, locks, root seed, and preset context.
 
 - [ ] **Step 2: Run UI test and confirm failure**
 
@@ -224,7 +243,7 @@ git commit -m "Add STOMP boredom pedal to six-up UI"
 ### Task 4: Regression and PR proof
 
 **Files:**
-- Modify only if proof finds a defect.
+- No planned source changes. If proof exposes a defect, edit only the failing feature file and its focused regression test.
 
 - [ ] **Step 1: Prove ordinary mutation remains ordinary**
 
@@ -250,17 +269,14 @@ Expected: PASS.
 
 - [ ] **Step 4: Audit behavior/artifacts**
 
-Confirm:
-- STOMP emits ordinary accepted VisualScores/ResolvedTimelines with explicit `visible-outcome-stomp-v1` derivation evidence;
-- no renderer code branches on STOMP;
-- no persistent UI setting remains after the request;
-- locks are unchanged and absolute;
-- no package/version/dependency change;
-- ordinary MUTATE/CONVERGE requests are byte-semantically unchanged when STOMP is not called.
+Confirm STOMP emits ordinary accepted VisualScores/ResolvedTimelines with explicit `visible-outcome-stomp-v1` derivation evidence; no renderer code branches on STOMP; no persistent UI setting remains after the request; locks are unchanged and absolute; there is no package/version/dependency change; and ordinary MUTATE/CONVERGE requests remain unchanged when STOMP is not called.
 
-- [ ] **Step 5: Commit proof-only fixes if needed**
+- [ ] **Step 5: Commit only if proof required a concrete fix**
+
+If a proof failure required edits, stage exactly the feature/test files changed in that repair and commit them with:
 
 ```bash
-git add <only files changed by proof fixes>
 git commit -m "Prove STOMP generation isolation"
 ```
+
+If proof is already green, do not create an empty proof commit.
