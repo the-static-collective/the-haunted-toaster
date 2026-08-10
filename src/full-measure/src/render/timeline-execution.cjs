@@ -32,6 +32,34 @@ function assertResolvedTimeline(timeline) {
     }
     previousTick = patch.atTick;
   }
+
+  if (timeline.possessionArc !== undefined) {
+    if (!timeline.possessionArc || typeof timeline.possessionArc !== "object") {
+      throw new TypeError("ResolvedTimeline.possessionArc must be an object when present.");
+    }
+    if (!Array.isArray(timeline.possessionArc.transitions)) {
+      throw new TypeError("ResolvedTimeline.possessionArc.transitions must be an array.");
+    }
+    let previousArcTick = -1;
+    for (const transition of timeline.possessionArc.transitions) {
+      if (!Number.isInteger(transition.atTick) || transition.atTick < previousArcTick) {
+        throw new TypeError("Possession Arc transitions must be ordered by canonical tick.");
+      }
+      if (transition.atTick > timeline.durationTicks) {
+        throw new TypeError("Possession Arc transition exceeds durationTicks.");
+      }
+      if (transition.boundary !== "section") {
+        throw new TypeError("Possession Arc v1 transitions must occur at section boundaries.");
+      }
+      if (!["motion", "material", "camera", "palette"].includes(transition.axis)) {
+        throw new TypeError(`Unsupported Possession Arc axis: ${String(transition.axis)}.`);
+      }
+      if (transition.transition !== "cut") {
+        throw new TypeError("Possession Arc v1 supports cut transitions only.");
+      }
+      previousArcTick = transition.atTick;
+    }
+  }
   return timeline;
 }
 
@@ -63,9 +91,13 @@ function semanticStateAtSeconds(timeline, seconds) {
 function executionSegments(timeline) {
   assertResolvedTimeline(timeline);
   const starts = [0];
-  for (const patch of timeline.patches) {
-    if (patch.atTick > 0 && patch.atTick < timeline.durationTicks) {
-      if (starts[starts.length - 1] !== patch.atTick) starts.push(patch.atTick);
+  const eventTicks = [
+    ...timeline.patches.map((patch) => patch.atTick),
+    ...(timeline.possessionArc?.transitions || []).map((transition) => transition.atTick),
+  ].sort((left, right) => left - right);
+  for (const atTick of eventTicks) {
+    if (atTick > 0 && atTick < timeline.durationTicks) {
+      if (starts[starts.length - 1] !== atTick) starts.push(atTick);
     }
   }
 
