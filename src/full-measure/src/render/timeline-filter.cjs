@@ -117,13 +117,12 @@ function rendererPolicyForTimeline(timeline) {
   return timeline.rendererPolicy;
 }
 
-function frozenSemanticGrammar(execution) {
-  const baseState = execution?.timeline?.baseState || {};
+function grammarForState(state = {}) {
   const grammar = Object.freeze({
-    motion: baseState.motion?.grammar,
-    palette: baseState.palette?.logic,
-    material: baseState.material?.texture,
-    camera: baseState.camera?.grammar,
+    motion: state.motion?.grammar,
+    palette: state.palette?.logic,
+    material: state.material?.texture,
+    camera: state.camera?.grammar,
   });
 
   if (!SUPPORTED_MOTION_GRAMMARS.has(grammar.motion)) {
@@ -138,19 +137,22 @@ function frozenSemanticGrammar(execution) {
   if (!SUPPORTED_CAMERA_GRAMMARS.has(grammar.camera)) {
     throw new TypeError(`Unsupported camera grammar: ${String(grammar.camera)}.`);
   }
+  return grammar;
+}
 
+function frozenSemanticGrammar(execution) {
+  const grammar = grammarForState(execution?.timeline?.baseState || {});
   for (const segment of execution.segments || []) {
-    const state = segment.state || {};
+    const candidate = grammarForState(segment.state || {});
     if (
-      state.motion?.grammar !== grammar.motion ||
-      state.palette?.logic !== grammar.palette ||
-      state.material?.texture !== grammar.material ||
-      state.camera?.grammar !== grammar.camera
+      candidate.motion !== grammar.motion ||
+      candidate.palette !== grammar.palette ||
+      candidate.material !== grammar.material ||
+      candidate.camera !== grammar.camera
     ) {
       throw new Error("ResolvedTimeline categorical renderer semantics must remain frozen for production execution.");
     }
   }
-
   return grammar;
 }
 
@@ -231,11 +233,8 @@ function materialGrammarFilters(texture, state, geometry) {
   ];
 }
 
-function semanticGrammarFilters(execution, geometry) {
-  const grammar = frozenSemanticGrammar(execution);
-  const duration = Math.max(0.1, execution.durationTicks / execution.timebase);
-  const state = execution.timeline.baseState;
-  const rendererPolicy = rendererPolicyForTimeline(execution.timeline);
+function semanticProgramForState(state, geometry, duration, rendererPolicy = LEGACY_RENDERER_POLICY) {
+  const grammar = grammarForState(state);
   const registry = rendererPolicy === EXPRESSIVE_RENDERER_POLICY
     ? EXPRESSIVE_SEMANTIC_COMPILER_REGISTRIES
     : SEMANTIC_COMPILER_REGISTRIES;
@@ -260,6 +259,116 @@ function semanticGrammarFilters(execution, geometry) {
   return Object.freeze({ ...grammar, filters: Object.freeze(filters), compilers, operators });
 }
 
+function semanticGrammarFilters(execution, geometry) {
+  frozenSemanticGrammar(execution);
+  const duration = Math.max(0.1, execution.durationTicks / execution.timebase);
+  const rendererPolicy = rendererPolicyForTimeline(execution.timeline);
+  return semanticProgramForState(execution.timeline.baseState, geometry, duration, rendererPolicy);
+}
+
+function numericFilters(state) {
+  const values = rendererValues(state);
+  return Object.freeze({
+    values,
+    filters: Object.freeze([
+      `hue=h=${ffmpegNumber(values.hue)}:s=${ffmpegNumber(values.saturation)}`,
+      `eq=contrast=${ffmpegNumber(values.contrast)}:brightness=${ffmpegNumber(values.brightness)}:gamma=${ffmpegNumber(values.gamma)}`,
+    ]),
+  });
+}
+
+function possessionArcCompilation(execution, geometry) {
+  const arc = execution.timeline.possessionArc;
+  if (!arc?.transitions?.length) return null;
+  const segments = execution.segments.filter(
+    (segment) => segment.endSeconds > segment.startSeconds,
+  );
+  if (!segments.length) return null;
+  const rendererPolicy = rendererPolicyForTimeline(execution.timeline);
+
+  const filters = [];
+  const inputs = [];
+  if (segments.length === 1) {
+    inputs.push("stage0");
+  } else {
+    const splitOutputs = segments.map((_, index) => `[arcInput${index}]`).join("");
+    filters.push(`[stage0]split=${segments.length}${splitOutputs}`);
+    segments.forEach((_, index) => inputs.push(`arcInput${index}`));
+  }
+
+  const programs = [];
+  segments.forEach((segment, index) => {
+    const duration = Math.max(0.1, segment.endSeconds - segment.startSeconds);
+    const semantic = semanticProgramForState(segment.state, geometry, duration, rendererPolicy);
+    const numeric = numericFilters(segment.state);
+    const output = `arcSegment${index}`;
+    const chain = [
+      `trim=start=${ffmpegNumber(segment.startSeconds)}:end=${ffmpegNumber(segment.endSeconds)}`,
+      "setpts=PTS-STARTPTS",
+      ...semantic.filters,
+      ...numeric.filters,
+    ];
+    filters.push(`[${inputs[index]}]${chain.join(",")}[${output}]`);
+    programs.push(Object.freeze({
+      startTick: segment.startTick,
+      endTick: segment.endTick,
+      startSeconds: segment.startSeconds,
+      endSeconds: segment.endSeconds,
+      state: segment.state,
+      renderer: numeric.values,
+      semanticGrammar: semantic,
+    }));
+  });
+
+  if (segments.length === 1) {
+    filters.push("[arcSegment0]null[timelineFinal]");
+  } else {
+    const outputs = segments.map((_, index) => `[arcSegment${index}]`).join("");
+    filters.push(`${outputs}concat=n=${segments.length}:v=1:a=0[timelineFinal]`);
+  }
+
+  const arcOperator = Object.freeze({
+    axis: "possessionArc",
+    compiler: arc.policyVersion,
+    planSha256: arc.planSha256,
+    transitionCount: arc.transitionCount,
+    affectedAxes: Object.freeze([...(arc.affectedAxes || [])]),
+    transitionPolicy: arc.transitionPolicy,
+  });
+  const operators = Object.freeze([
+    arcOperator,
+    ...programs.flatMap((program) =>
+      program.semanticGrammar.operators.map((operator) => Object.freeze({
+        ...operator,
+        startTick: program.startTick,
+        endTick: program.endTick,
+      })),
+    ),
+  ]);
+  const semanticGrammar = Object.freeze({
+    mode: arc.policyVersion,
+    planSha256: arc.planSha256,
+    transitionCount: arc.transitionCount,
+    affectedAxes: Object.freeze([...(arc.affectedAxes || [])]),
+    segments: Object.freeze(programs.map((program) => Object.freeze({
+      startTick: program.startTick,
+      endTick: program.endTick,
+      motion: program.semanticGrammar.motion,
+      palette: program.semanticGrammar.palette,
+      material: program.semanticGrammar.material,
+      camera: program.semanticGrammar.camera,
+      compilers: program.semanticGrammar.compilers,
+    }))),
+  });
+
+  return Object.freeze({
+    filters: Object.freeze(filters),
+    operators,
+    programs: Object.freeze(programs),
+    semanticGrammar,
+  });
+}
+
 function compileTimelineFilterGraph(graph, execution) {
   if (!execution || !Array.isArray(execution.segments)) {
     throw new TypeError("Timeline execution adapter is required for production compilation.");
@@ -275,6 +384,35 @@ function compileTimelineFilterGraph(graph, execution) {
 
   const prefix = topologyCompiled.graph.slice(0, markerIndex);
   const suffix = topologyCompiled.graph.slice(markerIndex).replace(/^\[stage0\]/, "[timelineFinal]");
+  const arcCompilation = possessionArcCompilation(execution, geometry);
+
+  if (arcCompilation) {
+    return {
+      graph: `${prefix}${arcCompilation.filters.join(";\n")};\n${suffix}`,
+      rendererPolicy: rendererPolicyForTimeline(execution.timeline),
+      topology: topologyCompiled.topology,
+      topologyCompiler: topologyCompiled.topologyCompiler,
+      fieldEnvelope: topologyCompiled.fieldEnvelope,
+      geometry: topologyCompiled.geometry || geometry,
+      semanticGrammar: arcCompilation.semanticGrammar,
+      operators: arcCompilation.operators,
+      segments: arcCompilation.programs.map((program) => ({
+        startTick: program.startTick,
+        endTick: program.endTick,
+        startSeconds: program.startSeconds,
+        endSeconds: program.endSeconds,
+        state: program.state,
+        renderer: program.renderer,
+        semanticGrammar: {
+          motion: program.semanticGrammar.motion,
+          palette: program.semanticGrammar.palette,
+          material: program.semanticGrammar.material,
+          camera: program.semanticGrammar.camera,
+        },
+      })),
+    };
+  }
+
   const semanticGrammar = semanticGrammarFilters(execution, geometry);
   const filters = [];
   let input = "stage0";
@@ -325,7 +463,10 @@ module.exports = {
   compileTimelineFilterGraph,
   frozenSemanticGrammar,
   frozenTopology,
+  grammarForState,
+  possessionArcCompilation,
   rendererPolicyForTimeline,
   rendererValues,
   semanticGrammarFilters,
+  semanticProgramForState,
 };
