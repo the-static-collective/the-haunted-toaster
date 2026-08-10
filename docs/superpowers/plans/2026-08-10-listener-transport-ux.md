@@ -4,7 +4,7 @@
 
 **Goal:** Turn the existing Listener waveform click target into a visible, pointer-scrubbable, keyboard-accessible transport control with synchronized time feedback.
 
-**Architecture:** Keep one transport authority in `renderer/app.js`: `seekSyncAudio(seconds)` clamps and synchronizes media/playhead/readout. Pointer and keyboard inputs delegate to it. HTML/CSS add only semantic affordances and visual feedback.
+**Architecture:** Keep the existing `app.js` click seek intact. Put semantic markup in `renderer/index.html`, visual treatment in `renderer/listener-transport.css`, and extend the already-loaded `renderer/sync-keyboard.js` controller with clamped pointer/keyboard transport plus playhead/readout synchronization. No new runtime UI controller is introduced.
 
 **Tech Stack:** Electron renderer, vanilla JavaScript, HTML/CSS, Node test runner, JSDOM.
 
@@ -12,8 +12,8 @@
 - Do not alter lyric timing authority or render semantics.
 - Do not add dependencies or a second UI controller.
 - Pointer times clamp to `[0, duration]`.
-- Keyboard seeking: Left/Right ±5 seconds, Home 0, End duration.
-- Existing Tap Through Space behavior must not regress.
+- Waveform-focused keyboard seeking: Left/Right ±5 seconds, Home 0, End duration.
+- Existing Tap Through Space and fine-grained review keyboard behavior must not regress.
 - No version bump or canonical artifact/receipt/profile change.
 
 ---
@@ -25,37 +25,37 @@
 
 **Interfaces:**
 - Consumes: existing `buildRenderer()` JSDOM harness and `#syncWaveform`, `#syncAudio`, `#syncPlayhead` DOM.
-- Produces: failing executable expectations for pointer, keyboard, clamping, and synchronization.
+- Produces: executable expectations for pointer, keyboard, clamping, and synchronization.
 
-- [ ] **Step 1: Write failing tests**
-  Add tests that load a song, set deterministic media duration/currentTime properties, stub `getBoundingClientRect`, exercise click/pointer events and keyboard events, and assert `currentTime`, playhead `left`, readout text, and pointer capture/release.
-- [ ] **Step 2: Verify RED**
-  Run the branch workflow and confirm failure is caused by missing transport semantics/readout/scrubbing rather than harness errors.
-- [ ] **Step 3: Commit**
-  Commit only the failing test change as `test listener waveform transport`.
+- [x] **Step 1: Write failing tests**
+  Added tests that load a song, set deterministic media duration/currentTime properties, stub `getBoundingClientRect`, exercise click/pointer events and keyboard events, and assert `currentTime`, playhead `left`, readout text, and pointer capture/release.
+- [x] **Step 2: Verify RED**
+  Branch workflow failed only the four new transport tests while 179 existing tests remained green.
+- [x] **Step 3: Commit**
+  Committed the failing test change as `test listener waveform transport`.
 
 ### Task 2: Accessible transport implementation
 
 **Files:**
 - Modify: `src/full-measure/src/renderer/index.html`
-- Modify: `src/full-measure/src/renderer/styles.css`
-- Modify: `src/full-measure/src/renderer/app.js`
+- Create: `src/full-measure/src/renderer/listener-transport.css`
+- Modify: `src/full-measure/src/renderer/sync-keyboard.js`
 
 **Interfaces:**
-- Consumes: `syncAudio`, `syncWaveform`, `syncPlayhead`, `formatDuration()`, and existing `updateSyncPlayhead()`.
-- Produces: `seekSyncAudio(seconds)` plus pointer/keyboard handlers and live transport metadata.
+- Consumes: `syncAudio`, `syncWaveform`, `syncPlayhead`, the existing app click seek, and native media events.
+- Produces: clamped pointer/keyboard seek helpers plus live transport metadata.
 
-- [ ] **Step 1: Add DOM semantics**
-  Make the canvas focusable with slider role/label and add `#syncWaveformHint` text `Click or drag waveform to seek.` plus `#syncTimeReadout` initialized to `0:00 / 0:00`.
-- [ ] **Step 2: Add visual treatment**
-  Give the waveform pointer cursor, hover/focus-visible border/box-shadow treatment, and `touch-action: none`; style the hint/readout row compactly.
-- [ ] **Step 3: Implement minimal transport primitive**
-  Add duration resolution, clamped seek, readout update, pointer-to-time conversion, and immediate playhead synchronization in `app.js`.
-- [ ] **Step 4: Bind pointer and keyboard controls**
-  Pointer down seeks and captures; pointer move scrubs only while captured; pointer up/cancel releases. Arrow Left/Right seek 5 seconds; Home/End seek boundaries.
-- [ ] **Step 5: Keep media events synchronized**
-  Update playhead/readout on metadata/duration/time updates and after explicit seeks.
+- [x] **Step 1: Add DOM semantics**
+  Made the canvas focusable with slider role/label and added `#syncWaveformHint` text `Click or drag waveform to seek.` plus `#syncTimeReadout` initialized to `0:00 / 0:00`.
+- [x] **Step 2: Add visual treatment**
+  Added a narrow static stylesheet with pointer cursor, hover/focus treatment, `touch-action: none`, and compact hint/readout styling.
+- [x] **Step 3: Implement minimal transport primitive**
+  Added duration resolution, clamped seek, readout update, pointer-to-time conversion, and immediate playhead synchronization in the existing sync keyboard controller.
+- [x] **Step 4: Bind pointer and keyboard controls**
+  Pointer down seeks and captures; pointer move scrubs only while captured; pointer up/cancel releases. Arrow Left/Right seek 5 seconds; Home/End seek boundaries when the waveform owns focus.
+- [x] **Step 5: Keep media events synchronized**
+  Playhead/readout update on metadata/duration/time/seek/play/pause events and after explicit seeks.
 - [ ] **Step 6: Verify GREEN**
-  Require `npm run verify` through the branch workflow to pass.
-- [ ] **Step 7: Commit**
-  Commit implementation as `improve listener waveform transport`.
+  Require the final cleaned-up branch head to pass `npm run verify` through the branch workflow.
+- [x] **Step 7: Commit**
+  Implementation is committed on `agent/listener-transport-ux`.
