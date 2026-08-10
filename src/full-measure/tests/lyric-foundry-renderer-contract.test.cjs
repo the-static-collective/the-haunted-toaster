@@ -67,9 +67,13 @@ test("legacy all-or-nothing lyric admission cannot return", () => {
   );
 });
 
-test("explicit human anchors survive re-listening", () => {
+test("explicit human anchors survive re-listening without hidden lyric mutation", () => {
   assert.match(foundryUi, /collectHumanAnchors/);
-  assert.match(foundryUi, /pendingHumanAnchors = collectHumanAnchors\(\)/);
-  assert.match(foundryUi, /input\.dispatchEvent\(new Event\("change"/);
-  assert.match(foundryUi, /window\.confirm = \(\) => true/);
+  assert.match(foundryUi, /const anchors = collectHumanAnchors\(\)/);
+  assert.match(foundryUi, /stageListenerEvidence\(\{ anchors, previousEvidence \}\)/);
+  assert.match(preload, /pendingListenerEvidence = normalizeStagedListenerEvidence/);
+  assert.match(preload, /prepareListenerLyrics/);
+  assert.doesNotMatch(foundryUi, /lyricsInput\.value\s*=/);
+  assert.doesNotMatch(foundryUi, /window\.confirm/);
+  assert.doesNotMatch(foundryUi, /HT_ANCHORS_V1/);
 });
