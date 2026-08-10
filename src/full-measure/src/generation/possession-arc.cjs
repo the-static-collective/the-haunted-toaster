@@ -6,6 +6,7 @@ const {
 const { createPrng } = require("./prng.cjs");
 const legacyResolver = require("./resolver.cjs");
 const atmosphereGeneration = require("./atmosphere-generation.cjs");
+const colorDrift = require("./color-drift.cjs");
 
 const POSSESSION_ARC_POLICY = "possession-arc-v1";
 const POSSESSION_ARC_DOMAIN = "HauntedToaster-PossessionArc-v1";
@@ -317,11 +318,14 @@ function stateAtTick(timeline, tick) {
 function rebuildFamilyWithArc(family, options) {
   const locks = family.locks || options.locks || [];
   const candidates = family.candidates.map((candidate) => {
-    const timeline = applyPossessionArc(candidate.timeline, {
+    const arcTimeline = applyPossessionArc(candidate.timeline, {
       analysis: options.analysis,
       score: candidate.scoreArtifact.score,
       constraints: options.garmentConstraints || options.constraints,
       locks,
+    });
+    const timeline = colorDrift.applyColorDrift(arcTimeline, {
+      analysis: options.analysis,
     });
     return deepFreeze({
       ...candidate,
