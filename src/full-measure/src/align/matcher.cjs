@@ -7,6 +7,10 @@ const {
 
 const MAX_ALIGNMENT_LINES = 256;
 const MIN_ACCEPTED_SCORE = 0.39;
+const LOW_PLACEMENT_MIN_SCORE = 0.5;
+const LOW_PLACEMENT_MIN_SIMILARITY = 0.47;
+const LOW_PLACEMENT_MAX_SKIPPED_ENTRIES = 8;
+const LOW_PLACEMENT_NEXT_LINE_SCORE = 0.52;
 
 function round(value, places = 3) {
   const factor = 10 ** places;
@@ -265,6 +269,14 @@ function adjustedCandidateScore(candidate, cursor, nextLineScore = 0) {
   return candidate.score - skipPenalty + nextLineScore * 0.16;
 }
 
+function rankedCandidate(candidate, cursor) {
+  return {
+    candidate,
+    adjusted: adjustedCandidateScore(candidate, cursor),
+    nextLineScore: 0,
+  };
+}
+
 function bestCandidate(
   line,
   nextLine,
@@ -279,19 +291,13 @@ function bestCandidate(
     remainingLines,
   );
   let ranked = candidates
-    .map((candidate) => ({
-      candidate,
-      adjusted: adjustedCandidateScore(candidate, cursor),
-    }))
+    .map((candidate) => rankedCandidate(candidate, cursor))
     .sort((left, right) => right.adjusted - left.adjusted);
 
   if (!ranked.length || ranked[0].candidate.score < MIN_ACCEPTED_SCORE + 0.08) {
     candidates = broadCandidates(line, entries, cursor);
     ranked = candidates
-      .map((candidate) => ({
-        candidate,
-        adjusted: adjustedCandidateScore(candidate, cursor),
-      }))
+      .map((candidate) => rankedCandidate(candidate, cursor))
       .sort((left, right) => right.adjusted - left.adjusted);
   }
 
@@ -311,6 +317,7 @@ function bestCandidate(
       const nextBest = nextCandidates
         .map((candidate) => adjustedCandidateScore(candidate, nextCursor))
         .sort((left, right) => right - left)[0] || 0;
+      item.nextLineScore = nextBest;
       item.adjusted = adjustedCandidateScore(
         item.candidate,
         cursor,
@@ -320,8 +327,15 @@ function bestCandidate(
     shortlist.sort((left, right) => right.adjusted - left.adjusted);
   }
 
-  const winner = shortlist[0].candidate;
-  return winner.score >= MIN_ACCEPTED_SCORE ? winner : null;
+  const winner = shortlist[0];
+  if (winner.candidate.score < MIN_ACCEPTED_SCORE) return null;
+  return {
+    ...winner.candidate,
+    matchContext: {
+      skippedEntries: Math.max(0, winner.candidate.startIndex - cursor),
+      nextLineScore: winner.nextLineScore,
+    },
+  };
 }
 
 function confidenceStatus(candidate) {
@@ -344,6 +358,32 @@ function confidenceStatus(candidate) {
   return { status: "low", confidence };
 }
 
+function hasSufficientTimingEvidence(
+  candidate,
+  confidence,
+  hasPreviousPlacement,
+) {
+  if (!candidate) return false;
+  if (confidence.status !== "low") return true;
+
+  const directEvidence =
+    candidate.score >= LOW_PLACEMENT_MIN_SCORE &&
+    candidate.similarity >= LOW_PLACEMENT_MIN_SIMILARITY;
+  if (!directEvidence) return false;
+
+  const skippedEntries = Number(candidate.matchContext?.skippedEntries);
+  const nextLineScore = Number(candidate.matchContext?.nextLineScore) || 0;
+  const priorContinuity = Boolean(
+    hasPreviousPlacement &&
+      Number.isFinite(skippedEntries) &&
+      skippedEntries <= LOW_PLACEMENT_MAX_SKIPPED_ENTRIES,
+  );
+  const nextLineCorroboration =
+    nextLineScore >= LOW_PLACEMENT_NEXT_LINE_SCORE;
+
+  return priorContinuity || nextLineCorroboration;
+}
+
 function alignLyricsToTranscript(
   lyrics,
   transcript,
@@ -358,6 +398,7 @@ function alignLyricsToTranscript(
     : 0;
   const cues = [];
   let cursor = 0;
+  let hasPreviousPlacement = false;
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
     const line = lines[lineIndex];
@@ -382,8 +423,13 @@ function alignLyricsToTranscript(
       nextLineSimilarity >= 0.72 &&
       nextLineSimilarity >= candidate.similarity + 0.16
     );
+    const sufficientTimingEvidence = hasSufficientTimingEvidence(
+      candidate,
+      confidence,
+      hasPreviousPlacement,
+    );
 
-    if (!candidate || stealsNextLine) {
+    if (!candidate || stealsNextLine || !sufficientTimingEvidence) {
       cues.push({
         lineIndex,
         text: line,
@@ -418,6 +464,7 @@ function alignLyricsToTranscript(
       heard: candidate.heard,
     });
     cursor = candidate.endIndex + 1;
+    hasPreviousPlacement = true;
   }
 
   const counts = {
@@ -475,6 +522,7 @@ module.exports = {
   cuesToLrc,
   extractLyricLines,
   formatLrcTimestamp,
+  hasSufficientTimingEvidence,
   levenshteinDistance,
   normalizeComparable,
   normalizeTranscript,
