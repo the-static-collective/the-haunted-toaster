@@ -2,48 +2,6 @@ const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
 const PRODUCT_NAME = "The Haunted Toaster";
 
-function installOpenFieldDoor() {
-  const panel = document.querySelector(".garment-panel");
-  const list = panel?.querySelector(".garment-list");
-  if (!panel || !list || list.querySelector('[data-preset="openField"]')) return;
-
-  const heading = panel.querySelector(".panel-heading h2");
-  const explanation = panel.querySelector(".panel-heading p");
-  if (heading) heading.textContent = "Choose a starting field";
-  if (explanation) explanation.textContent = "Begin open, or inherit an ancestral garment.";
-
-  const card = document.createElement("button");
-  card.className = "garment-card open-field";
-  card.type = "button";
-  card.dataset.preset = "openField";
-  card.setAttribute("role", "radio");
-  card.setAttribute("aria-checked", "false");
-  card.innerHTML = `
-    <span class="garment-preview">
-      <i></i>
-      <i></i>
-      <i></i>
-    </span>
-    <span class="garment-copy">
-      <strong>Open Field</strong>
-      <small>Broad lawful field · the old garments are ancestors, not walls</small>
-    </span>
-    <span class="radio-mark"></span>
-  `;
-  list.prepend(card);
-
-  card.addEventListener("click", () => {
-    for (const sibling of document.querySelectorAll(".garment-card")) {
-      sibling.classList.remove("is-selected");
-      sibling.setAttribute("aria-checked", "false");
-    }
-    card.classList.add("is-selected");
-    card.setAttribute("aria-checked", "true");
-    const slate = document.querySelector("#slateGarment");
-    if (slate) slate.textContent = "Open Field";
-  });
-}
-
 window.addEventListener("DOMContentLoaded", () => {
   document.title = PRODUCT_NAME;
 
@@ -61,8 +19,6 @@ window.addEventListener("DOMContentLoaded", () => {
     listenCloser.textContent = "Listen Closer";
     listenCloser.title = "Optional · help the Toaster place lyrics more precisely";
   }
-
-  installOpenFieldDoor();
 
   const candidateStyle = document.createElement("link");
   candidateStyle.rel = "stylesheet";
