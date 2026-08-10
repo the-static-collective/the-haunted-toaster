@@ -6,7 +6,10 @@ const path = require("node:path");
 const generation = require("../src/generation/index.cjs");
 const legacyResolver = require("../src/generation/resolver.cjs");
 const { createTimelineExecution } = require("../src/render/timeline-execution.cjs");
-const { compileTimelineFilterGraph } = require("../src/render/timeline-filter.cjs");
+const {
+  compileTimelineFilterGraph,
+  possessionArcCompilation,
+} = require("../src/render/timeline-filter.cjs");
 
 const root = path.resolve(__dirname, "..");
 const readJson = (relativePath) =>
@@ -159,6 +162,34 @@ test("production compiler executes the arc as section-local categorical programs
   ].join("|"));
   assert.ok(new Set(categoricalSignatures).size >= 2);
   assert.ok(compiled.segments.every((segment) => segment.state.topology === timeline.baseState.topology));
+});
+
+test("Possession Arc segment programs honor expressive renderer policy", () => {
+  const timeline = firstCandidate("possession-expressive-policy").timeline;
+  const state = {
+    ...timeline.baseState,
+    camera: {
+      ...timeline.baseState.camera,
+      grammar: "drift",
+      variance: 0.2,
+    },
+  };
+  const execution = {
+    timeline: {
+      ...timeline,
+      rendererPolicy: "visual-language-v2",
+    },
+    segments: [{
+      startTick: 0,
+      endTick: 1000,
+      startSeconds: 0,
+      endSeconds: 1,
+      state,
+    }],
+  };
+  const compiled = possessionArcCompilation(execution, { width: 640, height: 360 });
+
+  assert.equal(compiled.programs[0].semanticGrammar.compilers.camera, "camera-drift-v2");
 });
 
 test("candidate-family replay includes the exact possession plan", () => {
