@@ -1,4 +1,6 @@
 const { TOPOLOGIES } = require("../generation/schema.cjs");
+const { EXPRESSIVE_RENDERER_POLICY } = require("../generation/renderer-policy.cjs");
+const { effectiveInternalEnergy } = require("./response-shaping.cjs");
 const { resolveFieldEnvelope } = require("./field-envelope.cjs");
 
 const PRODUCTION_WAVE_SEAM = /\[waveAudio\]showwaves=s=(\d+)x(\d+):mode=cline:rate=([0-9.]+):[^;\n]+\[wave\];\n\[wave\]pad=(\d+):(\d+):0:(\d+):color=black@0\.0\[waveFull\]/;
@@ -51,10 +53,15 @@ function topologyContext(graph, execution) {
   const fps = Number(match[3]);
   const baseState = execution.timeline.baseState;
   const motion = baseState.motion || {};
+  const rawAmplitude = clamp(Number(motion.amplitude) || 0, 0, 1);
+  const rawVariance = clamp(Number(motion.variance) || 0, 0, 1);
+  const expressive = execution.timeline.rendererPolicy === EXPRESSIVE_RENDERER_POLICY;
+  const amplitude = expressive ? effectiveInternalEnergy(rawAmplitude) : rawAmplitude;
+  const variance = expressive ? effectiveInternalEnergy(rawVariance) : rawVariance;
   const duration = Math.max(0.1, execution.durationTicks / execution.timebase);
-  const opacity = quantize(clamp(0.38 + (Number(motion.amplitude) || 0) * 0.5, 0.2, 0.95), 3);
+  const opacity = quantize(clamp(0.38 + amplitude * 0.5, 0.2, 0.95), 3);
   const envelope = resolveFieldEnvelope(baseState, { width, height });
-  const zoom = quantize(1.25 + (Number(motion.amplitude) || 0) * 1.15, 3);
+  const zoom = quantize(1.25 + amplitude * 1.15, 3);
   return Object.freeze({
     match,
     width,
@@ -63,6 +70,11 @@ function topologyContext(graph, execution) {
     duration,
     baseState,
     motion,
+    rawAmplitude,
+    rawVariance,
+    amplitude,
+    variance,
+    expressive,
     opacity,
     envelope,
     zoom,
@@ -92,18 +104,17 @@ function finishFilter(context, turns) {
 }
 
 function compileCircle(context) {
-  const turns = 0.25 + (Number(context.motion.variance) || 0) * 0.5;
+  const turns = 0.25 + context.variance * 0.5;
   return {
     replacement: `[waveAudio]${scopeFilter(context, {
       width: context.envelope.envelope.width,
       height: context.envelope.envelope.height,
     })},${finishFilter(context, turns)}[waveFull]`,
-    compiler: "circle-v1",
   };
 }
 
 function compileMirroredRing(context) {
-  const turns = 0.55 + (Number(context.motion.variance) || 0);
+  const turns = 0.55 + context.variance;
   const filter = scopeFilter(context, {
     width: context.envelope.envelope.width,
     height: context.envelope.envelope.height,
@@ -115,12 +126,11 @@ function compileMirroredRing(context) {
       `[scoreScopeB]${filter},hflip[scoreRingB]`,
       `[scoreRingA][scoreRingB]blend=all_mode=screen,${finishFilter(context, turns)}[waveFull]`,
     ].join(";\n"),
-    compiler: "mirrored-ring-v1",
   };
 }
 
 function compileSpiral(context) {
-  const turns = 1.1 + (Number(context.motion.variance) || 0) * 1.6;
+  const turns = 1.1 + context.variance * 1.6;
   const filter = scopeFilter(context, {
     width: context.envelope.envelope.width,
     height: context.envelope.envelope.height,
@@ -129,7 +139,6 @@ function compileSpiral(context) {
   });
   return {
     replacement: `[waveAudio]${filter},${finishFilter(context, turns)}[waveFull]`,
-    compiler: "spiral-polar-v1",
   };
 }
 
@@ -159,7 +168,6 @@ function compileQuadMirror(context) {
       "[scoreQ3f][scoreQ4f]hstack=inputs=2[scoreQuadBottom]",
       `[scoreQuadTop][scoreQuadBottom]vstack=inputs=2,${centering},${finishFilter(context, 0)}[waveFull]`,
     ].join(";\n"),
-    compiler: "quad-mirror-v1",
   };
 }
 
@@ -171,9 +179,24 @@ const TOPOLOGY_COMPILERS = Object.freeze({
   "quad-mirror": Object.freeze({ id: "quad-mirror-v1", compile: compileQuadMirror }),
 });
 
+const EXPRESSIVE_TOPOLOGY_COMPILERS = Object.freeze({
+  linear: TOPOLOGY_COMPILERS.linear,
+  circle: Object.freeze({ id: "circle-v2", compile: compileCircle }),
+  "mirrored-ring": Object.freeze({ id: "mirrored-ring-v2", compile: compileMirroredRing }),
+  spiral: Object.freeze({ id: "spiral-polar-v2", compile: compileSpiral }),
+  "quad-mirror": Object.freeze({ id: "quad-mirror-v2", compile: compileQuadMirror }),
+});
+
+function topologyRegistryForExecution(execution) {
+  return execution?.timeline?.rendererPolicy === EXPRESSIVE_RENDERER_POLICY
+    ? EXPRESSIVE_TOPOLOGY_COMPILERS
+    : TOPOLOGY_COMPILERS;
+}
+
 function compileProductionTopology(graph, execution) {
   const topology = frozenTopology(execution);
-  const entry = TOPOLOGY_COMPILERS[topology];
+  const registry = topologyRegistryForExecution(execution);
+  const entry = registry[topology];
   if (!entry) throw new TypeError(`No topology compiler is registered for ${topology}.`);
 
   if (topology === "linear") {
@@ -191,16 +214,18 @@ function compileProductionTopology(graph, execution) {
   return {
     graph: graph.replace(PRODUCTION_WAVE_SEAM, compiled.replacement),
     topology,
-    topologyCompiler: compiled.compiler,
+    topologyCompiler: entry.id,
     fieldEnvelope: context.envelope,
     geometry: Object.freeze({ width: context.width, height: context.height, fps: context.fps }),
   };
 }
 
 module.exports = {
+  EXPRESSIVE_TOPOLOGY_COMPILERS,
   PRODUCTION_WAVE_SEAM,
   TOPOLOGY_COMPILERS,
   compileProductionTopology,
   frozenTopology,
   productionGeometry,
+  topologyRegistryForExecution,
 };
