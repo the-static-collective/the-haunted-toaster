@@ -166,4 +166,8 @@ test("six-up resolves typography inside the candidate loop and final receipt rec
     /typographyContextForTimeline\(\s*scoreAddress,\s*execution\.timeline/,
   );
   assert.match(renderSource, /typography: filter\.typographyEvidence/);
+  assert.match(
+    renderSource,
+    /atmosphere:\s*baseFilter\.atmosphereEvidence/,
+  );
 });
