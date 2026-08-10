@@ -13,6 +13,7 @@
     <title>Full Measure</title>
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="./candidate-ui.css" />
+    <link rel="stylesheet" href="./listener-transport.css" />
   </head>
   <body>
     <div class="ambient ambient-one" aria-hidden="true"></div>
@@ -444,8 +445,20 @@
               id="syncWaveform"
               width="1000"
               height="132"
+              tabindex="0"
+              role="slider"
+              aria-label="Seek Listener audio"
+              aria-describedby="syncWaveformHint"
+              aria-valuemin="0"
+              aria-valuemax="0"
+              aria-valuenow="0"
+              aria-valuetext="0:00 / 0:00"
             ></canvas>
             <div class="sync-playhead" id="syncPlayhead"></div>
+          </div>
+          <div class="sync-waveform-meta" id="syncWaveformMeta">
+            <span id="syncWaveformHint">Click or drag waveform to seek.</span>
+            <output id="syncTimeReadout" aria-live="off">0:00 / 0:00</output>
           </div>
 
           <div class="tap-bar">
