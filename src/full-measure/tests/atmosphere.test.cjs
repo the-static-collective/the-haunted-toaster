@@ -254,7 +254,9 @@ test("atmosphere is injected before the canonical lyric overlay and none is a no
 });
 
 test("candidate UI exposes atmosphere as an independent lock", () => {
-  const preload = fs.readFileSync(path.join(root, "src", "preload.cjs"), "utf8");
-  assert.match(preload, /value="atmosphere"/);
-  assert.match(preload, /<span>Atmosphere<\/span>/);
+  const candidateUi = fs.readFileSync(
+    path.join(root, "src", "renderer", "candidate-ui.js"),
+    "utf8",
+  );
+  assert.match(candidateUi, /\["atmosphere", "Atmosphere"\]/);
 });
