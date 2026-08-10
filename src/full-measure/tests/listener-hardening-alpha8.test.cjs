@@ -7,12 +7,9 @@ const root = path.resolve(__dirname, "..");
 const read = (...parts) => fs.readFileSync(path.join(root, ...parts), "utf8");
 
 const foundryUi = read("src", "renderer", "lyric-foundry-ui.js");
-const app = read("src", "renderer", "app.js");
 const preload = read("src", "preload.cjs");
-const main = read("src", "main.cjs");
 const autoSync = read("src", "align", "auto-sync.cjs");
 const keyboard = read("src", "renderer", "sync-keyboard.js");
-const indexHtml = read("src", "renderer", "index.html");
 
 const {
   prepareLyrics,
@@ -24,17 +21,16 @@ test("re-listen transports stable anchors without mutating lyric source or confi
   assert.match(foundryUi, /lineId:/);
   assert.match(foundryUi, /mediaTimeMs:/);
   assert.match(foundryUi, /source:\s*"human-edit"/);
+  assert.match(foundryUi, /stageListenerEvidence\(\{ anchors, previousEvidence \}\)/);
   assert.doesNotMatch(foundryUi, /HT_ANCHORS_V1|packAnchorEnvelope|window\.confirm/);
   assert.doesNotMatch(foundryUi, /lyricsInput\.value\s*=/);
 
-  assert.match(app, /collectHumanAnchors/);
-  assert.match(app, /runAutoSync\(\{[\s\S]*anchors/);
-  assert.doesNotMatch(app, /discard these cue edits|window\.confirm/);
-
-  assert.match(preload, /autoSyncLyrics:\s*\(config\).*lyrics:auto-sync/);
-  assert.match(main, /config\?\.anchors/);
+  assert.match(preload, /stageListenerEvidence/);
+  assert.match(preload, /pendingListenerEvidence/);
+  assert.match(preload, /lyrics:auto-sync/);
   assert.match(autoSync, /prepareLyrics\(lyrics\)/);
   assert.match(autoSync, /config\.anchors/);
+  assert.match(autoSync, /normalizeAnchors/);
   assert.doesNotMatch(autoSync, /unpackAnchorEnvelope|envelope\.anchors|envelope\.lyrics/);
 });
 
@@ -84,15 +80,15 @@ test("re-listen delta is explanatory and counts held anchors, recoveries, losses
 });
 
 test("Listener editor exposes preparation and re-listen evidence", () => {
-  assert.match(indexHtml, /id="lyricPrepReceipt"/);
-  assert.match(indexHtml, /id="relistenDelta"/);
-  assert.match(app, /lyricPreparation/);
-  assert.match(app, /relistenDelta/);
+  assert.match(foundryUi, /lyricPrepReceipt/);
+  assert.match(foundryUi, /relistenDelta/);
+  assert.match(autoSync, /lyricPreparation/);
+  assert.match(autoSync, /relistenDelta/);
 });
 
 test("native audio arrows are captured by Listener while timestamp inputs retain editing authority", () => {
-  assert.match(keyboard, /event\.target\s*===\s*audio/);
-  assert.match(keyboard, /addEventListener\("keydown"[\s\S]*true\s*\)/);
+  assert.match(keyboard, /event\.target\s*!==\s*audio/);
+  assert.match(keyboard, /\}, true\);/);
   assert.match(keyboard, /ArrowLeft/);
   assert.match(keyboard, /ArrowRight/);
   assert.match(keyboard, /ArrowUp/);

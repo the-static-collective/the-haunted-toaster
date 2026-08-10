@@ -1,6 +1,8 @@
 const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
 const PRODUCT_NAME = "The Haunted Toaster";
+const MAX_LISTENER_EVIDENCE = 10_000;
+let pendingListenerEvidence = null;
 
 window.addEventListener("DOMContentLoaded", () => {
   document.title = PRODUCT_NAME;
@@ -19,7 +21,6 @@ window.addEventListener("DOMContentLoaded", () => {
     listenCloser.textContent = "Listen Closer";
     listenCloser.title = "Optional · help the Toaster place lyrics more precisely";
   }
-
 });
 
 function subscribe(channel, callback) {
@@ -41,6 +42,34 @@ function foundryEvidenceFromDom() {
   };
 }
 
+function normalizeStagedListenerEvidence(evidence = {}) {
+  const anchors = Array.isArray(evidence.anchors)
+    ? evidence.anchors.slice(0, MAX_LISTENER_EVIDENCE).flatMap((anchor) => {
+        const mediaTimeMs = Number(anchor?.mediaTimeMs);
+        if (!anchor?.lineId || !Number.isFinite(mediaTimeMs) || mediaTimeMs < 0) return [];
+        return [{
+          lineId: String(anchor.lineId).slice(0, 96),
+          mediaTimeMs: Math.round(mediaTimeMs),
+          source: anchor.source === "human-edit" ? "human-edit" : "human-tap",
+          anchorVersion: String(anchor.anchorVersion || "lyric-anchor/v1").slice(0, 64),
+        }];
+      })
+    : [];
+  const previousEvidence = Array.isArray(evidence.previousEvidence)
+    ? evidence.previousEvidence.slice(0, MAX_LISTENER_EVIDENCE).flatMap((entry) => {
+        if (!entry?.lineId) return [];
+        const start = Number(entry.start);
+        return [{
+          lineId: String(entry.lineId).slice(0, 96),
+          start: Number.isFinite(start) ? start : null,
+          status: String(entry.status || "unmatched").slice(0, 32),
+          humanCorrected: entry.humanCorrected === true,
+        }];
+      })
+    : [];
+  return { anchors, previousEvidence };
+}
+
 async function withLyricFoundry(config = {}) {
   const lyrics = String(config.lyrics || "");
   const foundryEvidence = foundryEvidenceFromDom();
@@ -59,9 +88,6 @@ async function withLyricFoundry(config = {}) {
 
   return {
     ...config,
-    // Plain/unresolved lyric text is evidence, not canonical timing truth.
-    // Until it has admitted timing, do not send it into the legacy parser that
-    // distributes lines across the song and makes synthetic times look real.
     lyrics: "",
     lyricProvenance: {
       ...(lyricProvenance || {}),
@@ -78,24 +104,32 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   chooseAudio: () => ipcRenderer.invoke("dialog:choose-audio"),
   chooseImage: () => ipcRenderer.invoke("dialog:choose-image"),
   chooseLyrics: () => ipcRenderer.invoke("dialog:choose-lyrics"),
-  chooseOutput: (suggestedName) =>
-    ipcRenderer.invoke("dialog:choose-output", suggestedName),
+  chooseOutput: (suggestedName) => ipcRenderer.invoke("dialog:choose-output", suggestedName),
   inspectAudio: (filePath) => ipcRenderer.invoke("media:inspect", filePath),
   fileUrl: (filePath) => ipcRenderer.invoke("media:file-url", filePath),
-  inspectLyrics: (value, duration) =>
-    ipcRenderer.invoke("lyrics:inspect", value, duration),
-  discoverLyricSidecar: (audioPath) =>
-    ipcRenderer.invoke("lyrics:discover-sidecar", audioPath),
-  saveLyricSidecar: (audioPath, content) =>
-    ipcRenderer.invoke("lyrics:save-sidecar", { audioPath, content }),
+  inspectLyrics: (value, duration) => ipcRenderer.invoke("lyrics:inspect", value, duration),
+  discoverLyricSidecar: (audioPath) => ipcRenderer.invoke("lyrics:discover-sidecar", audioPath),
+  saveLyricSidecar: (audioPath, content) => ipcRenderer.invoke("lyrics:save-sidecar", { audioPath, content }),
   formatLrc: (config) => ipcRenderer.invoke("lyrics:format-lrc", config),
-  manualLyricTrack: (value) =>
-    ipcRenderer.invoke("lyrics:manual-track", value),
+  manualLyricTrack: (value) => ipcRenderer.invoke("lyrics:manual-track", value),
   listenerStatus: () => ipcRenderer.invoke("listener:status"),
   installListener: () => ipcRenderer.invoke("listener:install"),
-  cancelListenerInstall: () =>
-    ipcRenderer.invoke("listener:cancel-install"),
-  autoSyncLyrics: (config) => ipcRenderer.invoke("lyrics:auto-sync", config),
+  cancelListenerInstall: () => ipcRenderer.invoke("listener:cancel-install"),
+  stageListenerEvidence: (evidence) => {
+    pendingListenerEvidence = normalizeStagedListenerEvidence(evidence);
+    return {
+      anchorCount: pendingListenerEvidence.anchors.length,
+      previousEvidenceCount: pendingListenerEvidence.previousEvidence.length,
+    };
+  },
+  autoSyncLyrics: (config) => {
+    const evidence = pendingListenerEvidence;
+    pendingListenerEvidence = null;
+    return ipcRenderer.invoke("lyrics:auto-sync", {
+      ...config,
+      ...(evidence || {}),
+    });
+  },
   cancelLyricSync: () => ipcRenderer.invoke("lyrics:cancel-sync"),
   generateCandidates: (config) => ipcRenderer.invoke("candidate:generate", config),
   stageLabProposal: (transfer) => ipcRenderer.invoke("candidate:stage-lab-proposal", transfer),
@@ -105,11 +139,7 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   selectCandidate: (config) => ipcRenderer.invoke("candidate:select", config),
   clearCandidates: () => ipcRenderer.invoke("candidate:clear"),
   clearCandidateImage: () => ipcRenderer.invoke("candidate:clear-image"),
-  startRender: async (config) =>
-    ipcRenderer.invoke(
-      "render:start",
-      await withLyricFoundry(config),
-    ),
+  startRender: async (config) => ipcRenderer.invoke("render:start", await withLyricFoundry(config)),
   cancelRender: () => ipcRenderer.invoke("render:cancel"),
   revealFile: (filePath) => ipcRenderer.invoke("shell:reveal", filePath),
   openFile: (filePath) => ipcRenderer.invoke("shell:open", filePath),
@@ -118,10 +148,7 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   pathForFile: (file) => webUtils.getPathForFile(file),
   onProgress: (callback) => subscribe("render:progress", callback),
   onPhase: (callback) => subscribe("render:phase", callback),
-  onListenerInstallProgress: (callback) =>
-    subscribe("listener:install-progress", callback),
-  onLyricSyncProgress: (callback) =>
-    subscribe("lyrics:sync-progress", callback),
-  onLyricSyncPhase: (callback) =>
-    subscribe("lyrics:sync-phase", callback),
+  onListenerInstallProgress: (callback) => subscribe("listener:install-progress", callback),
+  onLyricSyncProgress: (callback) => subscribe("lyrics:sync-progress", callback),
+  onLyricSyncPhase: (callback) => subscribe("lyrics:sync-phase", callback),
 });
