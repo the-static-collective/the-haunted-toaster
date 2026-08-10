@@ -100,7 +100,6 @@ test("Build Info capability claims are derived from the active profile and regis
   const derived = deriveBuildCapabilities();
   assert.equal(derived.rendererProfileGeneration, rendererProfile.id);
   assert.equal(derived.topologyCompilers.spiral, "spiral-polar-v2");
-  assert.equal(derived.topologyCompilers["quad-mirror"].id, undefined);
   assert.equal(derived.topologyCompilers["quad-mirror"], "quad-mirror-v2");
   assert.equal(derived.semanticCompilers.motion.fracture, SEMANTIC_COMPILER_REGISTRIES.motion.fracture);
   assert.equal(derived.semanticCompilers.camera.orbit, "camera-orbit-v2");
