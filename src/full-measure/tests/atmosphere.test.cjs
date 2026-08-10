@@ -26,6 +26,31 @@ function patchWithoutPriorHash(patch) {
   return rest;
 }
 
+function resonanceTimeline({ base = "none", family = "smoke", intensity = 1 } = {}) {
+  return {
+    scoreAddress: `htvs1_${base}_with_${family}`,
+    timelineHash: `timeline-${base}-with-${family}`,
+    timebase: 1000,
+    durationTicks: 8_000,
+    baseState: { atmosphere: base },
+    lyricResonance: {
+      schema: generation.LYRIC_RESONANCE_SCHEMA,
+      policy: generation.LYRIC_RESONANCE_POLICY,
+      sourceMode: "timestamped-lrc",
+      events: [
+        {
+          family,
+          startTick: 2_000,
+          endTick: 5_000,
+          intensity,
+          cueIndices: [0],
+          matchedTerms: [family === "firefly" ? "fireflies" : family],
+        },
+      ],
+    },
+  };
+}
+
 test("legacy VisualScore and ResolvedTimeline artifacts remain exact when atmosphere is absent", () => {
   const scoreArtifact = generation.createVisualScore({
     seed: "atmosphere-legacy-compat",
@@ -204,6 +229,41 @@ test("all active atmosphere compilers produce deterministic ASS field events", (
   }
 });
 
+test("timed lyric resonance can materialize atmosphere over a base none score", () => {
+  const timeline = resonanceTimeline({ base: "none", family: "smoke" });
+  const first = buildAtmosphereAss({ timeline, width: 640, height: 360 });
+  const second = buildAtmosphereAss({ timeline, width: 640, height: 360 });
+
+  assert.equal(first.kind, "none");
+  assert.equal(first.resonanceEventCount, 1);
+  assert.deepEqual(first.resonanceFamilies, ["smoke"]);
+  assert.equal(first.eventCount > 0, true);
+  assert.match(first.content, /Dialogue: 0,0:00:02\.00,0:00:05\.00/);
+  assert.equal(first.content, second.content);
+  assert.equal(first.contentSha256, second.contentSha256);
+});
+
+test("lyric resonance visits additively without rewriting the base atmosphere", () => {
+  const baseTimeline = {
+    scoreAddress: "htvs1_rain",
+    timelineHash: "timeline-rain",
+    timebase: 1000,
+    durationTicks: 8_000,
+    baseState: { atmosphere: "rain" },
+  };
+  const base = buildAtmosphereAss({ timeline: baseTimeline, width: 640, height: 360 });
+  const visited = buildAtmosphereAss({
+    timeline: resonanceTimeline({ base: "rain", family: "smoke", intensity: 0.72 }),
+    width: 640,
+    height: 360,
+  });
+
+  assert.equal(visited.kind, "rain");
+  assert.equal(visited.resonanceEventCount, 1);
+  assert.deepEqual(visited.resonanceFamilies, ["smoke"]);
+  assert.equal(visited.eventCount > base.eventCount, true);
+});
+
 test("atmosphere is injected before the canonical lyric overlay and none is a no-op", async () => {
   const tempDirectory = await fsp.mkdtemp(path.join(os.tmpdir(), "toaster-atmosphere-test-"));
   const graph = `[stage0]null[other];\n${TEXT_OVERLAY_SEAM}`;
@@ -248,6 +308,20 @@ test("atmosphere is injected before the canonical lyric overlay and none is a no
     });
     assert.equal(none.graph, graph);
     assert.equal(none.evidence.eventCount, 0);
+
+    const summoned = await applyAtmosphereToGraph({
+      graph,
+      tempDirectory,
+      width: 640,
+      height: 360,
+      timeline: resonanceTimeline({ base: "none", family: "firefly" }),
+      fileName: "summoned-atmosphere.ass",
+    });
+    assert.match(summoned.graph, /summoned-atmosphere\.ass/);
+    assert.equal(summoned.evidence.kind, "none");
+    assert.equal(summoned.evidence.resonanceEventCount, 1);
+    assert.deepEqual(summoned.evidence.resonanceFamilies, ["firefly"]);
+    assert.equal(summoned.evidence.eventCount > 0, true);
   } finally {
     await fsp.rm(tempDirectory, { recursive: true, force: true });
   }
