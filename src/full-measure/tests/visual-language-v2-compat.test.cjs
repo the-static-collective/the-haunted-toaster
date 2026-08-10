@@ -82,7 +82,9 @@ test("spiral and quad-mirror compile through expressive registries without repla
     assert.deepEqual(first.operators, second.operators);
     assert.equal(first.topology, topology);
     assert.equal(first.fieldEnvelope.policy, "bounded-full-height-v1");
-    assert.equal(first.operators.length, 4);
+    assert.equal(first.operators.length, 5);
+    assert.equal(first.operators[0].axis, "colorDrift");
+    assert.equal(first.operators[0].compiler, generation.COLOR_DRIFT_POLICY);
     assert.equal(first.semanticGrammar.motion, "fracture");
     assert.equal(first.semanticGrammar.palette, "duotone");
     assert.equal(first.semanticGrammar.material, "photocopy");
@@ -98,6 +100,7 @@ test("Build Info capability claims are derived from the active profile and regis
   const derived = deriveBuildCapabilities();
   assert.equal(derived.rendererProfileGeneration, rendererProfile.id);
   assert.equal(derived.topologyCompilers.spiral, "spiral-polar-v2");
+  assert.equal(derived.topologyCompilers["quad-mirror"].id, undefined);
   assert.equal(derived.topologyCompilers["quad-mirror"], "quad-mirror-v2");
   assert.equal(derived.semanticCompilers.motion.fracture, SEMANTIC_COMPILER_REGISTRIES.motion.fracture);
   assert.equal(derived.semanticCompilers.camera.orbit, "camera-orbit-v2");
