@@ -26,6 +26,7 @@ const {
   INNER_CADENCE_23976,
   applyTemporalSamplingToGraph,
 } = require("./temporal-sampling.cjs");
+const { applyWitnessWindowToGraph } = require("./witness-window.cjs");
 const {
   assertScoreTimelineBinding,
   removeCanonicalExecutionSidecars,
@@ -129,6 +130,11 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       INNER_CADENCE_23976,
       `${fps}/1`,
     );
+    const witnessWindow = applyWitnessWindowToGraph(temporalSampling.graph, {
+      width,
+      height,
+      pixelFormat: outputProfile.video.pixelFormat,
+    });
     const visualCompiler = Object.freeze({
       policy: compiledTimeline.rendererPolicy,
       topology: compiledTimeline.topology,
@@ -136,15 +142,17 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       fieldEnvelopePolicy: compiledTimeline.fieldEnvelope?.policy || null,
       operators: compiledTimeline.operators,
       temporalSampling: temporalSampling.policy,
+      witnessWindow: witnessWindow.evidence,
       graphSha256: crypto
         .createHash("sha256")
-        .update(temporalSampling.graph, "utf8")
+        .update(witnessWindow.graph, "utf8")
         .digest("hex"),
     });
     const filter = {
       ...baseFilter,
-      graph: temporalSampling.graph,
+      graph: witnessWindow.graph,
       timelineSegments: compiledTimeline.segments,
+      witnessWindowEvidence: witnessWindow.evidence,
       visualCompiler,
     };
     const filterPath = path.join(tempDirectory, "render.ffgraph");
@@ -163,7 +171,7 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
 
     ffmpegArgs.push(
       "-filter_complex_script", filterPath,
-      "-map", "[vout]",
+      "-map", `[${witnessWindow.outputLabel}]`,
       "-map", "0:a:0",
       "-c:v", outputProfile.video.encoder,
       "-preset", outputProfile.video.preset,
@@ -204,6 +212,19 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
     const outputMedia = await probeRenderedOutput(outputPath);
     if (!outputMedia.video || !outputMedia.audio) {
       throw new Error("The rendered file is missing a video or audio stream.");
+    }
+    if (
+      outputMedia.video.width !== witnessWindow.evidence.width ||
+      outputMedia.video.height !== witnessWindow.evidence.height
+    ) {
+      throw new Error(
+        `Witness Window expected ${witnessWindow.evidence.width}x${witnessWindow.evidence.height} but transport contains ${outputMedia.video.width}x${outputMedia.video.height}.`,
+      );
+    }
+    if (outputMedia.video.pixelFormat !== witnessWindow.evidence.pixelFormat) {
+      throw new Error(
+        `Witness Window expected pixel format ${witnessWindow.evidence.pixelFormat} but transport contains ${String(outputMedia.video.pixelFormat)}.`,
+      );
     }
 
     const durationDeltaMs = Math.round(Math.abs(outputMedia.duration - analysis.duration) * 1_000);
@@ -296,6 +317,7 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
         framesPerSecond: fps,
         videoCodec: outputMedia.video.codec,
         pixelFormat: outputMedia.video.pixelFormat,
+        witnessWindow: filter.witnessWindowEvidence,
         visualCompiler: filter.visualCompiler,
         transportEncoding: transportReceipt(outputProfile, encodeAudioPlan),
         sourceAudioHandling: {
@@ -331,6 +353,7 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
         playableStreamsPresent: true,
         fullTimelineCovered: true,
         continuousFilterGraph: true,
+        witnessWindowVerified: true,
         sourceDurationSeconds: analysis.duration,
         outputDurationSeconds: outputMedia.duration,
         durationDeltaMilliseconds: durationDeltaMs,
@@ -373,6 +396,7 @@ async function renderVideo(config, hooks = {}) {
 
 module.exports = {
   ...legacy,
+  applyWitnessWindowToGraph,
   renderVideo,
   renderResolvedTimelineVideo,
 };
