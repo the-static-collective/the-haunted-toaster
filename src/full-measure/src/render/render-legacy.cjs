@@ -6,6 +6,7 @@ const { createProceduralPpm } = require("./artwork.cjs");
 const { inspectAudio, probeMedia } = require("./analyze.cjs");
 const {
   createLyricTrack,
+  normalizeCueTimeline,
   normalizeLyrics,
 } = require("./lyrics.cjs");
 const { resolveLyricGhostPlan } = require("./lyric-ghosts.cjs");
@@ -201,21 +202,8 @@ async function writeAssOverlay({
     );
   }
 
-  for (let i = 0; i < lyricTrack.cues.length; i++) {
-    const cue = lyricTrack.cues[i];
-
-    let end = Number.isFinite(cue.end) ? cue.end : null;
-    if (end === null) {
-      if (i + 1 < lyricTrack.cues.length) {
-        end = lyricTrack.cues[i + 1].start;
-      } else {
-        end = analysis.duration;
-      }
-    }
-    if (i + 1 < lyricTrack.cues.length && end > lyricTrack.cues[i + 1].start) {
-      end = lyricTrack.cues[i + 1].start;
-    }
-
+  const lyricCues = normalizeCueTimeline(lyricTrack.cues, analysis.duration);
+  for (const cue of lyricCues) {
     const size =
       cue.text.length > 64
         ? Math.round(height * 0.031)
@@ -225,7 +213,7 @@ async function writeAssOverlay({
     events.push(
       assEvent(
         cue.start,
-        end,
+        cue.end,
         "Lyrics",
         cue.text,
         `{\\fs${size}\\fad(140,180)}`,
@@ -624,7 +612,7 @@ async function renderVideo(config, hooks = {}) {
         startedAt: startedAt.toISOString(),
         finishedAt: finishedAt.toISOString(),
         elapsedSeconds: Number(
-          ((finishedAt.getTime() - startedAt.getTime()) / 1_000).toFixed(3),
+          ((finishedAt.getTime() - startedAt.getTime()) / 1_000).toFixed(3)),
         ),
       },
       output: {
