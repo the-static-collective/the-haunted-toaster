@@ -93,7 +93,7 @@
 
   function refreshPrepReceipt() {
     const { prep } = ensureEvidenceSurfaces();
-    if (!prep || !lyricsInput) return [];
+    if (!prep || !lyricsInput || typeof api.prepareListenerLyrics !== "function") return [];
     const result = api.prepareListenerLyrics(lyricsInput.value);
     const removedLabelsAndNotes = result.structuralLabelsRemoved + result.performanceNotesRemoved;
     const body = prep.querySelector(".lyric-prep-receipt-body");
@@ -202,7 +202,7 @@
       const anchors = collectHumanAnchors();
       pendingBeforeEvidence = previousEvidence;
       pendingAnchorCount = anchors.length;
-      api.stageListenerEvidence({ anchors, previousEvidence });
+      api.stageListenerEvidence?.({ anchors, previousEvidence });
       listenCloser?.click();
     });
   }
