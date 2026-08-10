@@ -2,6 +2,7 @@ const path = require("node:path");
 const generation = require("./generation/index.cjs");
 const { admitLabProposal, parseLabProposalTransfer } = require("./lab-proposal.cjs");
 const { renderCandidateFamilyPreviews } = require("./render/candidate-preview.cjs");
+const { createLyricTrack } = require("./render/lyrics.cjs");
 const openField = require("../constraints/open-field.v1.json");
 const porchlight = require("../constraints/porchlight.v2.json");
 const wireOrchard = require("../constraints/wire-orchard.v2.json");
@@ -41,6 +42,11 @@ function toGenerationAnalysis(mediaAnalysis) {
     phrases: [],
     transients: [],
   };
+}
+
+function timedLyricTrack(lyrics, durationSeconds) {
+  const track = createLyricTrack(lyrics, durationSeconds);
+  return track.timed === true ? track : null;
 }
 
 function sameOptionalPath(left, right) {
@@ -106,6 +112,10 @@ function createCandidateSession() {
     if (busy) throw new Error("Candidate previews are already being generated.");
   }
 
+  function lyricTrackFor(config) {
+    return timedLyricTrack(config.lyrics, Number(mediaAnalysis.duration));
+  }
+
   async function materialize(nextFamily, config, signal, influence = null) {
     const previewView = await renderCandidateFamilyPreviews(
       {
@@ -139,6 +149,7 @@ function createCandidateSession() {
     busy = true;
     try {
       const constraints = currentConstraints(config.presetId);
+      const lyricTrack = lyricTrackFor(config);
       const useLabProposal = config.useLabProposal === true;
       if (useLabProposal && !stagedLabProposal) {
         throw new Error("Use Lab Proposal is on, but no Lab proposal is staged.");
@@ -162,6 +173,7 @@ function createCandidateSession() {
         rootSeed: config.rootSeed,
         count: 6,
         phase: "initial",
+        lyricTrack,
       });
       return await materialize(nextFamily, config, signal, influence);
     } finally {
@@ -185,6 +197,7 @@ function createCandidateSession() {
     try {
       const constraints = currentConstraints(config.presetId);
       const analysis = toGenerationAnalysis(mediaAnalysis);
+      const lyricTrack = lyricTrackFor(config);
       let nextFamily = generation.generateCandidateSet({
         analysis,
         garmentConstraints: constraints,
@@ -194,6 +207,7 @@ function createCandidateSession() {
         rootSeed: config.rootSeed,
         count: 6,
         phase: "branch",
+        lyricTrack,
       });
       if (config.converge === true) {
         nextFamily = generation.replaceFinalCandidateWithConverge(nextFamily, {
@@ -204,6 +218,7 @@ function createCandidateSession() {
           analysis,
           rendererProfile,
           rootSeed: config.rootSeed,
+          lyricTrack,
         });
       }
       return await materialize(nextFamily, config, signal, familyBinding?.labInfluence || null);
@@ -230,6 +245,7 @@ function createCandidateSession() {
         locks: config.locks || [],
         rootSeed: config.rootSeed,
         count: 6,
+        lyricTrack: lyricTrackFor(config),
       });
       return await materialize(nextFamily, config, signal, familyBinding?.labInfluence || null);
     } finally {
@@ -325,5 +341,6 @@ module.exports = {
   CONSTRAINTS_BY_PRESET,
   rendererProfile,
   createCandidateSession,
+  timedLyricTrack,
   toGenerationAnalysis,
 };
