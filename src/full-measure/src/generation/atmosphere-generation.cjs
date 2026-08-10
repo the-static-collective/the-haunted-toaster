@@ -7,6 +7,7 @@ const legacySchema = require("./schema.cjs");
 const legacyOperations = require("./operations.cjs");
 const legacyResolver = require("./resolver.cjs");
 const legacyCandidates = require("./candidate-family.cjs");
+const currentCandidates = require("./visible-diversity-engine.cjs");
 const legacyConverge = require("./converge-frontier.cjs");
 const {
   ATMOSPHERES,
@@ -245,26 +246,33 @@ function rebuildFamily(baseFamily, {
   baselineScoreRef,
   converge = undefined,
 }) {
+  const {
+    familyHash: _familyHash,
+    candidates: _candidates,
+    scoreAddresses: _scoreAddresses,
+    timelineHashes: _timelineHashes,
+    locks: _locks,
+    parentScoreRef: _parentScoreRef,
+    baselineScoreRef: _baselineScoreRef,
+    analysisHash: _analysisHash,
+    constraintsHash: _constraintsHash,
+    rendererProfileHash: _rendererProfileHash,
+    converge: baseConverge,
+    ...stableBase
+  } = baseFamily;
   const familyCore = {
-    schema: baseFamily.schema,
-    policy: baseFamily.policy,
-    scoreSchema: baseFamily.scoreSchema,
-    prng: baseFamily.prng,
-    rootSeed: baseFamily.rootSeed,
+    ...stableBase,
     parentScoreRef,
     baselineScoreRef,
-    constraintPackId: baseFamily.constraintPackId,
     analysisHash: candidates[0].timeline.analysisHash,
     constraintsHash: candidates[0].timeline.constraintsHash,
     rendererProfileHash: candidates[0].timeline.rendererProfileHash,
     locks,
-    requestedCount: baseFamily.requestedCount,
-    producedCount: candidates.length,
-    roles: candidates.map((candidate) => candidate.role),
     scoreAddresses: candidates.map((candidate) => candidate.scoreAddress),
     timelineHashes: candidates.map((candidate) => candidate.timelineHash),
-    shortfall: baseFamily.shortfall,
-    ...(converge === undefined ? {} : { converge }),
+    ...(converge === undefined && baseConverge === undefined
+      ? {}
+      : { converge: converge ?? baseConverge }),
   };
   return deepFreeze({
     ...familyCore,
@@ -282,13 +290,14 @@ function generateCandidateSet({
   locks = [],
   rootSeed,
   count = 6,
+  phase,
 }) {
   const constraints = garmentConstraints || constraintsAlias;
   const parent = parentScore ? assertScore(parentScore, constraints) : null;
   const normalizedLocks = normalizeLocks(locks, Boolean(parent));
   const baseLocks = normalizedLocks.filter((axis) => axis !== "atmosphere");
   const parentCore = parent ? stripAtmosphere(parent) : null;
-  const baseFamily = legacyCandidates.generateCandidateSet({
+  const baseFamily = currentCandidates.generateCandidateSet({
     analysis,
     garmentConstraints: constraints,
     rendererProfile,
@@ -296,6 +305,7 @@ function generateCandidateSet({
     locks: baseLocks,
     rootSeed,
     count,
+    phase,
   });
   const parentAtmosphere = parent ? atmosphereOf(parent) : null;
   const baselineAtmosphere = parentAtmosphere ?? "none";
@@ -349,6 +359,7 @@ function replayCandidateFamily(family, {
     locks: family.locks,
     rootSeed: family.rootSeed,
     count: family.requestedCount,
+    phase: family.phase,
   });
   const addressesMatch =
     canonicalStringify(replayed.scoreAddresses) === canonicalStringify(family.scoreAddresses);
@@ -416,7 +427,11 @@ function replaceFinalCandidateWithConverge(family, options = {}) {
     index === slotIndex ? convergeCandidate : candidate,
   );
 
-  return rebuildFamily(baseResult, {
+  return rebuildFamily({
+    ...baseResult,
+    ...(family.distancePolicy ? { distancePolicy: family.distancePolicy } : {}),
+    ...(family.phase ? { phase: family.phase } : {}),
+  }, {
     candidates,
     locks: normalizedLocks,
     parentScoreRef: legacySchema.addressVisualScore(parent),
