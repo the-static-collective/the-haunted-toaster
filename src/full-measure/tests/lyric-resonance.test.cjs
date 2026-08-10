@@ -150,3 +150,64 @@ test("lyric resonance changes timeline identity without changing VisualScore ide
   assert.equal(rain.scoreAddress, score.address);
   assert.notEqual(smoke.timelineHash, rain.timelineHash);
 });
+
+test("six-up and replay carry the exact same timed lyric resonance evidence", () => {
+  const lyricTrack = timedTrack(["[00:03.00]smoke"]);
+  const family = generation.generateCandidateSet({
+    analysis: sectional,
+    garmentConstraints: porchlight,
+    rendererProfile: profile,
+    rootSeed: "lyric-resonance-family",
+    count: 6,
+    lyricTrack,
+  });
+
+  assert.ok(
+    family.candidates.every(
+      (candidate) => candidate.timeline.lyricResonance?.events[0]?.family === "smoke",
+    ),
+  );
+  const replay = generation.replayCandidateFamily(family, {
+    analysis: sectional,
+    garmentConstraints: porchlight,
+    rendererProfile: profile,
+    lyricTrack,
+  });
+  assert.equal(replay.ok, true);
+});
+
+test("STOMP descendants retain the accepted timed lyric resonance plan", () => {
+  const initial = generation.generateCandidateSet({
+    analysis: sectional,
+    garmentConstraints: porchlight,
+    rendererProfile: profile,
+    rootSeed: "lyric-resonance-stomp-parent",
+    count: 6,
+  });
+  const parent = initial.candidates[0];
+  const stomp = generation.generateStompCandidateSet({
+    analysis: sectional,
+    garmentConstraints: porchlight,
+    rendererProfile: profile,
+    parentScore: parent.scoreArtifact.score,
+    rootSeed: "lyric-resonance-stomp",
+    count: 6,
+    lyricTrack: timedTrack(["[00:03.00]rain"]),
+  });
+
+  assert.ok(
+    stomp.candidates.every(
+      (candidate) => candidate.timeline.lyricResonance?.events[0]?.family === "rain",
+    ),
+  );
+});
+
+test("candidate session derives lyric timing evidence instead of forwarding raw text as authority", () => {
+  const source = fs.readFileSync(
+    path.join(root, "src", "candidate-session.cjs"),
+    "utf8",
+  );
+  assert.match(source, /createLyricTrack/);
+  assert.match(source, /lyricTrack/);
+  assert.match(source, /\.timed/);
+});
