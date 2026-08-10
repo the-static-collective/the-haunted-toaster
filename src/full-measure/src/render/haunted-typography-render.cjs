@@ -6,6 +6,7 @@ const {
   resolveHauntedTypography,
   typographyEvidence,
 } = require("./haunted-typography.cjs");
+const { applyAtmosphereToGraph } = require("./atmosphere.cjs");
 
 const TEXT_OVERLAY_FILENAME = "text-overlay.ass";
 const LYRIC_PRIMARY_COLOUR = "&H33FFFFFF";
@@ -15,6 +16,7 @@ function typographyContextForTimeline(scoreAddress, timeline = {}) {
     scoreIdentity: scoreAddress || null,
     profileIdentity:
       timeline?.rendererProfileHash || timeline?.rendererPolicy || null,
+    atmosphereTimeline: timeline || null,
   });
 }
 
@@ -144,6 +146,7 @@ function applyTypographyToAss(content, plan) {
 async function buildHauntedFilterGraph({
   scoreIdentity = null,
   profileIdentity = null,
+  atmosphereTimeline = null,
   ...legacyConfig
 }) {
   const baseFilter = await legacy.buildFilterGraph(legacyConfig);
@@ -166,8 +169,17 @@ async function buildHauntedFilterGraph({
     applyTypographyToAss(overlay, typographyPlan),
     "utf8",
   );
+  const atmosphere = await applyAtmosphereToGraph({
+    graph: baseFilter.graph,
+    tempDirectory: legacyConfig.tempDirectory,
+    timeline: atmosphereTimeline,
+    width: legacyConfig.width,
+    height: legacyConfig.height,
+  });
   return {
     ...baseFilter,
+    graph: atmosphere.graph,
+    atmosphereEvidence: atmosphere.evidence,
     typographyPlan,
     typographyEvidence: typographyEvidence(typographyPlan),
   };

@@ -10,4 +10,6 @@ module.exports = {
   ...require("./diversity-engine.cjs"),
   ...require("./visible-distance.cjs"),
   ...require("./visible-diversity-engine.cjs"),
+  ...require("./atmosphere-score.cjs"),
+  ...require("./atmosphere-generation.cjs"),
 };
