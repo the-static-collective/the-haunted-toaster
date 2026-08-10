@@ -12,4 +12,5 @@ module.exports = {
   ...require("./visible-diversity-engine.cjs"),
   ...require("./atmosphere-score.cjs"),
   ...require("./atmosphere-generation.cjs"),
+  ...require("./possession-arc.cjs"),
 };
