@@ -61,7 +61,6 @@
 
     playhead.style.left = `${Math.max(0, Math.min(100, ratio * 100))}%`;
     readout.textContent = label;
-    waveform.setAttribute("aria-valuemin", "0");
     waveform.setAttribute("aria-valuemax", String(duration));
     waveform.setAttribute("aria-valuenow", String(Number(current.toFixed(3))));
     waveform.setAttribute("aria-valuetext", label);
@@ -101,75 +100,8 @@
 
   function installWaveformTransport() {
     const waveform = document.querySelector("#syncWaveform");
-    const wrap = waveform?.closest(".sync-waveform-wrap");
     const audio = document.querySelector("#syncAudio");
-    if (!waveform || !wrap || !audio) return;
-
-    waveform.setAttribute("tabindex", "0");
-    waveform.setAttribute("role", "slider");
-    waveform.setAttribute("aria-label", "Seek Listener audio");
-    waveform.setAttribute("aria-describedby", "syncWaveformHint");
-
-    let meta = document.querySelector("#syncWaveformMeta");
-    if (!meta) {
-      meta = document.createElement("div");
-      meta.className = "sync-waveform-meta";
-      meta.id = "syncWaveformMeta";
-
-      const hint = document.createElement("span");
-      hint.id = "syncWaveformHint";
-      hint.textContent = "Click or drag waveform to seek.";
-
-      const readout = document.createElement("output");
-      readout.id = "syncTimeReadout";
-      readout.textContent = "0:00 / 0:00";
-      readout.setAttribute("aria-live", "off");
-
-      meta.append(hint, readout);
-      wrap.insertAdjacentElement("afterend", meta);
-    }
-
-    if (!document.querySelector("#syncWaveformTransportStyle")) {
-      const style = document.createElement("style");
-      style.id = "syncWaveformTransportStyle";
-      style.textContent = `
-        .sync-waveform-wrap {
-          cursor: pointer !important;
-          transition: border-color 120ms ease, box-shadow 120ms ease;
-        }
-        .sync-waveform-wrap:hover,
-        .sync-waveform-wrap:focus-within {
-          border-color: rgba(240, 191, 104, 0.42);
-          box-shadow: 0 0 0 2px rgba(240, 191, 104, 0.08);
-        }
-        .sync-waveform {
-          cursor: pointer;
-          touch-action: none;
-          outline: none;
-        }
-        .sync-waveform:focus-visible {
-          outline: 2px solid rgba(131, 209, 191, 0.68);
-          outline-offset: -2px;
-        }
-        .sync-waveform-meta {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 14px;
-          min-height: 20px;
-          padding: 4px 2px 0;
-          color: var(--faint);
-          font-size: 8px;
-        }
-        .sync-waveform-meta output {
-          color: #cfc4cb;
-          font-family: ui-monospace, "Cascadia Code", monospace;
-          font-variant-numeric: tabular-nums;
-          white-space: nowrap;
-        }
-      `;
-      document.head.append(style);
-    }
+    if (!waveform || !audio) return;
 
     waveform.addEventListener("pointerdown", (event) => {
       if (event.button !== 0) return;
