@@ -1,0 +1,39 @@
+.sync-waveform-wrap {
+  cursor: pointer;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.sync-waveform-wrap:hover,
+.sync-waveform-wrap:focus-within {
+  border-color: rgba(240, 191, 104, 0.42);
+  box-shadow: 0 0 0 2px rgba(240, 191, 104, 0.08);
+}
+
+.sync-waveform {
+  cursor: pointer;
+  touch-action: none;
+  outline: none;
+}
+
+.sync-waveform:focus-visible {
+  outline: 2px solid rgba(131, 209, 191, 0.68);
+  outline-offset: -2px;
+}
+
+.sync-waveform-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 20px;
+  padding: 4px 2px 0;
+  color: var(--faint);
+  font-size: 8px;
+}
+
+.sync-waveform-meta output {
+  color: #cfc4cb;
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
