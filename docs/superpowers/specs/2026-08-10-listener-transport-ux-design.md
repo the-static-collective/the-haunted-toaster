@@ -10,18 +10,18 @@ Make the Lyric Listener waveform an explicit, accessible transport control witho
 - Pointer down seeks immediately and captures the pointer; captured pointer movement scrubs continuously; pointer up/cancel ends scrubbing.
 - All pointer-derived times clamp to `[0, duration]`, including coordinates outside the canvas bounds during a captured drag.
 - The waveform is keyboard focusable and exposes slider semantics. Arrow Left/Right seek by 5 seconds, Home seeks to 0, End seeks to duration.
-- Seeking updates `audio.currentTime`, the playhead, the time readout, and active-cue synchronization immediately. Native audio playback remains the source of truth for subsequent time updates.
+- Seeking updates `audio.currentTime`, the playhead, and the time readout immediately. Native audio playback remains the source of truth for subsequent time updates and existing app cue synchronization remains intact.
 
 ## Architecture
-Keep transport behavior in `src/full-measure/src/renderer/app.js`, beside the existing waveform draw/playhead logic. Add only the small DOM affordances needed in `index.html` and styling in `styles.css`; do not create another late-loaded UI controller.
+Keep markup declarative in `src/full-measure/src/renderer/index.html` and transport styling in a narrow `listener-transport.css` stylesheet. Extend the already-loaded `sync-keyboard.js` controller for pointer and keyboard transport behavior instead of adding another late-loaded controller or mutating the DOM at runtime.
 
-Introduce one seek primitive that accepts seconds, clamps against the current media duration, writes `syncAudio.currentTime`, and calls the existing playhead synchronization path. Pointer and keyboard handlers both delegate to that primitive.
+`app.js` remains the existing click-to-seek authority. The transport controller adds pointer-capture drag scrubbing, keyboard seeking, clamping, ARIA state, and immediate playhead/readout synchronization after click or explicit seek. This avoids duplicating lyric or cue-state authority.
 
 ## Accessibility
-The canvas receives `tabindex="0"` and `role="slider"`. JavaScript maintains `aria-valuemin`, `aria-valuemax`, `aria-valuenow`, and an `aria-valuetext` matching the visible time state.
+The canvas owns `tabindex="0"`, `role="slider"`, a seek label, and the visible hint/readout relationship in HTML. JavaScript maintains `aria-valuemax`, `aria-valuenow`, and `aria-valuetext` from the media state.
 
 ## Proof
 Extend `renderer-ui-integration.test.cjs` through the existing JSDOM harness. Cover click seeking, pointer-capture drag scrubbing, coordinate clamping, keyboard seeking, live current/duration text, and playhead synchronization.
 
 ## Compatibility boundary
-No version bump. No score, timeline, receipt, profile, subtitle, or render changes. No new dependency. Existing Tap Through Space behavior remains unchanged when focus is outside the waveform.
+No version bump. No score, timeline, receipt, profile, subtitle, or render changes. No new dependency. Existing Tap Through Space and fine-grained review keyboard behavior remain unchanged when focus is outside the waveform.
