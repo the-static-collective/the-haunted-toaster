@@ -13,5 +13,8 @@ module.exports = {
   ...require("./atmosphere-score.cjs"),
   ...require("./atmosphere-generation.cjs"),
   ...require("./possession-arc.cjs"),
+  ...require("./primitive-field-score.cjs"),
+  ...require("./primitive-field-generation.cjs"),
+  ...require("./stomp-generation.cjs"),
   ...require("./color-drift.cjs"),
 };

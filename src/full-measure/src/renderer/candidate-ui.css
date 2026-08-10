@@ -57,9 +57,12 @@
 .candidate-lock input { position: absolute; opacity: 0; pointer-events: none; }
 .candidate-lock span { display: inline-flex; padding: 6px 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: rgba(255,255,255,.025); font-size: 9px; }
 .candidate-lock input:checked + span { border-color: rgba(240,191,104,.55); color: var(--gold); background: rgba(240,191,104,.08); }
-.candidate-action-buttons { display: flex; gap: 8px; flex: 0 0 auto; }
+.candidate-action-buttons { display: flex; align-items: flex-start; gap: 8px; flex: 0 0 auto; }
 .candidate-mutate, .candidate-use { padding: 11px 14px; }
 .candidate-mutate { border: 1px solid rgba(240,191,104,.26); background: rgba(240,191,104,.07); }
+.candidate-stomp-control { display: grid; gap: 4px; justify-items: stretch; }
+.candidate-stomp { border-color: rgba(223,113,71,.5); background: rgba(223,113,71,.14); letter-spacing: .7px; }
+.candidate-stomp-control small { color: var(--faint); font-size: 8px; text-align: center; white-space: nowrap; }
 .candidate-use { border: 1px solid rgba(131,209,191,.32); color: #d8f3ed; background: rgba(131,209,191,.12); }
 .candidate-regenerate:disabled, .candidate-mutate:disabled, .candidate-use:disabled, .candidate-launch:disabled { cursor: default; opacity: .45; }
 .candidate-modal.is-busy .candidate-grid { opacity: .52; pointer-events: none; }

@@ -6,6 +6,7 @@ const {
   resolveHauntedTypography,
   typographyEvidence,
 } = require("./haunted-typography.cjs");
+const { applyPrimitiveFieldToGraph } = require("./primitive-field.cjs");
 const { applyAtmosphereToGraph } = require("./atmosphere.cjs");
 
 const TEXT_OVERLAY_FILENAME = "text-overlay.ass";
@@ -169,8 +170,14 @@ async function buildHauntedFilterGraph({
     applyTypographyToAss(overlay, typographyPlan),
     "utf8",
   );
-  const atmosphere = await applyAtmosphereToGraph({
+  const primitiveField = applyPrimitiveFieldToGraph({
     graph: baseFilter.graph,
+    timeline: atmosphereTimeline,
+    width: legacyConfig.width,
+    height: legacyConfig.height,
+  });
+  const atmosphere = await applyAtmosphereToGraph({
+    graph: primitiveField.graph,
     tempDirectory: legacyConfig.tempDirectory,
     timeline: atmosphereTimeline,
     width: legacyConfig.width,
@@ -179,6 +186,7 @@ async function buildHauntedFilterGraph({
   return {
     ...baseFilter,
     graph: atmosphere.graph,
+    primitiveFieldEvidence: primitiveField.evidence,
     atmosphereEvidence: atmosphere.evidence,
     typographyPlan,
     typographyEvidence: typographyEvidence(typographyPlan),

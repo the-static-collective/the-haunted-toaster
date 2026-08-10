@@ -5,6 +5,8 @@ const CATEGORICAL_FIELDS = Object.freeze([
   Object.freeze({ key: "camera", weight: 5, read: (score) => score.camera.grammar }),
   Object.freeze({ key: "palette", weight: 5, read: (score) => score.palette.logic }),
   Object.freeze({ key: "temporalDensity", weight: 5, read: (score) => score.temporalDensity }),
+  Object.freeze({ key: "primitiveStructure", weight: 4, read: (score) => score.primitiveField?.structure || "scope" }),
+  Object.freeze({ key: "primitiveDynamics", weight: 4, read: (score) => score.primitiveField?.dynamics || "inertial" }),
   Object.freeze({ key: "lyric", weight: 3, read: (score) => score.lyric.placement }),
 ]);
 
@@ -58,6 +60,8 @@ function categoricalCoverage(scores) {
     camera: readUnique((score) => score.camera.grammar),
     palette: readUnique((score) => score.palette.logic),
     temporalDensity: readUnique((score) => score.temporalDensity),
+    primitiveStructure: readUnique((score) => score.primitiveField?.structure || "scope"),
+    primitiveDynamics: readUnique((score) => score.primitiveField?.dynamics || "inertial"),
     lyric: readUnique((score) => score.lyric.placement),
   });
 }

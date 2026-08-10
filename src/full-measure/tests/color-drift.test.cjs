@@ -11,6 +11,7 @@ const { compileTimelineFilterGraph } = require("../src/render/timeline-filter.cj
 const root = path.resolve(__dirname, "..");
 const readJson = (relativePath) => JSON.parse(fs.readFileSync(path.join(root, relativePath), "utf8"));
 const constraints = readJson("constraints/open-field.v1.json");
+const stompConstraints = readJson("constraints/porchlight.v2.json");
 const expressiveProfile = readJson("profiles/toaster-raster-3.json");
 const legacyProfile = readJson("profiles/toaster-raster-2.json");
 const analysis = readJson("fixtures/analysis/sectional.v1.json");
@@ -78,6 +79,35 @@ test("candidate generation binds drift into expressive timeline identity", () =>
   assert.ok(family.candidates.every((candidate) => candidate.timeline.colorDrift?.policyVersion === generation.COLOR_DRIFT_POLICY));
   assert.equal(replay.ok, true);
   assert.deepEqual(replay.actualTimelineHashes, family.timelineHashes);
+});
+
+test("primitive and STOMP wrappers preserve color drift on final timelines", () => {
+  const ordinary = generation.generateCandidateSet({
+    analysis,
+    garmentConstraints: stompConstraints,
+    rendererProfile: expressiveProfile,
+    rootSeed: "color-drift-primitive-parent",
+    count: 6,
+  });
+
+  assert.ok(ordinary.candidates.every((candidate) => candidate.scoreArtifact.score.primitiveField));
+  assert.ok(ordinary.candidates.every((candidate) =>
+    candidate.timeline.colorDrift?.policyVersion === generation.COLOR_DRIFT_POLICY));
+
+  const parent = ordinary.candidates[2];
+  const stomp = generation.generateStompCandidateSet({
+    analysis,
+    garmentConstraints: stompConstraints,
+    rendererProfile: expressiveProfile,
+    parentScore: parent.scoreArtifact.score,
+    locks: [],
+    rootSeed: "color-drift-stomp",
+    count: 6,
+  });
+
+  assert.ok(stomp.candidates.every((candidate) => candidate.scoreArtifact.score.primitiveField));
+  assert.ok(stomp.candidates.every((candidate) =>
+    candidate.timeline.colorDrift?.policyVersion === generation.COLOR_DRIFT_POLICY));
 });
 
 test("production compiler makes garment palette chromatically non-static", () => {
