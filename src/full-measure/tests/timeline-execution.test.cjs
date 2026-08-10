@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const generation = require("../src/generation/index.cjs");
 const execution = require("../src/render/timeline-execution.cjs");
+const { createLyricTrack } = require("../src/render/lyrics.cjs");
 
 const root = path.resolve(__dirname, "..");
 const readJson = (relativePath) =>
@@ -23,6 +24,23 @@ function resolvedFixture() {
     },
   });
   return generation.resolve(analysis, artifact.score, constraints, profile);
+}
+
+function resolvedResonanceFixture() {
+  const artifact = generation.createVisualScore({
+    seed: "lyric-resonance-validation",
+    constraints,
+    overrides: {
+      atmosphere: "none",
+      topology: "mirrored-ring",
+      temporalDensity: "transient",
+    },
+  });
+  const lyrics = createLyricTrack(
+    "[00:03.00]smoke\n[00:12.00]rain",
+    analysis.durationSeconds,
+  );
+  return generation.resolve(analysis, artifact.score, constraints, profile, lyrics);
 }
 
 test("execution adapter consumes the accepted timeline without resolving again", () => {
@@ -102,6 +120,81 @@ test("adapter rejects malformed or unordered timeline input", () => {
     assert.throws(
       () => execution.createTimelineExecution(malformed),
       /ordered by canonical tick/,
+    );
+  }
+});
+
+test("valid lyric resonance evidence is accepted as canonical timeline evidence", () => {
+  const timeline = resolvedResonanceFixture();
+  assert.equal(timeline.lyricResonance.events.length, 2);
+  assert.equal(execution.assertResolvedTimeline(timeline), timeline);
+});
+
+test("lyric resonance validation fails closed on malformed semantic evidence", () => {
+  const timeline = resolvedResonanceFixture();
+  const cases = [
+    {
+      pattern: /Lyric Resonance schema/,
+      mutate(value) {
+        value.lyricResonance.schema = "wrong";
+      },
+    },
+    {
+      pattern: /Lyric Resonance policy/,
+      mutate(value) {
+        value.lyricResonance.policy = "wrong";
+      },
+    },
+    {
+      pattern: /Unsupported Lyric Resonance family/,
+      mutate(value) {
+        value.lyricResonance.events[0].family = "volcano";
+      },
+    },
+    {
+      pattern: /canonical tick window/,
+      mutate(value) {
+        value.lyricResonance.events[0].endTick = value.lyricResonance.events[0].startTick;
+      },
+    },
+    {
+      pattern: /exceeds durationTicks/,
+      mutate(value) {
+        value.lyricResonance.events[0].endTick = value.durationTicks + 1;
+      },
+    },
+    {
+      pattern: /intensity/,
+      mutate(value) {
+        value.lyricResonance.events[0].intensity = 1.2;
+      },
+    },
+    {
+      pattern: /cueIndices/,
+      mutate(value) {
+        value.lyricResonance.events[0].cueIndices = [2, 1];
+      },
+    },
+    {
+      pattern: /matchedTerms/,
+      mutate(value) {
+        value.lyricResonance.events[0].matchedTerms = ["smoke", "smoke"];
+      },
+    },
+    {
+      pattern: /ordered by canonical tick/,
+      mutate(value) {
+        value.lyricResonance.events = [...value.lyricResonance.events].reverse();
+      },
+    },
+  ];
+
+  for (const specimen of cases) {
+    const malformed = structuredClone(timeline);
+    specimen.mutate(malformed);
+    assert.throws(
+      () => execution.createTimelineExecution(malformed),
+      specimen.pattern,
     );
   }
 });
