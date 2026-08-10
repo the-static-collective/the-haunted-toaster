@@ -1,5 +1,7 @@
 (() => {
   const SCRUB_SECONDS = 0.1;
+  const WAVEFORM_SEEK_SECONDS = 5;
+  let waveformPointerId = null;
 
   function editorIsActive() {
     const dialog = document.querySelector("#syncDialog");
@@ -27,14 +29,209 @@
     rows[target].click();
   }
 
+  function mediaDuration(audio) {
+    const duration = Number(audio?.duration);
+    return Number.isFinite(duration) && duration > 0 ? duration : 0;
+  }
+
+  function formatDuration(seconds) {
+    const total = Math.max(0, Math.round(Number(seconds) || 0));
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const remainder = total % 60;
+    if (hours) {
+      return `${hours}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
+    }
+    return `${minutes}:${String(remainder).padStart(2, "0")}`;
+  }
+
+  function updateWaveformTransport() {
+    const audio = document.querySelector("#syncAudio");
+    const waveform = document.querySelector("#syncWaveform");
+    const playhead = document.querySelector("#syncPlayhead");
+    const readout = document.querySelector("#syncTimeReadout");
+    if (!audio || !waveform || !playhead || !readout) return;
+
+    const duration = mediaDuration(audio);
+    const current = duration
+      ? Math.max(0, Math.min(duration, Number(audio.currentTime) || 0))
+      : 0;
+    const ratio = duration ? current / duration : 0;
+    const label = `${formatDuration(current)} / ${formatDuration(duration)}`;
+
+    playhead.style.left = `${Math.max(0, Math.min(100, ratio * 100))}%`;
+    readout.textContent = label;
+    waveform.setAttribute("aria-valuemin", "0");
+    waveform.setAttribute("aria-valuemax", String(duration));
+    waveform.setAttribute("aria-valuenow", String(Number(current.toFixed(3))));
+    waveform.setAttribute("aria-valuetext", label);
+  }
+
+  function seekWaveform(seconds) {
+    const audio = document.querySelector("#syncAudio");
+    if (!audio) return;
+    const duration = mediaDuration(audio);
+    if (!duration) {
+      updateWaveformTransport();
+      return;
+    }
+    audio.currentTime = Math.max(0, Math.min(duration, Number(seconds) || 0));
+    updateWaveformTransport();
+  }
+
+  function seekWaveformFromPointer(event) {
+    const waveform = document.querySelector("#syncWaveform");
+    const audio = document.querySelector("#syncAudio");
+    if (!waveform || !audio) return;
+    const bounds = waveform.getBoundingClientRect();
+    const ratio = (event.clientX - bounds.left) / Math.max(1, bounds.width);
+    seekWaveform(Math.max(0, Math.min(1, ratio)) * mediaDuration(audio));
+  }
+
   function scrubPlayhead(direction) {
     const audio = document.querySelector("#syncAudio");
     if (!audio) return;
-    const duration = Number.isFinite(audio.duration) ? audio.duration : Infinity;
+    const duration = mediaDuration(audio) || Infinity;
     audio.currentTime = Math.max(
       0,
       Math.min(duration, audio.currentTime + direction * SCRUB_SECONDS),
     );
+    updateWaveformTransport();
+  }
+
+  function installWaveformTransport() {
+    const waveform = document.querySelector("#syncWaveform");
+    const wrap = waveform?.closest(".sync-waveform-wrap");
+    const audio = document.querySelector("#syncAudio");
+    if (!waveform || !wrap || !audio) return;
+
+    waveform.setAttribute("tabindex", "0");
+    waveform.setAttribute("role", "slider");
+    waveform.setAttribute("aria-label", "Seek Listener audio");
+    waveform.setAttribute("aria-describedby", "syncWaveformHint");
+
+    let meta = document.querySelector("#syncWaveformMeta");
+    if (!meta) {
+      meta = document.createElement("div");
+      meta.className = "sync-waveform-meta";
+      meta.id = "syncWaveformMeta";
+
+      const hint = document.createElement("span");
+      hint.id = "syncWaveformHint";
+      hint.textContent = "Click or drag waveform to seek.";
+
+      const readout = document.createElement("output");
+      readout.id = "syncTimeReadout";
+      readout.textContent = "0:00 / 0:00";
+      readout.setAttribute("aria-live", "off");
+
+      meta.append(hint, readout);
+      wrap.insertAdjacentElement("afterend", meta);
+    }
+
+    if (!document.querySelector("#syncWaveformTransportStyle")) {
+      const style = document.createElement("style");
+      style.id = "syncWaveformTransportStyle";
+      style.textContent = `
+        .sync-waveform-wrap {
+          cursor: pointer !important;
+          transition: border-color 120ms ease, box-shadow 120ms ease;
+        }
+        .sync-waveform-wrap:hover,
+        .sync-waveform-wrap:focus-within {
+          border-color: rgba(240, 191, 104, 0.42);
+          box-shadow: 0 0 0 2px rgba(240, 191, 104, 0.08);
+        }
+        .sync-waveform {
+          cursor: pointer;
+          touch-action: none;
+          outline: none;
+        }
+        .sync-waveform:focus-visible {
+          outline: 2px solid rgba(131, 209, 191, 0.68);
+          outline-offset: -2px;
+        }
+        .sync-waveform-meta {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 14px;
+          min-height: 20px;
+          padding: 4px 2px 0;
+          color: var(--faint);
+          font-size: 8px;
+        }
+        .sync-waveform-meta output {
+          color: #cfc4cb;
+          font-family: ui-monospace, "Cascadia Code", monospace;
+          font-variant-numeric: tabular-nums;
+          white-space: nowrap;
+        }
+      `;
+      document.head.append(style);
+    }
+
+    waveform.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      waveformPointerId = event.pointerId;
+      waveform.setPointerCapture?.(event.pointerId);
+      seekWaveformFromPointer(event);
+    });
+
+    waveform.addEventListener("pointermove", (event) => {
+      if (waveformPointerId === null || event.pointerId !== waveformPointerId) return;
+      event.preventDefault();
+      seekWaveformFromPointer(event);
+    });
+
+    const endScrub = (event) => {
+      if (waveformPointerId === null || event.pointerId !== waveformPointerId) return;
+      event.preventDefault();
+      try {
+        waveform.releasePointerCapture?.(event.pointerId);
+      } catch {
+        // Pointer capture may already have been released by the host.
+      }
+      waveformPointerId = null;
+    };
+    waveform.addEventListener("pointerup", endScrub);
+    waveform.addEventListener("pointercancel", endScrub);
+
+    // app.js remains the click-to-seek authority. This listener synchronizes
+    // the visible playhead/readout immediately after that seek.
+    waveform.addEventListener("click", updateWaveformTransport);
+
+    waveform.addEventListener("keydown", (event) => {
+      let target = null;
+      if (event.key === "ArrowLeft") {
+        target = (Number(audio.currentTime) || 0) - WAVEFORM_SEEK_SECONDS;
+      } else if (event.key === "ArrowRight") {
+        target = (Number(audio.currentTime) || 0) + WAVEFORM_SEEK_SECONDS;
+      } else if (event.key === "Home") {
+        target = 0;
+      } else if (event.key === "End") {
+        target = mediaDuration(audio);
+      } else {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      seekWaveform(target);
+    });
+
+    for (const eventName of [
+      "loadedmetadata",
+      "durationchange",
+      "timeupdate",
+      "seeked",
+      "play",
+      "pause",
+    ]) {
+      audio.addEventListener(eventName, updateWaveformTransport);
+    }
+
+    updateWaveformTransport();
   }
 
   document.addEventListener("keydown", (event) => {
@@ -51,4 +248,6 @@
       scrubPlayhead(event.code === "ArrowLeft" ? -1 : 1);
     }
   });
+
+  installWaveformTransport();
 })();
