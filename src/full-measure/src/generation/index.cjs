@@ -16,4 +16,5 @@ module.exports = {
   ...require("./primitive-field-score.cjs"),
   ...require("./primitive-field-generation.cjs"),
   ...require("./stomp-generation.cjs"),
+  ...require("./color-drift.cjs"),
 };

@@ -10,6 +10,7 @@ const {
   LEGACY_RENDERER_POLICY,
   VISUAL_LANGUAGE_RENDERER_POLICY,
 } = require("../generation/renderer-policy.cjs");
+const { COLOR_DRIFT_POLICY, driftAtTick } = require("../generation/color-drift.cjs");
 const { cameraSurrender } = require("./response-shaping.cjs");
 
 const SEMANTIC_COMPILER_REGISTRIES = Object.freeze({
@@ -70,15 +71,17 @@ function evenDimension(value) {
   return Math.max(2, Math.ceil(Number(value) / 2) * 2);
 }
 
-function rendererValues(state) {
+function rendererValues(state, drift = null) {
   const palette = state.palette || {};
   const material = state.material || {};
   const motion = state.motion || {};
   const camera = state.camera || {};
+  const hueOffset = Number(drift?.hueOffset) || 0;
+  const saturationMultiplier = Number(drift?.saturationMultiplier) || 1;
 
   return Object.freeze({
-    hue: quantize((Number(palette.contrastBias) || 0) * 18 + ((Number(palette.bleed) || 0) - 0.5) * 12),
-    saturation: quantize(0.94 + (Number(palette.bleed) || 0) * 0.22),
+    hue: quantize((Number(palette.contrastBias) || 0) * 18 + ((Number(palette.bleed) || 0) - 0.5) * 12 + hueOffset),
+    saturation: quantize((0.94 + (Number(palette.bleed) || 0) * 0.22) * saturationMultiplier),
     contrast: quantize(1 + (Number(palette.contrastBias) || 0) * 0.12 + (Number(material.imperfection) || 0) * 0.05),
     brightness: quantize(((Number(motion.amplitude) || 0) - 0.5) * 0.035),
     gamma: quantize(1 + ((Number(camera.variance) || 0) - 0.5) * 0.08),
@@ -266,14 +269,25 @@ function semanticGrammarFilters(execution, geometry) {
   return semanticProgramForState(execution.timeline.baseState, geometry, duration, rendererPolicy);
 }
 
-function numericFilters(state) {
-  const values = rendererValues(state);
+function numericFilters(state, drift = null) {
+  const values = rendererValues(state, drift);
   return Object.freeze({
     values,
     filters: Object.freeze([
       `hue=h=${ffmpegNumber(values.hue)}:s=${ffmpegNumber(values.saturation)}`,
       `eq=contrast=${ffmpegNumber(values.contrast)}:brightness=${ffmpegNumber(values.brightness)}:gamma=${ffmpegNumber(values.gamma)}`,
     ]),
+  });
+}
+
+function colorDriftOperator(timeline) {
+  const drift = timeline?.colorDrift;
+  if (!drift?.stops?.length) return null;
+  return Object.freeze({
+    axis: "colorDrift",
+    compiler: COLOR_DRIFT_POLICY,
+    planSha256: drift.planSha256,
+    stopCount: drift.stopCount,
   });
 }
 
@@ -300,7 +314,8 @@ function possessionArcCompilation(execution, geometry) {
   segments.forEach((segment, index) => {
     const duration = Math.max(0.1, segment.endSeconds - segment.startSeconds);
     const semantic = semanticProgramForState(segment.state, geometry, duration, rendererPolicy);
-    const numeric = numericFilters(segment.state);
+    const drift = driftAtTick(execution.timeline, segment.startTick);
+    const numeric = numericFilters(segment.state, drift);
     const output = `arcSegment${index}`;
     const chain = [
       `trim=start=${ffmpegNumber(segment.startSeconds)}:end=${ffmpegNumber(segment.endSeconds)}`,
@@ -315,6 +330,7 @@ function possessionArcCompilation(execution, geometry) {
       startSeconds: segment.startSeconds,
       endSeconds: segment.endSeconds,
       state: segment.state,
+      colorDrift: drift,
       renderer: numeric.values,
       semanticGrammar: semantic,
     }));
@@ -335,8 +351,10 @@ function possessionArcCompilation(execution, geometry) {
     affectedAxes: Object.freeze([...(arc.affectedAxes || [])]),
     transitionPolicy: arc.transitionPolicy,
   });
+  const driftOperator = colorDriftOperator(execution.timeline);
   const operators = Object.freeze([
     arcOperator,
+    ...(driftOperator ? [driftOperator] : []),
     ...programs.flatMap((program) =>
       program.semanticGrammar.operators.map((operator) => Object.freeze({
         ...operator,
@@ -350,6 +368,13 @@ function possessionArcCompilation(execution, geometry) {
     planSha256: arc.planSha256,
     transitionCount: arc.transitionCount,
     affectedAxes: Object.freeze([...(arc.affectedAxes || [])]),
+    ...(driftOperator ? {
+      colorDrift: Object.freeze({
+        policyVersion: execution.timeline.colorDrift.policyVersion,
+        planSha256: execution.timeline.colorDrift.planSha256,
+        stopCount: execution.timeline.colorDrift.stopCount,
+      }),
+    } : {}),
     segments: Object.freeze(programs.map((program) => Object.freeze({
       startTick: program.startTick,
       endTick: program.endTick,
@@ -357,6 +382,7 @@ function possessionArcCompilation(execution, geometry) {
       palette: program.semanticGrammar.palette,
       material: program.semanticGrammar.material,
       camera: program.semanticGrammar.camera,
+      colorDrift: program.colorDrift,
       compilers: program.semanticGrammar.compilers,
     }))),
   });
@@ -402,6 +428,7 @@ function compileTimelineFilterGraph(graph, execution) {
         startSeconds: program.startSeconds,
         endSeconds: program.endSeconds,
         state: program.state,
+        colorDrift: program.colorDrift,
         renderer: program.renderer,
         semanticGrammar: {
           motion: program.semanticGrammar.motion,
@@ -424,7 +451,8 @@ function compileTimelineFilterGraph(graph, execution) {
 
   execution.segments.forEach((segment, index) => {
     if (segment.endSeconds <= segment.startSeconds) return;
-    const values = rendererValues(segment.state);
+    const drift = driftAtTick(execution.timeline, segment.startTick);
+    const values = rendererValues(segment.state, drift);
     const output = `timeline${index + 1}`;
     const enable = `between(t,${ffmpegNumber(segment.startSeconds)},${ffmpegNumber(segment.endSeconds)})`;
     filters.push(`[${input}]hue=h=${ffmpegNumber(values.hue)}:s=${ffmpegNumber(values.saturation)}:enable='${enable}',eq=contrast=${ffmpegNumber(values.contrast)}:brightness=${ffmpegNumber(values.brightness)}:gamma=${ffmpegNumber(values.gamma)}:enable='${enable}'[${output}]`);
@@ -434,6 +462,7 @@ function compileTimelineFilterGraph(graph, execution) {
   if (!filters.length) filters.push("[stage0]null[timelineFinal]");
   else filters.push(`[${input}]null[timelineFinal]`);
 
+  const driftOperator = colorDriftOperator(execution.timeline);
   return {
     graph: `${prefix}${filters.join(";\n")};\n${suffix}`,
     rendererPolicy: rendererPolicyForTimeline(execution.timeline),
@@ -441,16 +470,30 @@ function compileTimelineFilterGraph(graph, execution) {
     topologyCompiler: topologyCompiled.topologyCompiler,
     fieldEnvelope: topologyCompiled.fieldEnvelope,
     geometry: topologyCompiled.geometry || geometry,
-    semanticGrammar,
-    operators: semanticGrammar.operators,
-    segments: execution.segments.map((segment) => ({
-      startTick: segment.startTick,
-      endTick: segment.endTick,
-      startSeconds: segment.startSeconds,
-      endSeconds: segment.endSeconds,
-      state: segment.state,
-      renderer: rendererValues(segment.state),
-    })),
+    semanticGrammar: driftOperator ? Object.freeze({
+      ...semanticGrammar,
+      colorDrift: Object.freeze({
+        policyVersion: execution.timeline.colorDrift.policyVersion,
+        planSha256: execution.timeline.colorDrift.planSha256,
+        stopCount: execution.timeline.colorDrift.stopCount,
+      }),
+    }) : semanticGrammar,
+    operators: Object.freeze([
+      ...(driftOperator ? [driftOperator] : []),
+      ...semanticGrammar.operators,
+    ]),
+    segments: execution.segments.map((segment) => {
+      const drift = driftAtTick(execution.timeline, segment.startTick);
+      return {
+        startTick: segment.startTick,
+        endTick: segment.endTick,
+        startSeconds: segment.startSeconds,
+        endSeconds: segment.endSeconds,
+        state: segment.state,
+        colorDrift: drift,
+        renderer: rendererValues(segment.state, drift),
+      };
+    }),
   };
 }
 
