@@ -6,7 +6,7 @@ const openField = require("../constraints/open-field.v1.json");
 const porchlight = require("../constraints/porchlight.v2.json");
 const wireOrchard = require("../constraints/wire-orchard.v2.json");
 const absoluteResidual = require("../constraints/absolute-residual.v2.json");
-const rendererProfile = require("../profiles/toaster-raster-2.json");
+const rendererProfile = require("../profiles/toaster-raster-3.json");
 
 const CONSTRAINTS_BY_PRESET = Object.freeze({
   openField,

@@ -2,8 +2,12 @@ const crypto = require("node:crypto");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const { ATMOSPHERES } = require("../generation/atmosphere-score.cjs");
+const { EXPRESSIVE_RENDERER_POLICY } = require("../generation/renderer-policy.cjs");
+const { effectiveInternalEnergy } = require("./response-shaping.cjs");
 
-const ATMOSPHERE_COMPILER = "atmosphere-ass-particle-field-v1";
+const ATMOSPHERE_COMPILER_V1 = "atmosphere-ass-particle-field-v1";
+const ATMOSPHERE_COMPILER_V2 = "atmosphere-ass-particle-field-v2";
+const ATMOSPHERE_COMPILER = ATMOSPHERE_COMPILER_V1;
 const ATMOSPHERE_FILENAME = "atmosphere.ass";
 const TEXT_OVERLAY_SEAM =
   "[stage0]ass=filename='text-overlay.ass':alpha=1,format=yuv420p[vout]";
@@ -18,6 +22,12 @@ function atmosphereKind(timeline) {
     throw new TypeError(`Unsupported atmosphere: ${String(kind)}.`);
   }
   return kind;
+}
+
+function atmosphereCompiler(timeline) {
+  return timeline?.rendererPolicy === EXPRESSIVE_RENDERER_POLICY
+    ? ATMOSPHERE_COMPILER_V2
+    : ATMOSPHERE_COMPILER_V1;
 }
 
 function assTime(seconds) {
@@ -115,9 +125,14 @@ function assHeader(width, height) {
   ];
 }
 
-function smokeEvents(rng, duration, width, height) {
+function smokeEvents(rng, duration, width, height, responseEnergy = null) {
   const events = [];
-  const count = Math.min(120, Math.max(22, Math.ceil(duration / 2.4)));
+  const responsive = Number.isFinite(responseEnergy);
+  const energy = responsive ? clamp(responseEnergy, 0, 1) : 0;
+  const baseCount = Math.min(120, Math.max(22, Math.ceil(duration / 2.4)));
+  const count = responsive
+    ? Math.min(180, Math.max(22, Math.round(baseCount * (1 + energy * 0.55))))
+    : baseCount;
   const life = clamp(duration / Math.max(1, count / 3), 4.8, 13);
   for (let index = 0; index < count; index += 1) {
     const start = (index / count) * Math.max(0.01, duration);
@@ -129,9 +144,16 @@ function smokeEvents(rng, duration, width, height) {
     );
     const x1 = rng.integer(-radius, width);
     const y1 = rng.integer(Math.round(height * 0.55), height + radius);
-    const drift = rng.integer(-Math.round(width * 0.16), Math.round(width * 0.16));
-    const rise = rng.integer(Math.round(height * 0.18), Math.round(height * 0.58));
-    const opacity = rng.between(0.06, 0.18);
+    const driftRange = responsive
+      ? Math.round(width * (0.16 + energy * 0.11))
+      : Math.round(width * 0.16);
+    const drift = rng.integer(-driftRange, driftRange);
+    const riseMinimum = responsive ? Math.round(height * (0.18 + energy * 0.04)) : Math.round(height * 0.18);
+    const riseMaximum = responsive ? Math.round(height * (0.58 + energy * 0.14)) : Math.round(height * 0.58);
+    const rise = rng.integer(riseMinimum, riseMaximum);
+    const opacity = responsive
+      ? rng.between(0.06 + energy * 0.02, 0.18 + energy * 0.12)
+      : rng.between(0.06, 0.18);
     const blur = rng.between(12, 30).toFixed(1);
     const overrides =
       `{\\an7\\move(${x1},${y1},${x1 + drift},${y1 - rise})` +
@@ -141,19 +163,30 @@ function smokeEvents(rng, duration, width, height) {
   return events;
 }
 
-function rainEvents(rng, duration, width, height) {
+function rainEvents(rng, duration, width, height, responseEnergy = null) {
   const events = [];
-  const desiredInterval = 0.56;
+  const responsive = Number.isFinite(responseEnergy);
+  const energy = responsive ? clamp(responseEnergy, 0, 1) : 0;
+  const desiredInterval = responsive ? 0.56 / (1 + energy * 0.55) : 0.56;
   const count = Math.min(420, Math.max(1, Math.ceil(duration / desiredInterval)));
   const interval = duration / count;
-  const streakCount = Math.max(24, Math.min(78, Math.round(width / 24)));
+  const baseStreakCount = Math.max(24, Math.min(78, Math.round(width / 24)));
+  const streakCount = responsive
+    ? Math.max(24, Math.min(104, Math.round(baseStreakCount * (1 + energy * 0.35))))
+    : baseStreakCount;
   const slant = rng.between(-0.34, -0.13);
   for (let index = 0; index < count; index += 1) {
     const start = index * interval;
     const end = Math.min(duration, start + Math.max(0.4, interval * 1.12));
-    const travelX = Math.round(height * slant * rng.between(0.18, 0.34));
-    const travelY = Math.round(height * rng.between(0.16, 0.34));
-    const opacity = rng.between(0.16, 0.34);
+    const travelX = responsive
+      ? Math.round(height * slant * rng.between(0.18, 0.34) * (1 + energy * 0.35))
+      : Math.round(height * slant * rng.between(0.18, 0.34));
+    const travelY = responsive
+      ? Math.round(height * rng.between(0.16, 0.34 + energy * 0.18))
+      : Math.round(height * rng.between(0.16, 0.34));
+    const opacity = responsive
+      ? rng.between(0.16 + energy * 0.04, Math.min(0.62, 0.34 + energy * 0.16))
+      : rng.between(0.16, 0.34);
     const overrides =
       `{\\an7\\move(0,${-Math.round(height * 0.05)},${travelX},${travelY})` +
       `\\1c&HFFFFFF&\\1a&H${alphaHex(opacity)}&\\blur${rng.between(0.3, 1.2).toFixed(1)}}`;
@@ -169,24 +202,33 @@ function rainEvents(rng, duration, width, height) {
   return events;
 }
 
-function dustEvents(rng, duration, width, height) {
+function dustEvents(rng, duration, width, height, responseEnergy = null) {
   const events = [];
-  const count = Math.max(34, Math.min(90, Math.round((width * height) / 26000)));
+  const responsive = Number.isFinite(responseEnergy);
+  const energy = responsive ? clamp(responseEnergy, 0, 1) : 0;
+  const baseCount = Math.max(34, Math.min(90, Math.round((width * height) / 26000)));
+  const count = responsive
+    ? Math.max(34, Math.min(128, Math.round(baseCount * (1 + energy * 0.5))))
+    : baseCount;
+  const travelX = responsive ? 0.12 + energy * 0.09 : 0.12;
+  const travelY = responsive ? 0.08 + energy * 0.07 : 0.08;
   for (let index = 0; index < count; index += 1) {
     const radius = rng.integer(1, Math.max(2, Math.round(Math.min(width, height) * 0.006)));
     const x1 = rng.integer(0, width);
     const y1 = rng.integer(0, height);
     const x2 = clamp(
-      x1 + rng.integer(-Math.round(width * 0.12), Math.round(width * 0.12)),
+      x1 + rng.integer(-Math.round(width * travelX), Math.round(width * travelX)),
       -radius,
       width + radius,
     );
     const y2 = clamp(
-      y1 + rng.integer(-Math.round(height * 0.08), Math.round(height * 0.08)),
+      y1 + rng.integer(-Math.round(height * travelY), Math.round(height * travelY)),
       -radius,
       height + radius,
     );
-    const opacity = rng.between(0.12, 0.42);
+    const opacity = responsive
+      ? rng.between(0.12 + energy * 0.03, Math.min(0.72, 0.42 + energy * 0.18))
+      : rng.between(0.12, 0.42);
     const overrides =
       `{\\an7\\move(${Math.round(x1)},${Math.round(y1)},${Math.round(x2)},${Math.round(y2)})` +
       `\\1c&HFFFFFF&\\1a&H${alphaHex(opacity)}&\\blur${rng.between(0.6, 2.4).toFixed(1)}}`;
@@ -195,9 +237,14 @@ function dustEvents(rng, duration, width, height) {
   return events;
 }
 
-function fireflyEvents(rng, duration, width, height) {
+function fireflyEvents(rng, duration, width, height, responseEnergy = null) {
   const events = [];
-  const particles = Math.max(10, Math.min(22, Math.round(width / 95)));
+  const responsive = Number.isFinite(responseEnergy);
+  const energy = responsive ? clamp(responseEnergy, 0, 1) : 0;
+  const baseParticles = Math.max(10, Math.min(22, Math.round(width / 95)));
+  const particles = responsive
+    ? Math.max(10, Math.min(32, Math.round(baseParticles * (1 + energy * 0.4))))
+    : baseParticles;
   for (let particle = 0; particle < particles; particle += 1) {
     let at = rng.between(0, Math.min(3.5, duration));
     let x = rng.integer(Math.round(width * 0.04), Math.round(width * 0.96));
@@ -206,13 +253,15 @@ function fireflyEvents(rng, duration, width, height) {
     while (at < duration && events.length < 900 && hops < 80) {
       const life = rng.between(1.2, 3.9);
       const end = Math.min(duration, at + life);
+      const xRange = responsive ? 0.09 + energy * 0.06 : 0.09;
+      const yRange = responsive ? 0.1 + energy * 0.08 : 0.1;
       const nextX = clamp(
-        x + rng.integer(-Math.round(width * 0.09), Math.round(width * 0.09)),
+        x + rng.integer(-Math.round(width * xRange), Math.round(width * xRange)),
         0,
         width,
       );
       const nextY = clamp(
-        y + rng.integer(-Math.round(height * 0.1), Math.round(height * 0.1)),
+        y + rng.integer(-Math.round(height * yRange), Math.round(height * yRange)),
         0,
         height,
       );
@@ -220,7 +269,9 @@ function fireflyEvents(rng, duration, width, height) {
         Math.max(2, Math.round(Math.min(width, height) * 0.004)),
         Math.max(4, Math.round(Math.min(width, height) * 0.012)),
       );
-      const opacity = rng.between(0.42, 0.9);
+      const opacity = responsive
+        ? rng.between(0.42 + energy * 0.08, Math.min(0.98, 0.9 + energy * 0.08))
+        : rng.between(0.42, 0.9);
       const overrides =
         `{\\an7\\move(${Math.round(x)},${Math.round(y)},${Math.round(nextX)},${Math.round(nextY)})` +
         `\\1c&H66E6FF&\\1a&H${alphaHex(opacity)}&\\blur${rng.between(2.5, 7).toFixed(1)}` +
@@ -228,7 +279,9 @@ function fireflyEvents(rng, duration, width, height) {
       events.push(dialogue(at, end, overrides, drawingCircle(radius)));
       x = nextX;
       y = nextY;
-      at = end + rng.between(0.45, 2.8);
+      at = responsive
+        ? end + rng.between(0.45 / (1 + energy * 0.7), 2.8 / (1 + energy * 0.6))
+        : end + rng.between(0.45, 2.8);
       hops += 1;
     }
   }
@@ -241,6 +294,11 @@ function buildAtmosphereAss({
   height,
 }) {
   const kind = atmosphereKind(timeline);
+  const compiler = atmosphereCompiler(timeline);
+  const expressive = compiler === ATMOSPHERE_COMPILER_V2;
+  const responseEnergy = expressive
+    ? effectiveInternalEnergy(timeline?.baseState?.motion?.amplitude)
+    : null;
   const duration = Math.max(
     0,
     Number(timeline?.durationTicks || 0) / Math.max(1, Number(timeline?.timebase || 1)),
@@ -248,7 +306,7 @@ function buildAtmosphereAss({
   if (kind === "none" || duration <= 0) {
     return Object.freeze({
       kind,
-      compiler: ATMOSPHERE_COMPILER,
+      compiler,
       eventCount: 0,
       content: null,
       contentSha256: null,
@@ -260,22 +318,23 @@ function buildAtmosphereAss({
     timeline?.timelineHash || "",
     kind,
     `${width}x${height}`,
-    ATMOSPHERE_COMPILER,
+    compiler,
   ].join("|");
   const rng = deterministicField(seed);
   let events;
-  if (kind === "smoke") events = smokeEvents(rng, duration, width, height);
-  else if (kind === "rain") events = rainEvents(rng, duration, width, height);
-  else if (kind === "dust") events = dustEvents(rng, duration, width, height);
-  else events = fireflyEvents(rng, duration, width, height);
+  if (kind === "smoke") events = smokeEvents(rng, duration, width, height, responseEnergy);
+  else if (kind === "rain") events = rainEvents(rng, duration, width, height, responseEnergy);
+  else if (kind === "dust") events = dustEvents(rng, duration, width, height, responseEnergy);
+  else events = fireflyEvents(rng, duration, width, height, responseEnergy);
 
   const content = [...assHeader(width, height), ...events, ""].join("\n");
   return Object.freeze({
     kind,
-    compiler: ATMOSPHERE_COMPILER,
+    compiler,
     eventCount: events.length,
     content,
     contentSha256: crypto.createHash("sha256").update(content, "utf8").digest("hex"),
+    ...(expressive ? { responseEnergy } : {}),
   });
 }
 
@@ -319,16 +378,20 @@ async function applyAtmosphereToGraph({
       eventCount: built.eventCount,
       contentSha256: built.contentSha256,
       fileName,
+      ...(Object.hasOwn(built, "responseEnergy") ? { responseEnergy: built.responseEnergy } : {}),
     }),
   });
 }
 
 module.exports = {
   ATMOSPHERE_COMPILER,
+  ATMOSPHERE_COMPILER_V1,
+  ATMOSPHERE_COMPILER_V2,
   ATMOSPHERE_FILENAME,
   TEXT_OVERLAY_SEAM,
   applyAtmosphereToGraph,
   assTime,
+  atmosphereCompiler,
   atmosphereKind,
   buildAtmosphereAss,
   deterministicField,

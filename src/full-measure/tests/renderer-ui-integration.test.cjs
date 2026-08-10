@@ -152,6 +152,29 @@ async function loadSong(document) {
   await tick();
 }
 
+function setMediaState(audio, { duration, currentTime = 0, paused = true }) {
+  Object.defineProperty(audio, "duration", {
+    configurable: true,
+    value: duration,
+  });
+  Object.defineProperty(audio, "paused", {
+    configurable: true,
+    value: paused,
+  });
+  audio.currentTime = currentTime;
+}
+
+function pointerEvent(window, type, { clientX, pointerId = 1, button = 0 }) {
+  const event = new window.MouseEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    clientX,
+    button,
+  });
+  Object.defineProperty(event, "pointerId", { value: pointerId });
+  return event;
+}
+
 test("composed DOM owns one starting field shared by six-up and render", async () => {
   const harness = buildRenderer();
   const { document, window, calls } = harness;
@@ -248,3 +271,131 @@ for (const failurePoint of ["format", "save"]) {
     }
   });
 }
+
+test("Listener waveform advertises an accessible seek transport", () => {
+  const harness = buildRenderer();
+  const { document } = harness;
+  try {
+    const waveform = document.querySelector("#syncWaveform");
+    const hint = document.querySelector("#syncWaveformHint");
+    const readout = document.querySelector("#syncTimeReadout");
+
+    assert.equal(waveform.getAttribute("role"), "slider");
+    assert.equal(waveform.getAttribute("tabindex"), "0");
+    assert.match(waveform.getAttribute("aria-label") || "", /seek/i);
+    assert.equal(hint?.textContent.trim(), "Click or drag waveform to seek.");
+    assert.equal(readout?.textContent.trim(), "0:00 / 0:00");
+  } finally {
+    harness.dom.window.close();
+  }
+});
+
+test("Listener waveform pointer drag captures, scrubs, and clamps", async () => {
+  const harness = buildRenderer();
+  const { document, window } = harness;
+  try {
+    await loadSong(document);
+    const waveform = document.querySelector("#syncWaveform");
+    const audio = document.querySelector("#syncAudio");
+    setMediaState(audio, { duration: 30, currentTime: 0 });
+    waveform.getBoundingClientRect = () => ({ left: 100, width: 200 });
+
+    const captured = [];
+    const released = [];
+    waveform.setPointerCapture = (pointerId) => captured.push(pointerId);
+    waveform.releasePointerCapture = (pointerId) => released.push(pointerId);
+
+    waveform.dispatchEvent(pointerEvent(window, "pointerdown", {
+      clientX: 150,
+      pointerId: 7,
+    }));
+    assert.equal(audio.currentTime, 7.5);
+    assert.deepEqual(captured, [7]);
+
+    waveform.dispatchEvent(pointerEvent(window, "pointermove", {
+      clientX: 340,
+      pointerId: 7,
+    }));
+    assert.equal(audio.currentTime, 30);
+
+    waveform.dispatchEvent(pointerEvent(window, "pointermove", {
+      clientX: 20,
+      pointerId: 7,
+    }));
+    assert.equal(audio.currentTime, 0);
+
+    waveform.dispatchEvent(pointerEvent(window, "pointerup", {
+      clientX: 20,
+      pointerId: 7,
+    }));
+    assert.deepEqual(released, [7]);
+  } finally {
+    harness.dom.window.close();
+  }
+});
+
+test("Listener waveform click updates playback, playhead, and live time together", async () => {
+  const harness = buildRenderer();
+  const { document, window } = harness;
+  try {
+    await loadSong(document);
+    const waveform = document.querySelector("#syncWaveform");
+    const audio = document.querySelector("#syncAudio");
+    const playhead = document.querySelector("#syncPlayhead");
+    const readout = document.querySelector("#syncTimeReadout");
+    setMediaState(audio, { duration: 30, currentTime: 0 });
+    waveform.getBoundingClientRect = () => ({ left: 100, width: 200 });
+
+    waveform.dispatchEvent(new window.MouseEvent("click", {
+      bubbles: true,
+      clientX: 200,
+    }));
+
+    assert.equal(audio.currentTime, 15);
+    assert.equal(playhead.style.left, "50%");
+    assert.equal(readout?.textContent.trim(), "0:15 / 0:30");
+  } finally {
+    harness.dom.window.close();
+  }
+});
+
+test("Listener waveform keyboard seeks by steps and boundaries", async () => {
+  const harness = buildRenderer();
+  const { document, window } = harness;
+  try {
+    await loadSong(document);
+    const waveform = document.querySelector("#syncWaveform");
+    const audio = document.querySelector("#syncAudio");
+    setMediaState(audio, { duration: 30, currentTime: 10 });
+
+    waveform.dispatchEvent(new window.KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "ArrowRight",
+    }));
+    assert.equal(audio.currentTime, 15);
+
+    waveform.dispatchEvent(new window.KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "ArrowLeft",
+    }));
+    assert.equal(audio.currentTime, 10);
+
+    waveform.dispatchEvent(new window.KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "End",
+    }));
+    assert.equal(audio.currentTime, 30);
+
+    waveform.dispatchEvent(new window.KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Home",
+    }));
+    assert.equal(audio.currentTime, 0);
+  } finally {
+    harness.dom.window.close();
+  }
+});

@@ -1,13 +1,16 @@
 const {
+  EXPRESSIVE_TOPOLOGY_COMPILERS,
   PRODUCTION_WAVE_SEAM,
   TOPOLOGY_COMPILERS,
   compileProductionTopology,
   frozenTopology,
 } = require("./topology-compilers.cjs");
 const {
+  EXPRESSIVE_RENDERER_POLICY,
   LEGACY_RENDERER_POLICY,
   VISUAL_LANGUAGE_RENDERER_POLICY,
 } = require("../generation/renderer-policy.cjs");
+const { cameraSurrender } = require("./response-shaping.cjs");
 
 const SEMANTIC_COMPILER_REGISTRIES = Object.freeze({
   motion: Object.freeze({
@@ -34,6 +37,18 @@ const SEMANTIC_COMPILER_REGISTRIES = Object.freeze({
     drift: "camera-drift-v1",
     push: "camera-push-v1",
     orbit: "camera-orbit-v1",
+  }),
+});
+
+const EXPRESSIVE_SEMANTIC_COMPILER_REGISTRIES = Object.freeze({
+  motion: SEMANTIC_COMPILER_REGISTRIES.motion,
+  palette: SEMANTIC_COMPILER_REGISTRIES.palette,
+  material: SEMANTIC_COMPILER_REGISTRIES.material,
+  camera: Object.freeze({
+    locked: "camera-locked-v1",
+    drift: "camera-drift-v2",
+    push: "camera-push-v2",
+    orbit: "camera-orbit-v2",
   }),
 });
 
@@ -93,7 +108,10 @@ function productionFrameGeometry(graph) {
 
 function rendererPolicyForTimeline(timeline) {
   if (!timeline?.rendererPolicy) return LEGACY_RENDERER_POLICY;
-  if (timeline.rendererPolicy !== VISUAL_LANGUAGE_RENDERER_POLICY) {
+  if (
+    timeline.rendererPolicy !== VISUAL_LANGUAGE_RENDERER_POLICY &&
+    timeline.rendererPolicy !== EXPRESSIVE_RENDERER_POLICY
+  ) {
     throw new TypeError(`Unsupported ResolvedTimeline renderer policy: ${String(timeline.rendererPolicy)}.`);
   }
   return timeline.rendererPolicy;
@@ -159,17 +177,36 @@ function motionGrammarFilters(grammar, geometry) {
   return [geometryFilter(width, height, 1.095, "(iw-ow)/2+sin(t*6.2)*(iw-ow)*0.22+sin(t*13.7)*(iw-ow)*0.12", "(ih-oh)/2+cos(t*5.1)*(ih-oh)*0.2+sin(t*11.3)*(ih-oh)*0.13")];
 }
 
-function cameraGrammarFilters(grammar, geometry, duration) {
+function cameraGrammarFilters(grammar, geometry, duration, state, rendererPolicy) {
   const { width, height } = geometry;
   if (grammar === "locked") return [];
+
+  if (rendererPolicy !== EXPRESSIVE_RENDERER_POLICY) {
+    if (grammar === "drift") {
+      return [geometryFilter(width, height, 1.03, "(iw-ow)/2+sin(t*0.19)*(iw-ow)*0.38", "(ih-oh)/2+cos(t*0.16)*(ih-oh)*0.38")];
+    }
+    if (grammar === "push") {
+      const safeDuration = Math.max(0.1, Number(duration) || 0.1);
+      return [`scale=w='${width}*(1.015+0.07*min(t/${ffmpegNumber(safeDuration)},1))':h='${height}*(1.015+0.07*min(t/${ffmpegNumber(safeDuration)},1))':eval=frame,crop=${width}:${height}:x='(iw-ow)/2':y='(ih-oh)/2'`];
+    }
+    return [geometryFilter(width, height, 1.06, "(iw-ow)/2+sin(t*0.24)*(iw-ow)*0.46", "(ih-oh)/2+cos(t*0.24)*(ih-oh)*0.46")];
+  }
+
+  const intensity = cameraSurrender(state?.camera?.variance);
   if (grammar === "drift") {
-    return [geometryFilter(width, height, 1.03, "(iw-ow)/2+sin(t*0.19)*(iw-ow)*0.38", "(ih-oh)/2+cos(t*0.16)*(ih-oh)*0.38")];
+    const scale = quantize(1 + 0.03 * intensity, 4);
+    const travel = ffmpegNumber(quantize(0.38 * intensity, 4));
+    return [geometryFilter(width, height, scale, `(iw-ow)/2+sin(t*0.19)*(iw-ow)*${travel}`, `(ih-oh)/2+cos(t*0.16)*(ih-oh)*${travel}`)];
   }
   if (grammar === "push") {
     const safeDuration = Math.max(0.1, Number(duration) || 0.1);
-    return [`scale=w='${width}*(1.015+0.07*min(t/${ffmpegNumber(safeDuration)},1))':h='${height}*(1.015+0.07*min(t/${ffmpegNumber(safeDuration)},1))':eval=frame,crop=${width}:${height}:x='(iw-ow)/2':y='(ih-oh)/2'`];
+    const base = ffmpegNumber(quantize(1 + 0.015 * intensity, 4));
+    const growth = ffmpegNumber(quantize(0.07 * intensity, 4));
+    return [`scale=w='${width}*(${base}+${growth}*min(t/${ffmpegNumber(safeDuration)},1))':h='${height}*(${base}+${growth}*min(t/${ffmpegNumber(safeDuration)},1))':eval=frame,crop=${width}:${height}:x='(iw-ow)/2':y='(ih-oh)/2'`];
   }
-  return [geometryFilter(width, height, 1.06, "(iw-ow)/2+sin(t*0.24)*(iw-ow)*0.46", "(ih-oh)/2+cos(t*0.24)*(ih-oh)*0.46")];
+  const scale = quantize(1 + 0.06 * intensity, 4);
+  const travel = ffmpegNumber(quantize(0.46 * intensity, 4));
+  return [geometryFilter(width, height, scale, `(iw-ow)/2+sin(t*0.24)*(iw-ow)*${travel}`, `(ih-oh)/2+cos(t*0.24)*(ih-oh)*${travel}`)];
 }
 
 function paletteGrammarFilters(logic) {
@@ -196,19 +233,22 @@ function materialGrammarFilters(texture, state, geometry) {
   ];
 }
 
-function semanticProgramForState(state, geometry, duration) {
+function semanticProgramForState(state, geometry, duration, rendererPolicy = LEGACY_RENDERER_POLICY) {
   const grammar = grammarForState(state);
+  const registry = rendererPolicy === EXPRESSIVE_RENDERER_POLICY
+    ? EXPRESSIVE_SEMANTIC_COMPILER_REGISTRIES
+    : SEMANTIC_COMPILER_REGISTRIES;
   const filters = [
     ...motionGrammarFilters(grammar.motion, geometry),
-    ...cameraGrammarFilters(grammar.camera, geometry, duration),
+    ...cameraGrammarFilters(grammar.camera, geometry, duration, state, rendererPolicy),
     ...paletteGrammarFilters(grammar.palette),
     ...materialGrammarFilters(grammar.material, state, geometry),
   ];
   const compilers = Object.freeze({
-    motion: SEMANTIC_COMPILER_REGISTRIES.motion[grammar.motion],
-    palette: SEMANTIC_COMPILER_REGISTRIES.palette[grammar.palette],
-    material: SEMANTIC_COMPILER_REGISTRIES.material[grammar.material],
-    camera: SEMANTIC_COMPILER_REGISTRIES.camera[grammar.camera],
+    motion: registry.motion[grammar.motion],
+    palette: registry.palette[grammar.palette],
+    material: registry.material[grammar.material],
+    camera: registry.camera[grammar.camera],
   });
   const operators = Object.freeze([
     Object.freeze({ axis: "motion", value: grammar.motion, compiler: compilers.motion }),
@@ -220,9 +260,10 @@ function semanticProgramForState(state, geometry, duration) {
 }
 
 function semanticGrammarFilters(execution, geometry) {
-  const grammar = frozenSemanticGrammar(execution);
+  frozenSemanticGrammar(execution);
   const duration = Math.max(0.1, execution.durationTicks / execution.timebase);
-  return semanticProgramForState(execution.timeline.baseState, geometry, duration);
+  const rendererPolicy = rendererPolicyForTimeline(execution.timeline);
+  return semanticProgramForState(execution.timeline.baseState, geometry, duration, rendererPolicy);
 }
 
 function numericFilters(state) {
@@ -243,6 +284,7 @@ function possessionArcCompilation(execution, geometry) {
     (segment) => segment.endSeconds > segment.startSeconds,
   );
   if (!segments.length) return null;
+  const rendererPolicy = rendererPolicyForTimeline(execution.timeline);
 
   const filters = [];
   const inputs = [];
@@ -257,7 +299,7 @@ function possessionArcCompilation(execution, geometry) {
   const programs = [];
   segments.forEach((segment, index) => {
     const duration = Math.max(0.1, segment.endSeconds - segment.startSeconds);
-    const semantic = semanticProgramForState(segment.state, geometry, duration);
+    const semantic = semanticProgramForState(segment.state, geometry, duration, rendererPolicy);
     const numeric = numericFilters(segment.state);
     const output = `arcSegment${index}`;
     const chain = [
@@ -413,6 +455,8 @@ function compileTimelineFilterGraph(graph, execution) {
 }
 
 module.exports = {
+  EXPRESSIVE_SEMANTIC_COMPILER_REGISTRIES,
+  EXPRESSIVE_TOPOLOGY_COMPILERS,
   SEMANTIC_COMPILER_REGISTRIES,
   TOPOLOGY_COMPILERS,
   compileProductionTopology,
