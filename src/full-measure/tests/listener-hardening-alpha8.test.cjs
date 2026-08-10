@@ -21,12 +21,13 @@ test("re-listen transports stable anchors without mutating lyric source or confi
   assert.match(foundryUi, /lineId:/);
   assert.match(foundryUi, /mediaTimeMs:/);
   assert.match(foundryUi, /source:\s*"human-edit"/);
-  assert.match(foundryUi, /stageListenerEvidence\(\{ anchors, previousEvidence \}\)/);
+  assert.match(foundryUi, /stageListenerEvidence\?\.\(\{ anchors, previousEvidence \}\)/);
   assert.doesNotMatch(foundryUi, /HT_ANCHORS_V1|packAnchorEnvelope|window\.confirm/);
   assert.doesNotMatch(foundryUi, /lyricsInput\.value\s*=/);
 
   assert.match(preload, /stageListenerEvidence/);
   assert.match(preload, /pendingListenerEvidence/);
+  assert.match(preload, /prepareListenerLyrics/);
   assert.match(preload, /lyrics:auto-sync/);
   assert.match(autoSync, /prepareLyrics\(lyrics\)/);
   assert.match(autoSync, /config\.anchors/);
