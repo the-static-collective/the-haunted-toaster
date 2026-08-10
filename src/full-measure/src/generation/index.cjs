@@ -17,4 +17,6 @@ module.exports = {
   ...require("./primitive-field-generation.cjs"),
   ...require("./stomp-generation.cjs"),
   ...require("./color-drift.cjs"),
+  ...require("./lyric-resonance.cjs"),
+  ...require("./lyric-resonance-generation.cjs"),
 };

@@ -288,6 +288,141 @@ function fireflyEvents(rng, duration, width, height, responseEnergy = null) {
   return events;
 }
 
+function smokeBurstEvents(rng, start, end, width, height, intensity) {
+  const events = [];
+  const count = 2 + Math.round(clamp(intensity, 0, 1) * 6);
+  for (let index = 0; index < count; index += 1) {
+    const radius = rng.integer(
+      Math.max(18, Math.round(Math.min(width, height) * 0.035)),
+      Math.max(36, Math.round(Math.min(width, height) * (0.09 + intensity * 0.05))),
+    );
+    const x1 = rng.integer(-radius, width);
+    const y1 = rng.integer(Math.round(height * 0.58), height + radius);
+    const drift = rng.integer(-Math.round(width * 0.16), Math.round(width * 0.16));
+    const rise = rng.integer(
+      Math.round(height * 0.16),
+      Math.round(height * (0.34 + intensity * 0.18)),
+    );
+    const opacity = rng.between(0.05 + intensity * 0.03, 0.11 + intensity * 0.13);
+    const overrides =
+      `{\\an7\\move(${x1},${y1},${x1 + drift},${y1 - rise})` +
+      `\\1c&HFFFFFF&\\1a&H${alphaHex(opacity)}&\\blur${rng.between(10, 24).toFixed(1)}` +
+      `\\fad(300,500)}`;
+    events.push(dialogue(start, end, overrides, drawingCircle(radius)));
+  }
+  return events;
+}
+
+function rainBurstEvents(rng, start, end, width, height, intensity) {
+  const slant = rng.between(-0.34, -0.13);
+  const streakCount = Math.max(10, Math.round(12 + intensity * 42));
+  const travelX = Math.round(height * slant * (0.18 + intensity * 0.12));
+  const travelY = Math.round(height * (0.16 + intensity * 0.2));
+  const opacity = 0.13 + intensity * 0.25;
+  const overrides =
+    `{\\an7\\move(0,${-Math.round(height * 0.05)},${travelX},${travelY})` +
+    `\\1c&HFFFFFF&\\1a&H${alphaHex(opacity)}&\\blur${rng.between(0.3, 1.1).toFixed(1)}}`;
+  return [
+    dialogue(
+      start,
+      end,
+      overrides,
+      drawingRainField(rng, width, height, streakCount, slant),
+    ),
+  ];
+}
+
+function dustBurstEvents(rng, start, end, width, height, intensity) {
+  const events = [];
+  const count = 4 + Math.round(clamp(intensity, 0, 1) * 12);
+  for (let index = 0; index < count; index += 1) {
+    const radius = rng.integer(1, Math.max(2, Math.round(Math.min(width, height) * 0.006)));
+    const x1 = rng.integer(0, width);
+    const y1 = rng.integer(0, height);
+    const x2 = clamp(
+      x1 + rng.integer(-Math.round(width * 0.13), Math.round(width * 0.13)),
+      -radius,
+      width + radius,
+    );
+    const y2 = clamp(
+      y1 + rng.integer(-Math.round(height * 0.09), Math.round(height * 0.09)),
+      -radius,
+      height + radius,
+    );
+    const opacity = rng.between(0.1 + intensity * 0.04, 0.24 + intensity * 0.24);
+    const overrides =
+      `{\\an7\\move(${Math.round(x1)},${Math.round(y1)},${Math.round(x2)},${Math.round(y2)})` +
+      `\\1c&HFFFFFF&\\1a&H${alphaHex(opacity)}&\\blur${rng.between(0.6, 2.2).toFixed(1)}}`;
+    events.push(dialogue(start, end, overrides, drawingCircle(radius)));
+  }
+  return events;
+}
+
+function fireflyBurstEvents(rng, start, end, width, height, intensity) {
+  const events = [];
+  const count = 3 + Math.round(clamp(intensity, 0, 1) * 8);
+  for (let index = 0; index < count; index += 1) {
+    const x1 = rng.integer(Math.round(width * 0.04), Math.round(width * 0.96));
+    const y1 = rng.integer(Math.round(height * 0.12), Math.round(height * 0.88));
+    const x2 = clamp(
+      x1 + rng.integer(-Math.round(width * 0.09), Math.round(width * 0.09)),
+      0,
+      width,
+    );
+    const y2 = clamp(
+      y1 + rng.integer(-Math.round(height * 0.1), Math.round(height * 0.1)),
+      0,
+      height,
+    );
+    const radius = rng.integer(
+      Math.max(2, Math.round(Math.min(width, height) * 0.004)),
+      Math.max(4, Math.round(Math.min(width, height) * 0.011)),
+    );
+    const opacity = rng.between(0.4 + intensity * 0.08, 0.72 + intensity * 0.24);
+    const overrides =
+      `{\\an7\\move(${Math.round(x1)},${Math.round(y1)},${Math.round(x2)},${Math.round(y2)})` +
+      `\\1c&H66E6FF&\\1a&H${alphaHex(opacity)}&\\blur${rng.between(2.5, 6.5).toFixed(1)}` +
+      `\\fad(180,260)}`;
+    events.push(dialogue(start, end, overrides, drawingCircle(radius)));
+  }
+  return events;
+}
+
+function resonanceBurstEvents(timeline, width, height, compiler) {
+  const plan = Array.isArray(timeline?.lyricResonance?.events)
+    ? timeline.lyricResonance.events
+    : [];
+  const timebase = Math.max(1, Number(timeline?.timebase || 1));
+  const events = [];
+  for (const [index, event] of plan.entries()) {
+    const start = Number(event.startTick) / timebase;
+    const end = Number(event.endTick) / timebase;
+    const intensity = clamp(event.intensity, 0, 1);
+    const rng = deterministicField([
+      timeline?.scoreAddress || "",
+      timeline?.timelineHash || "",
+      "lyric-resonance",
+      compiler,
+      `${width}x${height}`,
+      index,
+      event.family,
+      event.startTick,
+      event.endTick,
+      intensity,
+    ].join("|"));
+    if (event.family === "smoke") {
+      events.push(...smokeBurstEvents(rng, start, end, width, height, intensity));
+    } else if (event.family === "rain") {
+      events.push(...rainBurstEvents(rng, start, end, width, height, intensity));
+    } else if (event.family === "dust") {
+      events.push(...dustBurstEvents(rng, start, end, width, height, intensity));
+    } else if (event.family === "firefly") {
+      events.push(...fireflyBurstEvents(rng, start, end, width, height, intensity));
+    }
+  }
+  return events;
+}
+
 function buildAtmosphereAss({
   timeline,
   width,
@@ -303,7 +438,10 @@ function buildAtmosphereAss({
     0,
     Number(timeline?.durationTicks || 0) / Math.max(1, Number(timeline?.timebase || 1)),
   );
-  if (kind === "none" || duration <= 0) {
+  const resonancePlan = Array.isArray(timeline?.lyricResonance?.events)
+    ? timeline.lyricResonance.events
+    : [];
+  if ((kind === "none" && resonancePlan.length === 0) || duration <= 0) {
     return Object.freeze({
       kind,
       compiler,
@@ -321,13 +459,16 @@ function buildAtmosphereAss({
     compiler,
   ].join("|");
   const rng = deterministicField(seed);
-  let events;
-  if (kind === "smoke") events = smokeEvents(rng, duration, width, height, responseEnergy);
-  else if (kind === "rain") events = rainEvents(rng, duration, width, height, responseEnergy);
-  else if (kind === "dust") events = dustEvents(rng, duration, width, height, responseEnergy);
-  else events = fireflyEvents(rng, duration, width, height, responseEnergy);
+  let baseEvents = [];
+  if (kind === "smoke") baseEvents = smokeEvents(rng, duration, width, height, responseEnergy);
+  else if (kind === "rain") baseEvents = rainEvents(rng, duration, width, height, responseEnergy);
+  else if (kind === "dust") baseEvents = dustEvents(rng, duration, width, height, responseEnergy);
+  else if (kind === "firefly") baseEvents = fireflyEvents(rng, duration, width, height, responseEnergy);
 
+  const resonanceEvents = resonanceBurstEvents(timeline, width, height, compiler);
+  const events = [...baseEvents, ...resonanceEvents];
   const content = [...assHeader(width, height), ...events, ""].join("\n");
+  const resonanceFamilies = [...new Set(resonancePlan.map((event) => event.family))];
   return Object.freeze({
     kind,
     compiler,
@@ -335,6 +476,12 @@ function buildAtmosphereAss({
     content,
     contentSha256: crypto.createHash("sha256").update(content, "utf8").digest("hex"),
     ...(expressive ? { responseEnergy } : {}),
+    ...(resonancePlan.length
+      ? {
+          resonanceEventCount: resonancePlan.length,
+          resonanceFamilies: Object.freeze(resonanceFamilies),
+        }
+      : {}),
   });
 }
 
@@ -347,7 +494,7 @@ async function applyAtmosphereToGraph({
   fileName = ATMOSPHERE_FILENAME,
 }) {
   const built = buildAtmosphereAss({ timeline, width, height });
-  if (built.kind === "none") {
+  if (!built.content) {
     return Object.freeze({
       graph,
       evidence: Object.freeze({
@@ -379,6 +526,12 @@ async function applyAtmosphereToGraph({
       contentSha256: built.contentSha256,
       fileName,
       ...(Object.hasOwn(built, "responseEnergy") ? { responseEnergy: built.responseEnergy } : {}),
+      ...(Object.hasOwn(built, "resonanceEventCount")
+        ? {
+            resonanceEventCount: built.resonanceEventCount,
+            resonanceFamilies: built.resonanceFamilies,
+          }
+        : {}),
     }),
   });
 }
@@ -395,4 +548,5 @@ module.exports = {
   atmosphereKind,
   buildAtmosphereAss,
   deterministicField,
+  resonanceBurstEvents,
 };

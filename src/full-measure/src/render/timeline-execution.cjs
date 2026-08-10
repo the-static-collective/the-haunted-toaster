@@ -1,7 +1,96 @@
 const {
+  LYRIC_RESONANCE_FAMILIES,
+  LYRIC_RESONANCE_POLICY,
+  LYRIC_RESONANCE_SCHEMA,
   TIMELINE_SCHEMA,
   stateAtTick,
 } = require("../generation/index.cjs");
+
+function assertStrictAscendingIntegers(values, label) {
+  if (!Array.isArray(values) || !values.length) {
+    throw new TypeError(`${label} must be a non-empty array.`);
+  }
+  let previous = -1;
+  for (const value of values) {
+    if (!Number.isInteger(value) || value < 0 || value <= previous) {
+      throw new TypeError(`${label} must contain strictly ordered non-negative integers.`);
+    }
+    previous = value;
+  }
+}
+
+function assertStableTerms(values) {
+  if (!Array.isArray(values) || !values.length) {
+    throw new TypeError("Lyric Resonance matchedTerms must be a non-empty array.");
+  }
+  const seen = new Set();
+  for (const value of values) {
+    if (typeof value !== "string" || !value.length || seen.has(value)) {
+      throw new TypeError("Lyric Resonance matchedTerms must contain unique non-empty strings.");
+    }
+    seen.add(value);
+  }
+}
+
+function assertLyricResonance(timeline) {
+  const resonance = timeline.lyricResonance;
+  if (resonance === undefined) return;
+  if (!resonance || typeof resonance !== "object") {
+    throw new TypeError("ResolvedTimeline.lyricResonance must be an object when present.");
+  }
+  if (resonance.schema !== LYRIC_RESONANCE_SCHEMA) {
+    throw new TypeError(`Lyric Resonance schema must be ${LYRIC_RESONANCE_SCHEMA}.`);
+  }
+  if (resonance.policy !== LYRIC_RESONANCE_POLICY) {
+    throw new TypeError(`Lyric Resonance policy must be ${LYRIC_RESONANCE_POLICY}.`);
+  }
+  if (typeof resonance.sourceMode !== "string" || !resonance.sourceMode.length) {
+    throw new TypeError("Lyric Resonance sourceMode must be a non-empty string.");
+  }
+  if (!Array.isArray(resonance.events)) {
+    throw new TypeError("Lyric Resonance events must be an array.");
+  }
+
+  const familyOrder = new Map(
+    LYRIC_RESONANCE_FAMILIES.map((family, index) => [family, index]),
+  );
+  let previousStartTick = -1;
+  let previousFamilyIndex = -1;
+  for (const event of resonance.events) {
+    if (!event || typeof event !== "object") {
+      throw new TypeError("Lyric Resonance event must be an object.");
+    }
+    if (!familyOrder.has(event.family)) {
+      throw new TypeError(`Unsupported Lyric Resonance family: ${String(event.family)}.`);
+    }
+    if (
+      !Number.isInteger(event.startTick) ||
+      !Number.isInteger(event.endTick) ||
+      event.startTick < 0 ||
+      event.endTick <= event.startTick
+    ) {
+      throw new TypeError("Lyric Resonance event must have a valid canonical tick window.");
+    }
+    if (event.endTick > timeline.durationTicks) {
+      throw new TypeError("Lyric Resonance event exceeds durationTicks.");
+    }
+    if (!Number.isFinite(event.intensity) || event.intensity < 0 || event.intensity > 1) {
+      throw new TypeError("Lyric Resonance intensity must be finite and within [0, 1].");
+    }
+    assertStrictAscendingIntegers(event.cueIndices, "Lyric Resonance cueIndices");
+    assertStableTerms(event.matchedTerms);
+
+    const eventFamilyIndex = familyOrder.get(event.family);
+    if (
+      event.startTick < previousStartTick ||
+      (event.startTick === previousStartTick && eventFamilyIndex < previousFamilyIndex)
+    ) {
+      throw new TypeError("Lyric Resonance events must be ordered by canonical tick.");
+    }
+    previousStartTick = event.startTick;
+    previousFamilyIndex = eventFamilyIndex;
+  }
+}
 
 function assertResolvedTimeline(timeline) {
   if (!timeline || typeof timeline !== "object") {
@@ -60,6 +149,8 @@ function assertResolvedTimeline(timeline) {
       previousArcTick = transition.atTick;
     }
   }
+
+  assertLyricResonance(timeline);
   return timeline;
 }
 
@@ -144,6 +235,7 @@ function createTimelineExecution(timeline) {
 }
 
 module.exports = {
+  assertLyricResonance,
   assertResolvedTimeline,
   assertTimelineDuration,
   createTimelineExecution,
