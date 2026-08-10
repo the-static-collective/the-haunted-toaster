@@ -10,6 +10,7 @@
     ["lyric", "Lyric"],
     ["camera", "Camera"],
     ["temporalDensity", "Density"],
+    ["atmosphere", "Atmosphere"],
   ];
 
   let family = null;
