@@ -57,6 +57,7 @@ test("a four-section song resolves a bounded deterministic categorical arc", () 
   assert.equal(arc.transitionCount, 3);
   assert.equal(arc.dramaturgy.budget, 3);
   assert.equal(arc.dramaturgy.spent, 3);
+  assert.deepEqual(arc.lockedAxes, []);
   assert.ok(arc.planSha256.length > 20);
   assert.ok(new Set(arc.affectedAxes).size >= 2);
   assert.ok(arc.transitions.every((transition) => transition.boundary === "section"));
@@ -101,6 +102,35 @@ test("arc categories survive later numeric patches instead of snapping back", ()
 
   assert.equal(atTransition[transition.axis][key], chosen);
   assert.equal(nearEnd[transition.axis][key], chosen);
+});
+
+test("Possession Arc treats candidate locks as law", () => {
+  const parent = generation.generateCandidateSet({
+    analysis,
+    garmentConstraints: constraints,
+    rendererProfile: profile,
+    rootSeed: "possession-lock-parent",
+    count: 1,
+  }).candidates[0];
+  const family = generation.generateCandidateSet({
+    analysis,
+    garmentConstraints: constraints,
+    rendererProfile: profile,
+    parentScore: parent.scoreArtifact.score,
+    locks: ["motion", "material"],
+    rootSeed: "possession-lock-child",
+    count: 6,
+  });
+
+  for (const candidate of family.candidates) {
+    assert.deepEqual(candidate.timeline.possessionArc.lockedAxes, ["material", "motion"]);
+    assert.ok(candidate.timeline.possessionArc.transitions.every(
+      (transition) => !["motion", "material"].includes(transition.axis),
+    ));
+    assert.ok(candidate.timeline.possessionArc.affectedAxes.every(
+      (axis) => !["motion", "material"].includes(axis),
+    ));
+  }
 });
 
 test("production compiler executes the arc as section-local categorical programs", () => {
