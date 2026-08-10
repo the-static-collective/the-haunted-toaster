@@ -3,7 +3,6 @@ const {
   deepFreeze,
   hashCanonical,
 } = require("./canonical.cjs");
-const legacyResolver = require("./resolver.cjs");
 const { EXPRESSIVE_RENDERER_POLICY } = require("./renderer-policy.cjs");
 
 const COLOR_DRIFT_POLICY = "color-drift-v1";
@@ -108,14 +107,9 @@ function driftAtTick(timeline, tick) {
   });
 }
 
-function stateAtTick(timeline, tick) {
-  return legacyResolver.stateAtTick(timeline, tick);
-}
-
 module.exports = {
   COLOR_DRIFT_POLICY,
   applyColorDrift,
   driftAtTick,
   sectionDriftStops,
-  stateAtTick,
 };
