@@ -65,75 +65,6 @@
     return parseDisplayedTime(row.querySelector(".cue-time")?.value);
   }
 
-  function cleanPhrase(text) {
-    return String(text || "").replace(/\s+/g, " ").trim();
-  }
-
-  function isStructuralLabel(text) {
-    const inner = String(text || "").trim();
-    if (!/^(?:\[[^\]]+\]|\([^\)]+\))$/.test(inner)) return false;
-    const label = inner.slice(1, -1).trim().toLowerCase();
-    return /^(?:verse|chorus|bridge|intro|outro|pre[- ]?chorus|refrain|hook|interlude|instrumental|break|solo|ending|repeat)(?:\s+\d+|\s+[ivx]+)?$/.test(label);
-  }
-
-  function isClearPerformanceNote(text) {
-    const inner = String(text || "").trim();
-    if (!/^\([^\)]+\)$/.test(inner)) return false;
-    const note = inner.slice(1, -1).trim().toLowerCase();
-    return /^(?:instrumental|guitar solo|drum fill|bass solo|spoken intro|spoken outro|fade out|fade|music|band enters|band drops|double tracked|background vocals?|backing vocals?|harmonies|mix note|production note)$/.test(note);
-  }
-
-  async function sha256Hex(text) {
-    const bytes = new TextEncoder().encode(text);
-    const digest = await crypto.subtle.digest("SHA-256", bytes);
-    return [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("");
-  }
-
-  async function lineIdFor(sourceLines, text) {
-    const canonical = JSON.stringify({ sourceLines, text });
-    return `lyric-${(await sha256Hex(canonical)).slice(0, 16)}`;
-  }
-
-  async function prepareBrowserLyrics(rawSource) {
-    const original = String(rawSource || "").replace(/\0/g, "").replace(/\r\n?/g, "\n");
-    const rawLines = original.split("\n");
-    const prepared = [];
-    const removed = [];
-
-    for (let index = 0; index < rawLines.length; index += 1) {
-      const raw = rawLines[index];
-      const sourceLine = index + 1;
-      const text = cleanPhrase(raw);
-      if (!text) {
-        removed.push({ sourceLines: [sourceLine], raw, reason: "blank" });
-        continue;
-      }
-      if (isStructuralLabel(text)) {
-        removed.push({ sourceLines: [sourceLine], raw, reason: "structural-label" });
-        continue;
-      }
-      if (isClearPerformanceNote(text)) {
-        removed.push({ sourceLines: [sourceLine], raw, reason: "performance-note" });
-        continue;
-      }
-      if (/^\s+\S/.test(raw) && prepared.length > 0) {
-        const previous = prepared[prepared.length - 1];
-        previous.text = cleanPhrase(`${previous.text} ${text}`);
-        previous.sourceLines.push(sourceLine);
-        previous.decisions.push("merged-indented-wrap");
-        previous.lineId = await lineIdFor(previous.sourceLines, previous.text);
-        continue;
-      }
-      prepared.push({
-        lineId: await lineIdFor([sourceLine], text),
-        text,
-        sourceLines: [sourceLine],
-        decisions: raw === text ? ["kept"] : ["trimmed-whitespace"],
-      });
-    }
-    return { prepared, removed };
-  }
-
   function ensureEvidenceSurfaces() {
     const top = document.querySelector(".sync-editor-top");
     if (!top) return {};
@@ -160,18 +91,16 @@
     return { prep, delta };
   }
 
-  async function refreshPrepReceipt() {
+  function refreshPrepReceipt() {
     const { prep } = ensureEvidenceSurfaces();
     if (!prep || !lyricsInput) return [];
-    const result = await prepareBrowserLyrics(lyricsInput.value);
-    const structural = result.removed.filter((entry) => entry.reason === "structural-label").length;
-    const performance = result.removed.filter((entry) => entry.reason === "performance-note").length;
-    const wraps = result.prepared.filter((line) => line.decisions.includes("merged-indented-wrap")).length;
+    const result = api.prepareListenerLyrics(lyricsInput.value);
+    const removedLabelsAndNotes = result.structuralLabelsRemoved + result.performanceNotesRemoved;
     const body = prep.querySelector(".lyric-prep-receipt-body");
     if (body) {
       body.replaceChildren();
       const compact = document.createElement("p");
-      compact.textContent = `${result.prepared.length} phrases retained · ${structural + performance} headings/notes removed · ${wraps} wrap${wraps === 1 ? "" : "s"} joined`;
+      compact.textContent = `${result.retainedPhraseCount} phrases retained · ${removedLabelsAndNotes} headings/notes removed · ${result.wrapsJoined} wrap${result.wrapsJoined === 1 ? "" : "s"} joined`;
       body.append(compact);
       const list = document.createElement("ul");
       for (const entry of result.removed.filter((item) => item.reason !== "blank")) {
@@ -189,8 +118,8 @@
     return result.prepared;
   }
 
-  async function annotateRows() {
-    const prepared = await refreshPrepReceipt();
+  function annotateRows() {
+    const prepared = refreshPrepReceipt();
     const currentRows = rows();
     for (const [index, row] of currentRows.entries()) {
       const line = prepared[index];
@@ -199,9 +128,8 @@
     return currentRows;
   }
 
-  async function collectHumanAnchors() {
-    const currentRows = await annotateRows();
-    return currentRows
+  function collectHumanAnchors() {
+    return annotateRows()
       .filter((row) => row.dataset.status === "human")
       .map((row) => ({
         lineId: row.dataset.lineId || "",
@@ -212,9 +140,8 @@
       .filter((anchor) => anchor.lineId && Number.isFinite(anchor.mediaTimeMs) && anchor.mediaTimeMs >= 0);
   }
 
-  async function collectCurrentEvidence() {
-    const currentRows = await annotateRows();
-    return currentRows.map((row) => {
+  function collectCurrentEvidence() {
+    return annotateRows().map((row) => {
       const start = preciseRowTime(row);
       return {
         lineId: row.dataset.lineId || "",
@@ -253,9 +180,9 @@
   cueList && new MutationObserver(() => {
     if (deltaScheduled) return;
     deltaScheduled = true;
-    queueMicrotask(async () => {
+    queueMicrotask(() => {
       deltaScheduled = false;
-      const after = await collectCurrentEvidence();
+      const after = collectCurrentEvidence();
       if (pendingBeforeEvidence && after.length) {
         renderRelistenDelta(pendingBeforeEvidence, after, pendingAnchorCount);
         pendingBeforeEvidence = null;
@@ -264,17 +191,15 @@
     });
   }).observe(cueList, { childList: true, subtree: true });
 
-  lyricsInput?.addEventListener("input", () => {
-    refreshPrepReceipt().catch(() => {});
-  });
+  lyricsInput?.addEventListener("input", refreshPrepReceipt);
 
   if (originalRelisten) {
     const relisten = originalRelisten.cloneNode(true);
     originalRelisten.replaceWith(relisten);
     relisten.title = "Re-listen around what you have already anchored. Your human timing edits will be kept.";
-    relisten.addEventListener("click", async () => {
-      const previousEvidence = await collectCurrentEvidence();
-      const anchors = await collectHumanAnchors();
+    relisten.addEventListener("click", () => {
+      const previousEvidence = collectCurrentEvidence();
+      const anchors = collectHumanAnchors();
       pendingBeforeEvidence = previousEvidence;
       pendingAnchorCount = anchors.length;
       api.stageListenerEvidence({ anchors, previousEvidence });
@@ -288,6 +213,6 @@
   };
 
   ensureEvidenceSurfaces();
-  refreshPrepReceipt().catch(() => {});
+  refreshPrepReceipt();
   refreshMainLyricTruth();
 })();
