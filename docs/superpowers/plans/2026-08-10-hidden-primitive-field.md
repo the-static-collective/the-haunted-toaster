@@ -197,8 +197,6 @@ git commit -m "Generate deterministic hidden primitive fields"
 
 - [ ] **Step 1: Add failing renderer seam tests**
 
-Test that a primitive-bearing timeline rewrites the canonical waveform consumer before Atmosphere and that a legacy timeline returns the graph byte-for-byte unchanged.
-
 ```js
 const legacy = applyPrimitiveFieldToGraph({ graph, timeline: legacyTimeline, width: 1920, height: 1080 });
 assert.equal(legacy.graph, graph);
@@ -218,20 +216,7 @@ Expected: FAIL because the compiler seam does not exist.
 
 - [ ] **Step 3: Implement structure compilers using existing FFmpeg primitives**
 
-Register stable compiler IDs:
-
-```js
-scope: "structure-scope-v1"
-ribs: "structure-ribs-v1"
-lattice: "structure-lattice-v1"
-facets: "structure-facets-v1"
-torus: "structure-torus-v1"
-folds: "structure-folds-v1"
-voxels: "structure-voxels-v1"
-branches: "structure-branches-v1"
-```
-
-Use only existing filters (`split`, `overlay`, `hflip`, `vflip`, `rotate`, `scale`, `crop`, `pad`) and full-frame transparent RGBA. Target the current canonical consumer seam:
+Register stable compiler IDs `structure-scope-v1`, `structure-ribs-v1`, `structure-lattice-v1`, `structure-facets-v1`, `structure-torus-v1`, `structure-folds-v1`, `structure-voxels-v1`, and `structure-branches-v1`. Use only existing filters (`split`, `overlay`, `hflip`, `vflip`, `rotate`, `scale`, `crop`, `pad`) and full-frame transparent RGBA. Target the current canonical consumer seam:
 
 ```text
 [spectral][waveFull]overlay=0:0:shortest=1[stage0]
@@ -241,22 +226,7 @@ Replace it with structure/dynamics compilation that still yields one full-frame 
 
 - [ ] **Step 4: Implement dynamics compilers**
 
-Register:
-
-```js
-inertial: "dynamics-inertial-v1"
-wave: "dynamics-wave-v1"
-orbital-decay: "dynamics-orbital-decay-v1"
-snap: "dynamics-snap-v1"
-oscillation: "dynamics-oscillation-v1"
-seismic: "dynamics-seismic-v1"
-magnetic: "dynamics-magnetic-v1"
-swarm: "dynamics-swarm-v1"
-whip: "dynamics-whip-v1"
-advect: "dynamics-advect-v1"
-```
-
-Keep all expressions deterministic functions of `t`, accepted dimensions, and accepted primitive identity. Do not read audio or UI state inside this renderer module.
+Register `dynamics-inertial-v1`, `dynamics-wave-v1`, `dynamics-orbital-decay-v1`, `dynamics-snap-v1`, `dynamics-oscillation-v1`, `dynamics-seismic-v1`, `dynamics-magnetic-v1`, `dynamics-swarm-v1`, `dynamics-whip-v1`, and `dynamics-advect-v1`. Keep all expressions deterministic functions of `t`, accepted dimensions, and accepted primitive identity. Do not read audio or UI state inside this renderer module.
 
 - [ ] **Step 5: Insert primitive compilation before Atmosphere**
 
@@ -280,7 +250,7 @@ git commit -m "Compile hidden primitive field in production renderer"
 ### Task 4: Full proof and artifact audit
 
 **Files:**
-- Modify only if proof finds a defect.
+- No planned source changes. If proof exposes a defect, edit only the failing feature file and its focused regression test.
 
 - [ ] **Step 1: Run repository verification**
 
@@ -299,17 +269,14 @@ Expected: PASS with primitive-bearing representative candidate/render coverage.
 
 - [ ] **Step 4: Audit compatibility/artifacts**
 
-Confirm:
-- no package/version change;
-- no dependency change;
-- legacy score with absent field keeps its prior address and graph semantics;
-- primitive score/timeline sidecars contain selected primitive and compiler identities;
-- preview/final render consume the same timeline primitive evidence;
-- no renderer-only random source exists.
+Confirm no package/version/dependency change; legacy score absence keeps prior address and graph semantics; primitive score/timeline sidecars contain selected primitive and compiler identities; preview/final render consume the same timeline evidence; and no renderer-only random source exists.
 
-- [ ] **Step 5: Commit proof-only fixes if needed**
+- [ ] **Step 5: Commit only if proof required a concrete fix**
+
+If a proof failure required edits, stage exactly the feature/test files changed in that repair and commit them with:
 
 ```bash
-git add <only files changed by proof fixes>
 git commit -m "Prove hidden primitive field compatibility"
 ```
+
+If proof is already green, do not create an empty proof commit.
