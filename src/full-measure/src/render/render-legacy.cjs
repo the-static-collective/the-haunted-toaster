@@ -612,7 +612,7 @@ async function renderVideo(config, hooks = {}) {
         startedAt: startedAt.toISOString(),
         finishedAt: finishedAt.toISOString(),
         elapsedSeconds: Number(
-          ((finishedAt.getTime() - startedAt.getTime()) / 1_000).toFixed(3)),
+          ((finishedAt.getTime() - startedAt.getTime()) / 1_000).toFixed(3),
         ),
       },
       output: {
