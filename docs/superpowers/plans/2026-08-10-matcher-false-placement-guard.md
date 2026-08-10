@@ -28,7 +28,7 @@
 - Produces: failing proof for distant isolated low evidence plus explicit anchor preservation.
 
 - [ ] **Step 1: Write failing anomaly test**
-  Build a transcript where the first line can only find a distant low-quality candidate at 54.27 seconds and subsequent lyrics provide no corroborating sequence. Assert the cue is `unmatched` with null timing.
+  Build a transcript where the first line can only find a low-quality candidate at 54.27 seconds and subsequent lyrics provide no corroborating sequence. Assert the cue is `unmatched` with null timing.
 - [ ] **Step 2: Write anchor authority test**
   Place an explicit human anchor at 54.27 for the same line against weak/no transcript evidence and assert exact time, `status: human`, and `humanCorrected: true`.
 - [ ] **Step 3: Verify RED**
@@ -42,15 +42,15 @@
 - Modify: `src/full-measure/src/align/matcher.cjs`
 
 **Interfaces:**
-- Consumes: current candidate score, similarity, cursor/start index, and next-line lookahead score.
-- Produces: deterministic winner context and `hasSufficientTimingEvidence(candidate, confidence)`.
+- Consumes: current candidate score, similarity, cursor/start index, next-line lookahead score, and whether a prior cue has been admitted.
+- Produces: deterministic winner context and `hasSufficientTimingEvidence(candidate, confidence, hasPreviousPlacement)`.
 
 - [ ] **Step 1: Name policy constants**
   Add constants for low-placement minimum score `0.50`, minimum similarity `0.47`, maximum skipped entries `8`, and next-line corroboration score `0.52`.
 - [ ] **Step 2: Preserve winner context**
   Have `bestCandidate()` return the winning candidate with `matchContext.skippedEntries` and `matchContext.nextLineScore` derived from existing ranking/lookahead work.
 - [ ] **Step 3: Add timing admission function**
-  Return true for high/medium candidates. For low candidates, require direct evidence and either local continuity or next-line corroboration.
+  Return true for high/medium candidates. For low candidates, require direct evidence and either prior-placement continuity (`hasPreviousPlacement` plus bounded skipped entries) or next-line corroboration.
 - [ ] **Step 4: Refuse timing without deleting evidence**
   In `alignLyricsToTranscript()`, emit the existing unmatched shape with the candidate's confidence/similarity/heard evidence when admission fails; do not advance `cursor`.
 - [ ] **Step 5: Add positive low-support regression**
