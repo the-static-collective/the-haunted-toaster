@@ -6,6 +6,7 @@ const {
 const legacyResolver = require("./resolver.cjs");
 const legacySchema = require("./schema.cjs");
 const atmosphereGeneration = require("./atmosphere-generation.cjs");
+const colorDrift = require("./color-drift.cjs");
 const possessionArc = require("./possession-arc.cjs");
 const {
   FIELD_DYNAMICS,
@@ -114,12 +115,13 @@ function createVisualScore({ seed, constraints, overrides = {} }) {
 function resolve(analysisInput, scoreInput, constraintsInput, profileInput) {
   const score = assertScore(scoreInput, constraintsInput);
   if (!hasPrimitiveField(score)) {
-    return atmosphereGeneration.resolve(
+    const timeline = atmosphereGeneration.resolve(
       analysisInput,
       scoreInput,
       constraintsInput,
       profileInput,
     );
+    return colorDrift.applyColorDrift(timeline, { analysis: analysisInput });
   }
 
   const coreTimeline = atmosphereGeneration.resolve(
@@ -154,11 +156,12 @@ function resolve(analysisInput, scoreInput, constraintsInput, profileInput) {
     primitiveField: compilerEvidence(score.primitiveField),
   };
   const timelineHash = hashCanonical(body, "HauntedToaster-ResolvedTimeline-v1");
-  return deepFreeze({
+  const timeline = deepFreeze({
     ...body,
     timelineHash,
     canonicalJson: canonicalStringify(body),
   });
+  return colorDrift.applyColorDrift(timeline, { analysis: analysisInput });
 }
 
 function primitiveFieldOf(score) {
