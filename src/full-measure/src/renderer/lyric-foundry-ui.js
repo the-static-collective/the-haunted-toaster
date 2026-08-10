@@ -16,6 +16,10 @@
   let pendingHumanAnchors = [];
   let restoringAnchors = false;
 
+  function setText(node, value) {
+    if (node && node.textContent !== value) node.textContent = value;
+  }
+
   function parseDisplayedTime(value) {
     const normalized = String(value || "").trim().replace(",", ".");
     if (/^\d+(?:\.\d+)?$/.test(normalized)) return Number(normalized);
@@ -40,24 +44,20 @@
     if (lyricsInput.dataset.lyricFoundryMode === "listened-partial") {
       const placed = Number(lyricsInput.dataset.lyricFoundryPlacedCount) || 0;
       const unresolved = Number(lyricsInput.dataset.lyricFoundryUnresolvedCount) || 0;
-      timingPill.textContent = `Listened · ${placed} placed · ${unresolved} unresolved`;
-      if (countLabel) countLabel.textContent = "admitted timed cues";
-      if (statusText) {
-        statusText.textContent = "Create uses only admitted timing. Unresolved phrases remain unresolved.";
-      }
+      setText(timingPill, `Listened · ${placed} placed · ${unresolved} unresolved`);
+      setText(countLabel, "admitted timed cues");
+      setText(statusText, "Create uses only admitted timing. Unresolved phrases remain unresolved.");
     } else if (timingPill.textContent === "Approximate") {
       const count = phraseCount();
-      timingPill.textContent = `Prepared · ${count} phrase${count === 1 ? "" : "s"}`;
-      if (countLabel) countLabel.textContent = "timing unresolved";
-      if (statusText) {
-        statusText.textContent = "The Toaster can create with this as-is. Timing uncertainty will not be invented.";
-      }
-    } else if (timingPill.textContent === "No lyrics" && statusText) {
-      statusText.textContent = "Lyrics are optional.";
+      setText(timingPill, `Prepared · ${count} phrase${count === 1 ? "" : "s"}`);
+      setText(countLabel, "timing unresolved");
+      setText(statusText, "The Toaster can create with this as-is. Timing uncertainty will not be invented.");
+    } else if (timingPill.textContent === "No lyrics") {
+      setText(statusText, "Lyrics are optional.");
     }
 
     if (listenCloser) {
-      listenCloser.textContent = "Listen Closer";
+      setText(listenCloser, "Listen Closer");
       listenCloser.title = "Optional · help the Toaster place lyrics more precisely";
     }
   }

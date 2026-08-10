@@ -4,24 +4,14 @@ const path = require("node:path");
 const test = require("node:test");
 
 const root = path.resolve(__dirname, "..");
-const retirement = fs.readFileSync(
-  path.join(root, "src", "renderer", "retire-lab-ui.js"),
-  "utf8",
-);
-const keyboard = fs.readFileSync(
-  path.join(root, "src", "renderer", "sync-keyboard.js"),
-  "utf8",
-);
+const rendererHtml = fs.readFileSync(path.join(root, "src", "renderer", "index.html"), "utf8");
 const preload = fs.readFileSync(path.join(root, "src", "preload.cjs"), "utf8");
 
-test("ordinary renderer retires visible Toaster Lab furniture", () => {
-  assert.match(retirement, /\.lab-proposal-import,/);
-  assert.match(retirement, /\.lab-proposal-toggle/);
-  assert.match(retirement, /display: none !important/);
-  assert.match(retirement, /node\.remove\(\)/);
-  assert.match(retirement, /MutationObserver/);
-  assert.match(keyboard, /script\.src = "\.\/retire-lab-ui\.js"/);
-  assert.match(keyboard, /loadLabUiRetirement\(\);/);
+test("ordinary renderer never creates retired Toaster Lab furniture", () => {
+  assert.doesNotMatch(rendererHtml, /lab-proposal-ui|Import Lab Proposal|Use Lab Proposal/);
+  assert.doesNotMatch(preload, /labProposalScript|lab-proposal-ui|useLabProposal/);
+  assert.equal(fs.existsSync(path.join(root, "src", "renderer", "lab-proposal-ui.js")), false);
+  assert.equal(fs.existsSync(path.join(root, "src", "renderer", "retire-lab-ui.js")), false);
 });
 
 test("legacy Lab compatibility remains behind the retired UI", () => {
@@ -29,5 +19,5 @@ test("legacy Lab compatibility remains behind the retired UI", () => {
   assert.match(preload, /importLabProposal:/);
   assert.match(preload, /candidate:stage-lab-proposal/);
   assert.match(preload, /candidate:import-lab-proposal/);
-  assert.doesNotMatch(retirement, /stageLabProposal|importLabProposal|candidate:/);
+  assert.match(preload, /stageLabProposal:/);
 });

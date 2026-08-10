@@ -19,7 +19,7 @@
   let acceptedSelection = null;
 
   const garmentPanel = document.querySelector(".garment-panel");
-  const shapeCard = garmentPanel?.querySelector(".shape-card");
+  const shapeCard = document.querySelector("#timeline")?.closest(".shape-card");
   const renderButton = document.querySelector("#renderButton");
   const audioTitle = document.querySelector("#audioDropTitle");
   const songFacts = document.querySelector("#songFacts");
@@ -92,7 +92,7 @@
   const originalRenderStrong = renderButton.querySelector(".button-label strong")?.textContent || "Make full video";
 
   function currentPresetId() {
-    return document.querySelector(".garment-card.is-selected")?.dataset.preset || "porchlight";
+    return window.startingField?.getPresetId() || "openField";
   }
 
   function shortAddress(address) {
@@ -325,9 +325,7 @@
     if (event.key === "Escape" && !modal.classList.contains("is-hidden")) closeModal();
   });
 
-  for (const garment of document.querySelectorAll(".garment-card")) {
-    garment.addEventListener("click", () => clearUi());
-  }
+  window.addEventListener("starting-field-change", () => clearUi());
   document.querySelector("#removeImage")?.addEventListener("click", () => {
     api.clearCandidateImage().catch(() => {});
     clearUi({ notifyMain: false });

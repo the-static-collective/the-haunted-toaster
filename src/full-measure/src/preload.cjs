@@ -20,36 +20,12 @@ window.addEventListener("DOMContentLoaded", () => {
     listenCloser.title = "Optional · help the Toaster place lyrics more precisely";
   }
 
-  const candidateStyle = document.createElement("link");
-  candidateStyle.rel = "stylesheet";
-  candidateStyle.href = "./candidate-ui.css";
-  document.head.append(candidateStyle);
-
-  const candidateScript = document.createElement("script");
-  candidateScript.src = "./candidate-ui.js";
-  document.body.append(candidateScript);
-
-  const labProposalScript = document.createElement("script");
-  labProposalScript.src = "./lab-proposal-ui.js";
-  document.body.append(labProposalScript);
 });
 
 function subscribe(channel, callback) {
   const listener = (_event, payload) => callback(payload);
   ipcRenderer.on(channel, listener);
   return () => ipcRenderer.removeListener(channel, listener);
-}
-
-function withLabInfluence(config = {}) {
-  return {
-    ...config,
-    useLabProposal: Boolean(document.querySelector("#useLabProposal")?.checked),
-  };
-}
-
-function withSelectedStartingField(config = {}) {
-  const selected = document.querySelector(".garment-card.is-selected")?.dataset?.preset;
-  return selected ? { ...config, presetId: selected } : config;
 }
 
 function foundryEvidenceFromDom() {
@@ -121,8 +97,7 @@ contextBridge.exposeInMainWorld("fullMeasure", {
     ipcRenderer.invoke("listener:cancel-install"),
   autoSyncLyrics: (config) => ipcRenderer.invoke("lyrics:auto-sync", config),
   cancelLyricSync: () => ipcRenderer.invoke("lyrics:cancel-sync"),
-  generateCandidates: (config) =>
-    ipcRenderer.invoke("candidate:generate", withLabInfluence(config)),
+  generateCandidates: (config) => ipcRenderer.invoke("candidate:generate", config),
   stageLabProposal: (transfer) => ipcRenderer.invoke("candidate:stage-lab-proposal", transfer),
   importLabProposal: (config) => ipcRenderer.invoke("candidate:import-lab-proposal", config),
   mutateCandidates: (config) => ipcRenderer.invoke("candidate:mutate", config),
@@ -132,7 +107,7 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   startRender: async (config) =>
     ipcRenderer.invoke(
       "render:start",
-      await withLyricFoundry(withSelectedStartingField(config)),
+      await withLyricFoundry(config),
     ),
   cancelRender: () => ipcRenderer.invoke("render:cancel"),
   revealFile: (filePath) => ipcRenderer.invoke("shell:reveal", filePath),
