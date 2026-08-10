@@ -26,6 +26,7 @@ const { inspectAudio } = require("./render/analyze.cjs");
 const {
   MAX_CUES,
   MAX_LYRIC_TEXT,
+  parseClock,
   summarizeLyricTrack,
 } = require("./render/lyrics.cjs");
 const { renderVideo } = require("./render/render.cjs");
@@ -251,13 +252,14 @@ function registerIpc() {
 
   ipcMain.handle("lyrics:format-lrc", (_event, config) => {
     const cues = Array.isArray(config?.cues)
-      ? config.cues.slice(0, MAX_CUES).map((cue, lineIndex) => ({
-          lineIndex,
-          text: String(cue?.text || "").slice(0, 1_000),
-          start: Number.isFinite(Number(cue?.start))
-            ? Math.max(0, Number(cue.start))
-            : null,
-        }))
+      ? config.cues.slice(0, MAX_CUES).map((cue, lineIndex) => {
+          const start = parseClock(cue?.start);
+          return {
+            lineIndex,
+            text: String(cue?.text || "").slice(0, 1_000),
+            start,
+          };
+        })
       : [];
     return cuesToLrc(cues, {
       title: String(config?.title || "").slice(0, 160),
