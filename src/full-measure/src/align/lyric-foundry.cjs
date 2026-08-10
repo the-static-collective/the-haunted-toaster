@@ -139,16 +139,24 @@ function normalizeAnchors(anchors = [], preparedLines = []) {
   );
 }
 
+function hasFiniteStart(entry) {
+  return Boolean(
+    entry &&
+      entry.start !== null &&
+      entry.start !== undefined &&
+      Number.isFinite(Number(entry.start)),
+  );
+}
+
 function summarizeRelistenDelta(before = [], after = [], anchors = []) {
   const beforeByLine = new Map((before || []).filter((entry) => entry?.lineId).map((entry) => [entry.lineId, entry]));
   const afterByLine = new Map((after || []).filter((entry) => entry?.lineId).map((entry) => [entry.lineId, entry]));
-  const placed = (entry) => Number.isFinite(Number(entry?.start));
   const human = (entry) => entry?.status === "human" || entry?.humanCorrected === true;
 
   let anchorsHeld = 0;
   for (const anchor of anchors || []) {
     const entry = afterByLine.get(anchor?.lineId);
-    if (!entry || !placed(entry) || !human(entry)) continue;
+    if (!entry || !hasFiniteStart(entry) || !human(entry)) continue;
     if (Math.abs(Number(entry.start) * 1000 - Number(anchor.mediaTimeMs)) <= 1) anchorsHeld += 1;
   }
 
@@ -157,15 +165,15 @@ function summarizeRelistenDelta(before = [], after = [], anchors = []) {
   for (const [lineId, entry] of afterByLine) {
     const prior = beforeByLine.get(lineId);
     if (!prior) continue;
-    if (!placed(prior) && placed(entry) && !human(entry)) machineRecovered += 1;
-    if (placed(prior) && !human(prior) && !placed(entry)) machineLost += 1;
+    if (!hasFiniteStart(prior) && hasFiniteStart(entry) && !human(entry)) machineRecovered += 1;
+    if (hasFiniteStart(prior) && !human(prior) && !hasFiniteStart(entry)) machineLost += 1;
   }
 
   return {
     anchorsHeld,
     machineRecovered,
     machineLost,
-    unresolved: [...afterByLine.values()].filter((entry) => !placed(entry)).length,
+    unresolved: [...afterByLine.values()].filter((entry) => !hasFiniteStart(entry)).length,
   };
 }
 
@@ -176,9 +184,9 @@ function normalizeListenerEvidence(evidence = []) {
     .map((entry) => ({
       lineId: String(entry.lineId),
       state: allowed.has(entry.state) ? entry.state : "unresolved",
-      start: Number.isFinite(Number(entry.start)) ? Number(entry.start) : null,
-      end: Number.isFinite(Number(entry.end)) ? Number(entry.end) : null,
-      confidence: Number.isFinite(Number(entry.confidence)) ? Number(entry.confidence) : null,
+      start: entry.start !== null && entry.start !== undefined && Number.isFinite(Number(entry.start)) ? Number(entry.start) : null,
+      end: entry.end !== null && entry.end !== undefined && Number.isFinite(Number(entry.end)) ? Number(entry.end) : null,
+      confidence: entry.confidence !== null && entry.confidence !== undefined && Number.isFinite(Number(entry.confidence)) ? Number(entry.confidence) : null,
     }))
     .sort((a, b) => a.lineId.localeCompare(b.lineId));
 }
