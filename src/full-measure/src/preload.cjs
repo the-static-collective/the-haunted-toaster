@@ -101,6 +101,7 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   stageLabProposal: (transfer) => ipcRenderer.invoke("candidate:stage-lab-proposal", transfer),
   importLabProposal: (config) => ipcRenderer.invoke("candidate:import-lab-proposal", config),
   mutateCandidates: (config) => ipcRenderer.invoke("candidate:mutate", config),
+  stompCandidates: (config) => ipcRenderer.invoke("candidate:stomp", config),
   selectCandidate: (config) => ipcRenderer.invoke("candidate:select", config),
   clearCandidates: () => ipcRenderer.invoke("candidate:clear"),
   clearCandidateImage: () => ipcRenderer.invoke("candidate:clear-image"),
