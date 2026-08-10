@@ -12,6 +12,7 @@
     />
     <title>Full Measure</title>
     <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./candidate-ui.css" />
   </head>
   <body>
     <div class="ambient ambient-one" aria-hidden="true"></div>
@@ -151,18 +152,32 @@
         <div class="panel-heading">
           <span class="step-number">02</span>
           <div>
-            <h2 id="garmentHeading">Choose a garment</h2>
-            <p>A reusable visual language, not a random clip pile.</p>
+            <h2 id="garmentHeading">Starting field</h2>
+            <p>Open by default. Choose an ancestor only when you want one to seed the field.</p>
           </div>
         </div>
 
-        <div class="garment-list" role="radiogroup" aria-label="Visual garment">
+        <div class="shape-card starting-field-container">
+          <div class="shape-heading">
+            <span>Open Field</span>
+            <strong data-starting-field-status>Default container</strong>
+          </div>
+          <div class="section-legend">
+            Broad lawful field. The garments below are optional ancestors that can seed the beginning without becoming the whole ontology.
+          </div>
+        </div>
+
+        <div class="shape-heading starting-field-ancestors">
+          <span>Ancestors</span><strong>Optional</strong>
+        </div>
+
+        <div class="garment-list" role="radiogroup" aria-label="Optional ancestral garments">
           <button
-            class="garment-card porchlight is-selected"
+            class="garment-card porchlight"
             type="button"
             data-preset="porchlight"
             role="radio"
-            aria-checked="true"
+            aria-checked="false"
           >
             <span class="garment-preview">
               <i></i>
@@ -472,7 +487,10 @@
       </details>
     </footer>
 
+    <script src="./starting-field-controller.js"></script>
     <script src="./app.js"></script>
+    <script src="./candidate-ui.js"></script>
+    <script src="./lyric-foundry-ui.js"></script>
     <script src="./sync-keyboard.js"></script>
   </body>
 </html>

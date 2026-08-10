@@ -13,10 +13,6 @@ const appJs = fs.readFileSync(
   path.join(root, "src", "renderer", "app.js"),
   "utf8",
 );
-const syncKeyboard = fs.readFileSync(
-  path.join(root, "src", "renderer", "sync-keyboard.js"),
-  "utf8",
-);
 const foundryUi = fs.readFileSync(
   path.join(root, "src", "renderer", "lyric-foundry-ui.js"),
   "utf8",
@@ -32,9 +28,8 @@ test("plain lyric evidence cannot enter render as synthetic canonical timing", (
 
 test("production renderer actually activates the Lyric Foundry review policy", () => {
   assert.match(rendererHtml, /<script src="\.\/app\.js"><\/script>/);
+  assert.match(rendererHtml, /<script src="\.\/lyric-foundry-ui\.js"><\/script>/);
   assert.match(rendererHtml, /<script src="\.\/sync-keyboard\.js"><\/script>/);
-  assert.match(syncKeyboard, /script\.src = "\.\/lyric-foundry-ui\.js"/);
-  assert.match(syncKeyboard, /loadLyricFoundry\(\)/);
   assert.doesNotMatch(preload, /lyricFoundryScript\.src/);
 });
 
@@ -57,6 +52,8 @@ test("Listener completion admits placed cues without requiring every line", () =
   assert.match(appJs, /matchedCount: admittedCues\.length/);
   assert.match(appJs, /unresolvedCount,/);
   assert.match(appJs, /Only admitted timing will render/);
+  assert.match(appJs, /if \(state\.acceptingLyrics\) return/);
+  assert.match(appJs, /finally \{\s*state\.acceptingLyrics = false/);
 });
 
 test("legacy all-or-nothing lyric admission cannot return", () => {

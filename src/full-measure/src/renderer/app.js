@@ -7,8 +7,8 @@
     audioPath: null,
     audio: null,
     imagePath: null,
-    presetId: "porchlight",
-    presetName: "Porchlight",
+    presetId: "openField",
+    presetName: "Open Field",
     rendering: false,
     result: null,
     lyricSummary: null,
@@ -16,6 +16,7 @@
     listenerStatus: null,
     syncing: false,
     installingListener: false,
+    acceptingLyrics: false,
     alignment: null,
     selectedCueIndex: null,
     tapMode: false,
@@ -209,6 +210,7 @@
 
   function setRenderState(rendering) {
     state.rendering = rendering;
+    for (const card of $$(".garment-card")) card.disabled = rendering;
     elements.audioDrop.disabled = rendering;
     elements.imageDrop.disabled = rendering;
     elements.lyricsImport.disabled = rendering;
@@ -987,6 +989,13 @@ function selectCueForTime(cues, timestampSeconds, mediaDuration) {
   }
 
   async function acceptSyncedLyrics() {
+    if (state.acceptingLyrics) return;
+    state.acceptingLyrics = true;
+    elements.syncAccept.disabled = true;
+    const originalLabel = elements.syncAccept.textContent;
+    elements.syncAccept.textContent = "Using placed timing…";
+
+    try {
     const cues = state.alignment?.cues || [];
     const admittedCues = cues.filter((cue) => Number.isFinite(cue.start));
     const unresolvedCount = cues.length - admittedCues.length;
@@ -1044,14 +1053,7 @@ function selectCueForTime(cues, timestampSeconds, mediaDuration) {
             ? `${reviewCount} lower-confidence lines accepted after review`
             : `${admittedCues.length} lines aligned locally`,
     });
-    let saved = null;
-    try {
-      saved = await api.saveLyricSidecar(state.audioPath, lrc);
-    } catch (error) {
-      setError(
-        `The reviewed timing is active, but its LRC sidecar could not be saved beside the song.\n${error?.message || error}`,
-      );
-    }
+    const saved = await api.saveLyricSidecar(state.audioPath, lrc);
     const sidecarFilename = saved?.saved ? basename(saved.path) : null;
     provenance.sidecarFilename = sidecarFilename;
     await setLyricsValue(lrc, provenance);
@@ -1063,6 +1065,19 @@ function selectCueForTime(cues, timestampSeconds, mediaDuration) {
           ? "Timing is active in this render; the existing sidecar was kept."
           : "Timing is active in this render; the sidecar could not be written.";
     closeSyncDialog();
+    } catch (error) {
+      setError(
+        `The reviewed timing was not accepted. The Listener is still open so you can retry.\n${error?.message || error}`,
+      );
+      elements.syncSaveNote.textContent = "Nothing was admitted. Fix the problem and try again.";
+    } finally {
+      state.acceptingLyrics = false;
+      elements.syncAccept.disabled = false;
+      updateSyncVerdict();
+      if (elements.syncAccept.textContent === "Using placed timing…") {
+        elements.syncAccept.textContent = originalLabel;
+      }
+    }
   }
 
   async function startRender() {
@@ -1202,20 +1217,12 @@ function selectCueForTime(cues, timestampSeconds, mediaDuration) {
     }
   });
 
-  for (const card of $$(".garment-card")) {
-    card.addEventListener("click", () => {
-      if (state.rendering) return;
-      for (const sibling of $$(".garment-card")) {
-        sibling.classList.remove("is-selected");
-        sibling.setAttribute("aria-checked", "false");
-      }
-      card.classList.add("is-selected");
-      card.setAttribute("aria-checked", "true");
-      state.presetId = card.dataset.preset;
-      state.presetName = card.querySelector(".garment-copy strong").textContent;
-      refreshSlate();
-    });
-  }
+  window.addEventListener("starting-field-change", (event) => {
+    if (state.rendering) return;
+    state.presetId = event.detail.presetId;
+    state.presetName = event.detail.presetName;
+    refreshSlate();
+  });
 
   wireDropTarget(elements.audioDrop, "audio");
   wireDropTarget(elements.imageDrop, "image");
