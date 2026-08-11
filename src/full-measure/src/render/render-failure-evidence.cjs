@@ -52,6 +52,11 @@ function canonicalArtifactText(value) {
   return `${canonicalStringify(value)}\n`;
 }
 
+async function removeRenderFailureBundle(outputPath) {
+  if (!outputPath) return;
+  await fs.rm(`${outputPath}.render-failure`, { recursive: true, force: true });
+}
+
 async function writeRenderFailureBundle({
   outputPath,
   error,
@@ -158,6 +163,7 @@ async function writeRenderFailureBundle({
 }
 
 module.exports = {
+  removeRenderFailureBundle,
   sanitizeFfmpegArg,
   writeRenderFailureBundle,
 };
