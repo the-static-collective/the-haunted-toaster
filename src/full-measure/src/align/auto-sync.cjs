@@ -4,12 +4,16 @@ const path = require("node:path");
 const {
   alignLyricsToTranscript,
   cuesToLrc,
-  extractLyricLines,
 } = require("./matcher.cjs");
 const {
   alignLyricsToTranscriptWithAnchors,
-  unpackAnchorEnvelope,
 } = require("./anchor-guided.cjs");
+const {
+  normalizeAnchors,
+  prepareLyrics,
+  summarizeLyricPreparation,
+  summarizeRelistenDelta,
+} = require("./lyric-foundry.cjs");
 const {
   MODEL_ID,
   WHISPER_CPP_VERSION,
@@ -74,14 +78,44 @@ async function readWhisperOutput(prefix) {
   throw new Error("The local listener finished without a readable timing record.");
 }
 
+function anchorsForGuidedMatcher(preparedLines, anchors) {
+  const byId = new Map(preparedLines.map((line, lineIndex) => [line.lineId, { line, lineIndex }]));
+  return anchors.flatMap((anchor) => {
+    const resolved = byId.get(anchor.lineId);
+    if (!resolved) return [];
+    return [{
+      lineIndex: resolved.lineIndex,
+      text: resolved.line.text,
+      time: anchor.mediaTimeMs / 1000,
+    }];
+  });
+}
+
+function attachLineIds(alignment, preparedLines) {
+  return {
+    ...alignment,
+    cues: (alignment.cues || []).map((cue, index) => ({
+      ...cue,
+      lineId: preparedLines[Number.isInteger(cue.lineIndex) ? cue.lineIndex : index]?.lineId || null,
+    })),
+  };
+}
+
 async function autoSyncLyrics(config, hooks = {}) {
   const audioPath = path.resolve(config.audioPath);
-  const envelope = unpackAnchorEnvelope(config.lyrics);
-  const lyrics = envelope.lyrics;
-  const lines = extractLyricLines(lyrics);
-  if (!lines.length) {
+  const lyrics = String(config.lyrics || "");
+  const preparedResult = prepareLyrics(lyrics);
+  const preparedLines = preparedResult.prepared;
+  const preparedLyrics = preparedLines.map((line) => line.text).join("\n");
+  if (!preparedLines.length) {
     throw new Error("Paste the known lyrics before asking the toaster to listen.");
   }
+
+  const anchors = normalizeAnchors(
+    Array.isArray(config.anchors) ? config.anchors : [],
+    preparedLines,
+  );
+  const guidedAnchors = anchorsForGuidedMatcher(preparedLines, anchors);
 
   const pack =
     config.pack ||
@@ -169,22 +203,23 @@ async function autoSyncLyrics(config, hooks = {}) {
     )
       ? Math.max(-2, Math.min(2, Number(config.placementLeadSeconds)))
       : DEFAULT_PLACEMENT_LEAD_SECONDS;
-    const alignment = envelope.anchors.length
+    const rawAlignment = guidedAnchors.length
       ? alignLyricsToTranscriptWithAnchors(
-          lyrics,
+          preparedLyrics,
           transcript,
           Number(config.duration) || 0,
           {
             leadSeconds: placementLeadSeconds,
-            anchors: envelope.anchors,
+            anchors: guidedAnchors,
           },
         )
       : alignLyricsToTranscript(
-          lyrics,
+          preparedLyrics,
           transcript,
           Number(config.duration) || 0,
           { leadSeconds: placementLeadSeconds },
         );
+    const alignment = attachLineIds(rawAlignment, preparedLines);
     if (!alignment.transcriptEntryCount) {
       throw new Error(
         "The listener did not detect usable vocals in this mix. Keep the lyrics, use tap-sync, or try a vocal stem.",
@@ -199,6 +234,16 @@ async function autoSyncLyrics(config, hooks = {}) {
       artist: config.artist,
       note,
     });
+    const lyricPreparation = {
+      ...summarizeLyricPreparation(preparedResult),
+      prepared: preparedLines.map(({ lineId, text, sourceLines, decisions }) => ({ lineId, text, sourceLines, decisions })),
+      removed: preparedResult.removed,
+    };
+    const relistenDelta = summarizeRelistenDelta(
+      Array.isArray(config.previousEvidence) ? config.previousEvidence : [],
+      alignment.cues,
+      anchors,
+    );
 
     hooks.onProgress?.({
       phase: "ready",
@@ -225,6 +270,9 @@ async function autoSyncLyrics(config, hooks = {}) {
         placementLeadSeconds,
       },
       ...alignment,
+      humanAnchors: anchors,
+      lyricPreparation,
+      relistenDelta,
       lrc,
     };
   } finally {
@@ -302,6 +350,8 @@ async function saveLyricSidecar(audioPath, lrc, options = {}) {
 
 module.exports = {
   DEFAULT_PLACEMENT_LEAD_SECONDS,
+  anchorsForGuidedMatcher,
+  attachLineIds,
   autoSyncLyrics,
   discoverLyricSidecar,
   prepareListeningAudio,

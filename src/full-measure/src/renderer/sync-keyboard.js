@@ -130,8 +130,6 @@
     waveform.addEventListener("pointerup", endScrub);
     waveform.addEventListener("pointercancel", endScrub);
 
-    // app.js remains the click-to-seek authority. This listener synchronizes
-    // the visible playhead/readout immediately after that seek.
     waveform.addEventListener("click", updateWaveformTransport);
 
     waveform.addEventListener("keydown", (event) => {
@@ -165,6 +163,28 @@
 
     updateWaveformTransport();
   }
+
+  // Chromium's native <audio controls> consumes arrow keys as volume/seek
+  // before the ordinary document bubble handler sees them. While the Listener
+  // editor owns the room, claim those keys at capture phase and route them to
+  // the Listener's navigation/scrub laws instead.
+  document.addEventListener("keydown", (event) => {
+    if (!editorIsActive()) return;
+    const audio = document.querySelector("#syncAudio");
+    if (!audio || event.target !== audio) return;
+
+    if (event.code === "ArrowUp" || event.code === "ArrowDown") {
+      event.preventDefault();
+      event.stopPropagation();
+      moveLine(event.code === "ArrowUp" ? -1 : 1);
+      return;
+    }
+    if (event.code === "ArrowLeft" || event.code === "ArrowRight") {
+      event.preventDefault();
+      event.stopPropagation();
+      scrubPlayhead(event.code === "ArrowLeft" ? -1 : 1);
+    }
+  }, true);
 
   document.addEventListener("keydown", (event) => {
     if (!editorIsActive() || editingControlHasFocus()) return;
