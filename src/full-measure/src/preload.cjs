@@ -1,8 +1,4 @@
 const { contextBridge, ipcRenderer, webUtils } = require("electron");
-const {
-  prepareLyrics,
-  summarizeLyricPreparation,
-} = require("./align/lyric-foundry.cjs");
 
 const PRODUCT_NAME = "The Haunted Toaster";
 const MAX_LISTENER_EVIDENCE = 10_000;
@@ -75,20 +71,6 @@ function normalizeStagedListenerEvidence(evidence = {}) {
   return { anchors, previousEvidence };
 }
 
-function prepareListenerLyrics(rawSource) {
-  const preparedResult = prepareLyrics(rawSource);
-  return {
-    ...summarizeLyricPreparation(preparedResult),
-    prepared: preparedResult.prepared.map(({ lineId, text, sourceLines, decisions }) => ({
-      lineId,
-      text,
-      sourceLines,
-      decisions,
-    })),
-    removed: preparedResult.removed,
-  };
-}
-
 async function withLyricFoundry(config = {}) {
   const lyrics = String(config.lyrics || "");
   const foundryEvidence = foundryEvidenceFromDom();
@@ -127,7 +109,8 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   inspectAudio: (filePath) => ipcRenderer.invoke("media:inspect", filePath),
   fileUrl: (filePath) => ipcRenderer.invoke("media:file-url", filePath),
   inspectLyrics: (value, duration) => ipcRenderer.invoke("lyrics:inspect", value, duration),
-  prepareListenerLyrics,
+  prepareListenerLyrics: (rawSource) =>
+    ipcRenderer.sendSync("lyrics:prepare-listener", rawSource),
   discoverLyricSidecar: (audioPath) => ipcRenderer.invoke("lyrics:discover-sidecar", audioPath),
   saveLyricSidecar: (audioPath, content) => ipcRenderer.invoke("lyrics:save-sidecar", { audioPath, content }),
   formatLrc: (config) => ipcRenderer.invoke("lyrics:format-lrc", config),
