@@ -202,11 +202,13 @@ test("score-driven renderer preserves process failure evidence before failed-ren
     path.join(__dirname, "../src/render/render.cjs"),
     "utf8",
   );
-  const catchIndex = source.indexOf("} catch (error) {");
+  const rendererIndex = source.indexOf("async function renderResolvedTimelineVideo");
+  const catchIndex = source.indexOf("} catch (error) {", rendererIndex);
   const evidenceIndex = source.indexOf("await writeRenderFailureBundle", catchIndex);
-  const cleanupIndex = source.indexOf("await Promise.all([", catchIndex);
+  const cleanupIndex = source.indexOf("await Promise.all([", evidenceIndex);
 
-  assert.ok(catchIndex >= 0, "renderer must retain an explicit failed-render boundary");
+  assert.ok(rendererIndex >= 0, "score-driven renderer must remain explicit");
+  assert.ok(catchIndex > rendererIndex, "renderer must retain an explicit failed-render boundary");
   assert.ok(evidenceIndex > catchIndex, "process failure evidence must be written in catch");
   assert.ok(cleanupIndex > evidenceIndex, "evidence must be preserved before output/sidecar cleanup");
   assert.match(source.slice(catchIndex, cleanupIndex), /error\.processFailure/);
