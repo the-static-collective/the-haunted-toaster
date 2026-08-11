@@ -103,13 +103,19 @@ function runProcess(binary, args, options = {}) {
 
       if (code !== 0) {
         const detail = stderr.trim().split(/\r?\n/).slice(-12).join("\n");
-        reject(
-          new Error(
-            `${path.basename(binary)} exited with code ${code}${
-              closeSignal ? ` (${closeSignal})` : ""
-            }${detail ? `\n${detail}` : ""}`,
-          ),
+        const error = new Error(
+          `${path.basename(binary)} exited with code ${code}${
+            closeSignal ? ` (${closeSignal})` : ""
+          }${detail ? `\n${detail}` : ""}`,
         );
+        error.processFailure = Object.freeze({
+          binary: path.basename(binary),
+          code,
+          signal: closeSignal || null,
+          stdout,
+          stderr,
+        });
+        reject(error);
         return;
       }
 
