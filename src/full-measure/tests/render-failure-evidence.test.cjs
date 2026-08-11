@@ -5,7 +5,10 @@ const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 const { runProcess } = require("../src/render/tooling.cjs");
-const { writeRenderFailureBundle } = require("../src/render/render-failure-evidence.cjs");
+const {
+  removeRenderFailureBundle,
+  writeRenderFailureBundle,
+} = require("../src/render/render-failure-evidence.cjs");
 
 test("runProcess preserves full structured evidence for abnormal process exits", async () => {
   const script = [
@@ -177,4 +180,35 @@ test("writes a sanitized sibling evidence bundle for an abnormal render", async 
   } finally {
     await fs.rm(root, { recursive: true, force: true });
   }
+});
+
+test("successful reruns can clear stale render-failure evidence", async () => {
+  assert.equal(typeof removeRenderFailureBundle, "function");
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "toaster-failure-cleanup-"));
+  const outputPath = path.join(root, "field-song.mp4");
+  const failureDirectory = `${outputPath}.render-failure`;
+  try {
+    await fs.mkdir(failureDirectory, { recursive: true });
+    await fs.writeFile(path.join(failureDirectory, "failure.json"), "{}\n", "utf8");
+    await removeRenderFailureBundle(outputPath);
+    await assert.rejects(fs.stat(failureDirectory), { code: "ENOENT" });
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+test("score-driven renderer preserves process failure evidence before failed-render cleanup", async () => {
+  const source = await fs.readFile(
+    path.join(__dirname, "../src/render/render.cjs"),
+    "utf8",
+  );
+  const catchIndex = source.indexOf("} catch (error) {");
+  const evidenceIndex = source.indexOf("await writeRenderFailureBundle", catchIndex);
+  const cleanupIndex = source.indexOf("await Promise.all([", catchIndex);
+
+  assert.ok(catchIndex >= 0, "renderer must retain an explicit failed-render boundary");
+  assert.ok(evidenceIndex > catchIndex, "process failure evidence must be written in catch");
+  assert.ok(cleanupIndex > evidenceIndex, "evidence must be preserved before output/sidecar cleanup");
+  assert.match(source.slice(catchIndex, cleanupIndex), /error\.processFailure/);
+  assert.match(source, /await removeRenderFailureBundle\(outputPath\)/);
 });
