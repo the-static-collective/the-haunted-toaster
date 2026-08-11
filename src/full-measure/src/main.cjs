@@ -14,6 +14,10 @@ const {
   saveLyricSidecar,
 } = require("./align/auto-sync.cjs");
 const {
+  prepareLyrics,
+  summarizeLyricPreparation,
+} = require("./align/lyric-foundry.cjs");
+const {
   cuesToLrc,
   extractLyricLines,
 } = require("./align/matcher.cjs");
@@ -210,6 +214,24 @@ function registerIpc() {
   ipcMain.handle("lyrics:inspect", (_event, value, duration) =>
     summarizeLyricTrack(value, duration),
   );
+
+  ipcMain.on("lyrics:prepare-listener", (event, rawSource) => {
+    const preparedResult = prepareLyrics(
+      String(rawSource || "").slice(0, MAX_LYRIC_TEXT),
+    );
+    event.returnValue = {
+      ...summarizeLyricPreparation(preparedResult),
+      prepared: preparedResult.prepared.map(
+        ({ lineId, text, sourceLines, decisions }) => ({
+          lineId,
+          text,
+          sourceLines,
+          decisions,
+        }),
+      ),
+      removed: preparedResult.removed,
+    };
+  });
 
   ipcMain.handle("lyrics:discover-sidecar", async (_event, filePath) => {
     const audioPath = await assertLocalFile(
