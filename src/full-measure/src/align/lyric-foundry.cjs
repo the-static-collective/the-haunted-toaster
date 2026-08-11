@@ -101,6 +101,22 @@ function prepareLyrics(rawSource) {
   };
 }
 
+function summarizeLyricPreparation(preparedResult) {
+  const prepared = preparedResult?.prepared || [];
+  const removed = preparedResult?.removed || [];
+  const removedCount = (reason) => removed.filter((entry) => entry.reason === reason).length;
+  return {
+    policyVersion: String(preparedResult?.policyVersion || PREP_POLICY_VERSION),
+    retainedPhraseCount: prepared.length,
+    removedCount: removed.length,
+    structuralLabelsRemoved: removedCount("structural-label"),
+    performanceNotesRemoved: removedCount("performance-note"),
+    blankLinesRemoved: removedCount("blank"),
+    wrapsJoined: prepared.filter((line) => line.decisions?.includes("merged-indented-wrap")).length,
+    trimmedPhrases: prepared.filter((line) => line.decisions?.includes("trimmed-whitespace")).length,
+  };
+}
+
 function normalizeAnchors(anchors = [], preparedLines = []) {
   const known = new Set(preparedLines.map((line) => line.lineId));
   const byLine = new Map();
@@ -123,6 +139,44 @@ function normalizeAnchors(anchors = [], preparedLines = []) {
   );
 }
 
+function hasFiniteStart(entry) {
+  return Boolean(
+    entry &&
+      entry.start !== null &&
+      entry.start !== undefined &&
+      Number.isFinite(Number(entry.start)),
+  );
+}
+
+function summarizeRelistenDelta(before = [], after = [], anchors = []) {
+  const beforeByLine = new Map((before || []).filter((entry) => entry?.lineId).map((entry) => [entry.lineId, entry]));
+  const afterByLine = new Map((after || []).filter((entry) => entry?.lineId).map((entry) => [entry.lineId, entry]));
+  const human = (entry) => entry?.status === "human" || entry?.humanCorrected === true;
+
+  let anchorsHeld = 0;
+  for (const anchor of anchors || []) {
+    const entry = afterByLine.get(anchor?.lineId);
+    if (!entry || !hasFiniteStart(entry) || !human(entry)) continue;
+    if (Math.abs(Number(entry.start) * 1000 - Number(anchor.mediaTimeMs)) <= 1) anchorsHeld += 1;
+  }
+
+  let machineRecovered = 0;
+  let machineLost = 0;
+  for (const [lineId, entry] of afterByLine) {
+    const prior = beforeByLine.get(lineId);
+    if (!prior) continue;
+    if (!hasFiniteStart(prior) && hasFiniteStart(entry) && !human(entry)) machineRecovered += 1;
+    if (hasFiniteStart(prior) && !human(prior) && !hasFiniteStart(entry)) machineLost += 1;
+  }
+
+  return {
+    anchorsHeld,
+    machineRecovered,
+    machineLost,
+    unresolved: [...afterByLine.values()].filter((entry) => !hasFiniteStart(entry)).length,
+  };
+}
+
 function normalizeListenerEvidence(evidence = []) {
   const allowed = new Set(["aligned", "tentative", "unresolved"]);
   return (evidence || [])
@@ -130,9 +184,9 @@ function normalizeListenerEvidence(evidence = []) {
     .map((entry) => ({
       lineId: String(entry.lineId),
       state: allowed.has(entry.state) ? entry.state : "unresolved",
-      start: Number.isFinite(Number(entry.start)) ? Number(entry.start) : null,
-      end: Number.isFinite(Number(entry.end)) ? Number(entry.end) : null,
-      confidence: Number.isFinite(Number(entry.confidence)) ? Number(entry.confidence) : null,
+      start: entry.start !== null && entry.start !== undefined && Number.isFinite(Number(entry.start)) ? Number(entry.start) : null,
+      end: entry.end !== null && entry.end !== undefined && Number.isFinite(Number(entry.end)) ? Number(entry.end) : null,
+      confidence: entry.confidence !== null && entry.confidence !== undefined && Number.isFinite(Number(entry.confidence)) ? Number(entry.confidence) : null,
     }))
     .sort((a, b) => a.lineId.localeCompare(b.lineId));
 }
@@ -242,4 +296,6 @@ module.exports = {
   normalizeAnchors,
   normalizeListenerEvidence,
   prepareLyrics,
+  summarizeLyricPreparation,
+  summarizeRelistenDelta,
 };
