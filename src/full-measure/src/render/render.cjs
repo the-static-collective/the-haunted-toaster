@@ -2,6 +2,7 @@ const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 const crypto = require("node:crypto");
+const buildInfo = require("../build-info.cjs");
 const legacy = require("./render-legacy.cjs");
 const { createProceduralPpm } = require("./artwork.cjs");
 const { inspectAudio, probeMedia } = require("./analyze.cjs");
@@ -16,6 +17,10 @@ const {
   resolveProfileAudioPlan,
   transportReceipt,
 } = require("./output-profiles.cjs");
+const {
+  removeRenderFailureBundle,
+  writeRenderFailureBundle,
+} = require("./render-failure-evidence.cjs");
 const { resolveFfmpeg, runProcess } = require("./tooling.cjs");
 const {
   assertTimelineDuration,
@@ -87,9 +92,12 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
   }
 
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  await removeRenderFailureBundle(outputPath);
   const tempDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "full-measure-"));
   const jobId = crypto.randomUUID();
   const startedAt = new Date();
+  let failureEvidenceContext = null;
+  let lastProgress = null;
 
   try {
     hooks.onPhase?.("analysis", "Listening for the song's shape…");
@@ -189,9 +197,37 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       outputPath,
     );
 
+    const ffmpegBinary = resolveFfmpeg();
+    lastProgress = {
+      ratio: 0,
+      renderedSeconds: 0,
+      frame: 0,
+      duration: analysis.duration,
+    };
+    failureEvidenceContext = {
+      filterPath,
+      ffmpegArgs,
+      visualScore: config.visualScore,
+      resolvedTimeline: execution.timeline,
+      sourceAudio: {
+        path: audioPath,
+        filename: analysis.filename,
+        sha256: sourceHash,
+        sizeBytes: analysis.sizeBytes,
+        duration: analysis.duration,
+        formatName: analysis.formatName,
+        bitrate: analysis.bitrate,
+        audio: analysis.audio,
+      },
+      sourceImage: imagePath
+        ? { path: imagePath, filename: path.basename(imagePath) }
+        : null,
+      visualCompiler: filter.visualCompiler,
+    };
+
     hooks.onPhase?.("rendering", `Rendering the resolved timeline · ${outputProfile.label}…`);
     let progressBuffer = "";
-    await runProcess(resolveFfmpeg(), ffmpegArgs, {
+    await runProcess(ffmpegBinary, ffmpegArgs, {
       cwd: tempDirectory,
       signal,
       collectStdout: false,
@@ -200,10 +236,24 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
         const lines = progressBuffer.split(/\r?\n/);
         progressBuffer = lines.pop() || "";
         for (const line of lines) {
+          const frameMatch = line.match(/^frame=(\d+)$/);
+          if (frameMatch) {
+            lastProgress = {
+              ...lastProgress,
+              frame: Number(frameMatch[1]),
+            };
+            continue;
+          }
+
           const match = line.match(/^out_time_(?:us|ms)=(\d+)$/);
           if (!match) continue;
           const renderedSeconds = Number(match[1]) / 1_000_000;
           const ratio = Math.max(0, Math.min(0.995, renderedSeconds / analysis.duration));
+          lastProgress = {
+            ...lastProgress,
+            ratio,
+            renderedSeconds,
+          };
           hooks.onProgress?.({ ratio, renderedSeconds, duration: analysis.duration });
         }
       },
@@ -377,6 +427,45 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       analysis,
     };
   } catch (error) {
+    if (error?.processFailure && failureEvidenceContext) {
+      try {
+        let sourceImage = failureEvidenceContext.sourceImage;
+        if (imagePath) {
+          const [imageHashResult, imageProbeResult] = await Promise.allSettled([
+            hashFile(imagePath),
+            probeMedia(imagePath),
+          ]);
+          sourceImage = {
+            path: imagePath,
+            filename: path.basename(imagePath),
+            sha256:
+              imageHashResult.status === "fulfilled"
+                ? imageHashResult.value
+                : null,
+            ...(imageProbeResult.status === "fulfilled"
+              ? imageProbeResult.value
+              : {}),
+          };
+        }
+
+        await writeRenderFailureBundle({
+          outputPath,
+          error,
+          ...failureEvidenceContext,
+          sourceImage,
+          buildInfo,
+          jobId,
+          startedAt,
+          lastProgress,
+        });
+      } catch (failureEvidenceError) {
+        error.failureEvidenceError =
+          failureEvidenceError instanceof Error
+            ? failureEvidenceError.message
+            : String(failureEvidenceError);
+      }
+    }
+
     await Promise.all([
       safeUnlink(outputPath),
       removeCanonicalExecutionSidecars(outputPath),
