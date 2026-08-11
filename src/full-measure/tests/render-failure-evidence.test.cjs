@@ -5,7 +5,7 @@ const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 const { runProcess } = require("../src/render/tooling.cjs");
-const { writeRenderFailureBundle } = require("../src/render/render.cjs");
+const { writeRenderFailureBundle } = require("../src/render/render-failure-evidence.cjs");
 
 test("runProcess preserves full structured evidence for abnormal process exits", async () => {
   const script = [
@@ -33,8 +33,6 @@ test("runProcess preserves full structured evidence for abnormal process exits",
 });
 
 test("writes a sanitized sibling evidence bundle for an abnormal render", async () => {
-  assert.equal(typeof writeRenderFailureBundle, "function");
-
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "toaster-failure-evidence-"));
   const privateDirectory = path.join(root, "private-user-folder");
   const renderTemp = path.join(root, "full-measure-private-temp");
