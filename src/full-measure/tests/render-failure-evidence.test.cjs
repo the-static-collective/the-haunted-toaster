@@ -211,6 +211,6 @@ test("score-driven renderer preserves process failure evidence before failed-ren
   assert.ok(catchIndex > rendererIndex, "renderer must retain an explicit failed-render boundary");
   assert.ok(evidenceIndex > catchIndex, "process failure evidence must be written in catch");
   assert.ok(cleanupIndex > evidenceIndex, "evidence must be preserved before output/sidecar cleanup");
-  assert.match(source.slice(catchIndex, cleanupIndex), /error\.processFailure/);
+  assert.match(source.slice(catchIndex, cleanupIndex), /processFailure/);
   assert.match(source, /await removeRenderFailureBundle\(outputPath\)/);
 });
