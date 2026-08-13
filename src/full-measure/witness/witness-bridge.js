@@ -52,6 +52,15 @@
   }
 
   const commit = document.body.dataset.uiWitnessCommit || "local";
+  const buildInfo = Object.freeze({
+    version: "unknown",
+    sourceMode: true,
+    builtAt: null,
+    rendererProfileGeneration: "unknown",
+    capabilities: [],
+    ...(window.__uiWitnessBuildInfo || {}),
+    commit,
+  });
   window.__consoleErrors = [];
   window.addEventListener("error", (event) => window.__consoleErrors.push(String(event.error?.message || event.message)));
   window.addEventListener("unhandledrejection", (event) => window.__consoleErrors.push(String(event.reason?.message || event.reason)));
@@ -117,15 +126,8 @@
     cancelRender: async () => {},
     revealFile: async () => {},
     openFile: async () => {},
-    getVersion: async () => "0.5.0-alpha.7",
-    getBuildInfo: async () => ({
-      version: "0.5.0-alpha.7",
-      commit,
-      sourceMode: false,
-      builtAt: "2026-08-13T00:00:00.000Z",
-      rendererProfileGeneration: "raster-3",
-      capabilities: ["uiWitnessV1"],
-    }),
+    getVersion: async () => buildInfo.version,
+    getBuildInfo: async () => structuredClone(buildInfo),
     getToastFeels: async () => structuredClone(window.__uiWitnessToastFeels || []),
     pathForFile: () => "",
     onProgress: (callback) => subscribe("progress", callback),

@@ -29,6 +29,16 @@ test("UI witness is generated from production renderer assets", (t) => {
   assert.match(generated, /witness-controller\.js/);
   assert.ok(generated.indexOf("witness-bridge.js") < generated.indexOf("toast-feel-controller.js"));
   assert.match(generated, /__uiWitnessToastFeels/);
+  assert.match(generated, /__uiWitnessBuildInfo/);
+  assert.match(generated, /"version":"0\.5\.0-alpha\.8"/);
+  for (const capability of [
+    "uiWitnessV1",
+    "toastFeelV1",
+    "nativeColorWitnessV1",
+    "renderFailureEvidenceV1",
+  ]) {
+    assert.match(generated, new RegExp(`"${capability}"`));
+  }
   assert.equal(
     fs.readFileSync(path.join(outputDir, "styles.css"), "utf8"),
     fs.readFileSync(path.join(rendererDir, "styles.css"), "utf8"),

@@ -1,5 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const packageInfo = require("../package.json");
+const { deriveBuildCapabilities } = require("../src/build-capabilities.cjs");
 const { UI_WITNESS_POLICY } = require("../src/ui-witness-policy.cjs");
 
 const RENDERER_FILES = Object.freeze([
@@ -34,11 +36,20 @@ function buildUiWitness({ rootDir, outputDir, commit }) {
   const safeCommit = attributeValue(commit);
   const toastFeels = JSON.stringify(require("../src/toast-feels.cjs").listToastFeels())
     .replace(/</g, "\\u003c");
+  const derived = deriveBuildCapabilities();
+  const buildInfo = JSON.stringify({
+    version: packageInfo.version,
+    commit: safeCommit,
+    sourceMode: true,
+    builtAt: null,
+    rendererProfileGeneration: derived.rendererProfileGeneration,
+    capabilities: [...derived.capabilities],
+  }).replace(/</g, "\\u003c");
   const generatedHtml = productionHtml
     .replace("<body>", `<body data-ui-witness-commit="${safeCommit}">`)
     .replace(
       firstRendererScript,
-      `<script>window.__uiWitnessToastFeels = ${toastFeels};</script>\n    <script src="./witness-bridge.js"></script>\n    <script src="./witness-controller.js"></script>\n    ${firstRendererScript}`,
+      `<script>window.__uiWitnessToastFeels = ${toastFeels}; window.__uiWitnessBuildInfo = ${buildInfo};</script>\n    <script src="./witness-bridge.js"></script>\n    <script src="./witness-controller.js"></script>\n    ${firstRendererScript}`,
     );
 
   fs.rmSync(outputDir, { recursive: true, force: true });
