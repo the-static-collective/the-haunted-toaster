@@ -97,8 +97,8 @@
   const originalRenderSmall = renderButton.querySelector(".button-label small")?.textContent || "SONG IN → MP4 OUT";
   const originalRenderStrong = renderButton.querySelector(".button-label strong")?.textContent || "Make full video";
 
-  function currentPresetId() {
-    return window.startingField?.getPresetId() || "openField";
+  function currentToastFeelId() {
+    return window.toastFeel?.getToastFeelId();
   }
 
   function shortAddress(address) {
@@ -120,13 +120,14 @@
   function nextRootSeed(kind) {
     sequence += 1;
     const song = audioTitle.textContent.trim().replace(/\s+/g, "-").slice(0, 80) || "song";
-    return `local-six-up:${currentPresetId()}:${song}:${kind}:${sequence}`;
+    return `local-six-up:openField:${currentToastFeelId() || "unselected"}:${song}:${kind}:${sequence}`;
   }
 
   function configFor(kind) {
     return {
       rootSeed: nextRootSeed(kind),
-      presetId: currentPresetId(),
+      presetId: "openField",
+      toastFeelId: currentToastFeelId(),
       title: document.querySelector("#titleInput")?.value || "",
       artist: document.querySelector("#artistInput")?.value || "",
       lyrics: document.querySelector("#lyricsInput")?.value || "",
@@ -353,7 +354,7 @@
     if (event.key === "Escape" && !modal.classList.contains("is-hidden")) closeModal();
   });
 
-  window.addEventListener("starting-field-change", () => clearUi());
+  window.addEventListener("toast-feel-change", () => clearUi());
   document.querySelector("#removeImage")?.addEventListener("click", () => {
     api.clearCandidateImage().catch(() => {});
     clearUi({ notifyMain: false });

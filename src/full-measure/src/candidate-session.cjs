@@ -3,6 +3,10 @@ const generation = require("./generation/index.cjs");
 const { admitLabProposal, parseLabProposalTransfer } = require("./lab-proposal.cjs");
 const { renderCandidateFamilyPreviews } = require("./render/candidate-preview.cjs");
 const { createLyricTrack } = require("./render/lyrics.cjs");
+const { getToastFeel } = require("./toast-feels.cjs");
+const {
+  analyzeNativeChromaticProfile: defaultAnalyzeNativeChromaticProfile,
+} = require("./native-color-analysis.cjs");
 const openField = require("../constraints/open-field.v1.json");
 const porchlight = require("../constraints/porchlight.v2.json");
 const wireOrchard = require("../constraints/wire-orchard.v2.json");
@@ -55,10 +59,14 @@ function sameOptionalPath(left, right) {
   return path.resolve(left) === path.resolve(right);
 }
 
-function createCandidateSession() {
+function createCandidateSession({
+  renderCandidateFamilyPreviews: renderPreviews = renderCandidateFamilyPreviews,
+  analyzeNativeChromaticProfile: analyzeProfile = defaultAnalyzeNativeChromaticProfile,
+} = {}) {
   let audioPath = null;
   let mediaAnalysis = null;
   let imagePath = null;
+  let nativeChromaticProfile = null;
   let family = null;
   let familyBinding = null;
   let selection = null;
@@ -84,8 +92,17 @@ function createCandidateSession() {
 
   function noteImage(nextImagePath) {
     const resolved = nextImagePath ? path.resolve(nextImagePath) : null;
-    if (!sameOptionalPath(imagePath, resolved)) clearCandidates();
+    if (!sameOptionalPath(imagePath, resolved)) {
+      clearCandidates();
+      nativeChromaticProfile = null;
+    }
     imagePath = resolved;
+  }
+
+  async function ensureNativeChromaticProfile() {
+    if (!imagePath) return null;
+    if (!nativeChromaticProfile) nativeChromaticProfile = await analyzeProfile(imagePath);
+    return nativeChromaticProfile;
   }
 
   function stageLabProposal(transfer) {
@@ -105,6 +122,12 @@ function createCandidateSession() {
     return constraints;
   }
 
+  function currentToastFeel(toastFeelId) {
+    const feel = getToastFeel(toastFeelId);
+    if (!feel) throw new TypeError(`Unknown Toast Feel: ${String(toastFeelId)}.`);
+    return feel;
+  }
+
   function assertReady() {
     if (!audioPath || !mediaAnalysis) {
       throw new Error("Choose and inspect a song before generating candidates.");
@@ -117,7 +140,11 @@ function createCandidateSession() {
   }
 
   async function materialize(nextFamily, config, signal, influence = null) {
-    const previewView = await renderCandidateFamilyPreviews(
+    const feel = currentToastFeel(config.toastFeelId);
+    if (nextFamily.toastFeel?.id !== feel.id) {
+      throw new Error("Candidate family Toast Feel does not match the requested appliance state.");
+    }
+    const previewView = await renderPreviews(
       {
         audioPath,
         imagePath,
@@ -135,20 +162,25 @@ function createCandidateSession() {
       audioPath,
       imagePath,
       presetId: config.presetId,
+      toastFeelId: feel.id,
+      toastFeel: structuredClone(nextFamily.toastFeel),
       labInfluence: influence,
     };
     selection = null;
     return {
       ...previewView,
+      toastFeel: structuredClone(nextFamily.toastFeel),
       labInfluence: influence,
     };
   }
 
   async function generate(config = {}, signal) {
     assertReady();
+    const feel = currentToastFeel(config.toastFeelId);
     busy = true;
     try {
       const constraints = currentConstraints(config.presetId);
+      const profile = await ensureNativeChromaticProfile();
       const lyricTrack = lyricTrackFor(config);
       const useLabProposal = config.useLabProposal === true;
       if (useLabProposal && !stagedLabProposal) {
@@ -174,6 +206,8 @@ function createCandidateSession() {
         count: 6,
         phase: "initial",
         lyricTrack,
+        toastFeelId: feel.id,
+        nativeChromaticProfile: profile,
       });
       return await materialize(nextFamily, config, signal, influence);
     } finally {
@@ -188,6 +222,7 @@ function createCandidateSession() {
 
   async function mutate(config = {}, signal) {
     assertReady();
+    const feel = currentToastFeel(config.toastFeelId);
     if (!family || family.familyHash !== config.familyHash) {
       throw new Error("Candidate family is no longer current; generate six again.");
     }
@@ -196,6 +231,7 @@ function createCandidateSession() {
     busy = true;
     try {
       const constraints = currentConstraints(config.presetId);
+      const profile = await ensureNativeChromaticProfile();
       const analysis = toGenerationAnalysis(mediaAnalysis);
       const lyricTrack = lyricTrackFor(config);
       let nextFamily = generation.generateCandidateSet({
@@ -208,6 +244,9 @@ function createCandidateSession() {
         count: 6,
         phase: "branch",
         lyricTrack,
+        toastFeelId: feel.id,
+        nativeChromaticProfile: profile,
+        parentNativeColorPlan: parent.timeline?.nativeColor || null,
       });
       if (config.converge === true) {
         nextFamily = generation.replaceFinalCandidateWithConverge(nextFamily, {
@@ -219,6 +258,9 @@ function createCandidateSession() {
           rendererProfile,
           rootSeed: config.rootSeed,
           lyricTrack,
+          toastFeelId: feel.id,
+          nativeChromaticProfile: profile,
+          parentNativeColorPlan: parent.timeline?.nativeColor || null,
         });
       }
       return await materialize(nextFamily, config, signal, familyBinding?.labInfluence || null);
@@ -229,6 +271,7 @@ function createCandidateSession() {
 
   async function stomp(config = {}, signal) {
     assertReady();
+    const feel = currentToastFeel(config.toastFeelId);
     if (!family || family.familyHash !== config.familyHash) {
       throw new Error("Candidate family is no longer current; generate six again.");
     }
@@ -237,6 +280,7 @@ function createCandidateSession() {
     busy = true;
     try {
       const constraints = currentConstraints(config.presetId);
+      const profile = await ensureNativeChromaticProfile();
       const nextFamily = generation.generateStompCandidateSet({
         analysis: toGenerationAnalysis(mediaAnalysis),
         garmentConstraints: constraints,
@@ -246,6 +290,9 @@ function createCandidateSession() {
         rootSeed: config.rootSeed,
         count: 6,
         lyricTrack: lyricTrackFor(config),
+        toastFeelId: feel.id,
+        nativeChromaticProfile: profile,
+        parentNativeColorPlan: parent.timeline?.nativeColor || null,
       });
       return await materialize(nextFamily, config, signal, familyBinding?.labInfluence || null);
     } finally {
@@ -278,12 +325,17 @@ function createCandidateSession() {
     if (!selection || !familyBinding) return null;
     if (path.resolve(config.audioPath) !== familyBinding.audioPath) return null;
     if (config.presetId !== familyBinding.presetId) return null;
+    if (config.toastFeelId !== familyBinding.toastFeelId) return null;
     if (!sameOptionalPath(config.imagePath, familyBinding.imagePath)) return null;
     return {
       visualScore: selection.scoreArtifact.score,
       resolvedTimeline: selection.timeline,
       analysis: mediaAnalysis,
       labInfluence: familyBinding.labInfluence || { enabled: false },
+      toastFeel: structuredClone(familyBinding.toastFeel),
+      nativeChromaticProfile: nativeChromaticProfile
+        ? structuredClone(nativeChromaticProfile)
+        : null,
     };
   }
 

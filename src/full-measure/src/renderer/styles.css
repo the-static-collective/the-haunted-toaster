@@ -2101,6 +2101,169 @@ body.has-dialog {
   display: none !important;
 }
 
+.toast-feel-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin-bottom: 2px;
+}
+
+.toast-feel-loading {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 22px;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  color: var(--faint);
+  font-size: 9px;
+  letter-spacing: 0.7px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.toast-feel {
+  --toast-glow: 240, 191, 104;
+  position: relative;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  height: 92px;
+  padding: 11px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  text-align: left;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 12% 18%, rgba(var(--toast-glow), 0.08), transparent 48%),
+    rgba(8, 7, 10, 0.44);
+  transition: border-color 160ms ease, transform 160ms ease, background 160ms ease;
+}
+
+.toast-feel:nth-child(2) { --toast-glow: 172, 136, 112; }
+.toast-feel:nth-child(3) { --toast-glow: 238, 119, 72; }
+.toast-feel:nth-child(4) { --toast-glow: 186, 149, 188; }
+.toast-feel:nth-child(5) { --toast-glow: 248, 209, 110; }
+.toast-feel:nth-child(6) { --toast-glow: 129, 207, 194; }
+
+.toast-feel:hover:not(:disabled) {
+  border-color: rgba(var(--toast-glow), 0.38);
+  transform: translateY(-1px);
+}
+
+.toast-feel:focus-visible {
+  outline: 2px solid rgba(var(--toast-glow), 0.82);
+  outline-offset: 2px;
+}
+
+.toast-feel.is-selected {
+  border-color: rgba(var(--toast-glow), 0.62);
+  background:
+    linear-gradient(120deg, rgba(var(--toast-glow), 0.14), transparent 68%),
+    rgba(8, 7, 10, 0.58);
+  box-shadow: inset 0 0 0 1px rgba(var(--toast-glow), 0.08);
+}
+
+.toast-feel:disabled {
+  cursor: not-allowed;
+  opacity: 0.46;
+}
+
+.toast-feel-art {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 58px;
+}
+
+.toast-feel-icon {
+  width: 54px;
+  height: 48px;
+  overflow: visible;
+  fill: rgba(22, 14, 15, 0.92);
+  stroke: rgba(var(--toast-glow), 0.65);
+  stroke-linejoin: round;
+  stroke-width: 2;
+  filter: drop-shadow(0 5px 10px rgba(var(--toast-glow), 0.13));
+}
+
+.toast-feel-icon .toast-feel-crust {
+  fill: rgba(var(--toast-glow), 0.28);
+  stroke-width: 1.5;
+}
+
+.toast-feel-icon .toast-feel-scorch {
+  fill: rgba(var(--toast-glow), 0.5);
+  stroke: none;
+}
+
+.toast-feel-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.toast-feel-copy strong {
+  color: #f0e7dc;
+  font-family: "Arial Narrow", "Roboto Condensed", sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.45px;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.toast-feel-copy small {
+  color: var(--faint);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.toast-feel-mark {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid rgba(var(--toast-glow), 0.35);
+  border-radius: 50%;
+}
+
+.toast-feel.is-selected .toast-feel-mark {
+  background: rgb(var(--toast-glow));
+  box-shadow: 0 0 12px rgba(var(--toast-glow), 0.72);
+}
+
+.toast-feel--madd-clown {
+  --toast-glow: 255, 72, 196;
+  grid-column: 1 / -1;
+  grid-template-columns: 84px minmax(0, 1fr);
+  height: 118px;
+  border-color: rgba(255, 72, 196, 0.28);
+  background:
+    repeating-linear-gradient(108deg, transparent 0 19px, rgba(95, 238, 185, 0.045) 20px 21px),
+    radial-gradient(circle at 14% 30%, rgba(255, 72, 196, 0.2), transparent 35%),
+    radial-gradient(circle at 90% 100%, rgba(95, 238, 185, 0.12), transparent 40%),
+    rgba(8, 7, 10, 0.64);
+}
+
+.toast-feel--madd-clown .toast-feel-art {
+  width: 84px;
+  transform: rotate(-4deg) scale(1.24);
+}
+
+.toast-feel--madd-clown .toast-feel-copy strong {
+  color: #ff9bdd;
+  font-size: 14px;
+  letter-spacing: 1.4px;
+  text-shadow: 2px 2px 0 rgba(95, 238, 185, 0.2);
+}
+
+.toast-feel--madd-clown .toast-feel-copy small {
+  color: #bae9d6;
+  font-size: 9px;
+}
+
 @media (max-width: 1220px) {
   .workspace {
     grid-template-columns: minmax(340px, 1fr) minmax(340px, 1fr) 300px;
@@ -2116,12 +2279,9 @@ body.has-dialog {
     padding: 19px;
   }
 
-  .garment-card {
-    grid-template-columns: 84px 1fr auto;
-  }
-
-  .garment-preview {
-    width: 84px;
+  .toast-feel {
+    grid-template-columns: 48px minmax(0, 1fr);
+    padding: 9px;
   }
 }
 

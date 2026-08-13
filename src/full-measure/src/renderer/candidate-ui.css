@@ -66,6 +66,14 @@
 .candidate-use { border: 1px solid rgba(131,209,191,.32); color: #d8f3ed; background: rgba(131,209,191,.12); }
 .candidate-regenerate:disabled, .candidate-mutate:disabled, .candidate-use:disabled, .candidate-launch:disabled { cursor: default; opacity: .45; }
 .candidate-modal.is-busy .candidate-grid { opacity: .52; pointer-events: none; }
+@media (min-width: 1101px) and (max-height: 960px) {
+  .candidate-surface { width: min(1120px, calc(100vw - 56px)); }
+  .candidate-header { padding: 18px 22px 14px; }
+  .candidate-toolbar { padding: 10px 22px; }
+  .candidate-grid { gap: 10px; padding: 0 22px 14px; }
+  .candidate-copy { padding: 8px 11px 6px; }
+  .candidate-actions { padding: 12px 22px 14px; }
+}
 @media (max-width: 1100px) {
   .candidate-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .candidate-actions { align-items: flex-start; flex-direction: column; }

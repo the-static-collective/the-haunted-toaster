@@ -1,6 +1,10 @@
 const { createCandidateSession, rendererProfile } = require("./candidate-session.cjs");
 const { EXPRESSIVE_RENDERER_PROFILE_ID } = require("./generation/renderer-policy.cjs");
 const { OUTPUT_PROFILES } = require("./render/output-profiles.cjs");
+const { TOAST_FEEL_CONTRACT, TOAST_FEELS } = require("./toast-feels.cjs");
+const { NATIVE_COLOR_POLICY, RELATIONSHIPS } = require("./generation/native-color.cjs");
+const { RENDER_FAILURE_EVIDENCE_SCHEMA } = require("./render/render-failure-evidence.cjs");
+const { UI_WITNESS_POLICY } = require("./ui-witness-policy.cjs");
 const {
   EXPRESSIVE_SEMANTIC_COMPILER_REGISTRIES,
   EXPRESSIVE_TOPOLOGY_COMPILERS,
@@ -49,6 +53,19 @@ function deriveBuildCapabilities() {
       registries.topology.circle?.id === "circle-v2" &&
       registries.semantic.camera?.orbit === "camera-orbit-v2"
       ? "internalResponseV1"
+      : null,
+    UI_WITNESS_POLICY === "ui-witness-v1" ? "uiWitnessV1" : null,
+    TOAST_FEEL_CONTRACT === "toast-feel-v1" && TOAST_FEELS.length === 7
+      ? "toastFeelV1"
+      : null,
+    NATIVE_COLOR_POLICY === "native-color-witness-v1" &&
+      RELATIONSHIPS.length === 2 &&
+      RELATIONSHIPS[0] === "echo" &&
+      RELATIONSHIPS[1] === "counterpoint"
+      ? "nativeColorWitnessV1"
+      : null,
+    RENDER_FAILURE_EVIDENCE_SCHEMA === "full-measure.render-failure.v1"
+      ? "renderFailureEvidenceV1"
       : null,
   ].filter(Boolean);
 

@@ -5,6 +5,8 @@ const { inspectAudio } = require("../src/render/analyze.cjs");
 const { renderVideo } = require("../src/render/render.cjs");
 const { resolveFfmpeg, runProcess } = require("../src/render/tooling.cjs");
 
+const TOAST_FEEL_ID = "wire-heat";
+
 async function main() {
   const root = path.resolve(__dirname, "..");
   const artifacts = path.join(root, "test-artifacts");
@@ -37,6 +39,7 @@ async function main() {
     title: "SIX UP SMOKE",
     artist: "The Static Collective",
     lyrics: "",
+    toastFeelId: TOAST_FEEL_ID,
   });
   if (first.producedCount !== 6 || first.candidates.length !== 6) {
     throw new Error(`Expected six exact candidate previews, received ${first.producedCount}.`);
@@ -54,6 +57,7 @@ async function main() {
     title: "SIX UP SMOKE",
     artist: "The Static Collective",
     lyrics: "",
+    toastFeelId: TOAST_FEEL_ID,
   });
   if (descendants.producedCount !== 6 || descendants.candidates.length !== 6) {
     throw new Error("Candidate descendant smoke did not produce six previews.");
@@ -64,6 +68,7 @@ async function main() {
     audioPath,
     imagePath: null,
     presetId: "wireOrchard",
+    toastFeelId: TOAST_FEEL_ID,
   });
   if (!execution || execution.resolvedTimeline.timelineHash !== selected.timelineHash) {
     throw new Error("Selected candidate did not bind its exact timeline to production render.");

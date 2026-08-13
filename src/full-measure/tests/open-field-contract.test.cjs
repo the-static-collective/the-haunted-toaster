@@ -10,7 +10,7 @@ const wireOrchard = require("../constraints/wire-orchard.v2.json");
 const absoluteResidual = require("../constraints/absolute-residual.v2.json");
 const preload = fs.readFileSync(path.join(root, "src", "preload.cjs"), "utf8");
 const controller = fs.readFileSync(
-  path.join(root, "src", "renderer", "starting-field-controller.js"),
+  path.join(root, "src", "renderer", "toast-feel-controller.js"),
   "utf8",
 );
 const rendererHtml = fs.readFileSync(path.join(root, "src", "renderer", "index.html"), "utf8");
@@ -43,11 +43,11 @@ test("Open Field is explicit in generation and rendering instead of falling thro
   assert.match(presets, /name: "Open Field"/);
 });
 
-test("starting-field UX treats Open Field as state and garments as optional ancestors", () => {
-  assert.match(controller, /presetId: "openField", presetName: "Open Field"/);
-  assert.match(controller, /selectAncestor\(card\)/);
-  assert.match(rendererHtml, /starting-field-container/);
-  assert.match(rendererHtml, /The garments below are optional ancestors/);
+test("alpha.8 keeps Open Field internal while Toast Feel owns normal UI", () => {
+  assert.match(rendererHtml, /id="toastFeelChoices"/);
+  assert.match(controller, /api\.getToastFeels\(\)/);
+  assert.match(controller, /new CustomEvent\("toast-feel-change"/);
+  assert.doesNotMatch(rendererHtml, /starting-field-container|class="garment-card/);
   assert.doesNotMatch(rendererHtml, /data-preset="openField"/);
   assert.doesNotMatch(preload, /withSelectedStartingField/);
   assert.doesNotMatch(preload, /installOpenFieldDoor/);

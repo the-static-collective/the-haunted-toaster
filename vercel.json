@@ -1,0 +1,4 @@
+{
+  "buildCommand": "npm --prefix src/full-measure ci && npm --prefix src/full-measure run witness:build",
+  "outputDirectory": "src/full-measure/witness-dist"
+}

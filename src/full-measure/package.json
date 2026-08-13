@@ -1,7 +1,7 @@
 {
   "name": "haunted-toaster",
   "productName": "The Haunted Toaster",
-  "version": "0.5.0-alpha.7",
+  "version": "0.5.0-alpha.8",
   "description": "A local-first desktop instrument that turns a finished song into a finished music video with a cryptographic receipt.",
   "author": "The Static Collective",
   "private": true,
@@ -19,6 +19,9 @@
     "dev": "electron .",
     "test": "node --test tests/*.test.cjs",
     "check": "node scripts/check.cjs",
+    "witness:build": "node scripts/build-ui-witness.cjs",
+    "witness:serve": "node scripts/serve-ui-witness.cjs",
+    "witness:test": "playwright test --config=tests/ui-witness.playwright.config.cjs",
     "smoke": "node scripts/smoke-render.cjs && node scripts/smoke-candidates.cjs",
     "prepare-build-info": "node scripts/prepare-build-info.cjs",
     "pack": "npm run prepare-build-info && electron-builder --dir",
@@ -29,6 +32,7 @@
     "ffprobe-static": "3.1.0"
   },
   "devDependencies": {
+    "@playwright/test": "1.62.1",
     "electron": "43.2.0",
     "electron-builder": "26.15.3",
     "jsdom": "^26.1.0"
@@ -60,6 +64,12 @@
         "nsis",
         "portable"
       ]
+    },
+    "nsis": {
+      "artifactName": "Haunted-Toaster-${version}-${arch}-Setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "Haunted-Toaster-${version}-${arch}-Portable.${ext}"
     },
     "mac": {
       "target": "dmg",

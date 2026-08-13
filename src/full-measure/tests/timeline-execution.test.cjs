@@ -13,6 +13,24 @@ const readJson = (relativePath) =>
 const constraints = readJson("constraints/wire-orchard.v1.json");
 const profile = readJson("profiles/toaster-raster-1.json");
 const analysis = readJson("fixtures/analysis/sectional.v1.json");
+const openField = readJson("constraints/open-field.v1.json");
+const expressiveProfile = readJson("profiles/toaster-raster-3.json");
+
+function resolvedNativeColorFixture() {
+  const artifact = generation.createVisualScore({ seed: "native-color-execution", constraints: openField });
+  const timeline = generation.resolve(analysis, artifact.score, openField, expressiveProfile);
+  return generation.resolveNativeColorPlan(timeline, {
+    analysis,
+    relationship: "counterpoint",
+    profile: {
+      sourceSha256: "1".repeat(64),
+      profileSha256: "2".repeat(64),
+      hueCentroidDegrees: 32,
+      saturationMean: 0.75,
+      chromaWeight: 0.8,
+    },
+  });
+}
 
 function resolvedFixture() {
   const artifact = generation.createVisualScore({
@@ -196,5 +214,38 @@ test("lyric resonance validation fails closed on malformed semantic evidence", (
       () => execution.createTimelineExecution(malformed),
       specimen.pattern,
     );
+  }
+});
+
+test("Native Color decompression start and end ticks are real execution boundaries", () => {
+  const timeline = structuredClone(resolvedNativeColorFixture());
+  timeline.patches = [];
+  delete timeline.possessionArc;
+  const segments = execution.executionSegments(timeline);
+  assert.ok(segments.some(({ startTick }) => startTick === 82_000));
+  assert.equal(segments.find(({ startTick }) => startTick === 82_000).endTick, 100_000);
+});
+
+test("Native Color plan validation fails closed on malformed evidence", () => {
+  const timeline = resolvedNativeColorFixture();
+  const cases = [
+    ["schema", /Native Color schema/, (value) => { value.nativeColor.schema = "wrong"; }],
+    ["policy", /Native Color policy/, (value) => { value.nativeColor.policyVersion = "wrong"; }],
+    ["relationship", /Native Color relationship/, (value) => { value.nativeColor.relationship = "blend"; }],
+    ["hash", /lowercase SHA-256/, (value) => { value.nativeColor.profileSha256 = "A".repeat(64); }],
+    ["renderer", /renderer values/, (value) => { value.nativeColor.relationshipState.hueOffset = Infinity; }],
+    ["influence", /influence/, (value) => { value.nativeColor.decompressionWindows[0].nativeInfluence = 0.5; }],
+    ["boundary", /section boundary/, (value) => { value.nativeColor.decompressionWindows[0].boundary = "phrase"; }],
+    ["range", /tick window/, (value) => { value.nativeColor.decompressionWindows[0].endTick = value.durationTicks + 1; }],
+    ["order", /at most one|ordered and non-overlapping/, (value) => {
+      const first = value.nativeColor.decompressionWindows[0];
+      value.nativeColor.decompressionWindows = [first, { ...first, startTick: first.startTick + 1 }];
+      value.nativeColor.windowCount = 2;
+    }],
+  ];
+  for (const [, pattern, mutate] of cases) {
+    const malformed = structuredClone(timeline);
+    mutate(malformed);
+    assert.throws(() => execution.createTimelineExecution(malformed), pattern);
   }
 });

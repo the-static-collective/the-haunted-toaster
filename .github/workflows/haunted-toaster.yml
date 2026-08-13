@@ -56,10 +56,50 @@ jobs:
           path: src/full-measure/test-artifacts/
           if-no-files-found: error
 
+  ui-witness:
+    name: Verify renderer witness
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/full-measure/package-lock.json
+
+      - name: Install locked dependencies
+        run: npm --prefix src/full-measure ci
+
+      - name: Install witness browser
+        run: npx --prefix src/full-measure playwright install --with-deps chromium
+
+      - name: Build production renderer witness
+        run: npm --prefix src/full-measure run witness:build
+
+      - name: Compare canonical witness states
+        run: npm --prefix src/full-measure run witness:test
+
+      - name: Upload renderer witness proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: haunted-toaster-ui-witness-baselines
+          path: |
+            src/full-measure/tests/ui-witness-baselines/
+            src/full-measure/tests/ui-witness-results/
+          if-no-files-found: error
+
   package-windows:
     name: Build Windows demo
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
-    needs: verify
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    needs:
+      - verify
+      - ui-witness
     runs-on: windows-latest
     timeout-minutes: 35
     steps:
@@ -95,7 +135,7 @@ jobs:
       - name: Upload Windows demo
         uses: actions/upload-artifact@v4
         with:
-          name: Haunted-Toaster-Windows-${{ github.ref_name }}
+          name: Haunted-Toaster-Windows-${{ github.run_id }}
           path: |
             src/full-measure/release/*.exe
             src/full-measure/release/*.yml
@@ -112,7 +152,7 @@ jobs:
       - name: Download Windows package
         uses: actions/download-artifact@v4
         with:
-          name: Haunted-Toaster-Windows-${{ github.ref_name }}
+          name: Haunted-Toaster-Windows-${{ github.run_id }}
           path: release-assets
 
       - name: Publish tagged release
