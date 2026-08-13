@@ -43,6 +43,10 @@ The review corrected three concrete seams before execution:
 - Toast-pressured score re-resolution explicitly rebuilds the current semantic timeline stack so Possession Arc is not lost;
 - Native Color resolves feel preference from canonical `toastFeelId` and extends the already-shared preview/production compiler.
 
+## Execution modes
+
+The plan set is ready for either Superpowers subagent-driven execution or inline plan execution. The implementation order and review gates are identical in both modes; only how work is dispatched changes.
+
 ## Stop line
 
 alpha.8 is complete when the packaged appliance proves:
