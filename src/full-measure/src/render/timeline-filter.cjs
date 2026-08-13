@@ -11,6 +11,7 @@ const {
   VISUAL_LANGUAGE_RENDERER_POLICY,
 } = require("../generation/renderer-policy.cjs");
 const { COLOR_DRIFT_POLICY, driftAtTick } = require("../generation/color-drift.cjs");
+const { NATIVE_COLOR_POLICY, nativeColorAtTick } = require("../generation/native-color.cjs");
 const { cameraSurrender } = require("./response-shaping.cjs");
 
 const SEMANTIC_COMPILER_REGISTRIES = Object.freeze({
@@ -71,17 +72,28 @@ function evenDimension(value) {
   return Math.max(2, Math.ceil(Number(value) / 2) * 2);
 }
 
-function rendererValues(state, drift = null) {
+function rendererValues(state, drift = null, nativeColor = null) {
   const palette = state.palette || {};
   const material = state.material || {};
   const motion = state.motion || {};
   const camera = state.camera || {};
-  const hueOffset = Number(drift?.hueOffset) || 0;
-  const saturationMultiplier = Number(drift?.saturationMultiplier) || 1;
+  const baseHue =
+    (Number(palette.contrastBias) || 0) * 18 +
+    ((Number(palette.bleed) || 0) - 0.5) * 12 +
+    (Number(drift?.hueOffset) || 0) +
+    (Number(nativeColor?.relationshipHueOffset) || 0);
+  const relationshipSaturation =
+    (0.94 + (Number(palette.bleed) || 0) * 0.22) *
+    (Number(drift?.saturationMultiplier) || 1) *
+    (Number(nativeColor?.relationshipSaturationMultiplier) || 1);
+  const influence = clamp(Number(nativeColor?.nativeInfluence) || 0, 0, 1);
 
   return Object.freeze({
-    hue: quantize((Number(palette.contrastBias) || 0) * 18 + ((Number(palette.bleed) || 0) - 0.5) * 12 + hueOffset),
-    saturation: quantize((0.94 + (Number(palette.bleed) || 0) * 0.22) * saturationMultiplier),
+    hue: quantize(baseHue * (1 - influence)),
+    saturation: quantize(
+      relationshipSaturation * (1 - influence) +
+      (Number(nativeColor?.nativeSaturationTarget) || 1) * influence,
+    ),
     contrast: quantize(1 + (Number(palette.contrastBias) || 0) * 0.12 + (Number(material.imperfection) || 0) * 0.05),
     brightness: quantize(((Number(motion.amplitude) || 0) - 0.5) * 0.035),
     gamma: quantize(1 + ((Number(camera.variance) || 0) - 0.5) * 0.08),
@@ -269,8 +281,8 @@ function semanticGrammarFilters(execution, geometry) {
   return semanticProgramForState(execution.timeline.baseState, geometry, duration, rendererPolicy);
 }
 
-function numericFilters(state, drift = null) {
-  const values = rendererValues(state, drift);
+function numericFilters(state, drift = null, nativeColor = null) {
+  const values = rendererValues(state, drift, nativeColor);
   return Object.freeze({
     values,
     filters: Object.freeze([
@@ -288,6 +300,19 @@ function colorDriftOperator(timeline) {
     compiler: COLOR_DRIFT_POLICY,
     planSha256: drift.planSha256,
     stopCount: drift.stopCount,
+  });
+}
+
+function nativeColorOperator(timeline) {
+  const nativeColor = timeline?.nativeColor;
+  if (!nativeColor) return null;
+  return Object.freeze({
+    axis: "nativeColor",
+    compiler: NATIVE_COLOR_POLICY,
+    profileSha256: nativeColor.profileSha256,
+    planSha256: nativeColor.planSha256,
+    relationship: nativeColor.relationship,
+    windowCount: nativeColor.windowCount,
   });
 }
 
@@ -315,7 +340,8 @@ function possessionArcCompilation(execution, geometry) {
     const duration = Math.max(0.1, segment.endSeconds - segment.startSeconds);
     const semantic = semanticProgramForState(segment.state, geometry, duration, rendererPolicy);
     const drift = driftAtTick(execution.timeline, segment.startTick);
-    const numeric = numericFilters(segment.state, drift);
+    const nativeColor = nativeColorAtTick(execution.timeline, segment.startTick);
+    const numeric = numericFilters(segment.state, drift, nativeColor);
     const output = `arcSegment${index}`;
     const chain = [
       `trim=start=${ffmpegNumber(segment.startSeconds)}:end=${ffmpegNumber(segment.endSeconds)}`,
@@ -331,6 +357,7 @@ function possessionArcCompilation(execution, geometry) {
       endSeconds: segment.endSeconds,
       state: segment.state,
       colorDrift: drift,
+      nativeColor,
       renderer: numeric.values,
       semanticGrammar: semantic,
     }));
@@ -352,9 +379,11 @@ function possessionArcCompilation(execution, geometry) {
     transitionPolicy: arc.transitionPolicy,
   });
   const driftOperator = colorDriftOperator(execution.timeline);
+  const nativeOperator = nativeColorOperator(execution.timeline);
   const operators = Object.freeze([
     arcOperator,
     ...(driftOperator ? [driftOperator] : []),
+    ...(nativeOperator ? [nativeOperator] : []),
     ...programs.flatMap((program) =>
       program.semanticGrammar.operators.map((operator) => Object.freeze({
         ...operator,
@@ -375,6 +404,15 @@ function possessionArcCompilation(execution, geometry) {
         stopCount: execution.timeline.colorDrift.stopCount,
       }),
     } : {}),
+    ...(nativeOperator ? {
+      nativeColor: Object.freeze({
+        policyVersion: execution.timeline.nativeColor.policyVersion,
+        profileSha256: execution.timeline.nativeColor.profileSha256,
+        planSha256: execution.timeline.nativeColor.planSha256,
+        relationship: execution.timeline.nativeColor.relationship,
+        windowCount: execution.timeline.nativeColor.windowCount,
+      }),
+    } : {}),
     segments: Object.freeze(programs.map((program) => Object.freeze({
       startTick: program.startTick,
       endTick: program.endTick,
@@ -383,6 +421,7 @@ function possessionArcCompilation(execution, geometry) {
       material: program.semanticGrammar.material,
       camera: program.semanticGrammar.camera,
       colorDrift: program.colorDrift,
+      nativeColor: program.nativeColor,
       compilers: program.semanticGrammar.compilers,
     }))),
   });
@@ -429,6 +468,7 @@ function compileTimelineFilterGraph(graph, execution) {
         endSeconds: program.endSeconds,
         state: program.state,
         colorDrift: program.colorDrift,
+        nativeColor: program.nativeColor,
         renderer: program.renderer,
         semanticGrammar: {
           motion: program.semanticGrammar.motion,
@@ -452,7 +492,8 @@ function compileTimelineFilterGraph(graph, execution) {
   execution.segments.forEach((segment, index) => {
     if (segment.endSeconds <= segment.startSeconds) return;
     const drift = driftAtTick(execution.timeline, segment.startTick);
-    const values = rendererValues(segment.state, drift);
+    const nativeColor = nativeColorAtTick(execution.timeline, segment.startTick);
+    const values = rendererValues(segment.state, drift, nativeColor);
     const output = `timeline${index + 1}`;
     const enable = `between(t,${ffmpegNumber(segment.startSeconds)},${ffmpegNumber(segment.endSeconds)})`;
     filters.push(`[${input}]hue=h=${ffmpegNumber(values.hue)}:s=${ffmpegNumber(values.saturation)}:enable='${enable}',eq=contrast=${ffmpegNumber(values.contrast)}:brightness=${ffmpegNumber(values.brightness)}:gamma=${ffmpegNumber(values.gamma)}:enable='${enable}'[${output}]`);
@@ -463,6 +504,7 @@ function compileTimelineFilterGraph(graph, execution) {
   else filters.push(`[${input}]null[timelineFinal]`);
 
   const driftOperator = colorDriftOperator(execution.timeline);
+  const nativeOperator = nativeColorOperator(execution.timeline);
   return {
     graph: `${prefix}${filters.join(";\n")};\n${suffix}`,
     rendererPolicy: rendererPolicyForTimeline(execution.timeline),
@@ -470,20 +512,29 @@ function compileTimelineFilterGraph(graph, execution) {
     topologyCompiler: topologyCompiled.topologyCompiler,
     fieldEnvelope: topologyCompiled.fieldEnvelope,
     geometry: topologyCompiled.geometry || geometry,
-    semanticGrammar: driftOperator ? Object.freeze({
+    semanticGrammar: (driftOperator || nativeOperator) ? Object.freeze({
       ...semanticGrammar,
-      colorDrift: Object.freeze({
+      ...(driftOperator ? { colorDrift: Object.freeze({
         policyVersion: execution.timeline.colorDrift.policyVersion,
         planSha256: execution.timeline.colorDrift.planSha256,
         stopCount: execution.timeline.colorDrift.stopCount,
-      }),
+      }) } : {}),
+      ...(nativeOperator ? { nativeColor: Object.freeze({
+        policyVersion: execution.timeline.nativeColor.policyVersion,
+        profileSha256: execution.timeline.nativeColor.profileSha256,
+        planSha256: execution.timeline.nativeColor.planSha256,
+        relationship: execution.timeline.nativeColor.relationship,
+        windowCount: execution.timeline.nativeColor.windowCount,
+      }) } : {}),
     }) : semanticGrammar,
     operators: Object.freeze([
       ...(driftOperator ? [driftOperator] : []),
+      ...(nativeOperator ? [nativeOperator] : []),
       ...semanticGrammar.operators,
     ]),
     segments: execution.segments.map((segment) => {
       const drift = driftAtTick(execution.timeline, segment.startTick);
+      const nativeColor = nativeColorAtTick(execution.timeline, segment.startTick);
       return {
         startTick: segment.startTick,
         endTick: segment.endTick,
@@ -491,7 +542,8 @@ function compileTimelineFilterGraph(graph, execution) {
         endSeconds: segment.endSeconds,
         state: segment.state,
         colorDrift: drift,
-        renderer: rendererValues(segment.state, drift),
+        nativeColor,
+        renderer: rendererValues(segment.state, drift, nativeColor),
       };
     }),
   };
@@ -507,6 +559,7 @@ module.exports = {
   frozenSemanticGrammar,
   frozenTopology,
   grammarForState,
+  nativeColorOperator,
   possessionArcCompilation,
   rendererPolicyForTimeline,
   rendererValues,

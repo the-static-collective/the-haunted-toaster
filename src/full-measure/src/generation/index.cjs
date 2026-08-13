@@ -19,4 +19,7 @@ module.exports = {
   ...require("./color-drift.cjs"),
   ...require("./lyric-resonance.cjs"),
   ...require("./lyric-resonance-generation.cjs"),
+  ...require("./toast-feel-generation.cjs"),
+  ...require("./native-color.cjs"),
+  ...require("./native-color-generation.cjs"),
 };

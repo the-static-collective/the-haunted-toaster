@@ -64,6 +64,21 @@ Before declaring a slice complete, report:
 
 If required proof cannot run in the available environment, state that limitation explicitly and rely only on proof that actually ran (for example GitHub Actions). Do not convert an unexecuted command into a claimed pass.
 
+## UI change protocol
+
+Follow [`docs/UI_CHANGE_PROTOCOL.md`](docs/UI_CHANGE_PROTOCOL.md) for every renderer, bridge, or interaction change. The production renderer is the UI authority; `witness-dist/` is generated and must never be edited. Browser witness never substitutes for packaged Electron proof when preload, IPC, native-dialog, filesystem, or packaged behavior changed.
+
+Record this exact disposition in UI-bearing handoffs:
+
+```text
+UI impact: none | behavioral | visual | bridge
+browser witness: PASS/FAIL @ commit
+visual delta: expected | none | unexplained
+packaged witness required: yes | no
+packaged witness: PASS/FAIL/not-required
+GitBook ontology changed: yes | no
+```
+
 ## Delivery boundary
 
 Do not tag, publish, release, merge, or otherwise promote artifacts unless explicitly requested. Keep unfinished or unproved work on the requested branch/PR.

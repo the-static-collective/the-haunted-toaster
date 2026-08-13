@@ -8,6 +8,7 @@ const packageInfo = require("../package.json");
 const packageLock = require("../package-lock.json");
 const buildInfo = require("../src/build-info.cjs");
 const { buildProvenance } = require("../src/render/receipt.cjs");
+const { deriveBuildCapabilities } = require("../src/build-capabilities.cjs");
 
 const prepareScript = fs.readFileSync(
   path.join(root, "scripts", "prepare-build-info.cjs"),
@@ -19,7 +20,7 @@ const workflow = fs.readFileSync(
 );
 
 test("package, lockfile, and source runtime share one forward version", () => {
-  assert.equal(packageInfo.version, "0.5.0-alpha.7");
+  assert.equal(packageInfo.version, "0.5.0-alpha.8");
   assert.equal(packageLock.version, packageInfo.version);
   assert.equal(packageLock.packages[""].version, packageInfo.version);
   assert.equal(buildInfo.version, packageInfo.version);
@@ -39,6 +40,10 @@ test("every receipt inherits the same build identity", () => {
   assert.equal(provenance.version, packageInfo.version);
   assert.equal(provenance.commit, buildInfo.commit);
   assert.equal(provenance.dirty, Boolean(buildInfo.dirty));
+});
+
+test("Build Info reports the exact capabilities derived from active contracts", () => {
+  assert.deepEqual(buildInfo.capabilities, [...deriveBuildCapabilities().capabilities]);
 });
 
 test("tagged Windows packaging refuses version disagreement before building", () => {

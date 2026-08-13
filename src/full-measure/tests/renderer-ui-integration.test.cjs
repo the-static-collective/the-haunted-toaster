@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 const { JSDOM } = require("jsdom");
+const { listToastFeels } = require("../src/toast-feels.cjs");
 
 const root = path.resolve(__dirname, "..");
 const rendererRoot = path.join(root, "src", "renderer");
@@ -125,6 +126,7 @@ function buildRenderer(overrides = {}) {
       rendererProfileGeneration: "test",
       capabilities: [],
     }),
+    getToastFeels: async () => listToastFeels(),
     onPhase: noopSubscription,
     onProgress: noopSubscription,
     onListenerInstallProgress: noopSubscription,
@@ -134,7 +136,7 @@ function buildRenderer(overrides = {}) {
   };
 
   for (const script of [
-    "starting-field-controller.js",
+    "toast-feel-controller.js",
     "app.js",
     "candidate-ui.js",
     "lyric-foundry-ui.js",
@@ -175,22 +177,30 @@ function pointerEvent(window, type, { clientX, pointerId = 1, button = 0 }) {
   return event;
 }
 
-test("composed DOM owns one starting field shared by six-up and render", async () => {
+test("raw renderer markup is a truthful host with no retired garment furniture", () => {
+  const dom = new JSDOM(html);
+  const slate = dom.window.document.querySelector("#slateToastFeel");
+  assert.equal(slate.textContent.trim(), "Loading…");
+  assert.equal(slate.previousElementSibling.textContent.trim(), "Toast Feel");
+  assert.ok(dom.window.document.querySelector("#toastFeelChoices"));
+  assert.equal(dom.window.document.querySelectorAll(".garment-card").length, 0);
+  dom.window.close();
+});
+
+test("manifest-driven Toast Feel identity is shared by six-up and render", async () => {
   const harness = buildRenderer();
   const { document, window, calls } = harness;
   try {
-    assert.equal(window.startingField.getPresetId(), "openField");
-    assert.equal(document.querySelectorAll('.garment-card[data-preset="openField"]').length, 0);
-    assert.equal(document.querySelector("#slateGarment").textContent, "Open Field");
+    await tick();
+    assert.equal(document.querySelectorAll(".toast-feel").length, 7);
+    assert.equal(window.toastFeel.getToastFeelId(), "low-and-slow");
+    assert.equal(document.querySelector("#slateToastFeel").textContent, "Low & Slow");
 
-    const porchlight = document.querySelector('[data-preset="porchlight"]');
-    porchlight.click();
-    assert.equal(window.startingField.getPresetId(), "porchlight");
-    assert.equal(porchlight.getAttribute("aria-checked"), "true");
-
-    porchlight.click();
-    assert.equal(window.startingField.getPresetId(), "openField");
-    assert.equal(porchlight.getAttribute("aria-checked"), "false");
+    const wireHeat = document.querySelector('[data-toast-feel-id="wire-heat"]');
+    wireHeat.click();
+    assert.equal(window.toastFeel.getToastFeelId(), "wire-heat");
+    assert.equal(wireHeat.getAttribute("aria-checked"), "true");
+    assert.equal(document.querySelector("#slateToastFeel").textContent, "Wire Heat");
 
     await loadSong(document);
     document.querySelector(".candidate-launch").click();
@@ -202,6 +212,29 @@ test("composed DOM owns one starting field shared by six-up and render", async (
     assert.equal(calls.renders.length, 1);
     assert.equal(calls.candidates[0].presetId, "openField");
     assert.equal(calls.renders[0].presetId, calls.candidates[0].presetId);
+    assert.equal(calls.candidates[0].toastFeelId, "wire-heat");
+    assert.equal(calls.renders[0].toastFeelId, calls.candidates[0].toastFeelId);
+  } finally {
+    harness.dom.window.close();
+  }
+});
+
+test("Toast Feel selection publishes canonical manifest evidence, not edited DOM copy", async () => {
+  const harness = buildRenderer();
+  const { document, window } = harness;
+  try {
+    await tick();
+    let detail = null;
+    window.addEventListener("toast-feel-change", (event) => { detail = event.detail; });
+    const ashBloom = document.querySelector('[data-toast-feel-id="ash-bloom"]');
+    ashBloom.querySelector("strong").textContent = "DOM impostor";
+    ashBloom.click();
+    assert.deepEqual(JSON.parse(JSON.stringify(detail)), {
+      id: "ash-bloom",
+      name: "Ash Bloom",
+      contractVersion: "toast-feel-v1",
+      semanticClass: "ordinary",
+    });
   } finally {
     harness.dom.window.close();
   }

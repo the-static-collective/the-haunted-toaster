@@ -39,7 +39,7 @@ function harness() {
   const { document } = window;
   document.querySelector("#songFacts").classList.remove("is-hidden");
   document.querySelector("#audioDropTitle").textContent = "Specimen";
-  window.startingField = { getPresetId: () => "openField" };
+  window.toastFeel = { getToastFeelId: () => "wire-heat" };
   window.HTMLElement.prototype.scrollIntoView = () => {};
 
   const calls = { generated: [], stomped: [] };
@@ -89,6 +89,7 @@ test("STOMP is a selected-candidate one-shot action with exact boredom copy", as
     assert.equal(calls.stomped[0].familyHash, "family-1");
     assert.equal(calls.stomped[0].parentIndex, 0);
     assert.equal(calls.stomped[0].locks.length, 0);
+    assert.equal(calls.stomped[0].toastFeelId, "wire-heat");
     assert.match(calls.stomped[0].rootSeed, /:stomp:/);
 
     // The returned family is ordinary six-up state; there is no armed toggle.

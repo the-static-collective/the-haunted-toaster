@@ -34,6 +34,7 @@ const {
   summarizeLyricTrack,
 } = require("./render/lyrics.cjs");
 const { renderVideo } = require("./render/render.cjs");
+const { listToastFeels } = require("./toast-feels.cjs");
 const buildInfo = require("./build-info.cjs");
 
 const AUDIO_EXTENSIONS = new Set([".mp3", ".wav", ".m4a", ".aac", ".flac"]);
@@ -121,6 +122,7 @@ function assertCandidateAvailable() {
 
 function registerIpc() {
   candidateSession.registerIpc(ipcMain, assertCandidateAvailable);
+  ipcMain.handle("app:toast-feels", () => listToastFeels());
 
   ipcMain.handle("dialog:choose-audio", async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
@@ -443,6 +445,7 @@ function registerIpc() {
       audioPath,
       imagePath,
       presetId: config.presetId,
+      toastFeelId: config.toastFeelId,
     });
     const controller = new AbortController();
     activeRender = controller;

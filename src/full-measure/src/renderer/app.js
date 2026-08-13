@@ -8,7 +8,8 @@
     audio: null,
     imagePath: null,
     presetId: "openField",
-    presetName: "Open Field",
+    toastFeelId: null,
+    toastFeelName: "Loading…",
     rendering: false,
     result: null,
     lyricSummary: null,
@@ -51,7 +52,7 @@
     sectionLegend: $("#sectionLegend"),
     slateDuration: $("#slateDuration"),
     slatePicture: $("#slatePicture"),
-    slateGarment: $("#slateGarment"),
+    slateToastFeel: $("#slateToastFeel"),
     slateAudio: $("#slateAudio"),
     progressCard: $("#progressCard"),
     phaseMessage: $("#phaseMessage"),
@@ -210,7 +211,7 @@
 
   function setRenderState(rendering) {
     state.rendering = rendering;
-    for (const card of $$(".garment-card")) card.disabled = rendering;
+    window.toastFeel?.setDisabled(rendering);
     elements.audioDrop.disabled = rendering;
     elements.imageDrop.disabled = rendering;
     elements.lyricsImport.disabled = rendering;
@@ -219,7 +220,7 @@
       !state.audio ||
       !elements.lyricsInput.value.trim() ||
       Boolean(state.lyricSummary?.timed);
-    elements.renderButton.disabled = rendering || !state.audio;
+    elements.renderButton.disabled = rendering || !state.audio || !state.toastFeelId;
     elements.renderButton.classList.toggle("is-hidden", rendering);
     elements.cancelButton.classList.toggle("is-hidden", !rendering);
     if (rendering) {
@@ -374,8 +375,8 @@ function selectCueForTime(cues, timestampSeconds, mediaDuration) {
     elements.slatePicture.textContent = state.imagePath
       ? "Image + procedural"
       : "Procedural";
-    elements.slateGarment.textContent = state.presetName;
-    elements.renderButton.disabled = state.rendering || !state.audio;
+    elements.slateToastFeel.textContent = state.toastFeelName;
+    elements.renderButton.disabled = state.rendering || !state.audio || !state.toastFeelId;
   }
 
   async function loadAudio(filePath) {
@@ -1081,7 +1082,7 @@ function selectCueForTime(cues, timestampSeconds, mediaDuration) {
   }
 
   async function startRender() {
-    if (!state.audio || state.rendering) return;
+    if (!state.audio || !state.toastFeelId || state.rendering) return;
     clearError();
     const title =
       elements.titleInput.value.trim() || stem(state.audio.filename);
@@ -1095,6 +1096,7 @@ function selectCueForTime(cues, timestampSeconds, mediaDuration) {
         imagePath: state.imagePath,
         outputPath,
         presetId: state.presetId,
+        toastFeelId: state.toastFeelId,
         title: elements.titleInput.value,
         artist: elements.artistInput.value,
         lyrics: elements.lyricsInput.value,
@@ -1217,10 +1219,10 @@ function selectCueForTime(cues, timestampSeconds, mediaDuration) {
     }
   });
 
-  window.addEventListener("starting-field-change", (event) => {
+  window.addEventListener("toast-feel-change", (event) => {
     if (state.rendering) return;
-    state.presetId = event.detail.presetId;
-    state.presetName = event.detail.presetName;
+    state.toastFeelId = event.detail.id;
+    state.toastFeelName = event.detail.name;
     refreshSlate();
   });
 

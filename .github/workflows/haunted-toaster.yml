@@ -56,6 +56,44 @@ jobs:
           path: src/full-measure/test-artifacts/
           if-no-files-found: error
 
+  bootstrap-ui-witness:
+    name: Bootstrap renderer witness baselines
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/full-measure/package-lock.json
+
+      - name: Install locked dependencies
+        run: npm --prefix src/full-measure ci
+
+      - name: Install witness browser
+        run: npx --prefix src/full-measure playwright install --with-deps chromium
+
+      - name: Build production renderer witness
+        run: npm --prefix src/full-measure run witness:build
+
+      - name: Capture canonical witness states
+        run: npm --prefix src/full-measure run witness:test -- --update-snapshots
+
+      - name: Upload renderer baselines
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: haunted-toaster-ui-witness-baselines
+          path: |
+            src/full-measure/tests/ui-witness-baselines/
+            src/full-measure/tests/ui-witness-results/
+          if-no-files-found: error
+
   package-windows:
     name: Build Windows demo
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')

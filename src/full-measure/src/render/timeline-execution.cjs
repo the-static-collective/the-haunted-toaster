@@ -2,9 +2,77 @@ const {
   LYRIC_RESONANCE_FAMILIES,
   LYRIC_RESONANCE_POLICY,
   LYRIC_RESONANCE_SCHEMA,
+  NATIVE_COLOR_PLAN_SCHEMA,
+  NATIVE_COLOR_POLICY,
+  NATIVE_INFLUENCE,
+  RELATIONSHIPS,
   TIMELINE_SCHEMA,
   stateAtTick,
 } = require("../generation/index.cjs");
+
+const SHA256_PATTERN = /^[0-9a-f]{64}$/;
+
+function assertNativeColor(timeline) {
+  const plan = timeline.nativeColor;
+  if (plan === undefined) return;
+  if (!plan || typeof plan !== "object") {
+    throw new TypeError("ResolvedTimeline.nativeColor must be an object when present.");
+  }
+  if (plan.schema !== NATIVE_COLOR_PLAN_SCHEMA) {
+    throw new TypeError(`Native Color schema must be ${NATIVE_COLOR_PLAN_SCHEMA}.`);
+  }
+  if (plan.policyVersion !== NATIVE_COLOR_POLICY) {
+    throw new TypeError(`Native Color policy must be ${NATIVE_COLOR_POLICY}.`);
+  }
+  if (!RELATIONSHIPS.includes(plan.relationship)) {
+    throw new TypeError(`Native Color relationship must be ${RELATIONSHIPS.join(" or ")}.`);
+  }
+  for (const [label, value] of [
+    ["sourceSha256", plan.sourceSha256],
+    ["profileSha256", plan.profileSha256],
+    ["planSha256", plan.planSha256],
+  ]) {
+    if (!SHA256_PATTERN.test(String(value || ""))) {
+      throw new TypeError(`Native Color ${label} must be lowercase SHA-256.`);
+    }
+  }
+  if (
+    !Number.isFinite(plan.relationshipState?.hueOffset) ||
+    !Number.isFinite(plan.relationshipState?.saturationMultiplier) ||
+    !Number.isFinite(plan.nativeSaturationTarget)
+  ) {
+    throw new TypeError("Native Color renderer values must be finite.");
+  }
+  if (!Array.isArray(plan.decompressionWindows) || plan.decompressionWindows.length > 1 ||
+      plan.windowCount !== plan.decompressionWindows.length) {
+    throw new TypeError("Native Color v1 must contain at most one counted decompression window.");
+  }
+  let previousEndTick = -1;
+  for (const window of plan.decompressionWindows) {
+    if (
+      !Number.isInteger(window.startTick) ||
+      !Number.isInteger(window.endTick) ||
+      window.startTick < 0 ||
+      window.endTick <= window.startTick ||
+      window.endTick > timeline.durationTicks
+    ) {
+      throw new TypeError("Native Color decompression tick window is invalid.");
+    }
+    if (window.startTick < previousEndTick) {
+      throw new TypeError("Native Color windows must be ordered and non-overlapping.");
+    }
+    if (window.boundary !== "section") {
+      throw new TypeError("Native Color v1 windows must use a section boundary.");
+    }
+    if (window.nativeInfluence !== NATIVE_INFLUENCE) {
+      throw new TypeError(`Native Color v1 influence must be ${NATIVE_INFLUENCE}.`);
+    }
+    if (!Number.isFinite(window.energyDelta)) {
+      throw new TypeError("Native Color window energyDelta must be finite.");
+    }
+    previousEndTick = window.endTick;
+  }
+}
 
 function assertStrictAscendingIntegers(values, label) {
   if (!Array.isArray(values) || !values.length) {
@@ -150,6 +218,7 @@ function assertResolvedTimeline(timeline) {
     }
   }
 
+  assertNativeColor(timeline);
   assertLyricResonance(timeline);
   return timeline;
 }
@@ -185,6 +254,8 @@ function executionSegments(timeline) {
   const eventTicks = [
     ...timeline.patches.map((patch) => patch.atTick),
     ...(timeline.possessionArc?.transitions || []).map((transition) => transition.atTick),
+    ...(timeline.nativeColor?.decompressionWindows || [])
+      .flatMap((window) => [window.startTick, window.endTick]),
   ].sort((left, right) => left - right);
   for (const atTick of eventTicks) {
     if (atTick > 0 && atTick < timeline.durationTicks) {
@@ -236,6 +307,7 @@ function createTimelineExecution(timeline) {
 
 module.exports = {
   assertLyricResonance,
+  assertNativeColor,
   assertResolvedTimeline,
   assertTimelineDuration,
   createTimelineExecution,

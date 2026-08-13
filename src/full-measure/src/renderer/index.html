@@ -149,86 +149,23 @@
         </div>
       </section>
 
-      <section class="panel garment-panel" aria-labelledby="garmentHeading">
+      <section class="panel garment-panel toast-feel-panel" aria-labelledby="garmentHeading">
         <div class="panel-heading">
           <span class="step-number">02</span>
           <div>
-            <h2 id="garmentHeading">Starting field</h2>
-            <p>Open by default. Choose an ancestor only when you want one to seed the field.</p>
+            <h2 id="garmentHeading">Toast Feel</h2>
+            <p>Bias the creature. Six-up still discovers what it becomes.</p>
           </div>
         </div>
 
-        <div class="shape-card starting-field-container">
-          <div class="shape-heading">
-            <span>Open Field</span>
-            <strong data-starting-field-status>Default container</strong>
-          </div>
-          <div class="section-legend">
-            Broad lawful field. The garments below are optional ancestors that can seed the beginning without becoming the whole ontology.
-          </div>
-        </div>
-
-        <div class="shape-heading starting-field-ancestors">
-          <span>Ancestors</span><strong>Optional</strong>
-        </div>
-
-        <div class="garment-list" role="radiogroup" aria-label="Optional ancestral garments">
-          <button
-            class="garment-card porchlight"
-            type="button"
-            data-preset="porchlight"
-            role="radio"
-            aria-checked="false"
-          >
-            <span class="garment-preview">
-              <i></i>
-              <i></i>
-              <i></i>
-            </span>
-            <span class="garment-copy">
-              <strong>Porchlight</strong>
-              <small>Warm grain · dusk signal · the house stays awake</small>
-            </span>
-            <span class="radio-mark"></span>
-          </button>
-
-          <button
-            class="garment-card wire-orchard"
-            type="button"
-            data-preset="wireOrchard"
-            role="radio"
-            aria-checked="false"
-          >
-            <span class="garment-preview">
-              <i></i>
-              <i></i>
-              <i></i>
-            </span>
-            <span class="garment-copy">
-              <strong>Wire Orchard</strong>
-              <small>Electric fruit · signal bloom · midnight circuitry</small>
-            </span>
-            <span class="radio-mark"></span>
-          </button>
-
-          <button
-            class="garment-card residual"
-            type="button"
-            data-preset="absoluteResidual"
-            role="radio"
-            aria-checked="false"
-          >
-            <span class="garment-preview">
-              <i></i>
-              <i></i>
-              <i></i>
-            </span>
-            <span class="garment-copy">
-              <strong>Absolute Residual</strong>
-              <small>Haunted photocopy · violet ash · revival flare</small>
-            </span>
-            <span class="radio-mark"></span>
-          </button>
+        <div
+          id="toastFeelChoices"
+          class="toast-feel-choices"
+          role="radiogroup"
+          aria-label="Toast Feel"
+          aria-busy="true"
+        >
+          <p class="toast-feel-loading">Heating the feel selector…</p>
         </div>
 
         <div class="shape-card">
@@ -277,8 +214,8 @@
               <dd id="slatePicture">Procedural</dd>
             </div>
             <div>
-              <dt>Garment</dt>
-              <dd id="slateGarment">Porchlight</dd>
+              <dt>Toast Feel</dt>
+              <dd id="slateToastFeel">Loading…</dd>
             </div>
             <div>
               <dt>Soundtrack</dt>
@@ -500,7 +437,7 @@
       </details>
     </footer>
 
-    <script src="./starting-field-controller.js"></script>
+    <script src="./toast-feel-controller.js"></script>
     <script src="./app.js"></script>
     <script src="./candidate-ui.js"></script>
     <script src="./lyric-foundry-ui.js"></script>
