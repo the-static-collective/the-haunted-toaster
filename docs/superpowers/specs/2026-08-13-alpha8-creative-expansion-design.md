@@ -248,15 +248,12 @@ No semantic object/face/region detection is required for alpha.8.
 
 ### Chromatic relationship
 
-Prove a small vocabulary rather than the full research taxonomy.
-
-alpha.8 should support at least two materially distinct deterministic source-relative relationships from the same image. Suitable classes include:
+alpha.8 v1 has exactly two relationship classes:
 
 - `echo` — remain near / extend the native chromatic field;
-- `counterpoint` — deliberately offset or oppose the native field;
-- `drain` — move into reduced-chroma residue while retaining an explicit route back.
+- `counterpoint` — deliberately offset or oppose the native chromatic field under bounded deterministic policy.
 
-Exact final names may differ, but the important distinction is relational palette behavior rather than fixed swatches.
+The two classes must produce materially distinct but deterministic behavior from the same admitted source image. Additional relationship classes such as chromatic drain/residue are explicitly deferred beyond alpha.8.
 
 ### Native-color decompression window
 
@@ -291,7 +288,7 @@ Native Color must compose with existing Color Drift rather than replace or silen
 
 Toast Feel may bias:
 
-- which chromatic relationship class is favored;
+- whether `echo` or `counterpoint` is favored;
 - how far the composition may lawfully travel from native color;
 - likelihood/intensity of a decompression event within the allowed policy.
 
@@ -386,17 +383,17 @@ Gold Star ancestor remains recoverable
   -> selected Toast Feel influences six-up lawfully
   -> accepted candidate carries Toast Feel identity/version
   -> NativeChromaticProfile is stable for identical source bytes
-  -> source-relative relationship visibly changes color behavior
+  -> echo and counterpoint are materially distinguishable on the same source
   -> at least one deterministic native-color return event is visible
   -> preview and final render agree on those semantics
   -> Universal H.264 render succeeds
   -> receipt records the new mood/color/transport evidence
   -> Windows packaged appliance visibly matches the accepted interface boundary
-  -> authoritative manifest + lockfile become 0.5.0-alpha.8
+  -> application manifest + lockfile become 0.5.0-alpha.8
   -> exact proven main commit is tagged v0.5.0-alpha.8
 ```
 
-Efficient HEVC remains experimental and is not required to replace or outperform Universal to ship alpha.8. If the packaged ffmpeg path supports it, it should remain selectable and honestly witnessed.
+Efficient HEVC remains experimental and is not required to replace or outperform Universal to ship alpha.8. It remains selectable through the existing transport profile when supported by the packaged renderer path.
 
 ## Regression guards
 
@@ -420,6 +417,7 @@ These remain valid, but are outside the alpha.8 cut:
 - Linear v2 / Elastic Spine;
 - deeper Listener structure and vocal-biased recovery;
 - semantic/local Native Color witness zones;
+- additional chromatic relationship classes beyond `echo` and `counterpoint`;
 - Haunted Memory;
 - Fallible Witness / Witness Fidelity;
 - Closed Witness Loop;
