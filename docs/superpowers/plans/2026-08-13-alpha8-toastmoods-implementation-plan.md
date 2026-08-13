@@ -4,461 +4,143 @@
 
 **Goal:** Replace the normal Porchlight / Wire Orchard / Absolute Residual starting furniture with seven deterministic Toast Feels that bias the existing six-up instrument without rewriting VisualScore v1 or the Gold Star renderer.
 
-**Architecture:** Add one versioned UI/domain manifest and one pure Toast Feel bias contract. Renderer furniture is generated from the manifest; candidate generation receives a stable `toastFeelId` rather than reading DOM text. Six ordinary feels deterministically pressure already-lawful score axes after the existing generation stack and re-resolve through the same canonical resolver chain; MADD CLOWN deterministically seeds the existing STOMP outer-rail generator from a recorded intermediate candidate. The chosen feel and its bias evidence are carried in candidate-family metadata, render execution context, and the final receipt without becoming a new hidden renderer authority.
+**Architecture:** `src/toast-feels.cjs` is the single domain authority. Main exposes a read-only manifest through the existing Electron IPC/contextBridge boundary; renderer furniture never imports CommonJS or derives identity from DOM text. Six ordinary feels deterministically pressure already-lawful VisualScore v1 fields, then the complete current timeline stack is rebuilt in its established order: Primitive/Atmosphere resolution → Possession Arc → Color Drift already carried by Primitive resolution → Lyric Resonance. MADD CLOWN deterministically selects a seed parent and delegates its visible six-up to the existing STOMP outer rail. Toast Feel identity/version/evidence travels through candidate-family metadata, accepted execution, UI slate, and the final receipt without becoming renderer authority.
 
-**Tech Stack:** Node.js CommonJS, Electron renderer HTML/CSS/JavaScript, deterministic generation modules, JSDOM/node:test, existing UI Witness / Playwright proof from #122.
+**Tech Stack:** Node.js CommonJS, Electron main/preload/contextBridge, deterministic generation modules, JSDOM/node:test, Playwright/UI Witness from #122.
 
-## Global Constraints
+## Global constraints
 
-- Target release is `0.5.0-alpha.8`; do not bump the version in this feature slice.
-- Preserve `archive/gold-star-renderer-alpha7` and current six-up diversity/replay meaning.
-- `Toast Feel biases the creature. It does not dictate the creature.`
-- Do not change the `haunted-toaster/visual-score/v1` schema solely to carry Toast Feel identity.
-- Porchlight / Wire Orchard / Absolute Residual remain valid constraint packs and compatibility ancestry.
-- No `Math.random()`, wall clock, host font discovery, network input, or renderer-local choice may affect Toast Feel execution.
-- MADD CLOWN must reuse recorded STOMP / outer-rail machinery; do not add a second chaos algorithm.
-- Candidate preview and final render must consume the same selected Toast Feel identity/version and resolved score/timeline semantics.
-- UI Witness Gate #122 must be landed before the final Toastmoods furniture/cutover task is accepted.
+- Target release is `0.5.0-alpha.8`; do not bump version in this feature slice.
+- Preserve `archive/gold-star-renderer-alpha7`, current six-up diversity, and old accepted replay meaning.
+- **Toast Feel biases the creature. It does not dictate the creature.**
+- Do not change `haunted-toaster/visual-score/v1` solely to carry Toast Feel identity.
+- Porchlight / Wire Orchard / Absolute Residual remain compatibility constraint packs; alpha.8 Toast Feels use Open Field as the normal constraint container.
+- No `Math.random()`, wall clock, network input, renderer-local interpretation, or DOM-derived identity.
+- MADD CLOWN reuses `visible-outcome-stomp-v1`; no second chaos engine.
+- Locks remain authoritative. A Toast Feel may not mutate a locked axis.
+- Candidate preview and final render consume the same accepted score/timeline and bound Toast Feel evidence.
+- #122 UI Witness Gate must be landed before the furniture cutover task is accepted.
 
----
+## File map
 
-## File Structure
-
-- Create `src/full-measure/src/toast-feels.cjs` — versioned domain manifest, stable identities, display copy, semantic class, and pure bounded bias descriptors.
-- Create `src/full-measure/src/generation/toast-feel-generation.cjs` — deterministic candidate-family decorator and MADD CLOWN STOMP entry path.
-- Modify `src/full-measure/src/generation/index.cjs` — make Toast Feel generation the final exported generation layer.
-- Modify `src/full-measure/src/candidate-session.cjs` — validate/retain selected feel, pass it through generation/mutation/STOMP, bind it to selected execution, and expose receipt evidence.
-- Replace `src/full-measure/src/renderer/starting-field-controller.js` with manifest-driven `toast-feel-controller.js` after compatibility tests are in place.
-- Modify `src/full-measure/src/renderer/index.html` — replace ancestor garment cards with one generated Toastmoods host while keeping no-JS text truthful.
-- Modify `src/full-measure/src/renderer/app.js` — state uses `toastFeelId`/`toastFeelName`, disables generic Toast Feel controls while rendering, and sends exact identity to candidate/render IPC.
-- Modify `src/full-measure/src/renderer/styles.css` — six small burnt-toast controls + one larger MADD CLOWN control, focus/selected/disabled states.
-- Modify `src/full-measure/src/render/render.cjs` — write Toast Feel execution evidence into `receipt.treatment.toastFeel` without changing video semantics.
-- Modify `src/full-measure/src/preload.cjs` only if the manifest must be exposed through the sandbox; prefer loading the safe static manifest in renderer code if existing CSP/module rules allow it.
-- Test `src/full-measure/tests/toast-feels.test.cjs` — domain contract and deterministic pressure.
-- Test `src/full-measure/tests/toast-feel-generation.test.cjs` — ordinary family bias, locks, replay, and MADD CLOWN STOMP reuse.
-- Modify `src/full-measure/tests/candidate-session.test.cjs` — selection/binding/execution evidence.
-- Modify `src/full-measure/tests/renderer-ui-integration.test.cjs` — manifest-driven furniture and slate state.
-- Modify UI Witness baselines/tests introduced by #122 — explicit intended visual delta for Toastmoods.
+- Create `src/full-measure/src/toast-feels.cjs` — canonical manifest/lookup.
+- Create `src/full-measure/src/generation/toast-feel-generation.cjs` — ordinary pressure decorator + MADD CLOWN STOMP delegation.
+- Modify `src/full-measure/src/generation/index.cjs` — export Toast Feel generation after lyric-resonance generation.
+- Modify `src/full-measure/src/candidate-session.cjs` — validate/bind `toastFeelId` through generation and accepted execution.
+- Modify `src/full-measure/src/main.cjs` — expose manifest IPC and carry bound Toast Feel into render config.
+- Modify `src/full-measure/src/preload.cjs` — expose `getToastFeels()` through `window.fullMeasure`.
+- Create `src/full-measure/src/renderer/toast-feel-controller.js`; retire `starting-field-controller.js` after parity proof.
+- Modify `src/full-measure/src/renderer/index.html`, `app.js`, `styles.css`.
+- Modify `src/full-measure/src/render/render.cjs` — compact receipt evidence.
+- Tests: `toast-feels.test.cjs`, `toast-feel-generation.test.cjs`, candidate-session, preload/sandbox parity, renderer UI integration, UI Witness screenshots.
 
 ---
 
-### Task 1: Define the Seven Toast Feel domain contract
+## Task 1 — Define the seven-feel domain contract
 
-**Files:**
-- Create: `src/full-measure/src/toast-feels.cjs`
-- Test: `src/full-measure/tests/toast-feels.test.cjs`
+**Files:** create `src/full-measure/src/toast-feels.cjs`; create `src/full-measure/tests/toast-feels.test.cjs`.
 
-**Interfaces:**
-- Produces: `TOAST_FEEL_CONTRACT = "toast-feel-v1"`.
-- Produces: `TOAST_FEELS` frozen ordered array.
-- Produces: `getToastFeel(id) -> ToastFeel` and `listToastFeels() -> ToastFeel[]`.
-- A `ToastFeel` has `{ id, name, invitation, iconId, contractVersion, semanticClass, pressure }`.
-- `semanticClass` is exactly `"ordinary"` or `"madd-clown"`.
-- `pressure` is data only; it contains no executable expressions and no renderer filters.
-
-The seven v1 identities and display names are frozen in this task:
+**Contract:**
 
 ```js
-const TOAST_FEELS = Object.freeze([
-  {
-    id: "low-and-slow",
-    name: "Low & Slow",
-    invitation: "Keep some heat in reserve.",
-    iconId: "toast-low-and-slow",
-    semanticClass: "ordinary",
-    pressure: {
-      motion: -0.55,
-      variance: -0.45,
-      contrast: -0.1,
-      imperfection: -0.25,
-      camera: -0.5,
-      temporal: -0.4,
-    },
-  },
-  {
-    id: "porch-ghost",
-    name: "Porch Ghost",
-    invitation: "Warm edges. Something still moving outside.",
-    iconId: "toast-porch-ghost",
-    semanticClass: "ordinary",
-    pressure: {
-      motion: -0.2,
-      variance: 0.1,
-      contrast: -0.15,
-      imperfection: 0.2,
-      camera: -0.15,
-      temporal: 0,
-    },
-  },
-  {
-    id: "wire-heat",
-    name: "Wire Heat",
-    invitation: "Tension before flame.",
-    iconId: "toast-wire-heat",
-    semanticClass: "ordinary",
-    pressure: {
-      motion: 0.35,
-      variance: 0.25,
-      contrast: 0.4,
-      imperfection: 0.1,
-      camera: 0.1,
-      temporal: 0.25,
-    },
-  },
-  {
-    id: "ash-bloom",
-    name: "Ash Bloom",
-    invitation: "Let the residue become the flower.",
-    iconId: "toast-ash-bloom",
-    semanticClass: "ordinary",
-    pressure: {
-      motion: -0.05,
-      variance: 0.3,
-      contrast: 0.15,
-      imperfection: 0.6,
-      camera: -0.05,
-      temporal: 0.15,
-    },
-  },
-  {
-    id: "burnt-halo",
-    name: "Burnt Halo",
-    invitation: "Bright center. Scorched perimeter.",
-    iconId: "toast-burnt-halo",
-    semanticClass: "ordinary",
-    pressure: {
-      motion: 0.05,
-      variance: -0.05,
-      contrast: 0.65,
-      imperfection: 0.25,
-      camera: 0.05,
-      temporal: -0.05,
-    },
-  },
-  {
-    id: "risky-hybrid",
-    name: "Risky Hybrid",
-    invitation: "Cross a few wires on purpose.",
-    iconId: "toast-risky-hybrid",
-    semanticClass: "ordinary",
-    pressure: {
-      motion: 0.45,
-      variance: 0.65,
-      contrast: 0.35,
-      imperfection: 0.55,
-      camera: 0.45,
-      temporal: 0.55,
-    },
-  },
-  {
-    id: "madd-clown-crazy-slots",
-    name: "MADD CLOWN CRAZY SLOTS",
-    invitation: "Maximum lawful surprise.",
-    iconId: "toast-madd-clown",
-    semanticClass: "madd-clown",
-    pressure: null,
-  },
-].map((feel) => Object.freeze({
-  ...feel,
-  contractVersion: "toast-feel-v1",
-  pressure: feel.pressure ? Object.freeze(feel.pressure) : null,
-})));
+const TOAST_FEEL_CONTRACT = "toast-feel-v1";
+
+const TOAST_FEELS = [
+  ["low-and-slow", "Low & Slow", "Keep some heat in reserve.", "ordinary", { motion:-0.55, variance:-0.45, contrast:-0.10, imperfection:-0.25, camera:-0.50, temporal:-0.40 }],
+  ["porch-ghost", "Porch Ghost", "Warm edges. Something still moving outside.", "ordinary", { motion:-0.20, variance:0.10, contrast:-0.15, imperfection:0.20, camera:-0.15, temporal:0 }],
+  ["wire-heat", "Wire Heat", "Tension before flame.", "ordinary", { motion:0.35, variance:0.25, contrast:0.40, imperfection:0.10, camera:0.10, temporal:0.25 }],
+  ["ash-bloom", "Ash Bloom", "Let the residue become the flower.", "ordinary", { motion:-0.05, variance:0.30, contrast:0.15, imperfection:0.60, camera:-0.05, temporal:0.15 }],
+  ["burnt-halo", "Burnt Halo", "Bright center. Scorched perimeter.", "ordinary", { motion:0.05, variance:-0.05, contrast:0.65, imperfection:0.25, camera:0.05, temporal:-0.05 }],
+  ["risky-hybrid", "Risky Hybrid", "Cross a few wires on purpose.", "ordinary", { motion:0.45, variance:0.65, contrast:0.35, imperfection:0.55, camera:0.45, temporal:0.55 }],
+  ["madd-clown-crazy-slots", "MADD CLOWN CRAZY SLOTS", "Maximum lawful surprise.", "madd-clown", null],
+];
 ```
 
-- [ ] **Step 1: Write the failing manifest test**
+Normalize each into a frozen object `{ id, name, invitation, iconId: `toast-${id}`, contractVersion, semanticClass, pressure }`. Export `TOAST_FEEL_CONTRACT`, `TOAST_FEELS`, `getToastFeel(id)`, and copy-returning `listToastFeels()`.
 
-```js
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const {
-  TOAST_FEEL_CONTRACT,
-  TOAST_FEELS,
-  getToastFeel,
-} = require("../src/toast-feels.cjs");
-
-test("Toast Feel v1 exposes six ordinary feels plus one MADD CLOWN", () => {
-  assert.equal(TOAST_FEEL_CONTRACT, "toast-feel-v1");
-  assert.equal(TOAST_FEELS.length, 7);
-  assert.equal(TOAST_FEELS.filter((feel) => feel.semanticClass === "ordinary").length, 6);
-  assert.equal(TOAST_FEELS.filter((feel) => feel.semanticClass === "madd-clown").length, 1);
-  assert.equal(getToastFeel("risky-hybrid").name, "Risky Hybrid");
-  assert.equal(getToastFeel("missing"), null);
-  assert.deepEqual(
-    TOAST_FEELS.map((feel) => feel.id),
-    [
-      "low-and-slow",
-      "porch-ghost",
-      "wire-heat",
-      "ash-bloom",
-      "burnt-halo",
-      "risky-hybrid",
-      "madd-clown-crazy-slots",
-    ],
-  );
-});
-```
-
-- [ ] **Step 2: Run the focused test and confirm RED**
-
-Run:
-
-```bash
-node --test src/full-measure/tests/toast-feels.test.cjs
-```
-
-Expected: FAIL because `src/toast-feels.cjs` does not exist.
-
-- [ ] **Step 3: Implement the frozen manifest and lookups**
-
-Create the manifest exactly as specified above, then export safe copy-returning helpers:
-
-```js
-function getToastFeel(id) {
-  return TOAST_FEELS.find((feel) => feel.id === String(id)) || null;
-}
-
-function listToastFeels() {
-  return TOAST_FEELS.map((feel) => structuredClone(feel));
-}
-
-module.exports = {
-  TOAST_FEEL_CONTRACT,
-  TOAST_FEELS,
-  getToastFeel,
-  listToastFeels,
-};
-```
-
-- [ ] **Step 4: Run focused test and repository check**
-
-Run:
-
-```bash
-node --test src/full-measure/tests/toast-feels.test.cjs
-npm --prefix src/full-measure run check
-```
-
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add src/full-measure/src/toast-feels.cjs src/full-measure/tests/toast-feels.test.cjs
-git commit -m "feat: define seven Toast Feels"
-```
+- [ ] Write RED test: exactly seven ids in that order; six ordinary + one `madd-clown`; lookup unknown returns `null`; every ordinary pressure field is finite within `[-1,1]`.
+- [ ] Run `node --test src/full-measure/tests/toast-feels.test.cjs` and confirm module-missing RED.
+- [ ] Implement the frozen manifest and validation at module initialization; no executable render expressions in manifest data.
+- [ ] Run focused test and `npm --prefix src/full-measure run check`.
+- [ ] Commit: `feat: define seven Toast Feels`.
 
 ---
 
-### Task 2: Add deterministic ordinary Toast Feel pressure as a generation decorator
+## Task 2 — Apply ordinary Toast Feel pressure and rebuild the complete current timeline stack
 
-**Files:**
-- Create: `src/full-measure/src/generation/toast-feel-generation.cjs`
-- Modify: `src/full-measure/src/generation/index.cjs`
-- Test: `src/full-measure/tests/toast-feel-generation.test.cjs`
+**Files:** create `src/full-measure/src/generation/toast-feel-generation.cjs`; modify `generation/index.cjs`; create `tests/toast-feel-generation.test.cjs`.
 
-**Interfaces:**
-- Consumes: current final generation API from `./lyric-resonance-generation.cjs`.
-- Consumes: `toastFeelId`, canonical constraints, locks, analysis, renderer profile, root seed, and lyric track.
-- Produces: `applyToastFeelPressure(score, feel, constraints, locks) -> VisualScore`.
-- Produces: `decorateFamilyWithToastFeel(family, options) -> CandidateFamily`.
-- Produces: `generateCandidateSet(options)` and `replayCandidateFamily(family, options)` compatible with the current generation API.
-- Ordinary feel pressure modifies only unlocked existing VisualScore v1 numeric fields; it does not add a Toast Feel field to the score schema.
-
-Use one bounded nudge function:
+**Imports:**
 
 ```js
-function pressureNumber(current, range, pressure, maximumFraction) {
+const lyricResonance = require("./lyric-resonance-generation.cjs");
+const primitiveGeneration = require("./primitive-field-generation.cjs");
+const possessionArc = require("./possession-arc.cjs");
+const { getToastFeel } = require("../toast-feels.cjs");
+```
+
+**Pressure law:** change only existing unlocked VisualScore fields. Use:
+
+```js
+function pressureNumber(current, range, pressure, fraction) {
   const span = Number(range.max) - Number(range.min);
-  const next = Number(current) + span * Number(pressure) * maximumFraction;
-  return quantizeNumber(Math.min(range.max, Math.max(range.min, next)));
+  return quantizeNumber(Math.min(range.max, Math.max(range.min,
+    Number(current) + span * Number(pressure) * fraction)));
 }
-```
 
-Map pressure into existing axes only:
-
-```js
-const MAX_PRESSURE_FRACTION = Object.freeze({
+const FRACTION = {
   motion: 0.12,
   variance: 0.14,
   contrast: 0.12,
   imperfection: 0.14,
   camera: 0.12,
-});
+};
 ```
 
-`temporal` must not invent a new number. It moves at most one step through the existing ordered density vocabulary:
+Map `motion` → `score.motion.amplitude`; `variance` → `score.motion.variance`; `contrast` → `score.palette.contrastBias`; `imperfection` → `score.material.imperfection`; `camera` → `score.camera.variance`. `temporal` moves at most one legal step through `["frozen","section","phrase","transient"]` only when pressure magnitude is at least `0.35`. Respect matching locks.
+
+**Critical re-resolution law:** after changing a candidate score, do not call only `lyricResonance.resolve()`, because that would omit Possession Arc reconstruction. Build the full timeline explicitly:
 
 ```js
-const TEMPORAL_ORDER = ["frozen", "section", "phrase", "transient"];
-```
-
-Pressure `>= 0.35` moves one legal step higher; pressure `<= -0.35` moves one legal step lower; otherwise it holds. Respect a `temporalDensity` lock.
-
-- [ ] **Step 1: Write failing deterministic-pressure tests**
-
-Use `open-field.v1.json`, a fixed score fixture, and `Risky Hybrid`. Assert:
-
-```js
-const pressuredA = applyToastFeelPressure(score, feel, constraints, []);
-const pressuredB = applyToastFeelPressure(score, feel, constraints, []);
-assert.deepEqual(pressuredA, pressuredB);
-assert.equal(pressuredA.schema, score.schema);
-assert.ok(pressuredA.motion.amplitude >= score.motion.amplitude);
-assert.ok(pressuredA.motion.variance >= score.motion.variance);
-assert.ok(pressuredA.material.imperfection >= score.material.imperfection);
-assert.ok(pressuredA.camera.variance >= score.camera.variance);
-assert.deepEqual(
-  applyToastFeelPressure(score, feel, constraints, ["motion", "camera"]).motion,
-  score.motion,
-);
-assert.deepEqual(
-  applyToastFeelPressure(score, feel, constraints, ["motion", "camera"]).camera,
-  score.camera,
-);
-```
-
-Also assert the pressured score still passes `scoreWithinConstraints`.
-
-- [ ] **Step 2: Run RED**
-
-Run:
-
-```bash
-node --test src/full-measure/tests/toast-feel-generation.test.cjs
-```
-
-Expected: FAIL because the generation decorator is absent.
-
-- [ ] **Step 3: Implement pure score pressure and family rebuild**
-
-For ordinary feels:
-
-1. call `lyric-resonance-generation.generateCandidateSet(options)`;
-2. pressure each candidate score on unlocked axes;
-3. rebuild the score artifact with the existing canonical `artifact(...)` helper and extend derivation policy with:
-
-```js
-{
-  toastFeel: {
-    contractVersion: feel.contractVersion,
-    id: feel.id,
-    semanticClass: feel.semanticClass,
-    pressureHash: hashCanonical(feel.pressure, "HauntedToaster-ToastFeelPressure-v1"),
-  },
+function resolvePressuredTimeline({ analysis, score, constraints, rendererProfile, locks, lyricTrack }) {
+  let timeline = primitiveGeneration.resolve(analysis, score, constraints, rendererProfile);
+  timeline = possessionArc.applyPossessionArc(timeline, {
+    analysis,
+    score,
+    constraints,
+    locks,
+  });
+  return lyricResonance.attachLyricResonance(timeline, lyricTrack || null);
 }
 ```
 
-4. re-resolve each pressured score through `lyricResonance.resolve(analysis, score, constraints, rendererProfile, lyricTrack)`;
-5. rebuild `scoreAddresses`, `timelineHashes`, and `familyHash` from the changed candidates;
-6. add family metadata:
+`primitiveGeneration.resolve()` already carries current Atmosphere/Primitive Field semantics and Color Drift; Possession Arc is then reapplied exactly as current candidate generation does.
 
-```js
-toastFeel: {
-  contractVersion: feel.contractVersion,
-  id: feel.id,
-  name: feel.name,
-  semanticClass: feel.semanticClass,
-  pressureHash,
-}
-```
-
-Do not mutate the source family in place.
-
-- [ ] **Step 4: Export Toast Feel generation last**
-
-Append to `src/full-measure/src/generation/index.cjs` after lyric-resonance generation:
-
-```js
-  ...require("./toast-feel-generation.cjs"),
-```
-
-This makes the new decorator the normal `generateCandidateSet`/`replayCandidateFamily` surface while retaining direct access to all earlier helpers.
-
-- [ ] **Step 5: Prove family replay and lock preservation**
-
-Add a test that generates an ordinary feel family twice from the same fixed inputs and asserts identical:
-
-```js
-assert.deepEqual(first.scoreAddresses, second.scoreAddresses);
-assert.deepEqual(first.timelineHashes, second.timelineHashes);
-assert.equal(first.familyHash, second.familyHash);
-assert.equal(first.toastFeel.id, "risky-hybrid");
-```
-
-For a branch family with `locks: ["palette", "camera"]`, assert each child's pressured score keeps the parent palette and camera byte/semantic-identical.
-
-- [ ] **Step 6: Run focused and generation suites**
-
-Run:
-
-```bash
-node --test \
-  src/full-measure/tests/toast-feel-generation.test.cjs \
-  src/full-measure/tests/candidate-family.test.cjs \
-  src/full-measure/tests/diversity-engine.test.cjs \
-  src/full-measure/tests/possession-arc.test.cjs \
-  src/full-measure/tests/color-drift.test.cjs
-```
-
-Expected: PASS.
-
-- [ ] **Step 7: Commit**
-
-```bash
-git add src/full-measure/src/generation/toast-feel-generation.cjs src/full-measure/src/generation/index.cjs src/full-measure/tests/toast-feel-generation.test.cjs
-git commit -m "feat: bias candidate families with Toast Feel pressure"
-```
+- [ ] Write RED test for deterministic `applyToastFeelPressure`, constraints safety, and lock preservation.
+- [ ] Write RED family test: same inputs + `risky-hybrid` produce identical score addresses/timeline hashes/family hash twice.
+- [ ] Implement ordinary decorator by first calling `lyricResonance.generateCandidateSet(options)`, rebuilding each pressured score artifact, then resolving with `resolvePressuredTimeline`.
+- [ ] Extend each derivation policy with `{ toastFeel: { contractVersion,id,semanticClass,pressureHash } }`.
+- [ ] Add compact family metadata `{ contractVersion,id,name,semanticClass,pressureHash }`; do not copy raw pressure into family metadata.
+- [ ] Rebuild `scoreAddresses`, `timelineHashes`, and `familyHash` canonically.
+- [ ] Export Toast Feel generation after lyric-resonance in `generation/index.cjs`.
+- [ ] Run Toast Feel + candidate/diversity/Primitive/Possession Arc/Color Drift/Lyric Resonance suites.
+- [ ] Commit: `feat: bias candidate families with Toast Feel pressure`.
 
 ---
 
-### Task 3: Route MADD CLOWN through the existing STOMP outer rail
+## Task 3 — Route MADD CLOWN through the existing STOMP outer rail
 
-**Files:**
-- Modify: `src/full-measure/src/generation/toast-feel-generation.cjs`
-- Modify: `src/full-measure/tests/toast-feel-generation.test.cjs`
+**Files:** modify `toast-feel-generation.cjs` and its tests.
 
-**Interfaces:**
-- Produces: `generateMaddClownCandidateSet(options) -> CandidateFamily`.
-- The visible MADD CLOWN family has `policy: "toast-feel-madd-clown-v1"` and `toastFeel.semanticClass === "madd-clown"`.
-- It records `seedFamilyHash`, `seedParentScoreRef`, and `stompPolicy` so the internal bridge into STOMP is inspectable and replayable.
-
-- [ ] **Step 1: Write the failing MADD CLOWN reuse test**
-
-Generate with fixed analysis/Open Field/root seed and `toastFeelId: "madd-clown-crazy-slots"`. Assert:
+For `madd-clown-crazy-slots`, do not pressure ordinary candidates. Generate a deterministic seed family through the existing lyric-resonance generator, choose one seed parent by hash, and delegate the visible six to existing STOMP:
 
 ```js
-assert.equal(family.toastFeel.id, "madd-clown-crazy-slots");
-assert.equal(family.toastFeel.semanticClass, "madd-clown");
-assert.equal(family.policy, "toast-feel-madd-clown-v1");
-assert.equal(family.producedCount, 6);
-assert.ok(family.toastFeel.seedFamilyHash);
-assert.ok(family.toastFeel.seedParentScoreRef);
-assert.equal(family.toastFeel.stompPolicy, "visible-outcome-stomp-v1");
-assert.ok(family.candidates.every((candidate) =>
-  candidate.scoreArtifact.derivation.policy.candidatePolicy === "visible-outcome-stomp-v1"
-));
-```
-
-- [ ] **Step 2: Run RED**
-
-Run the focused test; expected failure is absence of MADD CLOWN routing.
-
-- [ ] **Step 3: Implement deterministic seed-parent selection and STOMP delegation**
-
-Implementation sequence:
-
-```js
-const seedFamily = lyricResonance.generateCandidateSet({
-  ...options,
-  toastFeelId: undefined,
-});
-const seedIndex = Number.parseInt(
-  hashCanonical(
-    { rootSeed: String(options.rootSeed), feel: "madd-clown-crazy-slots" },
-    "HauntedToaster-MaddClownSeed-v1",
-  ).slice(0, 8),
-  16,
-) % seedFamily.candidates.length;
+const seedFamily = lyricResonance.generateCandidateSet({ ...options, toastFeelId: undefined });
+const digest = hashCanonical(
+  { rootSeed: String(options.rootSeed), feel: "madd-clown-crazy-slots" },
+  "HauntedToaster-MaddClownSeed-v1",
+);
+const seedIndex = Number.parseInt(digest.slice(0, 8), 16) % seedFamily.candidates.length;
 const seedParent = seedFamily.candidates[seedIndex];
 const stompFamily = lyricResonance.generateStompCandidateSet({
   ...options,
@@ -466,327 +148,103 @@ const stompFamily = lyricResonance.generateStompCandidateSet({
 });
 ```
 
-Rebuild only family metadata so the six visible candidates remain exact STOMP descendants. Do not rewrite their score or timeline semantics after STOMP.
+Rebuild family metadata only. Visible candidate score/timeline semantics remain the exact STOMP results. Family policy becomes `toast-feel-madd-clown-v1`; metadata records `seedFamilyHash`, `seedParentScoreRef`, and `stompPolicy: "visible-outcome-stomp-v1"`.
 
-- [ ] **Step 4: Add exact replay proof**
-
-Replay from the same `rootSeed`, feel identity, analysis, constraints and renderer profile; assert the same `seedParentScoreRef`, candidate score addresses, timeline hashes, and family hash.
-
-- [ ] **Step 5: Run STOMP + Toast Feel suites**
-
-Run:
-
-```bash
-node --test \
-  src/full-measure/tests/toast-feel-generation.test.cjs \
-  src/full-measure/tests/stomp-generation.test.cjs
-```
-
-Expected: PASS.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add src/full-measure/src/generation/toast-feel-generation.cjs src/full-measure/tests/toast-feel-generation.test.cjs
-git commit -m "feat: route MADD CLOWN through STOMP"
-```
+- [ ] RED test: six candidates, all derivations use STOMP policy, seed parent evidence present, same inputs replay identically.
+- [ ] Implement MADD route and replay reconstruction from recorded root seed/feel.
+- [ ] Run Toast Feel + STOMP suites.
+- [ ] Commit: `feat: route MADD CLOWN through STOMP`.
 
 ---
 
-### Task 4: Bind Toast Feel identity through candidate session and final execution
+## Task 4 — Bind Toast Feel through candidate session and sandbox API
 
-**Files:**
-- Modify: `src/full-measure/src/candidate-session.cjs`
-- Modify: `src/full-measure/tests/candidate-session.test.cjs`
+**Files:** modify `candidate-session.cjs`, `main.cjs`, `preload.cjs`; tests candidate-session and sandbox/preload parity.
 
-**Interfaces:**
-- Candidate config now consumes `toastFeelId`.
-- `familyBinding` stores `toastFeel` evidence from the generated family.
-- `executionForRender(config)` returns `{ visualScore, resolvedTimeline, analysis, labInfluence, toastFeel }`.
-- Selection becomes invalid if audio, image, or Toast Feel identity changes.
+**Candidate session:** validate every `config.toastFeelId` with `getToastFeel`. `materialize()` binds `nextFamily.toastFeel`. `executionForRender(config)` requires the same audio, image, internal compatibility preset, and exact Toast Feel id; it returns a clone of bound Toast Feel evidence with accepted score/timeline.
 
-- [ ] **Step 1: Write failing binding tests**
+**Manifest delivery:** use the existing sandbox boundary; renderer never imports the CommonJS manifest.
 
-Add a session test that:
-
-1. notes audio and image;
-2. generates with `toastFeelId: "wire-heat"`;
-3. selects a candidate;
-4. calls `executionForRender` with the same audio/image/feel and asserts `execution.toastFeel.id === "wire-heat"`;
-5. calls `executionForRender` with `toastFeelId: "ash-bloom"` and expects `null`.
-
-- [ ] **Step 2: Run RED**
-
-Run:
-
-```bash
-node --test src/full-measure/tests/candidate-session.test.cjs
-```
-
-Expected: FAIL because Toast Feel is not part of family binding.
-
-- [ ] **Step 3: Validate and pass exact identity**
-
-At the start of `generate`, `mutate`, and `stomp`:
+Main:
 
 ```js
-const feel = getToastFeel(config.toastFeelId);
-if (!feel) throw new TypeError(`Unknown Toast Feel: ${String(config.toastFeelId)}.`);
+ipcMain.handle("app:toast-feels", () => listToastFeels());
 ```
 
-Pass `toastFeelId: feel.id` into generation. In `materialize`, bind the returned `nextFamily.toastFeel` rather than reconstructing it from UI input.
-
-For ordinary explicit STOMP-after-selection, keep the selected ordinary feel identity and pass it into the Toast Feel generation wrapper so the descendants remain in the same mood field. MADD CLOWN's initial family already uses the dedicated path from Task 3.
-
-- [ ] **Step 4: Include feel identity in render binding**
-
-`executionForRender` must require:
+Preload/contextBridge:
 
 ```js
-if (config.toastFeelId !== familyBinding.toastFeel?.id) return null;
+getToastFeels: () => ipcRenderer.invoke("app:toast-feels"),
 ```
 
-and return a structured clone of `familyBinding.toastFeel`.
-
-- [ ] **Step 5: Run candidate-session and generation suites**
-
-Run:
-
-```bash
-node --test \
-  src/full-measure/tests/candidate-session.test.cjs \
-  src/full-measure/tests/toast-feel-generation.test.cjs
-```
-
-Expected: PASS.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add src/full-measure/src/candidate-session.cjs src/full-measure/tests/candidate-session.test.cjs
-git commit -m "feat: bind Toast Feel through candidate execution"
-```
+- [ ] RED candidate-session test: generate/select `wire-heat`; matching execution returns feel; mismatched `ash-bloom` returns `null`.
+- [ ] RED preload contract test: `getToastFeels` exists and invokes only `app:toast-feels`.
+- [ ] RED main IPC test: returned manifest equals `listToastFeels()` and cannot mutate module authority.
+- [ ] Implement exact binding and bridge.
+- [ ] Run candidate-session, preload, main IPC tests.
+- [ ] Commit: `feat: bind Toast Feel through appliance boundary`.
 
 ---
 
-### Task 5: Replace DOM-derived Starting Field furniture with manifest-driven Toastmoods
+## Task 5 — Replace Starting Field furniture with seven manifest-driven burnt-toast controls
 
-**Prerequisite:** #122 / PR #124 UI Witness Gate is landed on the implementation branch before this task begins.
+**Prerequisite:** #122 implementation is landed.
 
-**Files:**
-- Create: `src/full-measure/src/renderer/toast-feel-controller.js`
-- Modify: `src/full-measure/src/renderer/index.html`
-- Modify: `src/full-measure/src/renderer/app.js`
-- Modify: `src/full-measure/src/renderer/styles.css`
-- Delete after tests pass: `src/full-measure/src/renderer/starting-field-controller.js`
-- Modify: `src/full-measure/tests/renderer-ui-integration.test.cjs`
-- Modify: `src/full-measure/tests/ui-witness.spec.cjs`
-- Modify reviewed screenshot baselines under `src/full-measure/tests/ui-witness-baselines/`.
+**Files:** create `renderer/toast-feel-controller.js`; modify `renderer/index.html`, `app.js`, `styles.css`; delete `starting-field-controller.js` after tests; update renderer UI integration + UI Witness Playwright/baselines.
 
-**Interfaces:**
-- Renderer global: `window.toastFeel.getSelection() -> { id, name, contractVersion, semanticClass }`.
-- Event: `toast-feel-change` with the same fields in `event.detail`.
-- Default ordinary feel is exactly `low-and-slow`.
-- UI is generated from a browser-safe manifest literal produced from the same domain data; do not infer names/ids back from DOM text.
+Renderer flow:
 
-- [ ] **Step 1: Write the failing renderer-domain test**
+```js
+const feelings = await window.fullMeasure.getToastFeels();
+// render seven buttons from returned data
+// own only selection state and presentation
+window.dispatchEvent(new CustomEvent("toast-feel-change", { detail: selected }));
+```
 
-Assert raw HTML contains one host:
+Raw HTML contains only a truthful host:
 
 ```html
 <div id="toastFeelChoices" class="toast-feel-choices" role="radiogroup" aria-label="Toast Feel"></div>
 ```
 
-and does not contain `.garment-card`, `data-preset="porchlight"`, or raw Porchlight/Wire Orchard/Absolute Residual choice furniture.
+Default is `low-and-slow`. Each control is a real button with `role="radio"`, `aria-checked`, locally drawn inline SVG/CSS toast icon, label, invitation, keyboard behavior, `.is-selected`, disabled state. MADD CLOWN is visibly larger via `.toast-feel--madd-clown`; icon/art carries no semantic data.
 
-Load the controller in JSDOM and assert it creates seven buttons with exact `data-toast-feel-id` values from Task 1, with MADD CLOWN carrying `.toast-feel--madd-clown`.
+`app.js` moves visible state to `toastFeelId` / `toastFeelName`, sends exact `toastFeelId` into candidate/render requests, disables `.toast-feel` controls while rendering, and labels slate `Toast Feel`. Keep internal `presetId: "openField"` as compatibility constraint container for ordinary alpha.8 creation; do not expose old garment trio as normal choices.
 
-- [ ] **Step 2: Run RED**
-
-Run the renderer UI integration test; expected failure is the old static garment furniture/controller.
-
-- [ ] **Step 3: Implement manifest-driven buttons and state**
-
-Each generated button must be:
-
-```html
-<button type="button" class="toast-feel" role="radio" aria-checked="false">
-  <span class="toast-feel-icon" aria-hidden="true">…inline SVG toast silhouette…</span>
-  <strong></strong>
-  <small></small>
-</button>
-```
-
-Generate the toast silhouette with local inline SVG/CSS only. Use the `iconId` as a class/data hook; icon appearance carries no semantic authority.
-
-The controller owns selection state and dispatches `toast-feel-change`; it never calls candidate APIs directly.
-
-- [ ] **Step 4: Move app state from preset furniture to Toast Feel identity**
-
-Change renderer state:
-
-```js
-toastFeelId: "low-and-slow",
-toastFeelName: "Low & Slow",
-```
-
-Listen for `toast-feel-change`, update slate copy to `Toast Feel`, and pass `toastFeelId` into candidate generation/mutation/STOMP and `startRender` config.
-
-Keep `presetId` as internal compatibility execution state only where legacy render/config paths still require a constraint pack; ordinary alpha.8 Toast Feels use `openField` as the compatibility constraint container unless an imported historical score explicitly binds another ancestor.
-
-- [ ] **Step 5: Disable the generated choices while rendering**
-
-Replace `.garment-card` loops with:
-
-```js
-for (const choice of $$(".toast-feel")) choice.disabled = rendering;
-```
-
-and assert the UI Witness `rendering` state shows all seven controls disabled.
-
-- [ ] **Step 6: Add exact visual witness assertions**
-
-In Playwright, prove:
-
-- six ordinary toast buttons are equal/small size;
-- MADD CLOWN is visibly larger;
-- selected state is obvious;
-- keyboard Tab + Space/Enter can select a feel;
-- hover/focus do not move layout;
-- `?state=starting-field` is renamed/aliased to the canonical Toast Feel witness state without breaking old witness URLs during the migration;
-- visual baseline change is declared `expected`.
-
-- [ ] **Step 7: Run UI proof**
-
-Run the UI Witness commands established by #122 plus:
-
-```bash
-npm --prefix src/full-measure test -- --test-name-pattern="Toast Feel|renderer"
-npm --prefix src/full-measure run witness:test
-```
-
-Expected: PASS with reviewed expected screenshot deltas only.
-
-- [ ] **Step 8: Commit**
-
-```bash
-git add src/full-measure/src/renderer src/full-measure/tests/renderer-ui-integration.test.cjs src/full-measure/tests/ui-witness.spec.cjs src/full-measure/tests/ui-witness-baselines
-git commit -m "feat: replace Starting Field furniture with Toastmoods"
-```
+- [ ] RED JSDOM test: raw HTML has no `.garment-card` or old three choices; after manifest promise resolves there are seven exact ids.
+- [ ] RED behavior test: selection event carries `{id,name,contractVersion,semanticClass}` from manifest, not DOM text.
+- [ ] Implement controller and styles; delete old controller only after tests pass.
+- [ ] Update #122 witness canonical state from Starting Field to Toast Feel while keeping the old query alias if #122 has already published it.
+- [ ] Playwright proof: six equal ordinary controls, larger MADD CLOWN, stable hover/focus, keyboard selection, disabled during render, selected slate visible.
+- [ ] Declare screenshot delta `expected`; never accept unexplained drift.
+- [ ] Run renderer UI tests and `npm --prefix src/full-measure run witness:test` (or exact command landed by #122).
+- [ ] Commit: `feat: replace Starting Field furniture with Toastmoods`.
 
 ---
 
-### Task 6: Record the executed Toast Feel in render receipt evidence
+## Task 6 — Receipt-bind the executed Toast Feel and package-witness the slice
 
-**Files:**
-- Modify: `src/full-measure/src/render/render.cjs`
-- Modify: `src/full-measure/src/main.cjs`
-- Modify: `src/full-measure/tests/render-receipt.test.cjs` or the existing resolved-render receipt test owning `receipt.treatment`.
-- Modify: `src/full-measure/tests/candidate-session.test.cjs` if main-process execution handoff is covered there instead.
+**Files:** modify `main.cjs`, `render/render.cjs`, receipt tests; no release version change.
 
-**Interfaces:**
-- `renderResolvedTimelineVideo(config)` consumes optional `config.toastFeel` already validated/bound by candidate session.
-- Receipt writes `treatment.toastFeel` only when present.
-
-Receipt shape:
+Main passes `execution.toastFeel` from candidate-session authority into resolved rendering. Renderer accepts only that bound object and writes compact evidence:
 
 ```js
-toastFeel: {
-  contractVersion: "toast-feel-v1",
-  id: "wire-heat",
-  name: "Wire Heat",
-  semanticClass: "ordinary",
-  pressureHash: "...",
-  seedParentScoreRef: null,
-  stompPolicy: null,
-}
+receipt.treatment.toastFeel = {
+  contractVersion,
+  id,
+  name,
+  semanticClass,
+  pressureHash: pressureHash || null,
+  seedParentScoreRef: seedParentScoreRef || null,
+  stompPolicy: stompPolicy || null,
+};
 ```
 
-MADD CLOWN uses non-null `seedParentScoreRef` and `stompPolicy`.
-
-- [ ] **Step 1: Write failing receipt test**
-
-Pass a synthetic bound Toast Feel into a resolved render receipt builder/test seam and assert the exact structure appears under `receipt.treatment.toastFeel` while `canonicalExecution.scoreAddress` and `timelineHash` remain unchanged.
-
-- [ ] **Step 2: Run RED**
-
-Run the focused receipt test; expected failure is missing Toast Feel evidence.
-
-- [ ] **Step 3: Carry candidate-session evidence through main render handoff**
-
-Where main obtains `candidateSession.executionForRender(config)`, pass:
-
-```js
-toastFeel: execution.toastFeel,
-```
-
-into `renderVideo` only from the bound execution result. Do not trust a renderer-supplied free-form Toast Feel object.
-
-- [ ] **Step 4: Serialize compact receipt evidence**
-
-In `render.cjs`, copy only declared fields; do not dump arbitrary family metadata.
-
-- [ ] **Step 5: Run full repository verification**
-
-Run:
-
-```bash
-npm run verify
-```
-
-Expected: PASS.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add src/full-measure/src/main.cjs src/full-measure/src/render/render.cjs src/full-measure/tests
-git commit -m "feat: receipt-bind executed Toast Feel"
-```
-
----
-
-### Task 7: Toastmoods packaged witness and issue handoff
-
-**Files:**
-- No production changes unless proof exposes a Toastmoods-caused defect.
-- Update PR body / issue #123 evidence after proof.
-
-**Interfaces:**
-- Produces the alpha.8 Toastmoods completion evidence consumed by the later release plan.
-
-- [ ] **Step 1: Run final branch verification**
-
-```bash
-npm run verify
-```
-
-Expected: PASS.
-
-- [ ] **Step 2: Confirm UI Witness completion fields**
-
-Record:
-
-```text
-UI impact: visual + behavioral
-browser witness: PASS @ <exact head SHA>
-visual delta: expected
-packaged witness required: yes
-GitBook ontology changed: yes
-```
-
-- [ ] **Step 3: Run the repository's Windows packaging workflow on the exact final head**
-
-Expected: `Build Windows demo` succeeds and produces the ordinary Windows artifacts.
-
-- [ ] **Step 4: Field-witness one ordinary feel and MADD CLOWN**
-
-In the packaged appliance, prove:
-
-```text
-select Wire Heat -> generate six -> choose -> render -> receipt says wire-heat
-select MADD CLOWN -> generate six -> visible family is STOMP-derived -> choose -> render -> receipt says madd-clown-crazy-slots + stompPolicy
-```
-
-- [ ] **Step 5: Stop**
-
-Do not add more Toast Feel names, user sliders, per-axis mood controls, or a second surprise engine in this PR. Those require new field evidence.
+- [ ] RED receipt test: Toast Feel evidence present while canonical score address/timeline hash remain unchanged.
+- [ ] Implement compact serialization; no raw pressure dump.
+- [ ] Run `npm run verify`.
+- [ ] Run #122 browser witness on exact head and record `UI impact: visual + behavioral`, `browser witness: PASS`, `visual delta: expected`, `packaged witness required: yes`.
+- [ ] Run Windows packaging workflow on exact head.
+- [ ] In packaged appliance prove `Wire Heat → six-up → select → render → receipt wire-heat`.
+- [ ] Generate MADD CLOWN and prove visible family is STOMP-derived with recorded seed parent/policy. A second full video is optional here.
+- [ ] Commit any proof-caused narrow fix separately; otherwise stop. Do not add more feel names/sliders or a second surprise system.
