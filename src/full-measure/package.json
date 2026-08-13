@@ -65,6 +65,12 @@
         "portable"
       ]
     },
+    "nsis": {
+      "artifactName": "Haunted-Toaster-${version}-${arch}-Setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "Haunted-Toaster-${version}-${arch}-Portable.${ext}"
+    },
     "mac": {
       "target": "dmg",
       "category": "public.app-category.video"

@@ -52,3 +52,14 @@ test("tagged Windows packaging refuses version disagreement before building", ()
   assert.match(workflow, /GITHUB_REF_NAME/);
   assert.match(packageInfo.build.artifactName, /\$\{version\}/);
 });
+
+test("Windows setup and portable targets cannot overwrite one another", () => {
+  assert.match(packageInfo.build.nsis.artifactName, /\$\{version\}/);
+  assert.match(packageInfo.build.nsis.artifactName, /Setup/);
+  assert.match(packageInfo.build.portable.artifactName, /\$\{version\}/);
+  assert.match(packageInfo.build.portable.artifactName, /Portable/);
+  assert.notEqual(
+    packageInfo.build.nsis.artifactName,
+    packageInfo.build.portable.artifactName,
+  );
+});
