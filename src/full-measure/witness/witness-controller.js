@@ -35,6 +35,12 @@ if (typeof window !== "undefined") {
     await waitFor(() => !document.querySelector("#songFacts").classList.contains("is-hidden"), "song inspection");
   }
 
+  async function chooseToastFeel() {
+    await window.toastFeel.ready;
+    document.querySelector('[data-toast-feel-id="wire-heat"]').click();
+    await waitFor(() => window.toastFeel.getToastFeelId() === "wire-heat", "Toast Feel selection");
+  }
+
   async function showListener() {
     await loadSong();
     const lyrics = document.querySelector("#lyricsInput");
@@ -47,12 +53,14 @@ if (typeof window !== "undefined") {
 
   async function showSixUp() {
     await loadSong();
+    await chooseToastFeel();
     document.querySelector(".candidate-launch").click();
     await waitFor(() => document.querySelectorAll(".candidate-card").length === 6, "six candidates");
   }
 
   async function showRender(mode) {
     await loadSong();
+    await chooseToastFeel();
     window.__uiWitness.setRenderMode(mode);
     document.querySelector("#renderButton").click();
     if (mode === "pending") {
@@ -68,8 +76,7 @@ if (typeof window !== "undefined") {
     if (state === "song-ready") await loadSong();
     if (state === "toast-feel") {
       await loadSong();
-      await window.toastFeel.ready;
-      document.querySelector('[data-toast-feel-id="wire-heat"]').click();
+      await chooseToastFeel();
     }
     if (state === "six-up") await showSixUp();
     if (state === "listener") await showListener();

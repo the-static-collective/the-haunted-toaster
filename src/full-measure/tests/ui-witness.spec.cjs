@@ -31,6 +31,17 @@ for (const state of [
       await expect(maddClown).toHaveAttribute("aria-checked", "true");
       await page.locator('[data-toast-feel-id="wire-heat"]').click();
     }
+    if (state === "six-up") {
+      const cards = page.locator(".candidate-card");
+      const actions = page.locator(".candidate-actions");
+      await expect(cards).toHaveCount(6);
+      const actionBox = await actions.boundingBox();
+      const cardBoxes = await cards.evaluateAll((items) => items.map((item) => {
+        const box = item.getBoundingClientRect();
+        return { top: box.top, bottom: box.bottom };
+      }));
+      expect(Math.max(...cardBoxes.map(({ bottom }) => bottom))).toBeLessThanOrEqual(actionBox.y);
+    }
     if (state === "rendering") {
       await expect(page.locator(".toast-feel:disabled")).toHaveCount(7);
     }
