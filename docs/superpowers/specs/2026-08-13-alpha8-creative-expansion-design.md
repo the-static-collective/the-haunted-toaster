@@ -1,6 +1,6 @@
 # Haunted Toaster alpha.8 — Creative Expansion Design
 
-**Status:** approved design; executable implementation plans written  
+**Status:** approved design; executable implementation plans written and self-reviewed  
 **Target:** `0.5.0-alpha.8`  
 **Base at design approval:** `main` at `56e006123f0231ac3a92f71762d25eeae15fc19a`  
 **Known-good ancestor:** `archive/gold-star-renderer-alpha7`
@@ -228,6 +228,16 @@ UI Witness Gate                   |
        -> Native Color v1         |
              -> combined witness -┴-> alpha.8 package/tag
 ```
+
+### Plan self-review result
+
+The executable plans were checked against this approved design for scope, placeholders, contradictory ownership, and cross-plan type consistency. The review fixed three concrete seams before implementation begins:
+
+- renderer Toast Feel furniture receives the canonical CommonJS manifest through main/preload IPC instead of attempting to import it directly or duplicating it in browser code;
+- Toast-pressured score re-resolution explicitly rebuilds Primitive/Atmosphere → Possession Arc → Color Drift-bearing timeline → Lyric Resonance semantics, rather than using a convenience resolver that would omit the current Possession Arc family path;
+- Native Color resolves Toast Feel pressure by canonical `toastFeelId`, not compact family receipt metadata, and uses the already-shared preview/production timeline compiler rather than a second color implementation.
+
+The release plan also names exact stable policy constants for UI Witness and render-failure evidence so build capabilities are mechanically derived rather than inferred from filenames or version text.
 
 The release stops expanding when three new human-visible truths are proven:
 
