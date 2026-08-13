@@ -21,6 +21,8 @@ UI Witness Gate                   |
              -> combined witness -┴-> alpha.8 package/tag
 ```
 
+Failure evidence is an insurance prerequisite and may land independently of the UI/creative line. UI Witness is the hard ordering gate before Toastmoods. Native Color follows Toastmoods because its relationship preference consumes canonical Toast Feel identity. Integration/release follows all four landed slices.
+
 ## Plan review invariants
 
 - VisualScore v1 is not rewritten merely to carry Toast Feel or Native Color identity.
