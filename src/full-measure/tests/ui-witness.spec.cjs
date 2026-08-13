@@ -45,6 +45,10 @@ for (const state of [
     if (state === "rendering") {
       await expect(page.locator(".toast-feel:disabled")).toHaveCount(7);
     }
+    // Provenance remains asserted above, but its per-commit text must not churn visual baselines.
+    await page.locator("#buildInfoSummary").evaluate((element) => {
+      element.style.visibility = "hidden";
+    });
     await expect(page).toHaveScreenshot(`${state}.png`, {
       animations: "disabled",
       fullPage: true,
