@@ -2,112 +2,60 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Integrate the already-proven alpha.8 slices on current `main`, prove one coherent browser + packaged Windows witness, bump authoritative version identity to `0.5.0-alpha.8`, and tag only the exact accepted release commit.
+**Goal:** Integrate independently reviewed alpha.8 slices on `main`, prove one coherent browser + packaged Windows witness, bump authoritative identity to `0.5.0-alpha.8`, and tag only the exact accepted release commit.
 
-**Architecture:** This plan owns no new creative mechanism. It is a release-integration gate over independently reviewed work: render-failure evidence, UI Witness Gate, Toastmoods, and Native Color v1. It first proves all required feature identities are present on one main-line head, then adds a small executable release contract/build-capability check, bumps manifest/lockfile identity together, runs repository/browser/package proof, performs one packaged end-to-end field render, and only then creates the prerelease tag. Universal H.264 is the required transport witness; Efficient HEVC remains optional/experimental.
+**Architecture:** This plan adds no new creative mechanism. It verifies one main-line head contains render-failure evidence, UI Witness, Toastmoods, and Native Color v1; adds small mechanical capability constants/tests where needed; bumps manifest/lockfile together; runs source/browser/package proof; performs one packaged end-to-end field witness; then tags the exact proven `main` commit. Universal H.264 is the required transport witness. Efficient HEVC remains optional/experimental.
 
-**Tech Stack:** Node.js CommonJS/node:test, npm lockfile, GitHub Actions Windows packaging/release workflow, Playwright/Vercel UI Witness from #122, Electron packaged appliance, Git tags/releases.
+## Global constraints
 
-## Global Constraints
+- Version exactly `0.5.0-alpha.8`; tag exactly `v0.5.0-alpha.8`.
+- Version authority: `src/full-measure/package.json`; synchronize `src/full-measure/package-lock.json` before tagging.
+- Do not move/reuse an existing tag.
+- Integrate only merged/reviewed feature slices; no stacked unreviewed release branch.
+- Gold Star archive remains recoverable.
+- Historical #116 crash reproduction is not required once failure-evidence preservation is present; any **new** release-candidate crash is triaged from preserved evidence.
+- UI Witness proves appearance; final packaged Electron witness proves inclusion/preload/IPC/native seams.
+- Required successful transport: Universal H.264 `delivery`.
+- HEVC `efficient` is experimental and not required to outperform H.264.
+- No alpha.9+ research enters release integration.
 
-- Release version is exactly `0.5.0-alpha.8`; tag is exactly `v0.5.0-alpha.8`.
-- Application manifest authority is `src/full-measure/package.json`; synchronize its lockfile version before tagging.
-- Do not move or reuse an older tag.
-- Release integration begins only after the feature PRs are merged to `main`; do not stack unreviewed feature branches into the release commit.
-- Gold Star behavior remains recoverable through `archive/gold-star-renderer-alpha7`.
-- Historical FFmpeg crash reproduction is not required if failure-evidence preservation is present; a newly reproduced crash on release-candidate code is release evidence and must be triaged.
-- Browser UI Witness is required for interface appearance; packaged Electron witness is required for the final release because preload/IPC/native/package seams matter.
-- Universal H.264 (`delivery`) is the required successful release render.
-- Efficient HEVC (`efficient`) is optional and experimental; its failure to outperform H.264 is not a release blocker.
-- No new alpha.9+ research lane enters this plan.
+## File map
 
----
-
-## File Structure
-
-- Create `src/full-measure/tests/alpha8-release-contract.test.cjs` — executable proof that one source tree exposes the required alpha.8 capability surfaces without depending on field-only assertions.
-- Modify `src/full-measure/src/build-capabilities.cjs` — advertise only capabilities mechanically derivable from landed code.
-- Modify `src/full-measure/tests/build-identity.test.cjs` — require the new mechanically-derived capabilities in packaged build info.
-- Modify `src/full-measure/package.json` — version `0.5.0-alpha.8`.
-- Modify `src/full-measure/package-lock.json` — root/package identity synchronized to `0.5.0-alpha.8`.
-- Modify root/release README/current-boundary text only if it explicitly names alpha.7 as current version; do not use release integration to rewrite conceptual docs.
-- No renderer/generation semantic files should change unless integration proof exposes a cross-slice defect.
+- Create `src/full-measure/tests/alpha8-release-contract.test.cjs`.
+- Modify `src/full-measure/src/build-capabilities.cjs` and `tests/build-identity.test.cjs`.
+- If #119 landed without an exported schema constant, modify `src/full-measure/src/render/render-failure-evidence.cjs` and its existing test only to export/use `RENDER_FAILURE_EVIDENCE_SCHEMA`.
+- If #122 landed without an exported witness-policy constant, modify `src/full-measure/scripts/build-ui-witness.cjs` and `tests/ui-witness-build.test.cjs` only to export/use `UI_WITNESS_POLICY`.
+- Modify `src/full-measure/package.json` + lockfile for version bump.
+- No generation/renderer semantic files change unless integration reveals a cross-slice defect.
 
 ---
 
-### Task 1: Establish the exact alpha.8 integration head and prerequisites
+## Task 1 — Establish the exact integration base
 
-**Files:**
-- No production changes.
-- Read current GitHub state for `main`, PRs/issues #116/#119, #122/#124, #123, #115, and PR #125/spec history.
-
-**Interfaces:**
-- Produces a release-candidate base SHA that contains every required independently reviewed slice.
-
-Required prerequisite states:
+Required state:
 
 ```text
-failure evidence: landed on main
-UI Witness Gate: landed on main and browser witness green
-Toastmoods: landed on main
-Native Color v1: landed on main
-Gold Star archive branch: still resolves
-main verification: green at candidate base SHA
+failure evidence landed on main
+UI Witness landed + browser proof green
+Toastmoods landed
+Native Color v1 landed
+archive/gold-star-renderer-alpha7 resolves
+main verify green
 ```
 
-- [ ] **Step 1: Fetch current main and verify ancestry**
-
-Record:
-
-```bash
-git rev-parse HEAD
-git status --short
-git log --oneline -12
-```
-
-Expected: clean integration branch created from current accepted `main`, not from a stale alpha.7 SHA or a stacked feature branch.
-
-- [ ] **Step 2: Verify each feature is actually in main ancestry**
-
-Use merge commits/PR merge SHAs, not GitHub's word `merged` alone. For each required PR:
-
-```bash
-git merge-base --is-ancestor <merge-sha> HEAD
-```
-
-Expected: exit 0 for every required merged feature.
-
-- [ ] **Step 3: Verify Gold Star archive still resolves**
-
-```bash
-git rev-parse archive/gold-star-renderer-alpha7
-```
-
-Expected: a commit SHA; do not move the archive branch.
-
-- [ ] **Step 4: Run pre-version full verification**
-
-```bash
-npm run verify
-```
-
-Expected: PASS before release-only changes. If it fails, fix/route the owning feature slice rather than hiding the failure in version-bump work.
-
-- [ ] **Step 5: Commit nothing**
-
-This task is a release preflight gate; proceed only from a clean, green, correctly-ancestried base.
+- [ ] Create integration branch from current accepted `main`; record `git rev-parse HEAD`, `git status --short`, recent log.
+- [ ] For every required feature PR, verify its actual merge commit is an ancestor of HEAD with `git merge-base --is-ancestor <merge-sha> HEAD`; do not rely on GitHub's word `merged` alone.
+- [ ] `git rev-parse archive/gold-star-renderer-alpha7` must resolve; do not move it.
+- [ ] Run `npm run verify` before release-only changes. Any failure routes back to owning slice.
+- [ ] Commit nothing in this preflight task.
 
 ---
 
-### Task 2: Add one executable alpha.8 release contract and truthful build capabilities
+## Task 2 — Define exact mechanical alpha.8 capability contracts
 
-**Files:**
-- Create: `src/full-measure/tests/alpha8-release-contract.test.cjs`
-- Modify: `src/full-measure/src/build-capabilities.cjs`
-- Modify: `src/full-measure/tests/build-identity.test.cjs`
+**Files:** release-contract test, build-capabilities, build-identity; possibly the two policy-constant-only edits named below.
 
-**Interfaces:**
-- `deriveBuildCapabilities()` must mechanically expose these strings when the corresponding code exists:
+The four alpha.8 capability strings are exact:
 
 ```text
 uiWitnessV1
@@ -116,11 +64,31 @@ nativeColorWitnessV1
 renderFailureEvidenceV1
 ```
 
-Existing capability strings remain unchanged unless their underlying code actually disappeared.
+The capability test must import real stable constants, not search source text.
 
-- [ ] **Step 1: Write the failing release-contract test**
+### Failure evidence constant
 
-The test imports the actual modules and asserts capabilities from behavior, not version text:
+PR #119 currently writes the schema literal `full-measure.render-failure.v1` but does not export a constant. If that remains true after merge, make the narrow compatibility edit:
+
+```js
+const RENDER_FAILURE_EVIDENCE_SCHEMA = "full-measure.render-failure.v1";
+```
+
+Use it in `failure.schema` and export it from `render-failure-evidence.cjs`. Extend the existing failure-evidence test to require the exact constant/schema. No failure behavior changes.
+
+### UI Witness constant
+
+#122's implementation plan creates `scripts/build-ui-witness.cjs`. Require it to export:
+
+```js
+const UI_WITNESS_POLICY = "ui-witness-v1";
+```
+
+Its build result includes `policy: UI_WITNESS_POLICY`; `ui-witness-build.test.cjs` asserts it. If #122 already lands an equivalent exact exported constant, use that instead and do not rename it during release integration.
+
+### Release contract
+
+Create `tests/alpha8-release-contract.test.cjs`:
 
 ```js
 const test = require("node:test");
@@ -128,422 +96,155 @@ const assert = require("node:assert/strict");
 const { deriveBuildCapabilities } = require("../src/build-capabilities.cjs");
 const { TOAST_FEEL_CONTRACT, TOAST_FEELS } = require("../src/toast-feels.cjs");
 const { NATIVE_COLOR_POLICY, RELATIONSHIPS } = require("../src/generation/native-color.cjs");
+const { RENDER_FAILURE_EVIDENCE_SCHEMA } = require("../src/render/render-failure-evidence.cjs");
+const { UI_WITNESS_POLICY } = require("../scripts/build-ui-witness.cjs");
 
-test("alpha.8 source tree exposes the bounded release surfaces", () => {
-  const build = deriveBuildCapabilities();
+test("alpha.8 source exposes the bounded release surfaces", () => {
   assert.equal(TOAST_FEEL_CONTRACT, "toast-feel-v1");
   assert.equal(TOAST_FEELS.length, 7);
   assert.equal(NATIVE_COLOR_POLICY, "native-color-witness-v1");
   assert.deepEqual(RELATIONSHIPS, ["echo", "counterpoint"]);
-  for (const capability of [
-    "uiWitnessV1",
-    "toastFeelV1",
-    "nativeColorWitnessV1",
-    "renderFailureEvidenceV1",
-  ]) {
+  assert.equal(RENDER_FAILURE_EVIDENCE_SCHEMA, "full-measure.render-failure.v1");
+  assert.equal(UI_WITNESS_POLICY, "ui-witness-v1");
+  const build = deriveBuildCapabilities();
+  for (const capability of ["uiWitnessV1","toastFeelV1","nativeColorWitnessV1","renderFailureEvidenceV1"]) {
     assert.ok(build.capabilities.includes(capability), capability);
   }
 });
 ```
 
-Use the concrete UI Witness/failure-evidence exports established by their landed implementation to derive the first/fourth capability; do not merely hard-code them because the test asks for them.
+`deriveBuildCapabilities()` derives each capability from these real contracts, not package version text.
 
-- [ ] **Step 2: Run RED**
-
-```bash
-node --test src/full-measure/tests/alpha8-release-contract.test.cjs
-```
-
-Expected: FAIL because build capabilities do not yet advertise all alpha.8 surfaces.
-
-- [ ] **Step 3: Derive capabilities from actual module contracts**
-
-Examples:
-
-```js
-const { TOAST_FEEL_CONTRACT } = require("./toast-feels.cjs");
-const { NATIVE_COLOR_POLICY } = require("./generation/native-color.cjs");
-```
-
-For UI Witness and failure evidence, import their stable policy/export constants introduced by #122/#119. If those slices landed without one, add a narrow exported policy constant in the owning module and a focused test rather than using filesystem string search.
-
-- [ ] **Step 4: Extend build-identity proof**
-
-`build-identity.test.cjs` must assert packaged Build Info includes the same capability strings derived from source.
-
-- [ ] **Step 5: Run focused tests**
-
-```bash
-node --test \
-  src/full-measure/tests/alpha8-release-contract.test.cjs \
-  src/full-measure/tests/build-identity.test.cjs
-```
-
-Expected: PASS.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add src/full-measure/src/build-capabilities.cjs src/full-measure/tests/alpha8-release-contract.test.cjs src/full-measure/tests/build-identity.test.cjs
-git commit -m "test: define alpha.8 release capability contract"
-```
+- [ ] Write test and confirm RED only for missing capability/constant contracts.
+- [ ] Add missing exact policy constants narrowly if required.
+- [ ] Extend build capabilities and `build-identity.test.cjs` so packaged Build Info reports same capability set.
+- [ ] Run release-contract + build-identity + any touched failure/UI-witness focused tests.
+- [ ] Commit `test: define alpha.8 release capability contract`.
 
 ---
 
-### Task 3: Bump authoritative application and lockfile identity together
+## Task 3 — Bump manifest and lockfile identity together
 
-**Files:**
-- Modify: `src/full-measure/package.json`
-- Modify: `src/full-measure/package-lock.json`
-- Test: existing `src/full-measure/tests/build-identity.test.cjs` and repository `check` scripts.
-
-**Interfaces:**
-- Application version becomes exactly `0.5.0-alpha.8` everywhere the npm lockfile represents the root package.
-
-- [ ] **Step 1: Write/confirm the version identity assertion before editing**
-
-Ensure the existing build-identity/version test reads `src/full-measure/package.json` and `package-lock.json` and requires exact equality. If it does not, add:
+- [ ] Confirm/extend identity test:
 
 ```js
 assert.equal(manifest.version, lockfile.version);
 assert.equal(lockfile.packages[""].version, manifest.version);
 ```
 
-- [ ] **Step 2: Run the focused test on the pre-bump tree**
-
-Expected: PASS at alpha.7 or current pre-release identity; this proves the test is meaningful before the change.
-
-- [ ] **Step 3: Change only the authoritative version**
-
-Set:
-
-```json
-"version": "0.5.0-alpha.8"
-```
-
-in `src/full-measure/package.json`.
-
-- [ ] **Step 4: Synchronize lockfile mechanically**
-
-From `src/full-measure` run the repository's ordinary lockfile-safe npm command, preferably:
-
-```bash
-npm install --package-lock-only --ignore-scripts
-```
-
-Inspect the diff. It must update version identity only; unexpected dependency graph churn is not accepted into a release bump.
-
-- [ ] **Step 5: Run identity/check proof**
-
-```bash
-node --test src/full-measure/tests/build-identity.test.cjs
-npm --prefix src/full-measure run check
-```
-
-Expected: PASS.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add src/full-measure/package.json src/full-measure/package-lock.json src/full-measure/tests/build-identity.test.cjs
-git commit -m "chore: bump Haunted Toaster to alpha.8"
-```
+- [ ] Run it before edit to prove current identity is internally consistent.
+- [ ] Set only `src/full-measure/package.json` version to `0.5.0-alpha.8`.
+- [ ] From `src/full-measure`, run `npm install --package-lock-only --ignore-scripts` (or the repo's landed equivalent) to synchronize lock identity.
+- [ ] Inspect diff; reject unrelated dependency churn.
+- [ ] Run build-identity test and `npm --prefix src/full-measure run check`.
+- [ ] Commit `chore: bump Haunted Toaster to alpha.8`.
 
 ---
 
-### Task 4: Run the complete source + browser witness gate on the final release branch head
+## Task 4 — Prove source + browser witness on the exact release-candidate head
 
-**Files:**
-- No production changes unless proof exposes an integration defect.
-
-**Interfaces:**
-- Produces exact source/browser evidence tied to one release-candidate head SHA.
-
-- [ ] **Step 1: Run repository verification**
-
-```bash
-npm run verify
-```
-
-Expected: PASS, including check/test/smoke.
-
-- [ ] **Step 2: Run the UI Witness build/test commands from #122**
-
-Expected: all canonical states pass at the exact release-candidate SHA, including Toast Feel selection and failure/refusal.
-
-- [ ] **Step 3: Inspect screenshot deltas**
-
-Required disposition:
+- [ ] Run `npm run verify`.
+- [ ] Run the exact UI Witness build/test commands landed by #122.
+- [ ] Required UI disposition:
 
 ```text
 UI impact: visual + behavioral
-browser witness: PASS @ <release-candidate SHA>
-visual delta: expected or none; never unexplained
+browser witness: PASS @ <candidate SHA>
+visual delta: expected | none (never unexplained)
 packaged witness required: yes
 GitBook ontology changed: already documented
 ```
 
-- [ ] **Step 4: Confirm Vercel witness resolves the exact commit**
-
-The deployed witness must visibly expose the same commit SHA/build identity. A generic production URL that cannot be tied to the release head is insufficient evidence.
-
-- [ ] **Step 5: Stop on unexplained UI drift**
-
-Do not baseline-update an unexplained delta simply to turn CI green. Route the mismatch back to the owning UI slice.
+- [ ] Confirm Vercel witness visibly identifies the same candidate commit SHA/build identity.
+- [ ] Stop on unexplained screenshot/UI drift; never baseline-update merely to make CI green.
 
 ---
 
-### Task 5: Run Windows package proof on the exact candidate head
+## Task 5 — Prove Windows package on the same candidate head
 
-**Files:**
-- No production changes unless packaging exposes an integration defect.
-
-**Interfaces:**
-- Produces the installer/portable artifacts and packaged build identity used for final field witness.
-
-- [ ] **Step 1: Push the final integration branch and record exact head SHA**
-
-```bash
-git rev-parse HEAD
-```
-
-Record it in the PR/release evidence.
-
-- [ ] **Step 2: Dispatch the existing Windows packaging workflow on that head**
-
-Use the repository's existing `workflow_dispatch` path; do not create a second release workflow.
-
-Expected jobs:
-
-```text
-Verify renderer: success
-Build Windows demo: success
-Publish GitHub release: skipped (no tag yet)
-```
-
-- [ ] **Step 3: Inspect artifact names and contents**
-
-Confirm the Windows package artifact uses filesystem-safe names and contains the expected installer/portable outputs. This specifically guards the earlier slash-in-artifact-name failure class without reintroducing the historical crash as a release blocker.
-
-- [ ] **Step 4: Launch packaged Build Info**
-
-Confirm visible package identity includes:
+- [ ] Record exact head SHA and push integration branch.
+- [ ] Dispatch existing Windows packaging workflow for that head. Expected: Verify renderer success; Build Windows demo success; Publish release skipped because no tag.
+- [ ] Inspect artifact names for filesystem-safe naming and expected installer/portable outputs; this guards the earlier slash-in-artifact-name failure class.
+- [ ] Launch packaged Build Info and require:
 
 ```text
 version: 0.5.0-alpha.8
-commit: <exact candidate SHA>
+commit: <candidate SHA>
 dirty: false
-capabilities include uiWitnessV1, toastFeelV1, nativeColorWitnessV1, renderFailureEvidenceV1
+capabilities: uiWitnessV1, toastFeelV1, nativeColorWitnessV1, renderFailureEvidenceV1
 ```
 
-- [ ] **Step 5: Stop if package identity differs from source witness**
-
-Do not tag a commit whose packaged Build Info cannot be reconciled with the candidate head.
+- [ ] Stop if packaged identity cannot be reconciled with source/browser witness.
 
 ---
 
-### Task 6: Perform one coherent packaged alpha.8 field witness
+## Task 6 — Perform one coherent packaged alpha.8 field witness
 
-**Files:**
-- No production changes unless field proof exposes a release blocker.
-- Preserve the resulting score/timeline/receipt/video and failure bundle if a render fails.
-
-**Interfaces:**
-- Produces the human+machine witness that closes the release thesis.
-
-Required specimen uses:
+Canonical release specimen:
 
 ```text
 one multi-section song
 one distinctive-color image
-one ordinary Toast Feel (use Wire Heat for the canonical release specimen)
-Native Color relationship selected by six-up (echo or counterpoint)
-Universal H.264 transport
+Toast Feel: Wire Heat
+six-up Native Color coverage
+selected candidate with echo or counterpoint + one decompression window
+transport: Universal H.264 / delivery
 ```
 
-- [ ] **Step 1: Select `Wire Heat` in the packaged UI**
-
-Witness that the Toastmoods furniture is visible, selectable, keyboard reachable, and the slate reflects the chosen feel.
-
-- [ ] **Step 2: Generate six and inspect candidate evidence**
-
-Prove the family receipt/evidence includes:
+- [ ] Select Wire Heat in packaged UI; witness visible/keyboard-selectable furniture and slate.
+- [ ] Generate six. Evidence must include `toastFeel.id=wire-heat`, contract `toast-feel-v1`, profile hash, and both Native Color relationships across candidate timelines.
+- [ ] Choose a candidate with one Native Color window; record score address, timeline hash, relationship, plan hash, window ticks.
+- [ ] Render Universal H.264 and require:
 
 ```text
-toastFeel.id = wire-heat
-toastFeel.contractVersion = toast-feel-v1
-native color profile hash present
-echo/counterpoint coverage present across candidate timelines
-```
-
-- [ ] **Step 3: Choose one candidate with a Native Color decompression window**
-
-Record candidate score address, timeline hash, relationship, Native Color plan hash, and window ticks.
-
-- [ ] **Step 4: Render with Universal H.264**
-
-Required success conditions:
-
-```text
-accepted: true
-transportEncoding.profileId: delivery
-Toast Feel receipt: wire-heat
+validation.accepted = true
+transportEncoding.profileId = delivery
+treatment.toastFeel.id = wire-heat
 Native Color profile/plan evidence present
-Native Color relationship matches accepted candidate
-windowCount: 1
-preview/final semantic evidence agrees
+receipt relationship matches accepted timeline
+windowCount = 1
 Witness Window verified
-duration delta <= existing acceptance threshold
+preview/final semantic evidence agrees
+duration delta within existing acceptance threshold
 ```
 
-- [ ] **Step 5: Human visual witness at the recorded window**
-
-Confirm the chosen relationship is visible before the window and the image moves visibly toward its native chromatic character during the recorded window.
-
-- [ ] **Step 6: Exercise MADD CLOWN separately without requiring a second full release render**
-
-Generate a MADD CLOWN family and confirm family evidence says:
-
-```text
-semanticClass: madd-clown
-stompPolicy: visible-outcome-stomp-v1
-seedParentScoreRef: present
-```
-
-A full MADD CLOWN video is optional for the release gate unless the generation path exposes a defect.
-
-- [ ] **Step 7: Optional Efficient transport witness**
-
-If convenient, render the same accepted timeline with `efficient` and record playback/size evidence. Do not alter visual semantics or block release if H.264 is valid and HEVC remains merely experimental.
+- [ ] Human witness the recorded window: chosen relationship is apparent before it and frame treatment moves toward native source chroma during it.
+- [ ] Generate MADD CLOWN separately and require `semanticClass=madd-clown`, `stompPolicy=visible-outcome-stomp-v1`, `seedParentScoreRef` present. A second full video is optional unless generation exposes a defect.
+- [ ] Optional: same accepted timeline through `efficient`; record compatibility/size without blocking valid H.264 release.
+- [ ] If a render fails natively, preserve/inspect `.render-failure`; a new repeatable candidate failure is release evidence, not something to ignore because old #116 was demoted.
 
 ---
 
-### Task 7: Resolve release-candidate PR review and freeze the exact accepted commit
+## Task 7 — Complete review and freeze the accepted commit
 
-**Files:**
-- PR metadata/comments only unless review identifies a valid in-scope regression.
-
-**Interfaces:**
-- Produces one reviewed/green release commit SHA eligible for tagging.
-
-- [ ] **Step 1: Run PR Completion/review loop on the integration PR**
-
-Review focus is narrow:
-
-```text
-version identity
-combined alpha.8 capability contract
-browser/package witness parity
-no accidental semantic changes during integration
-release/tag safety
-```
-
-- [ ] **Step 2: Address only valid in-scope findings**
-
-Any code change invalidates the prior package/field witness. After a fix, rerun Tasks 4–6 as required by the affected boundary.
-
-- [ ] **Step 3: Reconfirm final state**
-
-Required:
-
-```text
-checks green
-browser witness green
-Windows package green
-packaged field specimen accepted
-zero unresolved in-scope review threads
-exact final head SHA recorded
-```
-
-- [ ] **Step 4: Merge using the repository/user-approved strategy**
-
-Do not infer merge permission from this plan. The operator executing the plan must have explicit merge authorization at that time.
-
-- [ ] **Step 5: Fetch main and verify merge result**
-
-```bash
-git switch main
-git pull --ff-only
-git rev-parse HEAD
-```
-
-The commit to tag is the exact accepted post-merge `main` commit whose packaged/review evidence is still applicable. If merge method changes the commit SHA, run the lightweight source/build identity checks again and ensure the package evidence is correctly attributable; if not, package the final main SHA before tagging.
+- [ ] Run PR Completion review loop focused only on version identity, combined capability contract, browser/package parity, accidental integration semantic changes, and tag safety.
+- [ ] Address valid in-scope findings only. Any code change invalidates affected package/field evidence; rerun Tasks 4–6 proportionally.
+- [ ] Require green checks, browser witness green, Windows package green, accepted field specimen, zero unresolved in-scope review threads, final head SHA recorded.
+- [ ] Merge only with explicit merge authorization at execution time and approved strategy.
+- [ ] Fetch final `main`. If merge method changes commit SHA such that prior package evidence is not attributable, package/witness final main before tagging.
 
 ---
 
-### Task 8: Tag and publish `v0.5.0-alpha.8` only after final-main proof
+## Task 8 — Tag/publish only final proven main
 
-**Files:**
-- Git tag/release only.
-
-**Interfaces:**
-- Produces one immutable prerelease tag pointing to the exact proven `main` commit.
-
-- [ ] **Step 1: Confirm tag does not already exist**
-
-```bash
-git rev-parse -q --verify refs/tags/v0.5.0-alpha.8
-```
-
-Expected: no existing ref. If it exists, stop; never move/reuse it.
-
-- [ ] **Step 2: Confirm manifest identity on final main**
-
-```bash
-node -p "require('./src/full-measure/package.json').version"
-```
-
-Expected: `0.5.0-alpha.8`.
-
-- [ ] **Step 3: Confirm final main is clean and green**
-
-```bash
-git status --short
-npm run verify
-```
-
-Expected: clean + PASS.
-
-- [ ] **Step 4: Create and push exact tag**
-
-```bash
-git tag v0.5.0-alpha.8 <proven-main-sha>
-git push origin v0.5.0-alpha.8
-```
-
-- [ ] **Step 5: Let the existing `v*` workflow publish**
-
-Expected:
-
-```text
-Verify renderer: success
-Build Windows demo: success
-Publish GitHub release: success
-```
-
-Do not manually publish a duplicate release if the workflow succeeds.
-
-- [ ] **Step 6: Verify published release artifacts and identity**
-
-Confirm release tag, commit, package version, artifact names, and Build Info all agree.
-
-- [ ] **Step 7: Record final release witness**
-
-Record in GitBook/specimen notes or the appropriate project evidence page:
+- [ ] Confirm `refs/tags/v0.5.0-alpha.8` does not already exist. If it exists, stop; never move it.
+- [ ] Confirm manifest returns `0.5.0-alpha.8`, worktree clean, `npm run verify` green.
+- [ ] Tag exact proven main SHA and push `v0.5.0-alpha.8`.
+- [ ] Let existing `v*` workflow verify/package/publish. Do not manually publish a duplicate release if it succeeds.
+- [ ] Verify tag, release commit, package version, artifact names, and packaged Build Info agree.
+- [ ] Record final project evidence:
 
 ```text
 release: v0.5.0-alpha.8
 main commit: <sha>
-Windows package workflow: <run>
+Windows workflow: <run>
 browser witness: PASS @ <sha>
 packaged witness: PASS
-canonical field specimen receipt: <receipt/output hashes>
+field specimen receipt/output hashes: recorded
 Toast Feel: wire-heat
 Native Color: <echo|counterpoint> + plan hash
 Universal H.264: PASS
-historical #116 reproduction: not required; failure evidence floor present
+historical #116 reproduction: not required; failure-evidence floor present
 ```
 
-- [ ] **Step 8: Stop and field-mine**
-
-Do not immediately pull Compression Pressure, Dynamic Camera, Linear v2, deeper Listener structure, Haunted Memory, semantic color zones, foreign-video ingestion, Exact Return, or two-parent breeding into the tagged release. alpha.8 is complete once the approved three human-visible truths are proven and shipped.
+- [ ] Stop and field-mine. Do not pull Compression Pressure, Dynamic Camera, Linear v2, deeper Listener structure, Haunted Memory, semantic color zones, foreign-video ingestion, Exact Return, or two-parent breeding into the tagged release.
