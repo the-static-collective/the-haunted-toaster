@@ -135,7 +135,7 @@ jobs:
       - name: Upload Windows demo
         uses: actions/upload-artifact@v4
         with:
-          name: Haunted-Toaster-Windows-${{ github.ref_name }}
+          name: Haunted-Toaster-Windows-${{ github.run_id }}
           path: |
             src/full-measure/release/*.exe
             src/full-measure/release/*.yml
@@ -152,7 +152,7 @@ jobs:
       - name: Download Windows package
         uses: actions/download-artifact@v4
         with:
-          name: Haunted-Toaster-Windows-${{ github.ref_name }}
+          name: Haunted-Toaster-Windows-${{ github.run_id }}
           path: release-assets
 
       - name: Publish tagged release
