@@ -71,7 +71,7 @@
   .candidate-header { padding: 18px 22px 14px; }
   .candidate-toolbar { padding: 10px 22px; }
   .candidate-grid { gap: 10px; padding: 0 22px 14px; }
-  .candidate-copy { padding: 9px 11px 10px; }
+  .candidate-copy { padding: 8px 11px 6px; }
   .candidate-actions { padding: 12px 22px 14px; }
 }
 @media (max-width: 1100px) {
