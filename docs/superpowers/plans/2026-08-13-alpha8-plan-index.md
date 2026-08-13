@@ -33,6 +33,16 @@ UI Witness Gate                   |
 - Universal H.264 remains the required release transport; HEVC remains optional/experimental.
 - Final tag is created only from the exact proven `main` commit after browser + Windows package + field witness.
 
+## Self-review result
+
+The approved design and all three new implementation plans were checked for scope coverage, placeholder language, conflicting authority, and cross-plan interface consistency. No unresolved implementation placeholder remains in the alpha.8 plan set.
+
+The review corrected three concrete seams before execution:
+
+- renderer Toast Feel furniture receives its manifest through the existing sandbox bridge rather than duplicating/importing CommonJS in browser code;
+- Toast-pressured score re-resolution explicitly rebuilds the current semantic timeline stack so Possession Arc is not lost;
+- Native Color resolves feel preference from canonical `toastFeelId` and extends the already-shared preview/production compiler.
+
 ## Stop line
 
 alpha.8 is complete when the packaged appliance proves:
