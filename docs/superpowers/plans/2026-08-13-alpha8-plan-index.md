@@ -25,7 +25,7 @@ UI Witness Gate                   |
 
 - VisualScore v1 is not rewritten merely to carry Toast Feel or Native Color identity.
 - Toast Feel domain truth has one CommonJS authority and crosses to renderer UI through main/preload IPC.
-- Ordinary Toast Feel pressure rebuilds the same current semantic timeline stack before Lyric Resonance is reattached.
+- Ordinary Toast Feel pressure rebuilds Primitive/Atmosphere state, then Possession Arc, while retaining Color Drift through the Primitive resolver, before Lyric Resonance is reattached.
 - MADD CLOWN delegates to existing `visible-outcome-stomp-v1` rather than creating a second chaos system.
 - Native Color v1 has exactly `echo` and `counterpoint`.
 - Native Color is expressive-renderer-only and old/non-expressive timelines remain unchanged.
