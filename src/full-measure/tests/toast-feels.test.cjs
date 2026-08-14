@@ -19,7 +19,7 @@ const EXPECTED_IDS = [
 ];
 
 test("the canonical Toast Feel manifest has seven lawful feels in display order", () => {
-  assert.equal(TOAST_FEEL_CONTRACT, "toast-feel-v1");
+  assert.equal(TOAST_FEEL_CONTRACT, "toast-feel-v2");
   assert.deepEqual(TOAST_FEELS.map(({ id }) => id), EXPECTED_IDS);
   assert.equal(TOAST_FEELS.filter(({ semanticClass }) => semanticClass === "ordinary").length, 6);
   assert.equal(TOAST_FEELS.filter(({ semanticClass }) => semanticClass === "madd-clown").length, 1);
@@ -40,8 +40,10 @@ test("the canonical Toast Feel manifest has seven lawful feels in display order"
       for (const value of Object.values(feel.pressure)) {
         assert.ok(Number.isFinite(value) && value >= -1 && value <= 1);
       }
+      assert.ok(feel.affinity);
     } else {
       assert.equal(feel.pressure, null);
+      assert.equal(feel.affinity, null);
     }
   }
 });

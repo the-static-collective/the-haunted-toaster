@@ -232,7 +232,7 @@ test("Toast Feel selection publishes canonical manifest evidence, not edited DOM
     assert.deepEqual(JSON.parse(JSON.stringify(detail)), {
       id: "ash-bloom",
       name: "Ash Bloom",
-      contractVersion: "toast-feel-v1",
+      contractVersion: "toast-feel-v2",
       semanticClass: "ordinary",
     });
   } finally {

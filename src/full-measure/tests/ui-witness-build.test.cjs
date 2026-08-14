@@ -30,10 +30,13 @@ test("UI witness is generated from production renderer assets", (t) => {
   assert.ok(generated.indexOf("witness-bridge.js") < generated.indexOf("toast-feel-controller.js"));
   assert.match(generated, /__uiWitnessToastFeels/);
   assert.match(generated, /__uiWitnessBuildInfo/);
-  assert.match(generated, /"version":"0\.5\.0-alpha\.8"/);
+  assert.match(generated, /"version":"0\.5\.0-alpha\.9"/);
   for (const capability of [
     "uiWitnessV1",
-    "toastFeelV1",
+    "toastFeelV2",
+    "mutationLatticeV1",
+    "shapePackV1",
+    "topologyArcV1",
     "nativeColorWitnessV1",
     "renderFailureEvidenceV1",
   ]) {

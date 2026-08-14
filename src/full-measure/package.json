@@ -1,7 +1,7 @@
 {
   "name": "haunted-toaster",
   "productName": "The Haunted Toaster",
-  "version": "0.5.0-alpha.8",
+  "version": "0.5.0-alpha.9",
   "description": "A local-first desktop instrument that turns a finished song into a finished music video with a cryptographic receipt.",
   "author": "The Static Collective",
   "private": true,

@@ -1,5 +1,5 @@
 const { TOPOLOGIES } = require("../generation/schema.cjs");
-const { EXPRESSIVE_RENDERER_POLICY, MUTATION_LATTICE_RENDERER_POLICY } = require("../generation/renderer-policy.cjs");
+const { EXPRESSIVE_RENDERER_POLICY, MUTATION_LATTICE_RENDERER_POLICY, isExpressiveRendererPolicy } = require("../generation/renderer-policy.cjs");
 const { effectiveInternalEnergy } = require("./response-shaping.cjs");
 const { resolveFieldEnvelope } = require("./field-envelope.cjs");
 
@@ -56,7 +56,7 @@ function topologyContext(graph, execution) {
   const motion = baseState.motion || {};
   const rawAmplitude = clamp(Number(motion.amplitude) || 0, 0, 1);
   const rawVariance = clamp(Number(motion.variance) || 0, 0, 1);
-  const expressive = execution.timeline.rendererPolicy === EXPRESSIVE_RENDERER_POLICY;
+  const expressive = isExpressiveRendererPolicy(execution.timeline.rendererPolicy);
   const amplitude = expressive ? effectiveInternalEnergy(rawAmplitude) : rawAmplitude;
   const variance = expressive ? effectiveInternalEnergy(rawVariance) : rawVariance;
   const duration = Math.max(0.1, execution.durationTicks / execution.timebase);
