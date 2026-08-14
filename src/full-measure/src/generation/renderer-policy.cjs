@@ -5,6 +5,10 @@ const VISUAL_LANGUAGE_RENDERER_POLICY = "visual-language-v1";
 const EXPRESSIVE_RENDERER_POLICY = "visual-language-v2";
 const MUTATION_LATTICE_RENDERER_POLICY = "visual-language-v3";
 const LEGACY_RENDERER_POLICY = "legacy-v1";
+const EXPRESSIVE_RENDERER_POLICIES = Object.freeze([
+  EXPRESSIVE_RENDERER_POLICY,
+  MUTATION_LATTICE_RENDERER_POLICY,
+]);
 
 function rendererPolicyForProfile(profile) {
   if (profile?.id === MUTATION_LATTICE_RENDERER_PROFILE_ID) return MUTATION_LATTICE_RENDERER_POLICY;
@@ -13,7 +17,12 @@ function rendererPolicyForProfile(profile) {
   return null;
 }
 
+function isExpressiveRendererPolicy(policy) {
+  return EXPRESSIVE_RENDERER_POLICIES.includes(policy);
+}
+
 module.exports = {
+  EXPRESSIVE_RENDERER_POLICIES,
   EXPRESSIVE_RENDERER_POLICY,
   EXPRESSIVE_RENDERER_PROFILE_ID,
   LEGACY_RENDERER_POLICY,
@@ -21,5 +30,6 @@ module.exports = {
   MUTATION_LATTICE_RENDERER_PROFILE_ID,
   VISUAL_LANGUAGE_RENDERER_POLICY,
   VISUAL_LANGUAGE_RENDERER_PROFILE_ID,
+  isExpressiveRendererPolicy,
   rendererPolicyForProfile,
 };
