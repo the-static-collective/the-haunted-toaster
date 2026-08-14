@@ -1,0 +1,62 @@
+name: Alpha9 recovery artifact
+
+on:
+  push:
+    branches:
+      - agent/alpha9-recovery
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/full-measure/package-lock.json
+
+      - name: Install locked dependencies
+        run: npm --prefix src/full-measure ci
+
+      - name: Apply recovery patch in disposable checkout
+        run: python3 src/full-measure/scripts/alpha9-recovery-patch.py
+
+      - name: Prove recovered alpha.9 contract
+        run: node --test src/full-measure/tests/alpha9-mutation-lattice.test.cjs
+
+      - name: Check source syntax
+        run: npm --prefix src/full-measure run check
+
+      - name: Preserve witnessed modified tree
+        if: success()
+        run: |
+          git diff --binary > alpha9-recovery.patch
+          git status --short > alpha9-recovery.status.txt
+          tar -czf alpha9-recovery-files.tgz \
+            src/full-measure/src/generation/schema.cjs \
+            src/full-measure/constraints/open-field.v3.json \
+            src/full-measure/constraints/porchlight.v3.json \
+            src/full-measure/constraints/wire-orchard.v3.json \
+            src/full-measure/constraints/absolute-residual.v3.json \
+            src/full-measure/src/candidate-session.cjs \
+            src/full-measure/src/generation/index.cjs \
+            src/full-measure/src/generation/toast-feel-generation.cjs \
+            src/full-measure/src/generation/mutation-lattice-generation.cjs \
+            src/full-measure/src/render/field-envelope.cjs \
+            src/full-measure/src/render/topology-compilers.cjs \
+            src/full-measure/src/render/timeline-filter.cjs \
+            src/full-measure/src/render/render.cjs
+
+      - name: Upload witnessed recovery tree
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alpha9-recovery-tree
+          path: |
+            alpha9-recovery.patch
+            alpha9-recovery.status.txt
+            alpha9-recovery-files.tgz
+          if-no-files-found: error
