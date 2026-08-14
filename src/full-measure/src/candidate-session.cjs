@@ -7,11 +7,11 @@ const { getToastFeel } = require("./toast-feels.cjs");
 const {
   analyzeNativeChromaticProfile: defaultAnalyzeNativeChromaticProfile,
 } = require("./native-color-analysis.cjs");
-const openField = require("../constraints/open-field.v1.json");
-const porchlight = require("../constraints/porchlight.v2.json");
-const wireOrchard = require("../constraints/wire-orchard.v2.json");
-const absoluteResidual = require("../constraints/absolute-residual.v2.json");
-const rendererProfile = require("../profiles/toaster-raster-3.json");
+const openField = require("../constraints/open-field.v3.json");
+const porchlight = require("../constraints/porchlight.v3.json");
+const wireOrchard = require("../constraints/wire-orchard.v3.json");
+const absoluteResidual = require("../constraints/absolute-residual.v3.json");
+const rendererProfile = require("../profiles/toaster-raster-4.json");
 
 const CONSTRAINTS_BY_PRESET = Object.freeze({
   openField,

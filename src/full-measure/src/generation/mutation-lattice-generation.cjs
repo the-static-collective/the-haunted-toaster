@@ -287,7 +287,25 @@ function samplingSeeds(rootSeed, attempts) {
     : `ht-lattice:${hashCanonical({ rootSeed: String(rootSeed), attempt: index }, "HauntedToaster-MutationLatticeSamplingSeed-v1")}`);
 }
 
-function selectFromPool(pool, constraints, rootSeed, count = 6) {
+function affinityMerit(signature, feel) {
+  const affinity = feel?.affinity;
+  if (!affinity) return 0;
+  let score = 0;
+  const layers = signature.layers;
+  if (affinity.skeleton?.topologies?.includes(layers.skeleton.topology)) score += 12;
+  if (affinity.body?.structures?.includes(layers.body.structure)) score += 5;
+  if (affinity.body?.dynamics?.includes(layers.body.dynamics)) score += 5;
+  if (affinity.frame?.cameras?.includes(layers.frame.camera)) score += 4;
+  if (affinity.skin?.materials?.includes(layers.skin.material)) score += 4;
+  if (affinity.skin?.palettes?.includes(layers.skin.palette)) score += 4;
+  if (affinity.skin?.nativeColor?.includes(layers.skin.nativeColor)) score += 3;
+  if (affinity.weather?.atmospheres?.includes(layers.weather.atmosphere)) score += 4;
+  if (affinity.time?.temporalDensity?.includes(layers.time.temporalDensity)) score += 4;
+  return score;
+}
+
+function selectFromPool(pool, constraints, rootSeed, count = 6, toastFeelId = null) {
+  const feel = toastFeelId ? getToastFeel(toastFeelId) : null;
   const unique = new Map();
   for (const candidate of pool) if (!unique.has(candidate.scoreAddress)) unique.set(candidate.scoreAddress, candidate);
   const remaining = [...unique.values()];
@@ -306,6 +324,7 @@ function selectFromPool(pool, constraints, rootSeed, count = 6) {
         if (!usedTopologies.has(signature.topology) && usedTopologies.size < TARGET_TOPOLOGY_COUNT) value += 1200;
         if (!usedSbf.has(signature.skeletonBodyFrame)) value += 600;
         if (!usedCross.has(signature.crossLayerSignature)) value += 300;
+        value += affinityMerit(signature, feel) * 10;
         const tie = hashCanonical({ rootSeed: String(rootSeed), scoreAddress: candidate.scoreAddress }, "HauntedToaster-MutationLatticeSelectionTie-v1");
         return { value, tie };
       }
@@ -368,6 +387,7 @@ function pooledFamily(options, generator = nativeColorGeneration.generateCandida
     options.garmentConstraints || options.constraints,
     options.rootSeed,
     6,
+    options.toastFeelId || null,
   );
   return rebuildSelectedFamily(families[0], selected, {
     rootSeed: options.rootSeed,

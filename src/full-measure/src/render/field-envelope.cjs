@@ -31,7 +31,7 @@ function resolveFieldEnvelope(state, frame = {}) {
     });
   }
 
-  if (!["circle", "mirrored-ring", "spiral", "quad-mirror"].includes(topology)) {
+  if (!["circle", "mirrored-ring", "spiral", "quad-mirror", "elastic-spine", "split-horizon", "cathedral-fan", "echo-tunnel"].includes(topology)) {
     throw new TypeError(`Unsupported field-envelope topology: ${String(topology)}.`);
   }
 
@@ -69,8 +69,15 @@ function resolveFieldEnvelope(state, frame = {}) {
   const cropX = Math.floor((stageWidth - width) / 2);
   const cropY = Math.floor((stageHeight - height) / 2);
 
+  const shapePolicies = Object.freeze({
+    "elastic-spine": "shape-pack-elastic-spine-v1",
+    "split-horizon": "shape-pack-split-horizon-v1",
+    "cathedral-fan": "shape-pack-cathedral-fan-v1",
+    "echo-tunnel": "shape-pack-echo-tunnel-v1",
+  });
+
   return Object.freeze({
-    policy: "bounded-full-height-v1",
+    policy: shapePolicies[topology] || "bounded-full-height-v1",
     topology,
     frame: Object.freeze({ width, height }),
     envelope: Object.freeze({

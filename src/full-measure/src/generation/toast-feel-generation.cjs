@@ -99,12 +99,17 @@ function feelEvidence(feel) {
     feel.pressure,
     "HauntedToaster-ToastFeelPressure-v1",
   );
+  const affinityHash = hashCanonical(
+    feel.affinity,
+    "HauntedToaster-ToastFeelAffinity-v1",
+  );
   return deepFreeze({
     contractVersion: feel.contractVersion,
     id: feel.id,
     name: feel.name,
     semanticClass: feel.semanticClass,
     pressureHash,
+    affinityHash,
   });
 }
 
@@ -129,7 +134,8 @@ function resolvePressuredTimeline({
 function pressureCandidate(candidate, options, feel, evidence) {
   if (
     candidate.scoreArtifact.derivation?.policy?.toastFeel?.id === feel.id &&
-    candidate.scoreArtifact.derivation.policy.toastFeel.pressureHash === evidence.pressureHash
+    candidate.scoreArtifact.derivation.policy.toastFeel.pressureHash === evidence.pressureHash &&
+    candidate.scoreArtifact.derivation.policy.toastFeel.affinityHash === evidence.affinityHash
   ) {
     return candidate;
   }
@@ -149,6 +155,7 @@ function pressureCandidate(candidate, options, feel, evidence) {
       id: feel.id,
       semanticClass: feel.semanticClass,
       pressureHash: evidence.pressureHash,
+      affinityHash: evidence.affinityHash,
     },
   };
   const scoreArtifact = primitiveGeneration.artifact(score, derivation);
@@ -204,6 +211,7 @@ function rebuildMaddClownFamily(baseFamily, feel, {
     name: feel.name,
     semanticClass: feel.semanticClass,
     pressureHash: null,
+    affinityHash: null,
     seedFamilyHash,
     seedParentScoreRef: seedParentScoreRef || baseFamily.parentScoreRef || null,
     stompPolicy: STOMP_POLICY,

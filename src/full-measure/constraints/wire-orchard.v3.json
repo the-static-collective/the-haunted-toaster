@@ -1,0 +1,174 @@
+{
+  "schema": "haunted-toaster/garment-constraints/v1",
+  "id": "wire-orchard-v3",
+  "topology": {
+    "allowed": [
+      "linear",
+      "circle",
+      "mirrored-ring",
+      "spiral",
+      "quad-mirror",
+      "elastic-spine",
+      "split-horizon",
+      "cathedral-fan",
+      "echo-tunnel"
+    ]
+  },
+  "motion": {
+    "grammar": {
+      "allowed": [
+        "drift",
+        "pulse",
+        "orbit",
+        "fracture"
+      ]
+    },
+    "amplitude": {
+      "min": 0.28,
+      "max": 0.95
+    },
+    "variance": {
+      "min": 0.18,
+      "max": 0.88
+    }
+  },
+  "palette": {
+    "logic": {
+      "allowed": [
+        "garment",
+        "split-complement",
+        "duotone"
+      ]
+    },
+    "bleed": {
+      "min": 0.1,
+      "max": 0.68
+    },
+    "contrastBias": {
+      "min": 0.05,
+      "max": 0.85
+    }
+  },
+  "material": {
+    "texture": {
+      "allowed": [
+        "grain",
+        "photocopy",
+        "gate-weave"
+      ]
+    },
+    "imperfection": {
+      "min": 0.14,
+      "max": 0.82
+    }
+  },
+  "lyric": {
+    "placement": {
+      "allowed": [
+        "lower-third",
+        "center",
+        "orbit",
+        "ghost"
+      ]
+    },
+    "densityBias": {
+      "min": -0.2,
+      "max": 0.72
+    }
+  },
+  "camera": {
+    "grammar": {
+      "allowed": [
+        "drift",
+        "push",
+        "orbit"
+      ]
+    },
+    "variance": {
+      "min": 0.12,
+      "max": 0.86
+    }
+  },
+  "temporalDensity": {
+    "allowed": [
+      "section",
+      "phrase",
+      "transient"
+    ]
+  },
+  "influence": {
+    "energyBias": {
+      "min": -0.2,
+      "max": 1
+    },
+    "transientDensity": {
+      "min": 0.18,
+      "max": 1
+    },
+    "lyricDensity": {
+      "min": 0,
+      "max": 0.85
+    },
+    "contrastBias": {
+      "min": 0,
+      "max": 1
+    },
+    "motionVariance": {
+      "min": 0.2,
+      "max": 1
+    },
+    "imperfection": {
+      "min": 0.12,
+      "max": 0.9
+    }
+  },
+  "patchPolicy": {
+    "maxPatches": 32,
+    "entropyBudget": 96,
+    "axes": {
+      "motion": {
+        "boundaries": [
+          "section",
+          "phrase",
+          "transient"
+        ],
+        "transition": "interpolate",
+        "entropyCost": 4
+      },
+      "palette": {
+        "boundaries": [
+          "section",
+          "transient"
+        ],
+        "transition": "crossfade",
+        "entropyCost": 6
+      },
+      "material": {
+        "boundaries": [
+          "section",
+          "phrase",
+          "transient"
+        ],
+        "transition": "cut",
+        "entropyCost": 3
+      },
+      "lyric": {
+        "boundaries": [
+          "phrase",
+          "transient"
+        ],
+        "transition": "crossfade",
+        "entropyCost": 3
+      },
+      "camera": {
+        "boundaries": [
+          "section",
+          "phrase",
+          "transient"
+        ],
+        "transition": "interpolate",
+        "entropyCost": 5
+      }
+    }
+  }
+}

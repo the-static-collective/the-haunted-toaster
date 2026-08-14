@@ -175,6 +175,7 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       topology: compiledTimeline.topology,
       topologyCompiler: compiledTimeline.topologyCompiler,
       fieldEnvelopePolicy: compiledTimeline.fieldEnvelope?.policy || null,
+      topologyArc: compiledTimeline.topologyArc || null,
       operators: compiledTimeline.operators,
       atmosphere: baseFilter.atmosphereEvidence,
       temporalSampling: temporalSampling.policy,
