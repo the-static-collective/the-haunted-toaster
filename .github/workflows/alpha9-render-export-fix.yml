@@ -1,0 +1,83 @@
+name: Alpha9 renderer export recovery
+
+on:
+  push:
+    branches:
+      - agent/alpha9-recovery
+
+permissions:
+  contents: write
+
+jobs:
+  restore-exports:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/full-measure/package-lock.json
+
+      - name: Restore the established renderer export surface only
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          path = Path('src/full-measure/src/render/render.cjs')
+          text = path.read_text()
+          old = '''module.exports = {
+            compactNativeColorEvidence,
+            compactToastFeelEvidence,
+            renderVideo,
+          };
+          '''
+          new = '''module.exports = {
+            ...legacy,
+            applyWitnessWindowToGraph,
+            compactNativeColorEvidence,
+            compactToastFeelEvidence,
+            renderVideo,
+            renderResolvedTimelineVideo,
+          };
+          '''
+          if old not in text:
+              raise SystemExit('renderer export regression shape not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+
+      - name: Reproduce and prove the export regression boundary
+        run: |
+          npm --prefix src/full-measure ci
+          node --test \
+            src/full-measure/tests/render.test.cjs \
+            src/full-measure/tests/witness-window.test.cjs \
+            src/full-measure/tests/toast-feel-receipt.test.cjs \
+            src/full-measure/tests/alpha9-evidence-proof.test.cjs
+
+      - name: Run full repository proof
+        run: npm run verify
+
+      - name: Audit runtime dependencies
+        run: npm --prefix src/full-measure audit --omit=dev --audit-level=high
+
+      - name: Commit only the root-cause repair
+        shell: bash
+        run: |
+          changed="$(git diff --name-only)"
+          if [ "$changed" != "src/full-measure/src/render/render.cjs" ]; then
+            echo "Unexpected product files changed:" >&2
+            printf '%s\n' "$changed" >&2
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/alpha9-render-export-fix.yml
+          git add src/full-measure/src/render/render.cjs
+          git commit -m "fix: restore renderer compatibility exports"
+          git push origin HEAD:agent/alpha9-recovery
