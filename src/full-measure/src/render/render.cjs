@@ -48,6 +48,7 @@ function compactToastFeelEvidence(toastFeel) {
     name: toastFeel.name,
     semanticClass: toastFeel.semanticClass,
     pressureHash: toastFeel.pressureHash || null,
+    affinityHash: toastFeel.affinityHash || null,
     seedParentScoreRef: toastFeel.seedParentScoreRef || null,
     stompPolicy: toastFeel.stompPolicy || null,
   };
@@ -518,10 +519,7 @@ async function renderVideo(config, hooks = {}) {
 }
 
 module.exports = {
-  ...legacy,
-  applyWitnessWindowToGraph,
   compactNativeColorEvidence,
   compactToastFeelEvidence,
   renderVideo,
-  renderResolvedTimelineVideo,
 };
