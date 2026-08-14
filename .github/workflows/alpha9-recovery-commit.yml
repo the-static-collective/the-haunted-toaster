@@ -1,0 +1,50 @@
+name: Alpha9 recovery commit
+
+on:
+  push:
+    branches:
+      - agent/alpha9-recovery
+
+permissions:
+  contents: write
+
+jobs:
+  commit-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/full-measure/package-lock.json
+
+      - name: Install locked dependencies
+        run: npm --prefix src/full-measure ci
+
+      - name: Rebuild witnessed recovery tree
+        run: python3 src/full-measure/scripts/alpha9-recovery-patch.py
+
+      - name: Re-prove focused contract
+        run: node --test src/full-measure/tests/alpha9-mutation-lattice.test.cjs
+
+      - name: Re-prove source syntax
+        run: npm --prefix src/full-measure run check
+
+      - name: Commit exact witnessed tree and remove recovery machinery
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -f \
+            .github/workflows/alpha9-recovery-patch.yml \
+            .github/workflows/alpha9-recovery-artifact.yml \
+            .github/workflows/alpha9-recovery-commit.yml \
+            src/full-measure/scripts/alpha9-recovery-patch.py
+          git add -A
+          git commit -m "feat: recover alpha.9 mutation lattice execution"
+          git push origin HEAD:agent/alpha9-recovery
