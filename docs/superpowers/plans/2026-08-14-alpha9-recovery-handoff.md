@@ -27,6 +27,10 @@ A disposable recovery checkout then applied the reconstructed execution patch an
 
 The exact witnessed modified tree was preserved as workflow artifact `alpha9-recovery-tree` from run `31844778951` before being committed to the branch.
 
+## Reconciled active lineage
+
+Reconciled product head `c05ee968cf7045145d3b70b5cb8acb37fba4f458` advances the active appliance to `0.5.0-alpha.9`, restores visual-language-v3 inheritance of alpha.8 expressive behavior, advances Build Info from the raster-4 registries, and keeps raster-3 / visual-language-v2 as an explicit replay fixture. The focused alpha.9, Native Color session, Toast Feel, active-profile, and v2-compatibility contracts all pass at the reconciliation gate.
+
 ## Current gate
 
-This handoff intentionally does **not** claim alpha.9 is test-ready yet. The branch must still pass the repository's ordinary `npm run verify`, runtime dependency audit, browser witness, production FFmpeg smoke, and Windows Setup/Portable package witness required by issue #127. Any alpha.8 version/capability assertions that fail because the active appliance has deliberately moved to raster-4 must be advanced narrowly rather than weakening historical compatibility tests.
+This handoff intentionally does **not** claim alpha.9 is test-ready yet. The branch must still pass the repository's ordinary `npm run verify`, runtime dependency audit, browser witness, production FFmpeg smoke, and Windows Setup/Portable package witness required by issue #127.
