@@ -31,6 +31,8 @@ The exact witnessed modified tree was preserved as workflow artifact `alpha9-rec
 
 Reconciled product head `c05ee968cf7045145d3b70b5cb8acb37fba4f458` advances the active appliance to `0.5.0-alpha.9`, restores visual-language-v3 inheritance of alpha.8 expressive behavior, advances Build Info from the raster-4 registries, and keeps raster-3 / visual-language-v2 as an explicit replay fixture. The focused alpha.9, Native Color session, Toast Feel, active-profile, and v2-compatibility contracts all pass at the reconciliation gate.
 
+The final receipt polish exposed Toast Feel v2 `affinityHash` and added an explicit success/failure Topology Arc evidence round-trip. That edit briefly narrowed `render.cjs` exports. The exact PR failure isolated the regression to missing compatibility exports; recovery run `31846107435` restored the established `...legacy` and Witness Window export surface, then passed the focused reproducer, full `npm run verify`, and runtime-only dependency audit before committing only that root-cause repair at `76de05792c189dd4cbd6561cdfdbe4d99d5d2076`.
+
 ## Current gate
 
-This handoff intentionally does **not** claim alpha.9 is test-ready yet. The branch must still pass the repository's ordinary `npm run verify`, runtime dependency audit, browser witness, production FFmpeg smoke, and Windows Setup/Portable package witness required by issue #127.
+PR #131 is the non-draft test/package gate. No merge, tag, or release is authorized. Its next exact-head run must pass repository verification, browser witness, production FFmpeg smoke, and Windows Setup/Portable packaging; packaged human interaction remains a separate field witness before promotion.
