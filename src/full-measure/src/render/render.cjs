@@ -519,7 +519,10 @@ async function renderVideo(config, hooks = {}) {
 }
 
 module.exports = {
+  ...legacy,
+  applyWitnessWindowToGraph,
   compactNativeColorEvidence,
   compactToastFeelEvidence,
   renderVideo,
+  renderResolvedTimelineVideo,
 };
