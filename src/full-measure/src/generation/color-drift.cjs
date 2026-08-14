@@ -3,7 +3,7 @@ const {
   deepFreeze,
   hashCanonical,
 } = require("./canonical.cjs");
-const { EXPRESSIVE_RENDERER_POLICY } = require("./renderer-policy.cjs");
+const { isExpressiveRendererPolicy } = require("./renderer-policy.cjs");
 
 const COLOR_DRIFT_POLICY = "color-drift-v1";
 const COLOR_DRIFT_DOMAIN = "HauntedToaster-ColorDrift-v1";
@@ -62,7 +62,7 @@ function applyColorDrift(timelineInput, { analysis } = {}) {
     throw new TypeError("ResolvedTimeline is required for color drift resolution.");
   }
   if (timelineInput.colorDrift?.policyVersion === COLOR_DRIFT_POLICY) return timelineInput;
-  if (timelineInput.rendererPolicy !== EXPRESSIVE_RENDERER_POLICY) return timelineInput;
+  if (!isExpressiveRendererPolicy(timelineInput.rendererPolicy)) return timelineInput;
   if (!analysis) throw new TypeError("Color drift requires canonical analysis evidence.");
 
   const stops = sectionDriftStops(timelineInput, analysis);
