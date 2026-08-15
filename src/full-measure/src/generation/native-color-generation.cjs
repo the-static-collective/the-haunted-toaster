@@ -1,5 +1,7 @@
 const { canonicalStringify, deepFreeze, hashCanonical } = require("./canonical.cjs");
 const toastGeneration = require("./toast-feel-generation.cjs");
+const schema = require("./schema.cjs");
+const { stripPrimitiveField } = require("./primitive-field-score.cjs");
 const { getToastFeel } = require("../toast-feels.cjs");
 const {
   NATIVE_COLOR_POLICY,
@@ -79,13 +81,38 @@ function generateStompCandidateSet(options = {}) {
   );
 }
 
+function restoreConvergeSeedParentRef(family, parentScore) {
+  if (!family?.converge?.enabled || !parentScore) return family;
+  const candidateIndex = family.candidates?.findIndex((item) => item.role === "converge-frontier");
+  if (!Number.isInteger(candidateIndex) || candidateIndex < 0) return family;
+  const candidate = family.candidates[candidateIndex];
+  const policy = candidate?.scoreArtifact?.derivation?.policy;
+  if (!policy?.derivedSeed || !policy?.parentScoreRef) return family;
+
+  const seedParentScoreRef = schema.addressVisualScore(stripPrimitiveField(parentScore));
+  if (policy.parentScoreRef === seedParentScoreRef) return family;
+
+  const derivation = structuredClone(candidate.scoreArtifact.derivation);
+  derivation.policy.parentScoreRef = seedParentScoreRef;
+  const scoreArtifact = deepFreeze({
+    ...candidate.scoreArtifact,
+    derivation: deepFreeze(derivation),
+  });
+  const repairedCandidate = deepFreeze({ ...candidate, scoreArtifact });
+  const candidates = family.candidates.map((item, index) =>
+    index === candidateIndex ? repairedCandidate : item,
+  );
+  return deepFreeze({ ...family, candidates });
+}
+
 function replaceFinalCandidateWithConverge(family, options = {}) {
   const nextOptions = {
     ...options,
     toastFeelId: options.toastFeelId || family.toastFeel?.id,
   };
+  const converged = toastGeneration.replaceFinalCandidateWithConverge(family, nextOptions);
   return decorateFamilyWithNativeColor(
-    toastGeneration.replaceFinalCandidateWithConverge(family, nextOptions),
+    restoreConvergeSeedParentRef(converged, nextOptions.parentScore),
     nextOptions,
   );
 }

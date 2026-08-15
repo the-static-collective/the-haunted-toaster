@@ -249,8 +249,14 @@ function createCandidateSession({
         parentNativeColorPlan: parent.timeline?.nativeColor || null,
       });
       if (config.converge === true) {
+        const parentAlreadyCounted = acceptedHistory.some(
+          (score) => generation.addressVisualScore(score) === parent.scoreAddress,
+        );
+        const coverageHistory = parentAlreadyCounted
+          ? acceptedHistory
+          : [...acceptedHistory, parent.scoreArtifact.score];
         nextFamily = generation.replaceFinalCandidateWithConverge(nextFamily, {
-          history: acceptedHistory,
+          history: coverageHistory,
           parentScore: parent.scoreArtifact.score,
           locks: config.locks || [],
           constraints,
@@ -262,6 +268,23 @@ function createCandidateSession({
           nativeChromaticProfile: profile,
           parentNativeColorPlan: parent.timeline?.nativeColor || null,
         });
+        const convergeCandidate = nextFamily.candidates.find(
+          (candidate) => candidate.role === "converge-frontier",
+        );
+        const visibleDistance = convergeCandidate
+          ? generation.visibleSemanticDistance(
+              parent.scoreArtifact.score,
+              convergeCandidate.scoreArtifact.score,
+              constraints,
+            )
+          : 0;
+        if (!convergeCandidate || !convergeCandidate.changedAxes?.length || visibleDistance < 8) {
+          const refusal = new Error(
+            "CONVERGE_NO_DISTINCT_TARGET: no distinct coverage target remains under current locks/constraints.",
+          );
+          refusal.code = "CONVERGE_NO_DISTINCT_TARGET";
+          throw refusal;
+        }
       }
       return await materialize(nextFamily, config, signal, familyBinding?.labInfluence || null);
     } finally {
