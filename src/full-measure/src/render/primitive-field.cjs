@@ -176,7 +176,7 @@ function dynamicsProgram(kind, width, height) {
       height,
       1.11,
       "(iw-ow)/2+(sin(t*2.3)+sin(t*5.7))*0.2*(iw-ow)",
-      "(ih-oh)/2+(cos(t*2.9)+sin(t*6.1))*0.2*(ih-ow)",
+      "(ih-oh)/2+(cos(t*2.9)+sin(t*6.1))*0.2*(ih-oh)",
     )}[primitiveField]`;
   }
   if (kind === "whip") {
