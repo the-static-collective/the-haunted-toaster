@@ -1,6 +1,7 @@
 const { canonicalStringify, deepFreeze, hashCanonical } = require("./canonical.cjs");
 const toastGeneration = require("./toast-feel-generation.cjs");
 const schema = require("./schema.cjs");
+const { stripAtmosphere } = require("./atmosphere-score.cjs");
 const { stripPrimitiveField } = require("./primitive-field-score.cjs");
 const { getToastFeel } = require("../toast-feels.cjs");
 const {
@@ -89,7 +90,8 @@ function restoreConvergeSeedParentRef(family, parentScore) {
   const policy = candidate?.scoreArtifact?.derivation?.policy;
   if (!policy?.derivedSeed || !policy?.parentScoreRef) return family;
 
-  const seedParentScoreRef = schema.addressVisualScore(stripPrimitiveField(parentScore));
+  const coreParent = stripAtmosphere(stripPrimitiveField(parentScore));
+  const seedParentScoreRef = schema.addressVisualScore(coreParent);
   if (policy.parentScoreRef === seedParentScoreRef) return family;
 
   const derivation = structuredClone(candidate.scoreArtifact.derivation);
