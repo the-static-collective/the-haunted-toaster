@@ -163,8 +163,11 @@ function dynamicsProgram(kind, width, height) {
     )}[primitiveField]`;
   }
   if (kind === "magnetic") {
-    const expandedWidth = evenDimension(width * 1.1);
-    const expandedHeight = evenDimension(height * 1.1);
+    const minimumScale = 0.94 - 0.06;
+    const cropSafety = 1.01;
+    const expansion = cropSafety / minimumScale;
+    const expandedWidth = evenDimension(width * expansion);
+    const expandedHeight = evenDimension(height * expansion);
     return `[primitiveStructure]scale=w='${expandedWidth}*(0.94+0.06*sin(t*0.83))':h='${expandedHeight}*(0.94+0.06*sin(t*0.83))':eval=frame,crop=${width}:${height}:x='(iw-ow)/2+sin(t*0.41)*(iw-ow)*0.42':y='(ih-oh)/2+cos(t*0.47)*(ih-oh)*0.42'[primitiveField]`;
   }
   if (kind === "swarm") {
@@ -173,7 +176,7 @@ function dynamicsProgram(kind, width, height) {
       height,
       1.11,
       "(iw-ow)/2+(sin(t*2.3)+sin(t*5.7))*0.2*(iw-ow)",
-      "(ih-oh)/2+(cos(t*2.9)+sin(t*6.1))*0.2*(ih-oh)",
+      "(ih-oh)/2+(cos(t*2.9)+sin(t*6.1))*0.2*(ih-ow)",
     )}[primitiveField]`;
   }
   if (kind === "whip") {
