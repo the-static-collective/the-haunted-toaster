@@ -165,6 +165,11 @@ test("Cathedral Fan has a non-polar source while Spiral retains its polar identi
 
 test("visual-language-v3 preserves middle values and exact endpoints without changing the v2 lift", () => {
   assert.equal(effectiveInternalEnergy(0.5) > 0.6, true, "visual-language-v2 lift is compatibility authority");
+  assert.equal(
+    typeof effectiveInternalEnergyV3,
+    "function",
+    "visual-language-v3 needs an explicit response function instead of inheriting the v2 mid lift",
+  );
   assert.equal(effectiveInternalEnergyV3(0), 0);
   assert.equal(effectiveInternalEnergyV3(1), 1);
   for (const value of [0.25, 0.5, 0.75]) {
@@ -202,6 +207,10 @@ test("raster-4 STOMP composes semantic distance across a restrained-to-peak inte
     candidate.scoreArtifact.derivation.policy.stompIntensity);
 
   assert.deepEqual(first.scoreAddresses, second.scoreAddresses);
+  assert.ok(
+    evidence.every(Boolean),
+    "raster-4 STOMP must bind deterministic intensity-contour evidence to every selected descendant",
+  );
   assert.deepEqual(evidence.map((item) => item.target), expectedTargets);
   assert.ok(evidence.every((item) => item.policyVersion === "stomp-intensity-contour-v1"));
   assert.ok(evidence.every((item) => item.observed >= 0 && item.observed <= 1));
