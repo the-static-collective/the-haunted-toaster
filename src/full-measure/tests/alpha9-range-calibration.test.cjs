@@ -189,7 +189,7 @@ test("visual-language-v3 preserves middle values and exact endpoints without cha
   }
 
   const { timeline } = scoreAndTimeline("spiral", {
-    motion: { grammar: "still", amplitude: 0.5, variance: 0.5 },
+    motion: { grammar: "drift", amplitude: 0.5, variance: 0.5 },
   });
   const compiled = compileTimelineFilterGraph(
     productionLikeGraph(),
