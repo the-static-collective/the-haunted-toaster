@@ -60,6 +60,25 @@ function generatedFamily(rootSeed = "range-calibration-family") {
   });
 }
 
+function magneticFanPreview() {
+  const { score, timeline } = scoreAndTimeline("cathedral-fan", {
+    primitiveField: { structure: "lattice", dynamics: "magnetic" },
+  });
+  const scoreAddress = generation.addressVisualScore(score);
+  return {
+    ...candidatePreviewPlan({
+      index: 0,
+      role: "base-break",
+      scoreAddress,
+      scoreArtifact: { score },
+      timeline,
+      timelineHash: timeline.timelineHash,
+      changedAxes: ["topology", "motion"],
+    }),
+    thumbnailDataUrl: "data:image/png;base64,",
+  };
+}
+
 function tick() {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
@@ -88,6 +107,8 @@ test("raster-4 preview metadata exposes authoritative topology, structure, and d
     structure: field.structure,
     dynamics: field.dynamics,
   });
+  assert.match(plan.signature, new RegExp(field.structure, "i"));
+  assert.match(plan.signature, new RegExp(field.dynamics, "i"));
 });
 
 test("six-up card visibly names the base creature so magnetic can be selected before render", async () => {
@@ -109,19 +130,7 @@ test("six-up card visibly names the base creature so magnetic can be selected be
       producedCount: 1,
       requestedCount: 6,
       shortfall: true,
-      candidates: [{
-        index: 0,
-        role: "base-break",
-        signature: "cathedral-fan · pulse · garment · grain",
-        baseIdentity: {
-          topology: "cathedral-fan",
-          structure: "lattice",
-          dynamics: "magnetic",
-        },
-        scoreAddress: "htvs1_range",
-        thumbnailDataUrl: "data:image/png;base64,",
-        changedAxes: ["topology", "motion"],
-      }],
+      candidates: [magneticFanPreview()],
     }),
     mutateCandidates: async () => { throw new Error("unused"); },
     stompCandidates: async () => { throw new Error("unused"); },
