@@ -52,18 +52,20 @@ function baseIdentityForScore(score) {
 }
 
 function semanticSignature(score) {
-  const baseIdentity = baseIdentityForScore(score);
-  if (baseIdentity) {
-    return [
-      baseIdentity.topology,
-      `${baseIdentity.structure} / ${baseIdentity.dynamics}`,
-      score.motion.grammar,
-      score.palette.logic,
-      score.material.texture,
-    ].join(" · ");
-  }
   return [
     score.topology,
+    score.motion.grammar,
+    score.palette.logic,
+    score.material.texture,
+  ].join(" · ");
+}
+
+function previewSignature(score) {
+  const baseIdentity = baseIdentityForScore(score);
+  if (!baseIdentity) return semanticSignature(score);
+  return [
+    baseIdentity.topology,
+    `${baseIdentity.structure} / ${baseIdentity.dynamics}`,
     score.motion.grammar,
     score.palette.logic,
     score.material.texture,
@@ -79,7 +81,7 @@ function candidatePreviewPlan(candidate, typography = null) {
     scoreAddress: candidate.scoreAddress,
     timelineHash: candidate.timelineHash,
     changedAxes: Object.freeze([...(candidate.changedAxes || [])]),
-    signature: semanticSignature(score),
+    signature: previewSignature(score),
     baseIdentity: baseIdentityForScore(score),
     sample,
     typography,
@@ -222,6 +224,7 @@ module.exports = {
   baseIdentityForScore,
   candidatePreviewPlan,
   previewSampleFor,
+  previewSignature,
   renderCandidateFamilyPreviews,
   semanticSignature,
 };
