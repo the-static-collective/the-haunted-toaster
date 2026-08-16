@@ -2,10 +2,12 @@ const {
   canonicalStringify,
   deepFreeze,
   hashCanonical,
+  quantizeNumber,
 } = require("./canonical.cjs");
 const legacySchema = require("./schema.cjs");
 const primitiveGeneration = require("./primitive-field-generation.cjs");
 const primitiveScore = require("./primitive-field-score.cjs");
+const { MUTATION_LATTICE_RENDERER_PROFILE_ID } = require("./renderer-policy.cjs");
 const {
   categoricalBreaks,
   minimumSiblingDistance,
@@ -14,7 +16,9 @@ const {
 
 const STOMP_POLICY = "visible-outcome-stomp-v1";
 const STOMP_POOL_POLICY = "stomp-lawful-pool-v1";
+const STOMP_INTENSITY_POLICY = "stomp-intensity-contour-v1";
 const STOMP_ATTEMPTS = 8;
+const STOMP_INTENSITY_TARGETS = Object.freeze([0.25, 0.38, 0.52, 0.66, 0.82, 0.98]);
 
 const STOMP_SLOT_POLICIES = Object.freeze([
   Object.freeze({ role: "structure-break", minParentDistance: 10, minSiblingDistance: 6, requiredBreaks: 1 }),
@@ -82,6 +86,27 @@ function roleAffinity(role, breaks, candidate) {
     return primitiveCount * 28 + broadCount * 10 + breaks.length * 4;
   }
   return candidate.visibleDistanceFromParent * 4 + primitiveCount * 14 + breaks.length * 7;
+}
+
+function normalizedIntensity(value, range) {
+  const minimum = Number(range?.min);
+  const maximum = Number(range?.max);
+  const current = Number(value);
+  if (!Number.isFinite(minimum) || !Number.isFinite(maximum) || maximum <= minimum) return 0;
+  if (!Number.isFinite(current)) return 0;
+  return Math.min(1, Math.max(0, (current - minimum) / (maximum - minimum)));
+}
+
+function intensityProjection(score, constraints) {
+  const values = [
+    normalizedIntensity(score.motion.amplitude, constraints.motion.amplitude),
+    normalizedIntensity(score.motion.variance, constraints.motion.variance),
+    normalizedIntensity(score.camera.variance, constraints.camera.variance),
+    normalizedIntensity(score.material.imperfection, constraints.material.imperfection),
+    normalizedIntensity(score.palette.bleed, constraints.palette.bleed),
+    normalizedIntensity(score.palette.contrastBias, constraints.palette.contrastBias),
+  ];
+  return quantizeNumber(values.reduce((sum, value) => sum + value, 0) / values.length);
 }
 
 function thresholdsAtLevel(policy, level) {
@@ -172,19 +197,29 @@ function chooseForRole({
   parent,
   constraints,
   rootSeed,
+  intensityTarget = null,
 }) {
   for (let level = 0; level <= 12; level += 1) {
     const thresholds = thresholdsAtLevel(policy, level);
     const eligible = pool
       .filter((entry) => !usedAddresses.has(entry.candidate.scoreAddress))
-      .map((entry) => ({
-        ...entry,
-        siblingDistance: minimumSiblingDistance(
-          entry.candidate.scoreArtifact.score,
-          selectedScores,
-          constraints,
-        ),
-      }))
+      .map((entry) => {
+        const observedIntensity = intensityTarget === null
+          ? null
+          : intensityProjection(entry.candidate.scoreArtifact.score, constraints);
+        return {
+          ...entry,
+          siblingDistance: minimumSiblingDistance(
+            entry.candidate.scoreArtifact.score,
+            selectedScores,
+            constraints,
+          ),
+          observedIntensity,
+          intensityDelta: intensityTarget === null
+            ? null
+            : Math.abs(observedIntensity - intensityTarget),
+        };
+      })
       .filter((entry) =>
         entry.visibleDistanceFromParent >= thresholds.minParentDistance &&
         entry.siblingDistance >= thresholds.minSiblingDistance &&
@@ -193,16 +228,26 @@ function chooseForRole({
         const affinityDelta = roleAffinity(policy.role, right.breaks, right) -
           roleAffinity(policy.role, left.breaks, left);
         if (affinityDelta) return affinityDelta;
+        if (intensityTarget !== null) {
+          const contourDelta = left.intensityDelta - right.intensityDelta;
+          if (contourDelta) return contourDelta;
+        }
         const distanceDelta = right.visibleDistanceFromParent - left.visibleDistanceFromParent;
         if (distanceDelta) return distanceDelta;
         return deterministicTie(rootSeed, policy.role, left)
           .localeCompare(deterministicTie(rootSeed, policy.role, right));
       });
     if (eligible.length) {
+      const entry = eligible[0];
       return {
-        entry: eligible[0],
+        entry,
         thresholds,
         relaxation: thresholdRelaxation(policy, thresholds),
+        stompIntensity: intensityTarget === null ? null : deepFreeze({
+          policyVersion: STOMP_INTENSITY_POLICY,
+          target: intensityTarget,
+          observed: entry.observedIntensity,
+        }),
       };
     }
   }
@@ -219,6 +264,7 @@ function stompDerivation(candidate, {
   breaks,
   visibleDistanceFromParent,
   minimumSiblingDistance: siblingDistance,
+  stompIntensity = null,
 }) {
   const derivation = structuredClone(candidate.scoreArtifact.derivation || {
     schema: "haunted-toaster/score-derivation/v1",
@@ -242,6 +288,7 @@ function stompDerivation(candidate, {
     visibleDistanceFromParent,
     minimumSiblingDistance: Number.isFinite(siblingDistance) ? siblingDistance : null,
     thresholdRelaxation: relaxation,
+    ...(stompIntensity ? { stompIntensity } : {}),
   };
   return derivation;
 }
@@ -267,6 +314,7 @@ function selectedCandidate({
       breaks: choice.entry.breaks,
       visibleDistanceFromParent: choice.entry.visibleDistanceFromParent,
       minimumSiblingDistance: choice.entry.siblingDistance,
+      stompIntensity: choice.stompIntensity,
     }),
   );
   return deepFreeze({
@@ -305,6 +353,7 @@ function generateStompCandidateSet({
   const parent = assertScore(parentScore, constraints);
   const locksNormalized = normalizedLocks(locks);
   const parentScoreRef = legacySchema.addressVisualScore(parent);
+  const useIntensityContour = rendererProfile?.id === MUTATION_LATTICE_RENDERER_PROFILE_ID;
   const { pool, families } = collectPool({
     analysis,
     constraints,
@@ -330,6 +379,7 @@ function generateStompCandidateSet({
       parent,
       constraints,
       rootSeed,
+      intensityTarget: useIntensityContour ? STOMP_INTENSITY_TARGETS[index] : null,
     });
     const candidate = selectedCandidate({
       choice,
@@ -384,7 +434,10 @@ function generateStompCandidateSet({
 }
 
 module.exports = {
+  STOMP_INTENSITY_POLICY,
+  STOMP_INTENSITY_TARGETS,
   STOMP_POLICY,
   STOMP_SLOT_POLICIES,
   generateStompCandidateSet,
+  intensityProjection,
 };

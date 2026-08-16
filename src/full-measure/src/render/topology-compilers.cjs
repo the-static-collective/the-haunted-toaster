@@ -1,6 +1,6 @@
 const { TOPOLOGIES } = require("../generation/schema.cjs");
 const { EXPRESSIVE_RENDERER_POLICY, MUTATION_LATTICE_RENDERER_POLICY, isExpressiveRendererPolicy } = require("../generation/renderer-policy.cjs");
-const { effectiveInternalEnergy } = require("./response-shaping.cjs");
+const { effectiveInternalEnergy, effectiveInternalEnergyV3 } = require("./response-shaping.cjs");
 const { resolveFieldEnvelope } = require("./field-envelope.cjs");
 
 const PRODUCTION_WAVE_SEAM = /\[waveAudio\]showwaves=s=(\d+)x(\d+):mode=cline:rate=([0-9.]+):[^;\n]+\[wave\];\n\[wave\]pad=(\d+):(\d+):0:(\d+):color=black@0\.0\[waveFull\]/;
@@ -57,8 +57,11 @@ function topologyContext(graph, execution) {
   const rawAmplitude = clamp(Number(motion.amplitude) || 0, 0, 1);
   const rawVariance = clamp(Number(motion.variance) || 0, 0, 1);
   const expressive = isExpressiveRendererPolicy(execution.timeline.rendererPolicy);
-  const amplitude = expressive ? effectiveInternalEnergy(rawAmplitude) : rawAmplitude;
-  const variance = expressive ? effectiveInternalEnergy(rawVariance) : rawVariance;
+  const response = execution.timeline.rendererPolicy === MUTATION_LATTICE_RENDERER_POLICY
+    ? effectiveInternalEnergyV3
+    : effectiveInternalEnergy;
+  const amplitude = expressive ? response(rawAmplitude) : rawAmplitude;
+  const variance = expressive ? response(rawVariance) : rawVariance;
   const duration = Math.max(0.1, execution.durationTicks / execution.timebase);
   const opacity = quantize(clamp(0.38 + amplitude * 0.5, 0.2, 0.95), 3);
   const envelope = resolveFieldEnvelope(baseState, { width, height });
@@ -172,7 +175,6 @@ function compileQuadMirror(context) {
   };
 }
 
-
 function compileElasticSpine(context) {
   const width = context.envelope.envelope.width;
   const height = context.envelope.envelope.height;
@@ -208,16 +210,23 @@ function compileSplitHorizon(context) {
 function compileCathedralFan(context) {
   const width = context.envelope.envelope.width;
   const height = context.envelope.envelope.height;
-  const filter = scopeFilter(context, { width, height, mode: "polar", zoom: quantize(context.zoom * 0.9, 3) });
-  const angle = quantize(0.08 + context.variance * 0.07, 4);
+  const bladeWidth = Math.max(64, Math.floor(width * 0.22));
+  const bladeX = Math.floor((width - bladeWidth) / 2);
+  const filter = scopeFilter(context, {
+    width: bladeWidth,
+    height,
+    mode: "lissajous_xy",
+    zoom: quantize(context.zoom * 1.08, 3),
+  });
+  const angle = quantize(0.18 + context.variance * 0.12, 4);
   return {
     replacement: [
-      `[waveAudio]${filter}[shapeFanSource]`,
+      `[waveAudio]${filter},pad=${width}:${height}:${bladeX}:0:color=black@0.0[shapeFanSource]`,
       "[shapeFanSource]split=3[shapeFanA][shapeFanB][shapeFanC]",
       `[shapeFanB]rotate=${ffmpegNumber(angle)}:ow=iw:oh=ih:c=black@0[shapeFanBr]`,
       `[shapeFanC]rotate=-${ffmpegNumber(angle)}:ow=iw:oh=ih:c=black@0[shapeFanCr]`,
       "[shapeFanA][shapeFanBr]blend=all_mode=screen[shapeFanAB]",
-      `[shapeFanAB][shapeFanCr]blend=all_mode=screen,${finishFilter(context, 0.06 + context.variance * 0.12)}[waveFull]`,
+      `[shapeFanAB][shapeFanCr]blend=all_mode=screen,${finishFilter(context, 0)}[waveFull]`,
     ].join(";\n"),
   };
 }

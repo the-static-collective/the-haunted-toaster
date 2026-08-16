@@ -76,6 +76,11 @@ function assertCandidateAuthority(candidate, constraints = null) {
 function signatureForCandidate(candidate, constraints = null) {
   const score = assertCandidateAuthority(candidate, constraints);
   const field = score.primitiveField || { structure: "scope", dynamics: "inertial" };
+  const baseIdentity = deepFreeze({
+    topology: score.topology,
+    structure: field.structure,
+    dynamics: field.dynamics,
+  });
   const layers = deepFreeze({
     skeleton: { topology: score.topology },
     body: { structure: field.structure, dynamics: field.dynamics },
@@ -102,6 +107,7 @@ function signatureForCandidate(candidate, constraints = null) {
     scoreAddress: candidate.scoreAddress,
     timelineHash: candidate.timelineHash,
     topology: score.topology,
+    baseIdentity,
     shapePack: SHAPE_PACK_TOPOLOGIES.includes(score.topology),
     layers,
     skeletonBodyFrame,
@@ -153,12 +159,22 @@ function deriveAuthoritativeFamilyType(family) {
   return "ordinary";
 }
 
+function baseIdentityKey(signature) {
+  return canonicalStringify(signature.baseIdentity);
+}
+
 function coverageFor(signatures) {
   const topologies = new Set(signatures.map((item) => item.topology));
+  const baseIdentities = new Set(signatures.map(baseIdentityKey));
+  const structures = new Set(signatures.map((item) => item.layers.body.structure));
+  const dynamics = new Set(signatures.map((item) => item.layers.body.dynamics));
   const cross = new Set(signatures.map((item) => item.crossLayerSignature));
   const sbf = new Set(signatures.map((item) => item.skeletonBodyFrame));
   return deepFreeze({
     authoritativeTopologyCount: topologies.size,
+    authoritativeBaseIdentityCount: baseIdentities.size,
+    primitiveStructureCount: structures.size,
+    primitiveDynamicsCount: dynamics.size,
     crossLayerSignatureCount: cross.size,
     skeletonBodyFrameSignatureCount: sbf.size,
     duplicateSkeletonBodyFrameCount: signatures.length - sbf.size,
@@ -312,6 +328,9 @@ function selectFromPool(pool, constraints, rootSeed, count = 6, toastFeelId = nu
   const selected = [];
   while (selected.length < count && remaining.length) {
     const selectedSignatures = selected.map((candidate) => preliminarySignature(candidate, constraints));
+    const usedBaseIdentities = new Set(selectedSignatures.map(baseIdentityKey));
+    const usedStructures = new Set(selectedSignatures.map((item) => item.layers.body.structure));
+    const usedDynamics = new Set(selectedSignatures.map((item) => item.layers.body.dynamics));
     const usedTopologies = new Set(selectedSignatures.map((item) => item.topology));
     const usedCross = new Set(selectedSignatures.map((item) => item.crossLayerSignature));
     const usedSbf = new Set(selectedSignatures.map((item) => item.skeletonBodyFrame));
@@ -320,7 +339,10 @@ function selectFromPool(pool, constraints, rootSeed, count = 6, toastFeelId = nu
       function merit(candidate) {
         const signature = preliminarySignature(candidate, constraints);
         let value = 0;
-        if (!hasShape && signature.shapePack) value += 2000;
+        if (!hasShape && signature.shapePack) value += 5000;
+        if (!usedBaseIdentities.has(baseIdentityKey(signature))) value += 4000;
+        if (!usedStructures.has(signature.layers.body.structure)) value += 1600;
+        if (!usedDynamics.has(signature.layers.body.dynamics)) value += 1600;
         if (!usedTopologies.has(signature.topology) && usedTopologies.size < TARGET_TOPOLOGY_COUNT) value += 1200;
         if (!usedSbf.has(signature.skeletonBodyFrame)) value += 600;
         if (!usedCross.has(signature.crossLayerSignature)) value += 300;

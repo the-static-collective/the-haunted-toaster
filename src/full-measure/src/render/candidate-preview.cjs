@@ -41,7 +41,27 @@ function previewSampleFor(candidate) {
   return preview.sampleAtSeconds(seconds);
 }
 
+function baseIdentityForScore(score) {
+  const field = score?.primitiveField;
+  if (!field) return null;
+  return Object.freeze({
+    topology: score.topology,
+    structure: field.structure,
+    dynamics: field.dynamics,
+  });
+}
+
 function semanticSignature(score) {
+  const baseIdentity = baseIdentityForScore(score);
+  if (baseIdentity) {
+    return [
+      baseIdentity.topology,
+      `${baseIdentity.structure} / ${baseIdentity.dynamics}`,
+      score.motion.grammar,
+      score.palette.logic,
+      score.material.texture,
+    ].join(" · ");
+  }
   return [
     score.topology,
     score.motion.grammar,
@@ -52,13 +72,15 @@ function semanticSignature(score) {
 
 function candidatePreviewPlan(candidate, typography = null) {
   const sample = previewSampleFor(candidate);
+  const score = candidate.scoreArtifact.score;
   return Object.freeze({
     index: candidate.index,
     role: candidate.role,
     scoreAddress: candidate.scoreAddress,
     timelineHash: candidate.timelineHash,
     changedAxes: Object.freeze([...(candidate.changedAxes || [])]),
-    signature: semanticSignature(candidate.scoreArtifact.score),
+    signature: semanticSignature(score),
+    baseIdentity: baseIdentityForScore(score),
     sample,
     typography,
   });
@@ -197,6 +219,7 @@ module.exports = {
   PREVIEW_HEIGHT,
   PREVIEW_SAMPLE_SECONDS,
   PREVIEW_WIDTH,
+  baseIdentityForScore,
   candidatePreviewPlan,
   previewSampleFor,
   renderCandidateFamilyPreviews,

@@ -26,6 +26,10 @@ function effectiveInternalEnergy(value) {
   return quantize(clamp(lifted * silenceGate, 0, 1));
 }
 
+function effectiveInternalEnergyV3(value) {
+  return quantize(clamp(Number(value) || 0, 0, 1));
+}
+
 function cameraSurrender(value) {
   const variance = clamp(Number(value) || 0, 0, 1);
   return quantize(CAMERA_SURRENDER_FLOOR + variance * CAMERA_SURRENDER_SPAN);
@@ -38,4 +42,5 @@ module.exports = {
   SILENCE_KNEE,
   cameraSurrender,
   effectiveInternalEnergy,
+  effectiveInternalEnergyV3,
 };
