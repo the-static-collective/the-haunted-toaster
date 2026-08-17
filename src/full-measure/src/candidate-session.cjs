@@ -48,6 +48,14 @@ function toGenerationAnalysis(mediaAnalysis) {
   };
 }
 
+function responseWitnessFor(mediaAnalysis, analysis = toGenerationAnalysis(mediaAnalysis)) {
+  return generation.deriveResponseWitness({
+    energySamples: mediaAnalysis.energySamples || [],
+    sections: analysis.sections,
+    durationSeconds: Number(mediaAnalysis.duration),
+  });
+}
+
 function timedLyricTrack(lyrics, durationSeconds) {
   const track = createLyricTrack(lyrics, durationSeconds);
   return track.timed === true ? track : null;
@@ -182,6 +190,8 @@ function createCandidateSession({
       const constraints = currentConstraints(config.presetId);
       const profile = await ensureNativeChromaticProfile();
       const lyricTrack = lyricTrackFor(config);
+      const analysis = toGenerationAnalysis(mediaAnalysis);
+      const responseWitness = responseWitnessFor(mediaAnalysis, analysis);
       const useLabProposal = config.useLabProposal === true;
       if (useLabProposal && !stagedLabProposal) {
         throw new Error("Use Lab Proposal is on, but no Lab proposal is staged.");
@@ -198,7 +208,8 @@ function createCandidateSession({
           }
         : { enabled: false };
       const nextFamily = generation.generateCandidateSet({
-        analysis: toGenerationAnalysis(mediaAnalysis),
+        analysis,
+        responseWitness,
         garmentConstraints: constraints,
         rendererProfile,
         parentScore: admitted?.scoreArtifact.score || null,
@@ -233,9 +244,11 @@ function createCandidateSession({
       const constraints = currentConstraints(config.presetId);
       const profile = await ensureNativeChromaticProfile();
       const analysis = toGenerationAnalysis(mediaAnalysis);
+      const responseWitness = responseWitnessFor(mediaAnalysis, analysis);
       const lyricTrack = lyricTrackFor(config);
       let nextFamily = generation.generateCandidateSet({
         analysis,
+        responseWitness,
         garmentConstraints: constraints,
         rendererProfile,
         parentScore: parent.scoreArtifact.score,
@@ -261,6 +274,7 @@ function createCandidateSession({
           locks: config.locks || [],
           constraints,
           analysis,
+          responseWitness,
           rendererProfile,
           rootSeed: config.rootSeed,
           lyricTrack,
@@ -304,8 +318,11 @@ function createCandidateSession({
     try {
       const constraints = currentConstraints(config.presetId);
       const profile = await ensureNativeChromaticProfile();
+      const analysis = toGenerationAnalysis(mediaAnalysis);
+      const responseWitness = responseWitnessFor(mediaAnalysis, analysis);
       const nextFamily = generation.generateStompCandidateSet({
-        analysis: toGenerationAnalysis(mediaAnalysis),
+        analysis,
+        responseWitness,
         garmentConstraints: constraints,
         rendererProfile,
         parentScore: parent.scoreArtifact.score,
@@ -416,6 +433,7 @@ module.exports = {
   CONSTRAINTS_BY_PRESET,
   rendererProfile,
   createCandidateSession,
+  responseWitnessFor,
   timedLyricTrack,
   toGenerationAnalysis,
 };
