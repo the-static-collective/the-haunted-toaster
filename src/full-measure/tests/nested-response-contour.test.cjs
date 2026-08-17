@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const generation = require("../src/generation/index.cjs");
+const { createCandidateSession } = require("../src/candidate-session.cjs");
 
 function timeline(overrides = {}) {
   return {
@@ -93,4 +94,33 @@ test("hysteresis prevents tiny alternating deviations from flipping direction ea
 test("response witness rejects unsorted and non-finite measurements", () => {
   assert.throws(() => generation.deriveResponseWitness({ energySamples: [{ time: 1, db: -20 }, { time: 0, db: -21 }], sections: [], durationSeconds: 2 }), /sorted/i);
   assert.throws(() => generation.deriveResponseWitness({ energySamples: [{ time: 0, db: Number.NaN }], sections: [], durationSeconds: 1 }), /finite/i);
+});
+
+test("candidate session binds real media energy samples into raster-4 timelines", async () => {
+  const session = createCandidateSession({
+    renderCandidateFamilyPreviews: async (_input, family) => ({ familyHash: family.familyHash, candidates: family.candidates }),
+  });
+  session.noteAudio("/tmp/nested-response-media.wav", {
+    duration: 9,
+    sections: [{ start: 0, end: 9, energy: 0.5, label: "Steady" }],
+    energySamples: [
+      { time: 0, db: -28 }, { time: 1, db: -24 }, { time: 2, db: -21 },
+      { time: 3, db: -25 }, { time: 4, db: -29 }, { time: 5, db: -22 },
+      { time: 6, db: -20 }, { time: 7, db: -26 }, { time: 8, db: -23 },
+    ],
+  });
+  const family = await session.generate({
+    presetId: "openField",
+    toastFeelId: "low-and-slow",
+    rootSeed: "task2-real-media-witness",
+    title: "",
+    artist: "",
+    lyrics: "",
+  });
+  assert.ok(family.candidates.length > 0);
+  for (const candidate of family.candidates) {
+    assert.equal(candidate.timeline.nestedResponse.policyVersion, "nested-response-contour-v1");
+    assert.ok(candidate.timeline.nestedResponse.knotCount > 0);
+    assert.equal(candidate.timeline.nestedResponse.meterEvidenceUsed, false);
+  }
 });
