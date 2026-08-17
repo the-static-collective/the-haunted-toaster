@@ -76,6 +76,7 @@ function topologyContext(graph, execution) {
     height,
     fps,
     duration,
+    timeline: execution.timeline,
     baseState,
     motion,
     rawAmplitude,
@@ -87,6 +88,14 @@ function topologyContext(graph, execution) {
     envelope,
     zoom,
     response: topologyResponse,
+  });
+}
+
+function responseContextForTopology(context, topology) {
+  if (!context.response || topology === context.baseState.topology) return context;
+  return Object.freeze({
+    ...context,
+    response: compileTopologyResponse(context.timeline, topology),
   });
 }
 
@@ -103,10 +112,10 @@ function scopeFilter(context, { width, height, mode = "lissajous_xy", zoom = con
 function responsiveFrameFilter(context) {
   if (!context.response) return [];
   const { extent, travelX, travelY } = context.response.expressions;
-  const factor = `1+0.16*pow((${extent}),6)`;
+  const factor = `1+0.45*(${extent})+0.33*pow((${extent}),6)`;
   return [
     `scale=w='iw*(${factor})':h='ih*(${factor})':eval=frame`,
-    `crop=${context.width}:${context.height}:x='(iw-ow)/2+(${travelX})*(iw-ow)*0.18':y='(ih-oh)/2+(${travelY})*(ih-oh)*0.18'`,
+    `crop=${context.width}:${context.height}:x='(iw-ow)/2+(${travelX})*(iw-ow)*0.28':y='(ih-oh)/2+(${travelY})*(ih-oh)*0.28'`,
   ];
 }
 
@@ -125,7 +134,7 @@ function finishFilter(context, turns) {
   const { phase, idle } = context.response.expressions;
   return [
     `pad=${working.width}:${working.height}:${expansion}:${expansion}:color=black@0.0`,
-    `rotate='${ffmpegNumber(radians)}*t/${ffmpegNumber(context.duration)}+(${phase})*0.08+(${idle})*0.025*sin(t*0.71)':ow=iw:oh=ih:c=black@0`,
+    `rotate='${ffmpegNumber(radians)}*t/${ffmpegNumber(context.duration)}+(${phase})*0.16+(${idle})*0.025*sin(t*0.71)':ow=iw:oh=ih:c=black@0`,
     `pad=${working.stageWidth}:${working.stageHeight}:${working.stageX}:${working.stageY}:color=black@0.0`,
     `crop=${context.width}:${context.height}:${working.cropX}:${working.cropY}`,
     ...responsiveFrameFilter(context),
@@ -144,16 +153,28 @@ function compileCircle(context) {
 
 function compileMirroredRing(context) {
   const turns = 0.55 + context.variance;
-  const filter = scopeFilter(context, {
-    width: context.envelope.envelope.width,
-    height: context.envelope.envelope.height,
-  });
+  const width = context.envelope.envelope.width;
+  const height = context.envelope.envelope.height;
+  const filter = scopeFilter(context, { width, height });
+  if (!context.response) {
+    return {
+      replacement: [
+        "[waveAudio]asplit=2[scoreScopeA][scoreScopeB]",
+        `[scoreScopeA]${filter}[scoreRingA]`,
+        `[scoreScopeB]${filter},hflip[scoreRingB]`,
+        `[scoreRingA][scoreRingB]blend=all_mode=screen,${finishFilter(context, turns)}[waveFull]`,
+      ].join(";\n"),
+    };
+  }
+  const { openness } = context.response.expressions;
   return {
     replacement: [
       "[waveAudio]asplit=2[scoreScopeA][scoreScopeB]",
       `[scoreScopeA]${filter}[scoreRingA]`,
       `[scoreScopeB]${filter},hflip[scoreRingB]`,
-      `[scoreRingA][scoreRingB]blend=all_mode=screen,${finishFilter(context, turns)}[waveFull]`,
+      `[scoreRingA]scale=w='iw*1.08':h='ih*1.08':eval=frame,crop=${width}:${height}:x='(iw-ow)/2-(${openness})*(iw-ow)*0.45':y='(ih-oh)/2'[scoreRingAr]`,
+      `[scoreRingB]scale=w='iw*1.08':h='ih*1.08':eval=frame,crop=${width}:${height}:x='(iw-ow)/2+(${openness})*(iw-ow)*0.45':y='(ih-oh)/2'[scoreRingBr]`,
+      `[scoreRingAr][scoreRingBr]blend=all_mode=screen,${finishFilter(context, turns)}[waveFull]`,
     ].join(";\n"),
   };
 }
@@ -166,8 +187,12 @@ function compileSpiral(context) {
     mode: "polar",
     zoom: quantize(context.zoom * 0.88, 3),
   });
+  if (!context.response) {
+    return { replacement: `[waveAudio]${filter},${finishFilter(context, turns)}[waveFull]` };
+  }
+  const { phase } = context.response.expressions;
   return {
-    replacement: `[waveAudio]${filter},${finishFilter(context, turns)}[waveFull]`,
+    replacement: `[waveAudio]${filter},rotate='(${phase})*0.12':ow=iw:oh=ih:c=black@0,${finishFilter(context, turns)}[waveFull]`,
   };
 }
 
@@ -186,6 +211,22 @@ function compileQuadMirror(context) {
   const centering = tiledWidth === envelopeWidth && tiledHeight === envelopeHeight
     ? "null"
     : `pad=${envelopeWidth}:${envelopeHeight}:${Math.floor((envelopeWidth - tiledWidth) / 2)}:${Math.floor((envelopeHeight - tiledHeight) / 2)}:color=black@0.0`;
+  if (!context.response) {
+    return {
+      replacement: [
+        `[waveAudio]${filter}[scoreQuadSource]`,
+        "[scoreQuadSource]split=4[scoreQ1][scoreQ2][scoreQ3][scoreQ4]",
+        "[scoreQ2]hflip[scoreQ2f]",
+        "[scoreQ3]vflip[scoreQ3f]",
+        "[scoreQ4]hflip,vflip[scoreQ4f]",
+        "[scoreQ1][scoreQ2f]hstack=inputs=2[scoreQuadTop]",
+        "[scoreQ3f][scoreQ4f]hstack=inputs=2[scoreQuadBottom]",
+        `[scoreQuadTop][scoreQuadBottom]vstack=inputs=2,${centering},${finishFilter(context, 0)}[waveFull]`,
+      ].join(";\n"),
+    };
+  }
+  const { openness } = context.response.expressions;
+  const q = (input, output, sx, sy) => `[${input}]scale=w='iw*1.1':h='ih*1.1':eval=frame,crop=${tileWidth}:${tileHeight}:x='(iw-ow)/2+(${openness})*(iw-ow)*${sx}':y='(ih-oh)/2+(${openness})*(ih-oh)*${sy}'[${output}]`;
   return {
     replacement: [
       `[waveAudio]${filter}[scoreQuadSource]`,
@@ -193,8 +234,12 @@ function compileQuadMirror(context) {
       "[scoreQ2]hflip[scoreQ2f]",
       "[scoreQ3]vflip[scoreQ3f]",
       "[scoreQ4]hflip,vflip[scoreQ4f]",
-      "[scoreQ1][scoreQ2f]hstack=inputs=2[scoreQuadTop]",
-      "[scoreQ3f][scoreQ4f]hstack=inputs=2[scoreQuadBottom]",
+      q("scoreQ1", "scoreQ1r", -0.45, -0.45),
+      q("scoreQ2f", "scoreQ2r", 0.45, -0.45),
+      q("scoreQ3f", "scoreQ3r", -0.45, 0.45),
+      q("scoreQ4f", "scoreQ4r", 0.45, 0.45),
+      "[scoreQ1r][scoreQ2r]hstack=inputs=2[scoreQuadTop]",
+      "[scoreQ3r][scoreQ4r]hstack=inputs=2[scoreQuadBottom]",
       `[scoreQuadTop][scoreQuadBottom]vstack=inputs=2,${centering},${finishFilter(context, 0)}[waveFull]`,
     ].join(";\n"),
   };
@@ -210,8 +255,18 @@ function compileElasticSpine(context) {
     height,
     zoom: quantize(context.zoom * 1.18, 3),
   });
+  if (!context.response) {
+    return {
+      replacement: `[waveAudio]${filter},pad=${width}:${height}:${x}:0:color=black@0.0,${finishFilter(context, 0.08 + context.variance * 0.18)}[waveFull]`,
+    };
+  }
+  const { phase, recoil, travelY } = context.response.expressions;
   return {
-    replacement: `[waveAudio]${filter},pad=${width}:${height}:${x}:0:color=black@0.0,${finishFilter(context, 0.08 + context.variance * 0.18)}[waveFull]`,
+    replacement: [
+      `[waveAudio]${filter},pad=${width}:${height}:${x}:0:color=black@0.0[scoreSpineBase]`,
+      `[scoreSpineBase]scale=w='iw*1.08':h='ih*1.04':eval=frame,crop=${width}:${height}:x='(iw-ow)/2+(${phase})*(iw-ow)*0.38-(${recoil})*(iw-ow)*0.12':y='(ih-oh)/2+(${travelY})*(ih-oh)*0.16'[scoreSpineResponsive]`,
+      `[scoreSpineResponsive]${finishFilter(context, 0.08 + context.variance * 0.18)}[waveFull]`,
+    ].join(";\n"),
   };
 }
 
@@ -222,12 +277,26 @@ function compileSplitHorizon(context) {
   const stackedHeight = halfHeight * 2;
   const padY = Math.floor((height - stackedHeight) / 2);
   const filter = scopeFilter(context, { width, height: halfHeight, zoom: quantize(context.zoom * 0.96, 3) });
+  if (!context.response) {
+    return {
+      replacement: [
+        "[waveAudio]asplit=2[shapeHorizonA][shapeHorizonB]",
+        `[shapeHorizonA]${filter}[shapeHorizonTop]`,
+        `[shapeHorizonB]${filter},vflip[shapeHorizonBottom]`,
+        `[shapeHorizonTop][shapeHorizonBottom]vstack=inputs=2,pad=${width}:${height}:0:${padY}:color=black@0.0,${finishFilter(context, 0)}[waveFull]`,
+      ].join(";\n"),
+    };
+  }
+  const { openness, recoil } = context.response.expressions;
+  const separation = `((${openness})-0.45*(${recoil}))`;
   return {
     replacement: [
       "[waveAudio]asplit=2[shapeHorizonA][shapeHorizonB]",
       `[shapeHorizonA]${filter}[shapeHorizonTop]`,
       `[shapeHorizonB]${filter},vflip[shapeHorizonBottom]`,
-      `[shapeHorizonTop][shapeHorizonBottom]vstack=inputs=2,pad=${width}:${height}:0:${padY}:color=black@0.0,${finishFilter(context, 0)}[waveFull]`,
+      `[shapeHorizonTop]scale=w='iw*1.04':h='ih*1.12':eval=frame,crop=${width}:${halfHeight}:x='(iw-ow)/2':y='(ih-oh)/2-${separation}*(ih-oh)*0.42'[shapeHorizonTopResponsive]`,
+      `[shapeHorizonBottom]scale=w='iw*1.04':h='ih*1.12':eval=frame,crop=${width}:${halfHeight}:x='(iw-ow)/2':y='(ih-oh)/2+${separation}*(ih-oh)*0.42'[shapeHorizonBottomResponsive]`,
+      `[shapeHorizonTopResponsive][shapeHorizonBottomResponsive]vstack=inputs=2,pad=${width}:${height}:0:${padY}:color=black@0.0,${finishFilter(context, 0)}[waveFull]`,
     ].join(";\n"),
   };
 }
@@ -300,16 +369,16 @@ function compileEchoTunnel(context) {
       ].join(";\n"),
     };
   }
-  const { openness } = context.response.expressions;
+  const { openness, travelX, travelY } = context.response.expressions;
   return {
     replacement: [
       `[waveAudio]${filter}[shapeTunnelSource]`,
       "[shapeTunnelSource]split=3[shapeTunnelA][shapeTunnelB][shapeTunnelC]",
       "[shapeTunnelA]colorchannelmixer=aa=0.74[shapeTunnelOuter]",
       `[shapeTunnelB]scale=${middleWidth}:${middleHeight},colorchannelmixer=aa=0.52,pad=${width}:${height}:${middleX}:${middleY}:color=black@0[shapeTunnelBm]`,
-      `[shapeTunnelBm]scale=w='iw*(1+0.08*(${openness}))':h='ih*(1+0.08*(${openness}))':eval=frame,crop=${width}:${height}:x='(iw-ow)/2':y='(ih-oh)/2'[shapeTunnelBmResponsive]`,
+      `[shapeTunnelBm]scale=w='iw*(1+0.08*(${openness}))':h='ih*(1+0.08*(${openness}))':eval=frame,crop=${width}:${height}:x='(iw-ow)/2+(${travelX})*(iw-ow)*0.42':y='(ih-oh)/2+(${travelY})*(ih-oh)*0.42'[shapeTunnelBmResponsive]`,
       `[shapeTunnelC]scale=${innerWidth}:${innerHeight},colorchannelmixer=aa=0.34,pad=${width}:${height}:${innerX}:${innerY}:color=black@0[shapeTunnelCi]`,
-      `[shapeTunnelCi]scale=w='iw*(1+0.14*(${openness}))':h='ih*(1+0.14*(${openness}))':eval=frame,crop=${width}:${height}:x='(iw-ow)/2':y='(ih-oh)/2'[shapeTunnelCiResponsive]`,
+      `[shapeTunnelCi]scale=w='iw*(1+0.14*(${openness}))':h='ih*(1+0.14*(${openness}))':eval=frame,crop=${width}:${height}:x='(iw-ow)/2+(${travelX})*(iw-ow)*0.48':y='(ih-oh)/2+(${travelY})*(ih-oh)*0.48'[shapeTunnelCiResponsive]`,
       "[shapeTunnelOuter][shapeTunnelBmResponsive]overlay=0:0:format=auto:eof_action=pass[shapeTunnelAB]",
       `[shapeTunnelAB][shapeTunnelCiResponsive]overlay=0:0:format=auto:eof_action=pass,${finishFilter(context, 0.03 + context.variance * 0.08)}[waveFull]`,
     ].join(";\n"),
@@ -353,7 +422,7 @@ function replacementForTopology(topology, context, registry) {
   const entry = registry[topology];
   if (!entry) throw new TypeError(`No topology compiler is registered for ${topology}.`);
   if (topology === "linear") return context.match[0];
-  return entry.compile(context).replacement;
+  return entry.compile(responseContextForTopology(context, topology)).replacement;
 }
 
 function namespaceReplacement(replacement, prefix, inputLabel, outputLabel) {
