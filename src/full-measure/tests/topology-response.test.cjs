@@ -1,6 +1,8 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
+const generation = require("../src/generation/index.cjs");
+const { compileProductionTopology } = require("../src/render/topology-compilers.cjs");
 const {
   ELASTIC_TOPOLOGY_POLICY,
   SOFT_OCCUPANCY_KNEE,
@@ -37,6 +39,49 @@ function knot(atTick, overrides = {}) {
     slope: 0,
     direction: 0,
     ...overrides,
+  };
+}
+
+function productionGraph() {
+  return [
+    "[0:a]aformat=channel_layouts=stereo[waveAudio]",
+    "[waveAudio]showwaves=s=320x64:mode=cline:rate=12:colors=0xFFFFFF:scale=sqrt,format=rgba,colorkey=black:0.08:0.0,colorchannelmixer=aa=0.78[wave]",
+    "[wave]pad=320:180:0:105:color=black@0.0[waveFull]",
+    "[1:v]format=rgba[base]",
+    "[base][waveFull]overlay=0:0:shortest=1[stage0]",
+  ].join(";\n");
+}
+
+function topologyExecution(rendererPolicy, topology, withResponse = true) {
+  const state = {
+    topology,
+    motion: { grammar: "pulse", amplitude: 0.6, variance: 0.5 },
+    palette: { logic: "garment", bleed: 0.5, contrastBias: 0 },
+    material: { texture: "clean", imperfection: 0.25 },
+    lyric: { placement: "center", densityBias: 0 },
+    camera: { grammar: "locked", variance: 0.2 },
+  };
+  const nestedResponse = responseTimeline([
+    knot(0, { macroEnergy: 0.2 }),
+    knot(1000, { macroEnergy: 0.75, excursion: 0.1, slope: 0.08, direction: 1 }),
+    knot(2000, { macroEnergy: 1, excursion: 0.08, slope: 0.06, direction: 1 }),
+    knot(3000, { macroEnergy: 1 }),
+    knot(4000, { macroEnergy: 1 }),
+    knot(5000, { macroEnergy: 0.5, excursion: -0.12, slope: -0.1, direction: -1 }),
+  ]).nestedResponse;
+  const timeline = {
+    rendererPolicy,
+    timebase: 1000,
+    durationTicks: 6000,
+    baseState: state,
+    patches: [],
+    ...(withResponse ? { nestedResponse } : {}),
+  };
+  return {
+    timeline,
+    timebase: timeline.timebase,
+    durationTicks: timeline.durationTicks,
+    segments: [{ startTick: 0, endTick: 6000, startSeconds: 0, endSeconds: 6, state }],
   };
 }
 
@@ -115,4 +160,45 @@ test("signed phase and travel are deterministic without ambient entropy", () => 
   assert.notEqual(left.expressions.phase, "0");
   assert.notEqual(left.expressions.travelX, "0");
   assert.notEqual(left.expressions.travelY, "0");
+});
+
+test("raster-4 Cathedral Fan and Echo Tunnel consume nested response while Linear stays the control", () => {
+  const fan = compileProductionTopology(
+    productionGraph(),
+    topologyExecution(generation.MUTATION_LATTICE_RENDERER_POLICY, "cathedral-fan"),
+  );
+  assert.equal(fan.topologyCompiler, "cathedral-fan-v3");
+  assert.equal(fan.topologyResponse.policyVersion, "elastic-topology-response-v1");
+  assert.match(fan.graph, /shapeFanBr.*rotate='[^']*t[^']*'/s);
+  assert.match(fan.graph, /pow\([^;]+,6\)/);
+
+  const tunnel = compileProductionTopology(
+    productionGraph(),
+    topologyExecution(generation.MUTATION_LATTICE_RENDERER_POLICY, "echo-tunnel"),
+  );
+  assert.equal(tunnel.topologyResponse.policyVersion, "elastic-topology-response-v1");
+  assert.match(tunnel.graph, /shapeTunnelBm[^;]*t/s);
+
+  const linear = compileProductionTopology(
+    productionGraph(),
+    topologyExecution(generation.MUTATION_LATTICE_RENDERER_POLICY, "linear"),
+  );
+  assert.equal(linear.topologyCompiler, "linear-v1");
+  assert.equal(linear.topologyResponse, null);
+  assert.equal(linear.graph, productionGraph());
+});
+
+test("nested response cannot reinterpret raster-2 or raster-3 topology graphs", () => {
+  for (const policy of [generation.VISUAL_LANGUAGE_RENDERER_POLICY, generation.EXPRESSIVE_RENDERER_POLICY]) {
+    const withResponse = compileProductionTopology(
+      productionGraph(),
+      topologyExecution(policy, "spiral", true),
+    );
+    const historical = compileProductionTopology(
+      productionGraph(),
+      topologyExecution(policy, "spiral", false),
+    );
+    assert.equal(withResponse.graph, historical.graph);
+    assert.equal(withResponse.topologyCompiler, historical.topologyCompiler);
+  }
 });
