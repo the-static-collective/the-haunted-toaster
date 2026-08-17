@@ -24,4 +24,5 @@ module.exports = {
   ...require("./native-color-generation.cjs"),
   ...require("./nested-response.cjs"),
   ...require("./mutation-lattice-generation.cjs"),
+  ...require("./nested-response-generation.cjs"),
 };
