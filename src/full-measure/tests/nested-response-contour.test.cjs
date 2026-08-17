@@ -97,18 +97,21 @@ test("response witness rejects unsorted and non-finite measurements", () => {
 });
 
 test("candidate session binds real media energy samples into raster-4 timelines", async () => {
+  const energySamples = [
+    { time: 0, db: -28 }, { time: 1, db: -24 }, { time: 2, db: -21 },
+    { time: 3, db: -25 }, { time: 4, db: -29 }, { time: 5, db: -22 },
+    { time: 6, db: -20 }, { time: 7, db: -26 }, { time: 8, db: -23 },
+  ];
+  const sections = [{ start: 0, end: 9, energy: 0.5, label: "Steady" }];
+  const expectedWitness = generation.deriveResponseWitness({
+    energySamples,
+    sections: [{ startSeconds: 0, endSeconds: 9, energy: 0.5, label: "Steady" }],
+    durationSeconds: 9,
+  });
   const session = createCandidateSession({
     renderCandidateFamilyPreviews: async (_input, family) => ({ familyHash: family.familyHash, candidates: family.candidates }),
   });
-  session.noteAudio("/tmp/nested-response-media.wav", {
-    duration: 9,
-    sections: [{ start: 0, end: 9, energy: 0.5, label: "Steady" }],
-    energySamples: [
-      { time: 0, db: -28 }, { time: 1, db: -24 }, { time: 2, db: -21 },
-      { time: 3, db: -25 }, { time: 4, db: -29 }, { time: 5, db: -22 },
-      { time: 6, db: -20 }, { time: 7, db: -26 }, { time: 8, db: -23 },
-    ],
-  });
+  session.noteAudio("/tmp/nested-response-media.wav", { duration: 9, sections, energySamples });
   const family = await session.generate({
     presetId: "openField",
     toastFeelId: "low-and-slow",
@@ -118,9 +121,13 @@ test("candidate session binds real media energy samples into raster-4 timelines"
     lyrics: "",
   });
   assert.ok(family.candidates.length > 0);
+  assert.ok(family.candidates.some((candidate) => candidate.scoreArtifact.score.temporalDensity !== "frozen"));
   for (const candidate of family.candidates) {
+    const density = candidate.scoreArtifact.score.temporalDensity;
     assert.equal(candidate.timeline.nestedResponse.policyVersion, "nested-response-contour-v1");
-    assert.ok(candidate.timeline.nestedResponse.knotCount > 0);
+    assert.equal(candidate.timeline.nestedResponse.sourceWitnessSha256, expectedWitness.witnessSha256);
     assert.equal(candidate.timeline.nestedResponse.meterEvidenceUsed, false);
+    if (density === "frozen") assert.equal(candidate.timeline.nestedResponse.knotCount, 0);
+    else assert.ok(candidate.timeline.nestedResponse.knotCount > 0);
   }
 });
