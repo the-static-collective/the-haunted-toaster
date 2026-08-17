@@ -13,6 +13,7 @@ const {
 const {
   cameraSurrender,
   effectiveInternalEnergy,
+  effectiveInternalEnergyV3,
 } = require("../src/render/response-shaping.cjs");
 const raster2 = require("../profiles/toaster-raster-2.json");
 const raster3 = require("../profiles/toaster-raster-3.json");
@@ -98,6 +99,14 @@ test("internal response curve preserves silence, lifts low-mid energy, and retai
   assert.equal(cameraSurrender(0), 0.35);
   assert.equal(cameraSurrender(0.5), 0.575);
   assert.equal(cameraSurrender(1), 0.8);
+});
+
+test("visual-language-v3 keeps the PR #137 identity-like response endpoints and mids", () => {
+  assert.equal(effectiveInternalEnergyV3(0), 0);
+  assert.equal(effectiveInternalEnergyV3(0.25), 0.25);
+  assert.equal(effectiveInternalEnergyV3(0.5), 0.5);
+  assert.equal(effectiveInternalEnergyV3(0.75), 0.75);
+  assert.equal(effectiveInternalEnergyV3(1), 1);
 });
 
 test("renderer profile opt-in leaves raster-2 policy intact and advances raster-3 explicitly", () => {

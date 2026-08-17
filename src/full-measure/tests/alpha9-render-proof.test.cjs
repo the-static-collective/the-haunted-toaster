@@ -12,22 +12,31 @@ const { compileTimelineFilterGraph } = require("../src/render/timeline-filter.cj
 const { resolveFfmpeg, runProcess } = require("../src/render/tooling.cjs");
 
 const root = path.resolve(__dirname, "..");
-const readJson = (relativePath) =>
-  JSON.parse(fs.readFileSync(path.join(root, relativePath), "utf8"));
+const readJson = (relativePath) => JSON.parse(fs.readFileSync(path.join(root, relativePath), "utf8"));
 const constraints = readJson("constraints/wire-orchard.v3.json");
 const profile = readJson("profiles/toaster-raster-4.json");
 const analysis = readJson("fixtures/analysis/sectional.v1.json");
 const SHAPES = ["elastic-spine", "split-horizon", "cathedral-fan", "echo-tunnel"];
 
 function scoreAndTimeline(topology) {
-  const scoreArtifact = generation.createVisualScore({
-    seed: `alpha9-ffmpeg-${topology}`,
-    constraints,
-    overrides: { topology, temporalDensity: "section" },
+  const scoreArtifact = generation.createVisualScore({ seed: `alpha9-ffmpeg-${topology}`, constraints, overrides: { topology, temporalDensity: "section" } });
+  return { score: scoreArtifact.score, timeline: generation.resolve(analysis, scoreArtifact.score, constraints, profile) };
+}
+
+function responsiveScoreAndTimeline(topology) {
+  const scoreArtifact = generation.createVisualScore({ seed: `alpha9-responsive-ffmpeg-${topology}`, constraints, overrides: { topology, temporalDensity: "transient" } });
+  const baseTimeline = generation.resolve(analysis, scoreArtifact.score, constraints, profile);
+  const durationSeconds = Number(analysis.durationSeconds);
+  const responseSpan = Math.min(5, Math.max(1, durationSeconds));
+  const dbValues = [-30, -23, -12, -12, -12, -25];
+  const responseWitness = generation.deriveResponseWitness({
+    energySamples: dbValues.map((db, index) => ({ time: Number(((responseSpan * index) / (dbValues.length - 1)).toFixed(6)), db })),
+    sections: analysis.sections,
+    durationSeconds,
   });
   return {
     score: scoreArtifact.score,
-    timeline: generation.resolve(analysis, scoreArtifact.score, constraints, profile),
+    timeline: generation.attachNestedResponse(baseTimeline, { responseWitness, score: scoreArtifact.score }),
   };
 }
 
@@ -44,48 +53,26 @@ function productionLikeGraph() {
 
 function compiledGraphFor(topology) {
   const { timeline } = scoreAndTimeline(topology);
-  return compileTimelineFilterGraph(
-    productionLikeGraph(),
-    createTimelineExecution(timeline),
-  );
+  return compileTimelineFilterGraph(productionLikeGraph(), createTimelineExecution(timeline));
 }
 
 const assFixture = [
-  "[Script Info]",
-  "ScriptType: v4.00+",
-  "PlayResX: 320",
-  "PlayResY: 180",
-  "ScaledBorderAndShadow: yes",
-  "",
+  "[Script Info]", "ScriptType: v4.00+", "PlayResX: 320", "PlayResY: 180", "ScaledBorderAndShadow: yes", "",
   "[V4+ Styles]",
   "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
   "Style: Default,Arial,20,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,1,0,2,10,10,10,1",
-  "",
-  "[Events]",
-  "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
-  "",
+  "", "[Events]", "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text", "",
 ].join("\n");
 
 async function proveFrames(temp, name, compiled) {
   const graphPath = path.join(temp, `${name}.ffgraph`);
   await fsPromises.writeFile(graphPath, `${compiled.graph}\n`, "utf8");
-  await runProcess(
-    resolveFfmpeg(),
-    [
-      "-y",
-      "-hide_banner",
-      "-loglevel", "error",
-      "-f", "lavfi",
-      "-i", "sine=frequency=220:duration=1:sample_rate=48000",
-      "-f", "lavfi",
-      "-i", "color=c=black:s=320x180:r=12:d=1",
-      "-filter_complex_script", graphPath,
-      "-map", "[vout]",
-      "-frames:v", "2",
-      "-f", "null", "-",
-    ],
-    { cwd: temp },
-  );
+  await runProcess(resolveFfmpeg(), [
+    "-y", "-hide_banner", "-loglevel", "error",
+    "-f", "lavfi", "-i", "sine=frequency=220:duration=1:sample_rate=48000",
+    "-f", "lavfi", "-i", "color=c=black:s=320x180:r=12:d=1",
+    "-filter_complex_script", graphPath, "-map", "[vout]", "-frames:v", "2", "-f", "null", "-",
+  ], { cwd: temp });
 }
 
 test("Shape Pack v1 compilers produce actual FFmpeg frames under raster-4", async () => {
@@ -94,18 +81,28 @@ test("Shape Pack v1 compilers produce actual FFmpeg frames under raster-4", asyn
     await fsPromises.writeFile(path.join(temp, "alpha9-render-proof.ass"), assFixture, "utf8");
     for (const topology of SHAPES) {
       const { timeline } = scoreAndTimeline(topology);
-      const compiled = compileTimelineFilterGraph(
-        productionLikeGraph(),
-        createTimelineExecution(timeline),
-      );
+      const compiled = compileTimelineFilterGraph(productionLikeGraph(), createTimelineExecution(timeline));
       assert.equal(compiled.topology, topology);
       assert.equal(compiled.topologyCompiler.endsWith("-v3"), true);
       assert.match(compiled.fieldEnvelope.policy, /^shape-pack-/);
       await proveFrames(temp, topology, compiled);
     }
-  } finally {
-    await fsPromises.rm(temp, { recursive: true, force: true });
-  }
+  } finally { await fsPromises.rm(temp, { recursive: true, force: true }); }
+});
+
+test("Elastic topology response expressions produce actual FFmpeg frames under raster-4", async () => {
+  const temp = await fsPromises.mkdtemp(path.join(os.tmpdir(), "ht-alpha9-responsive-shapes-"));
+  try {
+    await fsPromises.writeFile(path.join(temp, "alpha9-render-proof.ass"), assFixture, "utf8");
+    for (const topology of ["circle", "spiral", ...SHAPES]) {
+      const { timeline } = responsiveScoreAndTimeline(topology);
+      assert.equal(timeline.nestedResponse.policyVersion, "nested-response-contour-v1");
+      const compiled = compileTimelineFilterGraph(productionLikeGraph(), createTimelineExecution(timeline));
+      assert.equal(compiled.topology, topology);
+      assert.match(compiled.graph, /pow\([^;]+,6\)/);
+      await proveFrames(temp, `responsive-${topology}`, compiled);
+    }
+  } finally { await fsPromises.rm(temp, { recursive: true, force: true }); }
 });
 
 test("Topology Arc compiles the exact accepted schedule and produces FFmpeg frames", async () => {
@@ -113,64 +110,34 @@ test("Topology Arc compiles the exact accepted schedule and produces FFmpeg fram
   try {
     await fsPromises.writeFile(path.join(temp, "alpha9-render-proof.ass"), assFixture, "utf8");
     const { score, timeline: baseTimeline } = scoreAndTimeline("circle");
-    const timeline = attachTopologyArc(baseTimeline, {
-      analysis,
-      score,
-      constraints,
-      locks: [],
-      rootSeed: "alpha9-ghost-ffmpeg-proof",
-      toastFeelId: "risky-hybrid",
-    });
+    const timeline = attachTopologyArc(baseTimeline, { analysis, score, constraints, locks: [], rootSeed: "alpha9-ghost-ffmpeg-proof", toastFeelId: "risky-hybrid" });
     assert.ok(timeline.topologyArc.windowCount > 0);
-
     const preview = createTimelinePreview(timeline);
-    const compiled = compileTimelineFilterGraph(
-      productionLikeGraph(),
-      createTimelineExecution(timeline),
-    );
-
+    const compiled = compileTimelineFilterGraph(productionLikeGraph(), createTimelineExecution(timeline));
     assert.equal(preview.timelineHash, timeline.timelineHash);
     assert.equal(preview.timeline.topologyArc.planSha256, timeline.topologyArc.planSha256);
     assert.equal(compiled.topologyArc.planSha256, timeline.topologyArc.planSha256);
     assert.equal(compiled.topologyArc.windowCount, timeline.topologyArc.windowCount);
     assert.deepEqual(
-      compiled.topologyArc.windows.map(({ windowSha256, entranceTick, peakTick, releaseTick, outcome }) => ({
-        windowSha256, entranceTick, peakTick, releaseTick, outcome,
-      })),
-      timeline.topologyArc.windows.map(({ windowSha256, entranceTick, peakTick, releaseTick, outcome }) => ({
-        windowSha256, entranceTick, peakTick, releaseTick, outcome,
-      })),
+      compiled.topologyArc.windows.map(({ windowSha256, entranceTick, peakTick, releaseTick, outcome }) => ({ windowSha256, entranceTick, peakTick, releaseTick, outcome })),
+      timeline.topologyArc.windows.map(({ windowSha256, entranceTick, peakTick, releaseTick, outcome }) => ({ windowSha256, entranceTick, peakTick, releaseTick, outcome })),
     );
     assert.match(compiled.graph, /arcGhostAudio0/);
     assert.match(compiled.graph, /overlay=0:0:enable=/);
     await proveFrames(temp, "topology-arc", compiled);
-  } finally {
-    await fsPromises.rm(temp, { recursive: true, force: true });
-  }
+  } finally { await fsPromises.rm(temp, { recursive: true, force: true }); }
 });
 
 test("Shape Pack layered topology compositing is bounded instead of screen-additive", () => {
   for (const topology of ["cathedral-fan", "echo-tunnel"]) {
     const compiled = compiledGraphFor(topology);
-    assert.doesNotMatch(
-      compiled.graph,
-      /blend=all_mode=screen/,
-      `${topology} must not turn repeated bright geometry into additive white pressure`,
-    );
+    assert.doesNotMatch(compiled.graph, /blend=all_mode=screen/, `${topology} must not turn repeated bright geometry into additive white pressure`);
   }
 });
 
 test("Echo Tunnel has explicit recession falloff instead of concentric full-strength Circle clones", () => {
   const compiled = compiledGraphFor("echo-tunnel");
   const alphaStages = compiled.graph.match(/colorchannelmixer=aa=/g) || [];
-
-  assert.ok(
-    alphaStages.length >= 4,
-    `echo-tunnel should carry per-depth alpha falloff; found only ${alphaStages.length} alpha stage(s)`,
-  );
-  assert.doesNotMatch(
-    compiled.graph,
-    /scale=\d+:\d+,pad=\d+:\d+:\(ow-iw\)\/2:\(oh-ih\)\/2:color=black@0/,
-    "echo-tunnel nested planes must converge toward a vanishing axis rather than remain perfectly concentric",
-  );
+  assert.ok(alphaStages.length >= 4, `echo-tunnel should carry per-depth alpha falloff; found only ${alphaStages.length} alpha stage(s)`);
+  assert.doesNotMatch(compiled.graph, /scale=\d+:\d+,pad=\d+:\d+:\(ow-iw\)\/2:\(oh-ih\)\/2:color=black@0/, "echo-tunnel nested planes must converge toward a vanishing axis rather than remain perfectly concentric");
 });
