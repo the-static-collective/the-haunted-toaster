@@ -4,7 +4,7 @@ const test = require("node:test");
 const generation = require("../src/generation/index.cjs");
 const { createTimelineExecution } = require("../src/render/timeline-execution.cjs");
 const { compileTimelineFilterGraph } = require("../src/render/timeline-filter.cjs");
-const { buildVisualCompilerEvidence } = require("../src/render/render.cjs");
+const { buildVisualCompilerEvidence } = require("../src/render/visual-compiler-evidence.cjs");
 
 function graph() {
   return [
