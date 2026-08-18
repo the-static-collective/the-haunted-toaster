@@ -7,6 +7,7 @@ const {
 } = require("./topology-compilers.cjs");
 const {
   EXPRESSIVE_RENDERER_POLICY,
+  MUTATION_LATTICE_RENDERER_POLICY,
   LEGACY_RENDERER_POLICY,
   VISUAL_LANGUAGE_RENDERER_POLICY,
 } = require("../generation/renderer-policy.cjs");
@@ -125,7 +126,8 @@ function rendererPolicyForTimeline(timeline) {
   if (!timeline?.rendererPolicy) return LEGACY_RENDERER_POLICY;
   if (
     timeline.rendererPolicy !== VISUAL_LANGUAGE_RENDERER_POLICY &&
-    timeline.rendererPolicy !== EXPRESSIVE_RENDERER_POLICY
+    timeline.rendererPolicy !== EXPRESSIVE_RENDERER_POLICY &&
+    timeline.rendererPolicy !== MUTATION_LATTICE_RENDERER_POLICY
   ) {
     throw new TypeError(`Unsupported ResolvedTimeline renderer policy: ${String(timeline.rendererPolicy)}.`);
   }
@@ -196,7 +198,7 @@ function cameraGrammarFilters(grammar, geometry, duration, state, rendererPolicy
   const { width, height } = geometry;
   if (grammar === "locked") return [];
 
-  if (rendererPolicy !== EXPRESSIVE_RENDERER_POLICY) {
+  if (![EXPRESSIVE_RENDERER_POLICY, MUTATION_LATTICE_RENDERER_POLICY].includes(rendererPolicy)) {
     if (grammar === "drift") {
       return [geometryFilter(width, height, 1.03, "(iw-ow)/2+sin(t*0.19)*(iw-ow)*0.38", "(ih-oh)/2+cos(t*0.16)*(ih-oh)*0.38")];
     }
@@ -250,7 +252,7 @@ function materialGrammarFilters(texture, state, geometry) {
 
 function semanticProgramForState(state, geometry, duration, rendererPolicy = LEGACY_RENDERER_POLICY) {
   const grammar = grammarForState(state);
-  const registry = rendererPolicy === EXPRESSIVE_RENDERER_POLICY
+  const registry = [EXPRESSIVE_RENDERER_POLICY, MUTATION_LATTICE_RENDERER_POLICY].includes(rendererPolicy)
     ? EXPRESSIVE_SEMANTIC_COMPILER_REGISTRIES
     : SEMANTIC_COMPILER_REGISTRIES;
   const filters = [
@@ -458,6 +460,7 @@ function compileTimelineFilterGraph(graph, execution) {
       topology: topologyCompiled.topology,
       topologyCompiler: topologyCompiled.topologyCompiler,
       fieldEnvelope: topologyCompiled.fieldEnvelope,
+      topologyArc: topologyCompiled.topologyArc || null,
       geometry: topologyCompiled.geometry || geometry,
       semanticGrammar: arcCompilation.semanticGrammar,
       operators: arcCompilation.operators,
@@ -511,6 +514,7 @@ function compileTimelineFilterGraph(graph, execution) {
     topology: topologyCompiled.topology,
     topologyCompiler: topologyCompiled.topologyCompiler,
     fieldEnvelope: topologyCompiled.fieldEnvelope,
+    topologyArc: topologyCompiled.topologyArc || null,
     geometry: topologyCompiled.geometry || geometry,
     semanticGrammar: (driftOperator || nativeOperator) ? Object.freeze({
       ...semanticGrammar,
