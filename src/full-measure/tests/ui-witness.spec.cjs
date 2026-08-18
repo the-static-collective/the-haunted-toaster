@@ -49,9 +49,50 @@ for (const state of [
     await page.locator("#buildInfoSummary").evaluate((element) => {
       element.style.visibility = "hidden";
     });
+    // Video/VSPantry is an additive source surface with its own live browser witness below.
+    // Keep the long-running canonical state baselines scoped to the pre-existing state machine.
+    const videoSource = page.locator("#videoSourceBlock");
+    if (await videoSource.count()) {
+      await videoSource.evaluate((element) => {
+        element.style.display = "none";
+      });
+    }
     await expect(page).toHaveScreenshot(`${state}.png`, {
       animations: "disabled",
       fullPage: true,
     });
   });
 }
+
+test("witness Video source and VSPantry", async ({ page }, testInfo) => {
+  await page.goto("/?state=empty");
+  await expect(page.locator("html")).toHaveAttribute("data-witness-ready", "true");
+  expect(await page.evaluate(() => window.__consoleErrors)).toEqual([]);
+
+  const block = page.locator("#videoSourceBlock");
+  const addToPantry = page.locator("#addVideoToPantry");
+  await expect(block).toBeVisible();
+  await expect(addToPantry).toBeChecked();
+
+  const checkboxBox = await addToPantry.boundingBox();
+  expect(checkboxBox.width).toBeLessThanOrEqual(18);
+  expect(checkboxBox.height).toBeLessThanOrEqual(18);
+
+  await page.locator("#videoDrop").click();
+  await expect(page.locator("#videoDropTitle")).toHaveText("visual-specimen-1.mp4");
+  await expect(page.locator("#videoDropHint")).toContainText("in VSPantry");
+  await expect(page.locator("#videoPantryStatus")).toContainText("1 specimen");
+
+  await page.locator("#videoFolderImport").click();
+  await expect(page.locator("#videoPantryStatus")).toContainText("3 total");
+  await expect(page.locator("#videoPantryStatus")).toContainText("2 admitted");
+  await expect(page.locator("#videoPantryStatus")).toContainText("1 duplicates");
+
+  await block.screenshot({
+    animations: "disabled",
+    path: testInfo.outputPath("video-vspantry.png"),
+  });
+
+  await page.locator("#removeVideo").click();
+  await expect(page.locator("#videoDropTitle")).toHaveText("Add one video");
+});

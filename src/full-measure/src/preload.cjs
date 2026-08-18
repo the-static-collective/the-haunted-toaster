@@ -4,6 +4,14 @@ const PRODUCT_NAME = "The Haunted Toaster";
 const MAX_LISTENER_EVIDENCE = 10_000;
 let pendingListenerEvidence = null;
 
+function installVideoSourceUiScript() {
+  if (document.querySelector('script[data-haunted-video-source="v1"]')) return;
+  const script = document.createElement("script");
+  script.src = "./video-source-ui.js";
+  script.dataset.hauntedVideoSource = "v1";
+  document.body.appendChild(script);
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   document.title = PRODUCT_NAME;
 
@@ -21,6 +29,8 @@ window.addEventListener("DOMContentLoaded", () => {
     listenCloser.textContent = "Listen Closer";
     listenCloser.title = "Optional · help the Toaster place lyrics more precisely";
   }
+
+  installVideoSourceUiScript();
 });
 
 function subscribe(channel, callback) {
@@ -104,6 +114,10 @@ async function withLyricFoundry(config = {}) {
 contextBridge.exposeInMainWorld("fullMeasure", {
   chooseAudio: () => ipcRenderer.invoke("dialog:choose-audio"),
   chooseImage: () => ipcRenderer.invoke("dialog:choose-image"),
+  chooseVideo: (options = {}) => ipcRenderer.invoke("dialog:choose-video", options),
+  chooseVideoFolder: () => ipcRenderer.invoke("dialog:choose-video-folder"),
+  listVideoPantry: () => ipcRenderer.invoke("video-pantry:list"),
+  clearVideo: () => ipcRenderer.invoke("video:clear"),
   chooseLyrics: () => ipcRenderer.invoke("dialog:choose-lyrics"),
   chooseOutput: (suggestedName) => ipcRenderer.invoke("dialog:choose-output", suggestedName),
   inspectAudio: (filePath) => ipcRenderer.invoke("media:inspect", filePath),
