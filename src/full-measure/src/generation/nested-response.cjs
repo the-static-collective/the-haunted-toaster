@@ -8,12 +8,14 @@ const { MUTATION_LATTICE_RENDERER_POLICY } = require("./renderer-policy.cjs");
 
 const RESPONSE_WITNESS_POLICY = "response-witness-v1";
 const NESTED_RESPONSE_POLICY = "nested-response-contour-v1";
+const NESTED_RESPONSE_COMPACTION_POLICY = "nested-response-compaction-v1";
 const IDLE_MOTION_POLICY = "topology-idle-v1";
 const RESPONSE_WITNESS_DOMAIN = "HauntedToaster-ResponseWitness-v1";
 const NESTED_RESPONSE_DOMAIN = "HauntedToaster-NestedResponseContour-v1";
 const HYSTERESIS = 0.04;
 const ARC_COMMIT_SAMPLES = 2;
 const PHRASE_SPACING_SECONDS = 3;
+const MAX_NESTED_RESPONSE_KNOTS = 48;
 const DENSITIES = new Set(["frozen", "section", "phrase", "transient"]);
 
 function clamp(value, minimum = 0, maximum = 1) {
@@ -221,6 +223,91 @@ function selectGranularity(knots, granularity) {
   return knots.slice();
 }
 
+function interpolatedValue(left, right, knot, field) {
+  const leftTime = Number(left.atSeconds);
+  const rightTime = Number(right.atSeconds);
+  const span = Math.max(0.000001, rightTime - leftTime);
+  const ratio = clamp((Number(knot.atSeconds) - leftTime) / span);
+  return Number(left[field]) + (Number(right[field]) - Number(left[field])) * ratio;
+}
+
+function responseErrorScore(knots, leftIndex, rightIndex, index) {
+  const left = knots[leftIndex];
+  const right = knots[rightIndex];
+  const knot = knots[index];
+  const excursionError = Math.abs(Number(knot.excursion) - interpolatedValue(left, right, knot, "excursion"));
+  const localError = Math.abs(Number(knot.smoothedEnergy) - interpolatedValue(left, right, knot, "smoothedEnergy"));
+  const slopeError = Math.abs(Number(knot.slope) - interpolatedValue(left, right, knot, "slope"));
+  const previous = knots[index - 1];
+  const next = knots[index + 1];
+  const directionChange = knot.direction !== 0 && (
+    knot.direction !== previous?.direction || knot.direction !== next?.direction
+  );
+  const localExtremum = previous && next && (
+    (Number(knot.excursion) - Number(previous.excursion)) *
+      (Number(next.excursion) - Number(knot.excursion)) <= 0
+  );
+  return excursionError * 6 + localError * 2 + slopeError + (directionChange ? 0.75 : 0) + (localExtremum ? 0.5 : 0);
+}
+
+function compactResponseKnots(knots, maximum = MAX_NESTED_RESPONSE_KNOTS) {
+  const maxCount = Math.max(4, Math.floor(finite(maximum, "maximum response knot count")));
+  if (!Array.isArray(knots) || knots.length <= maxCount) return Array.isArray(knots) ? knots.slice() : [];
+
+  const selected = new Set([0, knots.length - 1]);
+  let minimumExcursionIndex = 0;
+  let maximumExcursionIndex = 0;
+  for (let index = 1; index < knots.length; index += 1) {
+    if (Number(knots[index].excursion) < Number(knots[minimumExcursionIndex].excursion)) minimumExcursionIndex = index;
+    if (Number(knots[index].excursion) > Number(knots[maximumExcursionIndex].excursion)) maximumExcursionIndex = index;
+    if (knots[index].sectionIndex !== knots[index - 1].sectionIndex) {
+      selected.add(index - 1);
+      selected.add(index);
+    }
+  }
+  selected.add(minimumExcursionIndex);
+  selected.add(maximumExcursionIndex);
+
+  if (selected.size > maxCount) {
+    const protectedIndices = new Set([0, knots.length - 1, minimumExcursionIndex, maximumExcursionIndex]);
+    const sectionBoundaryIndices = [...selected]
+      .filter((index) => !protectedIndices.has(index))
+      .sort((left, right) => left - right);
+    const remaining = Math.max(0, maxCount - protectedIndices.size);
+    if (remaining && sectionBoundaryIndices.length) {
+      for (let slot = 0; slot < remaining; slot += 1) {
+        const position = remaining === 1
+          ? Math.floor((sectionBoundaryIndices.length - 1) / 2)
+          : Math.round((slot * (sectionBoundaryIndices.length - 1)) / (remaining - 1));
+        protectedIndices.add(sectionBoundaryIndices[position]);
+      }
+    }
+    return [...protectedIndices].sort((left, right) => left - right).map((index) => knots[index]);
+  }
+
+  while (selected.size < maxCount) {
+    const ordered = [...selected].sort((left, right) => left - right);
+    let bestIndex = null;
+    let bestScore = -1;
+    for (let segment = 0; segment < ordered.length - 1; segment += 1) {
+      const leftIndex = ordered[segment];
+      const rightIndex = ordered[segment + 1];
+      if (rightIndex - leftIndex <= 1) continue;
+      for (let index = leftIndex + 1; index < rightIndex; index += 1) {
+        const score = responseErrorScore(knots, leftIndex, rightIndex, index);
+        if (score > bestScore || (score === bestScore && (bestIndex === null || index < bestIndex))) {
+          bestIndex = index;
+          bestScore = score;
+        }
+      }
+    }
+    if (bestIndex === null) break;
+    selected.add(bestIndex);
+  }
+
+  return [...selected].sort((left, right) => left - right).map((index) => knots[index]);
+}
+
 function resolveNestedResponse({ responseWitness, score, timeline } = {}) {
   if (!responseWitness || responseWitness.policyVersion !== RESPONSE_WITNESS_POLICY) {
     throw new TypeError(`Nested Response requires ${RESPONSE_WITNESS_POLICY}.`);
@@ -231,7 +318,8 @@ function resolveNestedResponse({ responseWitness, score, timeline } = {}) {
   const durationTicks = Math.max(0, Math.round(finite(timeline?.durationTicks ?? 0, "timeline.durationTicks")));
   const directed = withDirections(responseWitness.knots || []);
   const selected = selectGranularity(directed, granularity);
-  const knots = selected.map((knot) => ({
+  const compacted = compactResponseKnots(selected);
+  const knots = compacted.map((knot) => ({
     atTick: Math.max(0, Math.min(durationTicks, Math.round(knot.atSeconds * timebase))),
     sectionIndex: knot.sectionIndex,
     macroEnergy: quantizeNumber(knot.macroEnergy),
@@ -243,8 +331,11 @@ function resolveNestedResponse({ responseWitness, score, timeline } = {}) {
   const core = {
     policyVersion: NESTED_RESPONSE_POLICY,
     granularity,
+    sourceKnotCount: selected.length,
     knotCount: knots.length,
     knots,
+    compactionPolicyVersion: NESTED_RESPONSE_COMPACTION_POLICY,
+    maxKnotCount: MAX_NESTED_RESPONSE_KNOTS,
     meterEvidenceUsed: false,
     idleMotionPolicyVersion: IDLE_MOTION_POLICY,
     sourceWitnessSha256: responseWitness.witnessSha256,
@@ -284,9 +375,12 @@ module.exports = {
   ARC_COMMIT_SAMPLES,
   HYSTERESIS,
   IDLE_MOTION_POLICY,
+  MAX_NESTED_RESPONSE_KNOTS,
+  NESTED_RESPONSE_COMPACTION_POLICY,
   NESTED_RESPONSE_POLICY,
   RESPONSE_WITNESS_POLICY,
   attachNestedResponse,
+  compactResponseKnots,
   deriveResponseWitness,
   resolveNestedResponse,
 };
