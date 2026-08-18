@@ -3,6 +3,7 @@ const test = require("node:test");
 
 const generation = require("../src/generation/index.cjs");
 const { createCandidateSession } = require("../src/candidate-session.cjs");
+const { compileTopologyResponse } = require("../src/render/topology-response.cjs");
 
 function timeline(overrides = {}) {
   return {
@@ -129,5 +130,42 @@ test("candidate session binds real media energy samples into raster-4 timelines"
     assert.equal(candidate.timeline.nestedResponse.meterEvidenceUsed, false);
     if (density === "frozen") assert.equal(candidate.timeline.nestedResponse.knotCount, 0);
     else assert.ok(candidate.timeline.nestedResponse.knotCount > 0);
+  }
+});
+
+test("transient response compacts a long witness before FFmpeg expression compilation", () => {
+  const durationSeconds = 280;
+  const energySamples = Array.from({ length: durationSeconds + 1 }, (_, time) => ({
+    time,
+    db: -30 + Math.sin(time / 7) * 6 + Math.sin(time / 17) * 3 + (time % 41 === 0 ? 5 : 0),
+  }));
+  const sections = Array.from({ length: 7 }, (_, index) => ({
+    startSeconds: index * 40,
+    endSeconds: (index + 1) * 40,
+    energy: 0.25 + index * 0.1,
+    label: `Section ${index + 1}`,
+  }));
+  const responseWitness = generation.deriveResponseWitness({ energySamples, sections, durationSeconds });
+  assert.ok(responseWitness.sampleCount > 200);
+  assert.equal(Number.isInteger(generation.MAX_NESTED_RESPONSE_KNOTS), true);
+
+  const inputTimeline = timeline({ durationTicks: durationSeconds * 1000 });
+  const plan = generation.resolveNestedResponse({
+    responseWitness,
+    score: score({ temporalDensity: "transient", topology: "split-horizon" }),
+    timeline: inputTimeline,
+  });
+
+  assert.equal(plan.compactionPolicyVersion, "nested-response-compaction-v1");
+  assert.equal(plan.sourceKnotCount, responseWitness.sampleCount);
+  assert.ok(plan.knotCount <= generation.MAX_NESTED_RESPONSE_KNOTS);
+  assert.equal(plan.knots[0].atTick, 0);
+  assert.equal(plan.knots.at(-1).atTick, durationSeconds * 1000);
+  assert.deepEqual([...new Set(plan.knots.map((knot) => knot.sectionIndex))], [0, 1, 2, 3, 4, 5, 6]);
+
+  const compiled = compileTopologyResponse({ ...inputTimeline, nestedResponse: plan }, "split-horizon");
+  for (const [field, expression] of Object.entries(compiled.expressions)) {
+    if (field === "idle") continue;
+    assert.ok(expression.length < 20_000, `${field} expression should stay bounded, got ${expression.length} chars`);
   }
 });
