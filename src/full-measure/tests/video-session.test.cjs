@@ -4,17 +4,16 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.join(__dirname, '..');
-const baseCandidateSessionPath = path.join(root, 'src', 'candidate-session.cjs');
-const videoCandidateSessionPath = path.join(root, 'src', 'video-candidate-session.cjs');
+const candidateSessionPath = path.join(root, 'src', 'candidate-session.cjs');
+const baseCandidateSessionPath = path.join(root, 'src', 'candidate-session-base.cjs');
 const preloadPath = path.join(root, 'src', 'preload.cjs');
 
 function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
 }
 
-test('candidate session wrapper stores and clears a Video source binding', () => {
-  assert.equal(fs.existsSync(videoCandidateSessionPath), true, 'video candidate-session wrapper must exist');
-  const { createCandidateSession } = require(videoCandidateSessionPath);
+test('candidate session stores and clears a Video source binding', () => {
+  const { createCandidateSession } = require(candidateSessionPath);
   const session = createCandidateSession();
   const binding = {
     schema: 'haunted-toaster/video-source/v1',
@@ -32,7 +31,7 @@ test('candidate session wrapper stores and clears a Video source binding', () =>
   assert.equal(session.state().video, null);
 });
 
-test('Slice A does not put Video into base render execution authority', () => {
+test('Slice A leaves base render execution authority unaware of Video', () => {
   const source = read(baseCandidateSessionPath);
   const start = source.indexOf('function executionForRender');
   const end = source.indexOf('function registerIpc', start);
@@ -42,11 +41,11 @@ test('Slice A does not put Video into base render execution authority', () => {
   assert.doesNotMatch(executionSource, /videoBinding|videoPath|foreignVisual|specimenId/);
 });
 
-test('packaged main entry installs the bounded Video/VSPantry IPC controller', () => {
-  const packageJson = JSON.parse(read(path.join(root, 'package.json')));
-  const source = read(path.join(root, packageJson.main));
+test('candidate-session wrapper owns the bounded Video/VSPantry integration seam', () => {
+  const source = read(candidateSessionPath);
   assert.match(source, /registerVideoPantryIpc/);
-  assert.match(source, /require\("\.\/main\.cjs"\)/);
+  assert.match(source, /process\.versions\?\.electron/);
+  assert.match(source, /session\.registerIpc\(ipcMain, assertAvailable\)/);
 });
 
 test('preload exposes Video and VSPantry methods without filesystem authority', () => {

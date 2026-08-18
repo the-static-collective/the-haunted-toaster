@@ -9,7 +9,7 @@
   "engines": {
     "node": ">=22"
   },
-  "main": "src/main-with-video.cjs",
+  "main": "src/main.cjs",
   "exports": {
     ".": "./src/main.cjs",
     "./generation": "./src/generation/index.cjs"
