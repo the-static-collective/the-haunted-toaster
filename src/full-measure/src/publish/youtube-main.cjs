@@ -16,7 +16,7 @@ const {
 } = require("./youtube-publish.cjs");
 const { createYouTubeCredentialStore } = require("./youtube-credentials.cjs");
 
-const OAUTH_CALLBACK_PATH = "/oauth/youtube/callback";
+const OAUTH_CALLBACK_PATH = "/";
 const OAUTH_TIMEOUT_MS = 5 * 60 * 1000;
 
 function abortError(message = "YouTube publishing cancelled.") {
