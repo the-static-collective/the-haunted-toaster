@@ -6,7 +6,6 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const baseCandidateSessionPath = path.join(root, 'src', 'candidate-session.cjs');
 const videoCandidateSessionPath = path.join(root, 'src', 'video-candidate-session.cjs');
-const mainPath = path.join(root, 'src', 'main.cjs');
 const preloadPath = path.join(root, 'src', 'preload.cjs');
 
 function read(filePath) {
@@ -43,9 +42,11 @@ test('Slice A does not put Video into base render execution authority', () => {
   assert.doesNotMatch(executionSource, /videoBinding|videoPath|foreignVisual|specimenId/);
 });
 
-test('main process installs the bounded Video/VSPantry IPC controller', () => {
-  const source = read(mainPath);
+test('packaged main entry installs the bounded Video/VSPantry IPC controller', () => {
+  const packageJson = JSON.parse(read(path.join(root, 'package.json')));
+  const source = read(path.join(root, packageJson.main));
   assert.match(source, /registerVideoPantryIpc/);
+  assert.match(source, /require\("\.\/main\.cjs"\)/);
 });
 
 test('preload exposes Video and VSPantry methods without filesystem authority', () => {
