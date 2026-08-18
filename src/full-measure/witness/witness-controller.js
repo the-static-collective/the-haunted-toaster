@@ -7,6 +7,8 @@ const CANONICAL_WITNESS_STATES = Object.freeze([
   "rendering",
   "complete",
   "failure",
+  "beta-home",
+  "beta-history",
 ]);
 
 function normalizeWitnessState(value) {
@@ -58,6 +60,35 @@ if (typeof window !== "undefined") {
     await waitFor(() => document.querySelectorAll(".candidate-card").length === 6, "six candidates");
   }
 
+  async function showBetaHome() {
+    await loadSong();
+    await waitFor(
+      () => !document.querySelector("#betaSixUpWindow")?.classList.contains("is-hidden"),
+      "beta Six-Up home window",
+    );
+    await waitFor(
+      () => document.querySelector("#toastFeelChoices")?.classList.contains("is-hidden"),
+      "Toast Feel retirement in beta home",
+    );
+    document.querySelector("#betaSixUpGenerate").click();
+    await waitFor(
+      () => document.querySelectorAll("#betaSixUpGrid .beta-six-up-cell").length === 6,
+      "beta six candidate contact sheet",
+    );
+  }
+
+  async function showBetaHistory() {
+    await showBetaHome();
+    await waitFor(
+      () => !document.querySelector("#recentToastsWindow")?.classList.contains("is-hidden"),
+      "Recent Toasts home window",
+    );
+    await waitFor(
+      () => document.querySelectorAll("#recentToastsList .recent-toast-row").length === 3,
+      "three recent witnessed toasts",
+    );
+  }
+
   async function showRender(mode) {
     await loadSong();
     await chooseToastFeel();
@@ -83,6 +114,8 @@ if (typeof window !== "undefined") {
     if (state === "rendering") await showRender("pending");
     if (state === "complete") await showRender("complete");
     if (state === "failure") await showRender("failure");
+    if (state === "beta-home") await showBetaHome();
+    if (state === "beta-history") await showBetaHistory();
   }
 
   window.addEventListener("load", async () => {
