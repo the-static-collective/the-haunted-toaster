@@ -7,7 +7,7 @@ function emptyCatalog() {
 }
 
 function normalizePaths(values = []) {
-  return [...new Set((Array.isArray(values) ? values : []).filter(Boolean).map((value) => path.resolve(String(value))))].sort();
+  return [...new Set((Array.isArray(values) ? values : []).filter(Boolean).map((value) => String(value)))].sort();
 }
 
 function normalizeSpecimen(specimen = {}) {
