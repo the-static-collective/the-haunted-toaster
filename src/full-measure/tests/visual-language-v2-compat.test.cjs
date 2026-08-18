@@ -18,6 +18,8 @@ const readJson = (relativePath) => JSON.parse(fs.readFileSync(path.join(root, re
 const legacyConstraints = readJson("constraints/wire-orchard.v1.json");
 const legacyProfile = readJson("profiles/toaster-raster-1.json");
 const visualLanguageProfile = readJson("profiles/toaster-raster-2.json");
+const expressiveProfile = readJson("profiles/toaster-raster-3.json");
+const expressiveConstraints = readJson("constraints/wire-orchard.v2.json");
 const analysis = readJson("fixtures/analysis/sectional.v1.json");
 
 function productionLikeGraph() {
@@ -31,11 +33,11 @@ function productionLikeGraph() {
   ].join(";\n");
 }
 
-test("candidate session advances to raster-3 while raster-1 and raster-2 remain replayable", () => {
-  assert.equal(rendererProfile.id, "toaster-raster-3");
-  assert.equal(CONSTRAINTS_BY_PRESET.porchlight.id, "porchlight-v2");
-  assert.equal(CONSTRAINTS_BY_PRESET.wireOrchard.id, "wire-orchard-v2");
-  assert.equal(CONSTRAINTS_BY_PRESET.absoluteResidual.id, "absolute-residual-v2");
+test("candidate session advances to raster-4 while raster-1 through raster-3 remain replayable", () => {
+  assert.equal(rendererProfile.id, "toaster-raster-4");
+  assert.equal(CONSTRAINTS_BY_PRESET.porchlight.id, "porchlight-v3");
+  assert.equal(CONSTRAINTS_BY_PRESET.wireOrchard.id, "wire-orchard-v3");
+  assert.equal(CONSTRAINTS_BY_PRESET.absoluteResidual.id, "absolute-residual-v3");
 
   const legacyArtifact = generation.createVisualScore({
     seed: "legacy-policy-proof",
@@ -57,8 +59,8 @@ test("candidate session advances to raster-3 while raster-1 and raster-2 remain 
   );
 });
 
-test("spiral and quad-mirror compile through expressive registries without replacing raster-2 semantics", () => {
-  const constraints = CONSTRAINTS_BY_PRESET.wireOrchard;
+test("raster-3 spiral and quad-mirror remain exact visual-language-v2 ancestors", () => {
+  const constraints = expressiveConstraints;
   for (const topology of ["spiral", "quad-mirror"]) {
     const scoreArtifact = generation.createVisualScore({
       seed: `visual-language-v2-${topology}`,
@@ -72,7 +74,7 @@ test("spiral and quad-mirror compile through expressive registries without repla
         camera: { grammar: "orbit" },
       },
     });
-    const timeline = generation.resolve(analysis, scoreArtifact.score, constraints, rendererProfile);
+    const timeline = generation.resolve(analysis, scoreArtifact.score, constraints, expressiveProfile);
     assert.equal(timeline.rendererPolicy, generation.EXPRESSIVE_RENDERER_POLICY);
     const execution = createTimelineExecution(timeline);
     const first = compileTimelineFilterGraph(productionLikeGraph(), execution);
@@ -101,6 +103,8 @@ test("Build Info capability claims are derived from the active profile and regis
   assert.equal(derived.rendererProfileGeneration, rendererProfile.id);
   assert.equal(derived.topologyCompilers.spiral, "spiral-polar-v2");
   assert.equal(derived.topologyCompilers["quad-mirror"], "quad-mirror-v2");
+  assert.equal(derived.topologyCompilers["elastic-spine"], "elastic-spine-v3");
+  assert.equal(derived.topologyCompilers["echo-tunnel"], "echo-tunnel-v3");
   assert.equal(derived.semanticCompilers.motion.fracture, SEMANTIC_COMPILER_REGISTRIES.motion.fracture);
   assert.equal(derived.semanticCompilers.camera.orbit, "camera-orbit-v2");
   assert.ok(derived.capabilities.includes("labProposalInfluenceToggle"));
@@ -108,4 +112,8 @@ test("Build Info capability claims are derived from the active profile and regis
   assert.ok(derived.capabilities.includes("boundedFieldEnvelopeV1"));
   assert.ok(derived.capabilities.includes("visualLanguageV2"));
   assert.ok(derived.capabilities.includes("internalResponseV1"));
+  assert.ok(derived.capabilities.includes("toastFeelV2"));
+  assert.ok(derived.capabilities.includes("mutationLatticeV1"));
+  assert.ok(derived.capabilities.includes("shapePackV1"));
+  assert.ok(derived.capabilities.includes("topologyArcV1"));
 });

@@ -2,7 +2,7 @@ const crypto = require("node:crypto");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const { ATMOSPHERES } = require("../generation/atmosphere-score.cjs");
-const { EXPRESSIVE_RENDERER_POLICY } = require("../generation/renderer-policy.cjs");
+const { isExpressiveRendererPolicy } = require("../generation/renderer-policy.cjs");
 const { effectiveInternalEnergy } = require("./response-shaping.cjs");
 
 const ATMOSPHERE_COMPILER_V1 = "atmosphere-ass-particle-field-v1";
@@ -25,7 +25,7 @@ function atmosphereKind(timeline) {
 }
 
 function atmosphereCompiler(timeline) {
-  return timeline?.rendererPolicy === EXPRESSIVE_RENDERER_POLICY
+  return isExpressiveRendererPolicy(timeline?.rendererPolicy)
     ? ATMOSPHERE_COMPILER_V2
     : ATMOSPHERE_COMPILER_V1;
 }

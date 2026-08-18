@@ -6,8 +6,8 @@ const { NATIVE_COLOR_POLICY, RELATIONSHIPS } = require("../src/generation/native
 const { RENDER_FAILURE_EVIDENCE_SCHEMA } = require("../src/render/render-failure-evidence.cjs");
 const { UI_WITNESS_POLICY } = require("../scripts/build-ui-witness.cjs");
 
-test("alpha.8 source exposes the bounded release surfaces", () => {
-  assert.equal(TOAST_FEEL_CONTRACT, "toast-feel-v1");
+test("alpha.9 preserves the alpha.8 release surfaces while advancing generation", () => {
+  assert.equal(TOAST_FEEL_CONTRACT, "toast-feel-v2");
   assert.equal(TOAST_FEELS.length, 7);
   assert.equal(NATIVE_COLOR_POLICY, "native-color-witness-v1");
   assert.deepEqual(RELATIONSHIPS, ["echo", "counterpoint"]);
@@ -16,7 +16,10 @@ test("alpha.8 source exposes the bounded release surfaces", () => {
   const build = deriveBuildCapabilities();
   for (const capability of [
     "uiWitnessV1",
-    "toastFeelV1",
+    "toastFeelV2",
+    "mutationLatticeV1",
+    "shapePackV1",
+    "topologyArcV1",
     "nativeColorWitnessV1",
     "renderFailureEvidenceV1",
   ]) {

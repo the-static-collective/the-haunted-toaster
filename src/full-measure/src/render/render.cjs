@@ -48,6 +48,7 @@ function compactToastFeelEvidence(toastFeel) {
     name: toastFeel.name,
     semanticClass: toastFeel.semanticClass,
     pressureHash: toastFeel.pressureHash || null,
+    affinityHash: toastFeel.affinityHash || null,
     seedParentScoreRef: toastFeel.seedParentScoreRef || null,
     stompPolicy: toastFeel.stompPolicy || null,
   };
@@ -175,6 +176,7 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       topology: compiledTimeline.topology,
       topologyCompiler: compiledTimeline.topologyCompiler,
       fieldEnvelopePolicy: compiledTimeline.fieldEnvelope?.policy || null,
+      topologyArc: compiledTimeline.topologyArc || null,
       operators: compiledTimeline.operators,
       atmosphere: baseFilter.atmosphereEvidence,
       temporalSampling: temporalSampling.policy,

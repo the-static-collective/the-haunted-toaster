@@ -52,7 +52,7 @@ test("candidate session binds exact Toast Feel identity through accepted executi
   });
 
   assert.equal(matching.toastFeel.id, "wire-heat");
-  assert.equal(matching.toastFeel.contractVersion, "toast-feel-v1");
+  assert.equal(matching.toastFeel.contractVersion, "toast-feel-v2");
   assert.equal(mismatch, null);
   matching.toastFeel.name = "Nope";
   assert.equal(session.executionForRender({
