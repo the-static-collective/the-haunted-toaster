@@ -15,7 +15,7 @@ const ALPHA_STATES = [
 const BETA_WITNESS_SHA256 = Object.freeze({
   "beta-home": "5c2e73fdc89da125378ac25135e24d6d832d67c459fcc9ce83a20839a09cb341",
   "beta-history": "8798e0a03181a55a0032c186b2092e5fba6dcf1b6017d8c19c0aa2be36658019",
-  "beta-home-compact": "92b4bf145c3c51ac450e590a7e008573ce4dcdf94e638c3c034f7aaf5d22ca84",
+  "beta-home-compact": "38b531423e92c48d402db735fe5038f0e0f40dcfadf5c984731d82809a68ebfd",
 });
 
 function visualReceipt(buffer) {
