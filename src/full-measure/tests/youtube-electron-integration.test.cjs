@@ -10,6 +10,7 @@ const youtubeMain = read("src", "publish", "youtube-main.cjs");
 const preload = read("src", "preload.cjs");
 const html = read("src", "renderer", "index.html");
 const renderer = read("src", "renderer", "youtube-publish-ui.js");
+const witnessBuild = read("scripts", "build-ui-witness.cjs");
 
 test("Electron main delegates YouTube publication to a purpose-specific main-process boundary", () => {
   assert.match(main, /safeStorage/);
@@ -100,4 +101,9 @@ test("production renderer makes private YouTube delivery explicit after a comple
   assert.match(renderer, /api\.onYouTubeProgress\(/);
   assert.match(renderer, /youtubePublishCard\.classList\.remove\("is-hidden"\)/);
   assert.match(renderer, /Uploaded privately/i);
+});
+
+test("production renderer witness carries the YouTube publication controller and styles", () => {
+  assert.match(witnessBuild, /"youtube-publish\.css"/);
+  assert.match(witnessBuild, /"youtube-publish-ui\.js"/);
 });
