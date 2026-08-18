@@ -2,8 +2,14 @@ const crypto = require("node:crypto");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const { ATMOSPHERES } = require("../generation/atmosphere-score.cjs");
-const { EXPRESSIVE_RENDERER_POLICY } = require("../generation/renderer-policy.cjs");
-const { effectiveInternalEnergy } = require("./response-shaping.cjs");
+const {
+  MUTATION_LATTICE_RENDERER_POLICY,
+  isExpressiveRendererPolicy,
+} = require("../generation/renderer-policy.cjs");
+const {
+  effectiveInternalEnergy,
+  effectiveInternalEnergyV3,
+} = require("./response-shaping.cjs");
 
 const ATMOSPHERE_COMPILER_V1 = "atmosphere-ass-particle-field-v1";
 const ATMOSPHERE_COMPILER_V2 = "atmosphere-ass-particle-field-v2";
@@ -25,7 +31,7 @@ function atmosphereKind(timeline) {
 }
 
 function atmosphereCompiler(timeline) {
-  return timeline?.rendererPolicy === EXPRESSIVE_RENDERER_POLICY
+  return isExpressiveRendererPolicy(timeline?.rendererPolicy)
     ? ATMOSPHERE_COMPILER_V2
     : ATMOSPHERE_COMPILER_V1;
 }
@@ -431,8 +437,11 @@ function buildAtmosphereAss({
   const kind = atmosphereKind(timeline);
   const compiler = atmosphereCompiler(timeline);
   const expressive = compiler === ATMOSPHERE_COMPILER_V2;
+  const response = timeline?.rendererPolicy === MUTATION_LATTICE_RENDERER_POLICY
+    ? effectiveInternalEnergyV3
+    : effectiveInternalEnergy;
   const responseEnergy = expressive
-    ? effectiveInternalEnergy(timeline?.baseState?.motion?.amplitude)
+    ? response(timeline?.baseState?.motion?.amplitude)
     : null;
   const duration = Math.max(
     0,

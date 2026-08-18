@@ -1,6 +1,6 @@
 const { TOPOLOGIES } = require("../generation/schema.cjs");
 const { EXPRESSIVE_RENDERER_POLICY, MUTATION_LATTICE_RENDERER_POLICY, isExpressiveRendererPolicy } = require("../generation/renderer-policy.cjs");
-const { effectiveInternalEnergy } = require("./response-shaping.cjs");
+const { effectiveInternalEnergy, effectiveInternalEnergyV3 } = require("./response-shaping.cjs");
 const { resolveFieldEnvelope } = require("./field-envelope.cjs");
 
 const PRODUCTION_WAVE_SEAM = /\[waveAudio\]showwaves=s=(\d+)x(\d+):mode=cline:rate=([0-9.]+):[^;\n]+\[wave\];\n\[wave\]pad=(\d+):(\d+):0:(\d+):color=black@0\.0\[waveFull\]/;
@@ -57,8 +57,11 @@ function topologyContext(graph, execution) {
   const rawAmplitude = clamp(Number(motion.amplitude) || 0, 0, 1);
   const rawVariance = clamp(Number(motion.variance) || 0, 0, 1);
   const expressive = isExpressiveRendererPolicy(execution.timeline.rendererPolicy);
-  const amplitude = expressive ? effectiveInternalEnergy(rawAmplitude) : rawAmplitude;
-  const variance = expressive ? effectiveInternalEnergy(rawVariance) : rawVariance;
+  const response = execution.timeline.rendererPolicy === MUTATION_LATTICE_RENDERER_POLICY
+    ? effectiveInternalEnergyV3
+    : effectiveInternalEnergy;
+  const amplitude = expressive ? response(rawAmplitude) : rawAmplitude;
+  const variance = expressive ? response(rawVariance) : rawVariance;
   const duration = Math.max(0.1, execution.durationTicks / execution.timebase);
   const opacity = quantize(clamp(0.38 + amplitude * 0.5, 0.2, 0.95), 3);
   const envelope = resolveFieldEnvelope(baseState, { width, height });
@@ -172,7 +175,6 @@ function compileQuadMirror(context) {
   };
 }
 
-
 function compileElasticSpine(context) {
   const width = context.envelope.envelope.width;
   const height = context.envelope.envelope.height;
@@ -208,16 +210,24 @@ function compileSplitHorizon(context) {
 function compileCathedralFan(context) {
   const width = context.envelope.envelope.width;
   const height = context.envelope.envelope.height;
-  const filter = scopeFilter(context, { width, height, mode: "polar", zoom: quantize(context.zoom * 0.9, 3) });
-  const angle = quantize(0.08 + context.variance * 0.07, 4);
+  const bladeWidth = Math.max(64, Math.floor(width * 0.22));
+  const bladeX = Math.floor((width - bladeWidth) / 2);
+  const filter = scopeFilter(context, {
+    width: bladeWidth,
+    height,
+    mode: "lissajous_xy",
+    zoom: quantize(context.zoom * 1.08, 3),
+  });
+  const angle = quantize(0.18 + context.variance * 0.12, 4);
   return {
     replacement: [
-      `[waveAudio]${filter}[shapeFanSource]`,
+      `[waveAudio]${filter},pad=${width}:${height}:${bladeX}:0:color=black@0.0[shapeFanSource]`,
       "[shapeFanSource]split=3[shapeFanA][shapeFanB][shapeFanC]",
-      `[shapeFanB]rotate=${ffmpegNumber(angle)}:ow=iw:oh=ih:c=black@0[shapeFanBr]`,
-      `[shapeFanC]rotate=-${ffmpegNumber(angle)}:ow=iw:oh=ih:c=black@0[shapeFanCr]`,
-      "[shapeFanA][shapeFanBr]blend=all_mode=screen[shapeFanAB]",
-      `[shapeFanAB][shapeFanCr]blend=all_mode=screen,${finishFilter(context, 0.06 + context.variance * 0.12)}[waveFull]`,
+      "[shapeFanA]colorchannelmixer=aa=0.72[shapeFanCenter]",
+      `[shapeFanB]rotate=${ffmpegNumber(angle)}:ow=iw:oh=ih:c=black@0,colorchannelmixer=aa=0.5[shapeFanBr]`,
+      `[shapeFanC]rotate=-${ffmpegNumber(angle)}:ow=iw:oh=ih:c=black@0,colorchannelmixer=aa=0.5[shapeFanCr]`,
+      "[shapeFanCenter][shapeFanBr]overlay=0:0:format=auto:eof_action=pass[shapeFanAB]",
+      `[shapeFanAB][shapeFanCr]overlay=0:0:format=auto:eof_action=pass,${finishFilter(context, 0)}[waveFull]`,
     ].join(";\n"),
   };
 }
@@ -230,14 +240,21 @@ function compileEchoTunnel(context) {
   const middleHeight = Math.max(32, Math.floor(height * 0.72));
   const innerWidth = Math.max(32, Math.floor(width * 0.48));
   const innerHeight = Math.max(32, Math.floor(height * 0.48));
+  const vanishX = Math.round(width * (0.045 + context.variance * 0.025));
+  const vanishY = Math.round(height * (0.025 + context.variance * 0.02));
+  const middleX = Math.floor((width - middleWidth) / 2 + vanishX * 0.5);
+  const middleY = Math.floor((height - middleHeight) / 2 + vanishY * 0.5);
+  const innerX = Math.floor((width - innerWidth) / 2 + vanishX);
+  const innerY = Math.floor((height - innerHeight) / 2 + vanishY);
   return {
     replacement: [
       `[waveAudio]${filter}[shapeTunnelSource]`,
       "[shapeTunnelSource]split=3[shapeTunnelA][shapeTunnelB][shapeTunnelC]",
-      `[shapeTunnelB]scale=${middleWidth}:${middleHeight},pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=black@0[shapeTunnelBm]`,
-      `[shapeTunnelC]scale=${innerWidth}:${innerHeight},pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:color=black@0[shapeTunnelCi]`,
-      "[shapeTunnelA][shapeTunnelBm]blend=all_mode=screen[shapeTunnelAB]",
-      `[shapeTunnelAB][shapeTunnelCi]blend=all_mode=screen,${finishFilter(context, 0.15 + context.variance * 0.25)}[waveFull]`,
+      "[shapeTunnelA]colorchannelmixer=aa=0.74[shapeTunnelOuter]",
+      `[shapeTunnelB]scale=${middleWidth}:${middleHeight},colorchannelmixer=aa=0.52,pad=${width}:${height}:${middleX}:${middleY}:color=black@0[shapeTunnelBm]`,
+      `[shapeTunnelC]scale=${innerWidth}:${innerHeight},colorchannelmixer=aa=0.34,pad=${width}:${height}:${innerX}:${innerY}:color=black@0[shapeTunnelCi]`,
+      "[shapeTunnelOuter][shapeTunnelBm]overlay=0:0:format=auto:eof_action=pass[shapeTunnelAB]",
+      `[shapeTunnelAB][shapeTunnelCi]overlay=0:0:format=auto:eof_action=pass,${finishFilter(context, 0.03 + context.variance * 0.08)}[waveFull]`,
     ].join(";\n"),
   };
 }
