@@ -238,6 +238,9 @@ function createYouTubePublishing({
       if (activeYouTubePublish) {
         throw new Error("A YouTube upload is already in progress.");
       }
+      if (lastUploadedVideoId) {
+        throw new Error("This completed toast is already uploaded to YouTube. Open it in YouTube Studio instead.");
+      }
       if (isBusy()) {
         throw new Error("Finish the current Toaster job before publishing to YouTube.");
       }
