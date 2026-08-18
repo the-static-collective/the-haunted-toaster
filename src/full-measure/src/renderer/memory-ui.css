@@ -1,0 +1,235 @@
+.past-toasts-open,
+.retoast-badge button,
+.past-toasts-close,
+.past-toast-card button {
+  font: inherit;
+}
+
+.past-toasts-open {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: rgba(255, 255, 255, 0.78);
+  padding: 10px 14px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+}
+
+.past-toasts-open:hover,
+.past-toasts-open:focus-visible {
+  border-color: rgba(240, 191, 104, 0.7);
+  color: #fff;
+}
+
+.retoast-badge {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(240, 191, 104, 0.3);
+  border-radius: 12px;
+  background: rgba(240, 191, 104, 0.06);
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.retoast-badge span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.retoast-badge button {
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.52);
+  cursor: pointer;
+}
+
+.past-toasts-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 85;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) min(560px, 92vw);
+}
+
+.past-toasts-backdrop {
+  border: 0;
+  background: rgba(0, 0, 0, 0.66);
+  backdrop-filter: blur(8px);
+}
+
+.past-toasts-surface {
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  background: #0d0c10;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: -28px 0 80px rgba(0, 0, 0, 0.42);
+}
+
+.past-toasts-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 28px 28px 16px;
+}
+
+.past-toasts-header span,
+.past-toast-heading small,
+.past-toasts-status {
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.past-toasts-header span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+}
+
+.past-toasts-header h2 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.past-toasts-close {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+}
+
+.past-toasts-status {
+  padding: 0 28px 14px;
+  font-size: 12px;
+}
+
+.past-toasts-list {
+  overflow: auto;
+  padding: 0 22px 30px;
+}
+
+.past-toasts-empty {
+  min-height: 220px;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.56);
+}
+
+.past-toasts-empty strong {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.past-toast-card {
+  padding: 18px;
+  margin-bottom: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.past-toast-heading,
+.past-toast-artifacts,
+.past-toast-verdict,
+.past-toast-rating,
+.past-toast-dispositions {
+  display: flex;
+  align-items: center;
+}
+
+.past-toast-heading {
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.past-toast-heading > div {
+  min-width: 0;
+}
+
+.past-toast-heading strong,
+.past-toast-heading small {
+  display: block;
+}
+
+.past-toast-heading strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.past-toast-heading small {
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.past-toast-artifacts,
+.past-toast-rating,
+.past-toast-dispositions {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.past-toast-artifacts {
+  margin-bottom: 14px;
+}
+
+.past-toast-card button {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.72);
+  padding: 7px 10px;
+  cursor: pointer;
+}
+
+.past-toast-card button:hover:not(:disabled),
+.past-toast-card button:focus-visible:not(:disabled),
+.past-toast-card button.is-selected {
+  border-color: rgba(240, 191, 104, 0.62);
+  background: rgba(240, 191, 104, 0.11);
+  color: #fff;
+}
+
+.past-toast-card button:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.past-toast-verdict {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.past-toast-intent {
+  align-self: center;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+@media (max-width: 760px) {
+  .past-toasts-drawer {
+    grid-template-columns: 1fr;
+  }
+
+  .past-toasts-backdrop {
+    display: none;
+  }
+}
