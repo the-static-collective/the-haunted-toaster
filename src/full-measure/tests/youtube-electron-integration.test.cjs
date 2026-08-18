@@ -48,6 +48,10 @@ test("one completed toast can create at most one YouTube publication in the acti
     /ipcMain\.handle\("youtube:publish"[\s\S]*?if \(lastUploadedVideoId\) \{[\s\S]*?already uploaded/i,
   );
   assert.match(
+    youtubeMain,
+    /ipcMain\.handle\("youtube:publish"[\s\S]*?const controller = new AbortController\(\);\s*activeYouTubePublish = controller;\s*try \{[\s\S]*?await verifyLastRender\(\)/,
+  );
+  assert.match(
     renderer,
     /state\.youtube\.videoId = result\.videoId;[\s\S]*?youtubePublishButton\.disabled = true;[\s\S]*?Uploaded privately/i,
   );
