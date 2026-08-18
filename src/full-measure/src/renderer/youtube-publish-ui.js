@@ -78,10 +78,15 @@
     if (canPublish) youtubePublishCard.classList.remove("is-hidden");
 
     youtubeClientSetup.classList.toggle("is-hidden", state.youtube.configured);
-    youtubePublishButton.disabled = !state.youtube.configured || state.youtube.publishing;
-    youtubePublishButton.textContent = state.youtube.connected
-      ? "Upload privately"
-      : "Connect + upload privately";
+    youtubePublishButton.disabled =
+      !state.youtube.configured ||
+      state.youtube.publishing ||
+      Boolean(state.youtube.videoId);
+    youtubePublishButton.textContent = state.youtube.videoId
+      ? "Uploaded privately"
+      : state.youtube.connected
+        ? "Upload privately"
+        : "Connect + upload privately";
     youtubeCancelButton.classList.toggle("is-hidden", !state.youtube.publishing);
 
     if (!state.youtube.videoId && !state.youtube.publishing) {
@@ -119,9 +124,8 @@
   });
 
   youtubePublishButton.addEventListener("click", async () => {
-    if (state.youtube.publishing) return;
+    if (state.youtube.publishing || state.youtube.videoId) return;
     state.youtube.publishing = true;
-    state.youtube.videoId = null;
     youtubePublishButton.disabled = true;
     youtubeCancelButton.classList.remove("is-hidden");
     youtubeStudioButton.classList.add("is-hidden");
@@ -140,6 +144,8 @@
       });
       state.youtube.videoId = result.videoId;
       state.youtube.connected = true;
+      youtubePublishButton.disabled = true;
+      youtubePublishButton.textContent = "Uploaded privately";
       setProgress(1);
       youtubeStudioButton.classList.remove("is-hidden");
       setStatus(
@@ -154,7 +160,8 @@
       );
     } finally {
       state.youtube.publishing = false;
-      youtubePublishButton.disabled = !state.youtube.configured;
+      youtubePublishButton.disabled =
+        !state.youtube.configured || Boolean(state.youtube.videoId);
       youtubeCancelButton.classList.add("is-hidden");
     }
   });
