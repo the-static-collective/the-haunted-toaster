@@ -25,6 +25,18 @@ function abortError(message = "YouTube publishing cancelled.") {
   return error;
 }
 
+function buildLoopbackRedirectUri(port) {
+  const normalizedPort = Number(port);
+  if (
+    !Number.isInteger(normalizedPort) ||
+    normalizedPort < 1 ||
+    normalizedPort > 65_535
+  ) {
+    throw new Error("YouTube authorization requires a valid local callback port.");
+  }
+  return `http://127.0.0.1:${normalizedPort}`;
+}
+
 async function hashFileSha256(filePath) {
   const hash = crypto.createHash("sha256");
   for await (const chunk of fs.createReadStream(filePath)) hash.update(chunk);
@@ -87,7 +99,7 @@ async function authorizeWithLoopback({ clientId, shell, signal }) {
     await closeServer(server);
     throw new Error("Could not open the local YouTube authorization callback.");
   }
-  const redirectUri = `http://127.0.0.1:${address.port}${OAUTH_CALLBACK_PATH}`;
+  const redirectUri = buildLoopbackRedirectUri(address.port);
   const authorizationUrl = buildAuthorizationUrl({
     clientId,
     redirectUri,
@@ -312,6 +324,7 @@ function createYouTubePublishing({
 
 module.exports = {
   OAUTH_CALLBACK_PATH,
+  buildLoopbackRedirectUri,
   createYouTubePublishing,
   hashFileSha256,
 };
