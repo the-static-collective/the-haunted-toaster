@@ -245,16 +245,16 @@ function createYouTubePublishing({
         throw new Error("Finish the current Toaster job before publishing to YouTube.");
       }
 
-      const { outputPath, stat } = await verifyLastRender();
-      const title = String(config?.title || path.parse(outputPath).name)
-        .trim()
-        .slice(0, 100);
-      const description = String(config?.description || "").slice(0, 5_000);
-      if (!title) throw new Error("YouTube publishing requires a title.");
-
       const controller = new AbortController();
       activeYouTubePublish = controller;
       try {
+        const { outputPath, stat } = await verifyLastRender();
+        const title = String(config?.title || path.parse(outputPath).name)
+          .trim()
+          .slice(0, 100);
+        const description = String(config?.description || "").slice(0, 5_000);
+        if (!title) throw new Error("YouTube publishing requires a title.");
+
         const accessToken = await acquireAccessToken(controller.signal);
         const sessionUrl = await beginResumableUpload({
           accessToken,
