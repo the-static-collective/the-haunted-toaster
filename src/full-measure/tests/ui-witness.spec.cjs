@@ -1,3 +1,4 @@
+const { createHash } = require("node:crypto");
 const { test, expect } = require("@playwright/test");
 
 const ALPHA_STATES = [
@@ -10,6 +11,26 @@ const ALPHA_STATES = [
   "complete",
   "failure",
 ];
+
+const BETA_WITNESS_SHA256 = Object.freeze({
+  "beta-home": "5c2e73fdc89da125378ac25135e24d6d832d67c459fcc9ce83a20839a09cb341",
+  "beta-history": "8798e0a03181a55a0032c186b2092e5fba6dcf1b6017d8c19c0aa2be36658019",
+  "beta-home-compact": "92b4bf145c3c51ac450e590a7e008573ce4dcdf94e638c3c034f7aaf5d22ca84",
+});
+
+function visualReceipt(buffer) {
+  return createHash("sha256").update(buffer).digest("hex");
+}
+
+async function captureBetaWitness(page, testInfo, filename) {
+  const bytes = await page.screenshot({
+    animations: "disabled",
+    caret: "hide",
+    fullPage: true,
+    path: testInfo.outputPath(filename),
+  });
+  return visualReceipt(bytes);
+}
 
 for (const state of ALPHA_STATES) {
   test(`witness ${state}`, async ({ page }) => {
@@ -106,7 +127,7 @@ test("witness Video source and VSPantry", async ({ page }, testInfo) => {
 });
 
 for (const state of ["beta-home", "beta-history"]) {
-  test(`witness ${state}`, async ({ page }) => {
+  test(`witness ${state}`, async ({ page }, testInfo) => {
     await page.goto(`/?state=${state}`);
     await expect(page.locator("html")).toHaveAttribute("data-witness-ready", "true");
     await expect(page.locator("body")).toHaveAttribute("data-ui-witness-commit", /.+/);
@@ -132,14 +153,12 @@ for (const state of ["beta-home", "beta-history"]) {
     await page.locator("#buildInfoSummary").evaluate((element) => {
       element.style.visibility = "hidden";
     });
-    await expect(page).toHaveScreenshot(`${state}.png`, {
-      animations: "disabled",
-      fullPage: true,
-    });
+    const receipt = await captureBetaWitness(page, testInfo, `${state}.png`);
+    expect(receipt).toBe(BETA_WITNESS_SHA256[state]);
   });
 }
 
-test("beta home remains horizontally usable at Electron minimum 1080x720", async ({ page }) => {
+test("beta home remains horizontally usable at Electron minimum 1080x720", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1080, height: 720 });
   await page.goto("/?state=beta-home");
   await expect(page.locator("html")).toHaveAttribute("data-witness-ready", "true");
@@ -166,8 +185,6 @@ test("beta home remains horizontally usable at Electron minimum 1080x720", async
   await page.locator("#buildInfoSummary").evaluate((element) => {
     element.style.visibility = "hidden";
   });
-  await expect(page).toHaveScreenshot("beta-home-compact.png", {
-    animations: "disabled",
-    fullPage: true,
-  });
+  const receipt = await captureBetaWitness(page, testInfo, "beta-home-compact.png");
+  expect(receipt).toBe(BETA_WITNESS_SHA256["beta-home-compact"]);
 });
