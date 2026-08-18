@@ -37,13 +37,13 @@ test("Open Field contains the admitted ancestral categorical vocabulary", () => 
 });
 
 test("Open Field is explicit in generation and rendering instead of falling through", () => {
-  assert.match(session, /const openField = require\("\.\.\/constraints\/open-field\.v1\.json"\)/);
+  assert.match(session, /const openField = require\("\.\.\/constraints\/open-field\.v3\.json"\)/);
   assert.match(session, /CONSTRAINTS_BY_PRESET = Object\.freeze\(\{\s*openField,/);
   assert.match(presets, /openField:\s*\{/);
   assert.match(presets, /name: "Open Field"/);
 });
 
-test("alpha.8 keeps Open Field internal while Toast Feel owns normal UI", () => {
+test("alpha.9 keeps Open Field internal while Toast Feel owns normal UI", () => {
   assert.match(rendererHtml, /id="toastFeelChoices"/);
   assert.match(controller, /api\.getToastFeels\(\)/);
   assert.match(controller, /new CustomEvent\("toast-feel-change"/);
