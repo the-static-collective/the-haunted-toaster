@@ -6,6 +6,7 @@ const {
   BrowserWindow,
   dialog,
   ipcMain,
+  safeStorage,
   shell,
 } = require("electron");
 const {
@@ -26,6 +27,7 @@ const {
   listenerPackStatus,
 } = require("./align/listener-pack.cjs");
 const { createCandidateSession } = require("./candidate-session.cjs");
+const { createYouTubePublishing } = require("./publish/youtube-main.cjs");
 const { inspectAudio } = require("./render/analyze.cjs");
 const {
   MAX_CUES,
@@ -60,6 +62,13 @@ let activeRender = null;
 let activeListen = null;
 let activeListenerInstall = null;
 const candidateSession = createCandidateSession();
+const youtubePublishing = createYouTubePublishing({
+  app,
+  ipcMain,
+  shell,
+  safeStorage,
+  isBusy: () => Boolean(activeRender || activeListen || activeListenerInstall),
+});
 
 function listenerRoot() {
   return path.join(app.getPath("userData"), "listener");
@@ -122,6 +131,7 @@ function assertCandidateAvailable() {
 
 function registerIpc() {
   candidateSession.registerIpc(ipcMain, assertCandidateAvailable);
+  youtubePublishing.registerIpc();
   ipcMain.handle("app:toast-feels", () => listToastFeels());
 
   ipcMain.handle("dialog:choose-audio", async () => {
@@ -451,7 +461,7 @@ function registerIpc() {
     activeRender = controller;
 
     try {
-      return await renderVideo(
+      const result = await renderVideo(
         {
           ...config,
           ...(selectedExecution || {}),
@@ -473,6 +483,8 @@ function registerIpc() {
           },
         },
       );
+      youtubePublishing.noteCompletedRender(result);
+      return result;
     } finally {
       activeRender = null;
     }
@@ -522,4 +534,5 @@ app.on("before-quit", () => {
   activeRender?.abort();
   activeListen?.abort();
   activeListenerInstall?.abort();
+  youtubePublishing.abort();
 });

@@ -1,6 +1,8 @@
 (() => {
   const listeners = new Map();
   let renderMode = "complete";
+  let youtubeConfigured = false;
+  let youtubeConnected = false;
 
   function subscribe(channel, callback) {
     const callbacks = listeners.get(channel) || [];
@@ -124,6 +126,41 @@
       };
     },
     cancelRender: async () => {},
+    getYouTubeStatus: async () => ({
+      configured: youtubeConfigured,
+      connected: youtubeConnected,
+      canPublish: true,
+      sourceFilename: "Dreamstate-Divide-alpha8.mp4",
+      publishing: false,
+    }),
+    configureYouTube: async () => {
+      youtubeConfigured = true;
+      youtubeConnected = false;
+      return {
+        configured: true,
+        connected: false,
+        canPublish: true,
+        sourceFilename: "Dreamstate-Divide-alpha8.mp4",
+        publishing: false,
+      };
+    },
+    publishToYouTube: async () => {
+      youtubeConfigured = true;
+      youtubeConnected = true;
+      publish("youtube-progress", {
+        uploadedBytes: 42_467_328,
+        sizeBytes: 42_467_328,
+        ratio: 1,
+      });
+      return {
+        status: "uploaded",
+        visibility: "private",
+        videoId: "witnessYT123",
+        receiptPath: "/witness/Dreamstate-Divide-alpha8.youtube-receipt.json",
+      };
+    },
+    cancelYouTubePublish: async () => true,
+    openYouTubeStudio: async () => true,
     revealFile: async () => {},
     openFile: async () => {},
     getVersion: async () => buildInfo.version,
@@ -132,6 +169,7 @@
     pathForFile: () => "",
     onProgress: (callback) => subscribe("progress", callback),
     onPhase: (callback) => subscribe("phase", callback),
+    onYouTubeProgress: (callback) => subscribe("youtube-progress", callback),
     onListenerInstallProgress: (callback) => subscribe("listener-install", callback),
     onLyricSyncProgress: (callback) => subscribe("lyric-progress", callback),
     onLyricSyncPhase: (callback) => subscribe("lyric-phase", callback),

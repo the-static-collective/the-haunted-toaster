@@ -8,11 +8,13 @@ const RENDERER_FILES = Object.freeze([
   "styles.css",
   "candidate-ui.css",
   "listener-transport.css",
+  "youtube-publish.css",
   "toast-feel-controller.js",
   "app.js",
   "candidate-ui.js",
   "lyric-foundry-ui.js",
   "sync-keyboard.js",
+  "youtube-publish-ui.js",
 ]);
 
 const WITNESS_FILES = Object.freeze([

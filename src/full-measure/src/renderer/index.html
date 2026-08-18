@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="./candidate-ui.css" />
     <link rel="stylesheet" href="./listener-transport.css" />
+    <link rel="stylesheet" href="./youtube-publish.css" />
   </head>
   <body>
     <div class="ambient ambient-one" aria-hidden="true"></div>
@@ -37,8 +38,8 @@
       <div class="local-badge">
         <span class="status-dot"></span>
         <div>
-          <strong>Local only</strong>
-          <small>No upload. Zero credits.</small>
+          <strong>Local render</strong>
+          <small>No cloud render. Zero credits.</small>
         </div>
       </div>
     </header>
@@ -252,6 +253,60 @@
           </div>
         </div>
 
+        <div class="youtube-publish-card is-hidden" id="youtubePublishCard">
+          <div class="youtube-publish-heading">
+            <span>OPTIONAL DELIVERY · BETA</span>
+            <strong>Publish privately to YouTube</strong>
+            <small>
+              While API approval is pending, the Toaster uploads as Private.
+              After upload, open YouTube Studio and choose Public or Unlisted
+              there.
+            </small>
+          </div>
+
+          <div class="youtube-client-setup is-hidden" id="youtubeClientSetup">
+            <label for="youtubeClientId">Google desktop OAuth client ID</label>
+            <div class="youtube-client-row">
+              <input
+                id="youtubeClientId"
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="123456-abc.apps.googleusercontent.com"
+              />
+              <button id="youtubeSaveClientId" type="button">Save client ID</button>
+            </div>
+            <small>
+              One-time beta setup. The client ID is configuration; the reusable
+              account credential is protected by your operating system.
+            </small>
+          </div>
+
+          <div class="youtube-publish-actions">
+            <button id="youtubePublishButton" type="button" disabled>
+              Connect + upload privately
+            </button>
+            <button class="is-hidden" id="youtubeCancelButton" type="button">
+              Cancel upload
+            </button>
+            <button class="is-hidden" id="youtubeStudioButton" type="button">
+              Open in YouTube Studio
+            </button>
+          </div>
+
+          <div class="youtube-progress is-hidden" id="youtubeProgress">
+            <div class="youtube-progress-track">
+              <span id="youtubeProgressFill"></span>
+            </div>
+            <small id="youtubeProgressText">0% uploaded</small>
+          </div>
+
+          <small id="youtubeStatusText">
+            Publishing is optional. Nothing leaves this computer until you
+            choose this delivery step.
+          </small>
+        </div>
+
         <div class="error-card is-hidden" id="errorCard" role="alert">
           <strong>The toaster objected.</strong>
           <p id="errorMessage"></p>
@@ -269,7 +324,8 @@
         </button>
 
         <p class="render-note">
-          Your song never leaves this computer. Generated media is not required.
+          Rendering stays on this computer. Publishing is optional and sends
+          only the finished video to YouTube when you choose it.
         </p>
       </section>
     </main>
@@ -442,5 +498,6 @@
     <script src="./candidate-ui.js"></script>
     <script src="./lyric-foundry-ui.js"></script>
     <script src="./sync-keyboard.js"></script>
+    <script src="./youtube-publish-ui.js"></script>
   </body>
 </html>
