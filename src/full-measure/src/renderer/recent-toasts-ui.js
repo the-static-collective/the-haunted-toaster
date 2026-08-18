@@ -22,9 +22,24 @@
       const buildInfo = await api.getBuildInfo();
       const capabilities = Array.isArray(buildInfo?.capabilities) ? buildInfo.capabilities : [];
       if (!capabilities.includes("betaCandidateEcologyV1")) return false;
-      const label = slateValue.closest("div")?.querySelector("dt");
-      if (label) label.textContent = "Creative field";
-      slateValue.textContent = "Six-Up field";
+
+      const container = slateValue.closest("div");
+      const label = container?.querySelector("dt");
+      const syncSlate = () => {
+        if (label && label.textContent !== "Creative field") label.textContent = "Creative field";
+        if (slateValue.textContent !== "Six-Up field") slateValue.textContent = "Six-Up field";
+      };
+      syncSlate();
+
+      const SlateObserver = document?.defaultView?.MutationObserver;
+      if (container && SlateObserver && container.dataset.betaHomeSlateObserved !== "true") {
+        container.dataset.betaHomeSlateObserved = "true";
+        new SlateObserver(syncSlate).observe(container, {
+          childList: true,
+          characterData: true,
+          subtree: true,
+        });
+      }
       return true;
     } catch {
       return false;
