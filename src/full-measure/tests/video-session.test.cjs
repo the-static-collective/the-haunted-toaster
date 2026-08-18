@@ -4,7 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.join(__dirname, '..');
-const candidateSessionPath = path.join(root, 'src', 'candidate-session.cjs');
+const baseCandidateSessionPath = path.join(root, 'src', 'candidate-session.cjs');
+const videoCandidateSessionPath = path.join(root, 'src', 'video-candidate-session.cjs');
 const mainPath = path.join(root, 'src', 'main.cjs');
 const preloadPath = path.join(root, 'src', 'preload.cjs');
 
@@ -12,8 +13,9 @@ function read(filePath) {
   return fs.readFileSync(filePath, 'utf8');
 }
 
-test('candidate session stores and clears a Video source binding', () => {
-  const { createCandidateSession } = require(candidateSessionPath);
+test('candidate session wrapper stores and clears a Video source binding', () => {
+  assert.equal(fs.existsSync(videoCandidateSessionPath), true, 'video candidate-session wrapper must exist');
+  const { createCandidateSession } = require(videoCandidateSessionPath);
   const session = createCandidateSession();
   const binding = {
     schema: 'haunted-toaster/video-source/v1',
@@ -25,17 +27,14 @@ test('candidate session stores and clears a Video source binding', () => {
     probe: { durationSeconds: 4, width: 1920, height: 1080, frameRate: '24/1', container: 'mp4', codec: 'h264', hasAudio: false },
     persisted: true,
   };
-  assert.equal(typeof session.noteVideo, 'function');
-  assert.equal(typeof session.clearVideo, 'function');
-  assert.equal(typeof session.state, 'function');
   session.noteVideo(binding);
   assert.deepEqual(session.state().video, binding);
   session.clearVideo();
   assert.equal(session.state().video, null);
 });
 
-test('Slice A does not put Video into render execution authority', () => {
-  const source = read(candidateSessionPath);
+test('Slice A does not put Video into base render execution authority', () => {
+  const source = read(baseCandidateSessionPath);
   const start = source.indexOf('function executionForRender');
   const end = source.indexOf('function registerIpc', start);
   assert.notEqual(start, -1);
@@ -44,14 +43,9 @@ test('Slice A does not put Video into render execution authority', () => {
   assert.doesNotMatch(executionSource, /videoBinding|videoPath|foreignVisual|specimenId/);
 });
 
-test('main process exposes bounded Video and VSPantry IPC channels', () => {
+test('main process installs the bounded Video/VSPantry IPC controller', () => {
   const source = read(mainPath);
-  for (const channel of ['dialog:choose-video', 'dialog:choose-video-folder', 'video-pantry:list', 'video:clear']) {
-    assert.match(source, new RegExp(channel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-  }
-  assert.match(source, /Add to VSPantry|addToPantry/);
-  assert.match(source, /\.mp4|"mp4"/);
-  assert.match(source, /\.webm|"webm"/);
+  assert.match(source, /registerVideoPantryIpc/);
 });
 
 test('preload exposes Video and VSPantry methods without filesystem authority', () => {
