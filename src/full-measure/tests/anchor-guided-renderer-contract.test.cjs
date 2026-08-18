@@ -50,9 +50,19 @@ test("Listener prepares lyrics, validates stable anchors, then activates bounded
 
 test("closing and reopening Listener preserves the in-progress human-edited alignment", () => {
   assert.match(app, /if \(state\.alignment\) \{\s*openSyncDialog\(\);\s*showAlignmentEditor\(state\.alignment\);\s*return;/s);
-  assert.match(app, /haunted-listener-relisten/);
-  assert.match(app, /state\.alignment = null;\s*state\.selectedCueIndex = null;\s*scheduleLyricInspection\(\);/s);
-  assert.match(foundryUi, /haunted-listener-relisten/);
+  assert.match(app, /window\.addEventListener\("haunted-listener-relisten"[\s\S]*?await runAutoSync\(\);/s);
+  assert.match(foundryUi, /stageListenerEvidence\?\.\(\{ anchors, previousEvidence \}\)[\s\S]*?haunted-listener-relisten/s);
   assert.doesNotMatch(foundryUi, /listenCloser\?\.click\(\)/);
-  assert.doesNotMatch(app, /function closeSyncDialog\(\)[\s\S]*?state\.alignment\s*=\s*null/);
+
+  const inputHandler = app.match(/elements\.lyricsInput\.addEventListener\("input", \(\) => \{([\s\S]*?)\n  \}\);/)?.[1] || "";
+  assert.match(inputHandler, /!state\.internalLyricUpdate/);
+  assert.match(inputHandler, /state\.alignment = null;/);
+  assert.match(inputHandler, /state\.selectedCueIndex = null;/);
+
+  const pickLyrics = app.match(/async function pickLyrics\(\) \{([\s\S]*?)\n  \}/)?.[1] || "";
+  assert.match(pickLyrics, /state\.alignment = null;/);
+  assert.match(pickLyrics, /state\.selectedCueIndex = null;/);
+
+  const closeDialog = app.match(/function closeSyncDialog\(\) \{([\s\S]*?)\n  \}/)?.[1] || "";
+  assert.doesNotMatch(closeDialog, /state\.alignment\s*=\s*null/);
 });
