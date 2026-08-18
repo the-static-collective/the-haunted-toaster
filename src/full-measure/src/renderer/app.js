@@ -235,38 +235,37 @@
     }
   }
 
+  function selectCueForTime(cues, timestampSeconds, mediaDuration) {
+    if (!cues || !cues.length || typeof timestampSeconds !== "number" || Number.isNaN(timestampSeconds)) {
+      return null;
+    }
 
-function selectCueForTime(cues, timestampSeconds, mediaDuration) {
-  if (!cues || !cues.length || typeof timestampSeconds !== "number" || Number.isNaN(timestampSeconds)) {
-    return null;
-  }
+    const duration = Number.isFinite(mediaDuration) ? mediaDuration : Infinity;
+    let selected = null;
 
-  const duration = Number.isFinite(mediaDuration) ? mediaDuration : Infinity;
-  let selected = null;
+    for (let index = 0; index < cues.length; index += 1) {
+      const cue = cues[index];
+      let end = Number.isFinite(cue.end) ? cue.end : null;
 
-  for (let index = 0; index < cues.length; index += 1) {
-    const cue = cues[index];
-    let end = Number.isFinite(cue.end) ? cue.end : null;
+      if (end === null) {
+        if (index + 1 < cues.length) {
+          end = cues[index + 1].start;
+        } else {
+          end = duration;
+        }
+      }
 
-    if (end === null) {
-      if (index + 1 < cues.length) {
+      if (index + 1 < cues.length && end > cues[index + 1].start) {
         end = cues[index + 1].start;
-      } else {
-        end = duration;
+      }
+
+      if (timestampSeconds >= cue.start && timestampSeconds < end) {
+        selected = cue;
       }
     }
 
-    if (index + 1 < cues.length && end > cues[index + 1].start) {
-      end = cues[index + 1].start;
-    }
-
-    if (timestampSeconds >= cue.start && timestampSeconds < end) {
-      selected = cue;
-    }
+    return selected;
   }
-
-  return selected;
-}
 
   let lyricInspectionTimer = null;
   let lyricInspectionVersion = 0;
@@ -477,6 +476,8 @@ function selectCueForTime(cues, timestampSeconds, mediaDuration) {
     try {
       const selected = await api.chooseLyrics();
       if (!selected) return;
+      state.alignment = null;
+      state.selectedCueIndex = null;
       await setLyricsValue(selected.content, {
         mode: "imported-timing-file",
         sidecarFilename: selected.filename,
@@ -953,6 +954,11 @@ function selectCueForTime(cues, timestampSeconds, mediaDuration) {
       return;
     }
     clearError();
+    if (state.alignment) {
+      openSyncDialog();
+      showAlignmentEditor(state.alignment);
+      return;
+    }
     openSyncDialog();
     const status = await refreshListenerStatus();
     if (status.ready) {
@@ -997,75 +1003,75 @@ function selectCueForTime(cues, timestampSeconds, mediaDuration) {
     elements.syncAccept.textContent = "Using placed timing…";
 
     try {
-    const cues = state.alignment?.cues || [];
-    const admittedCues = cues.filter((cue) => Number.isFinite(cue.start));
-    const unresolvedCount = cues.length - admittedCues.length;
-    const humanCorrectedCount = admittedCues.filter(
-      (cue) => cue.humanCorrected,
-    ).length;
-    const reviewCount = admittedCues.filter((cue) =>
-      ["medium", "low"].includes(cue.status),
-    ).length;
-    const provenance = {
-      mode:
-        state.alignment.engine?.source === "human"
-          ? "tap-synced-human"
-          : "auto-synced-local",
-      engine: state.alignment.engine,
-      alignment: {
-        lineCount: cues.length,
-        matchedCount: admittedCues.length,
+      const cues = state.alignment?.cues || [];
+      const admittedCues = cues.filter((cue) => Number.isFinite(cue.start));
+      const unresolvedCount = cues.length - admittedCues.length;
+      const humanCorrectedCount = admittedCues.filter(
+        (cue) => cue.humanCorrected,
+      ).length;
+      const reviewCount = admittedCues.filter((cue) =>
+        ["medium", "low"].includes(cue.status),
+      ).length;
+      const provenance = {
+        mode:
+          state.alignment.engine?.source === "human"
+            ? "tap-synced-human"
+            : "auto-synced-local",
+        engine: state.alignment.engine,
+        alignment: {
+          lineCount: cues.length,
+          matchedCount: admittedCues.length,
+          unresolvedCount,
+          reviewCount,
+          humanCorrectedCount,
+        },
+        sidecarFilename: null,
+      };
+
+      elements.lyricsInput.dataset.lyricFoundryMode = unresolvedCount
+        ? "listened-partial"
+        : "";
+      elements.lyricsInput.dataset.lyricFoundryPlacedCount = String(
+        admittedCues.length,
+      );
+      elements.lyricsInput.dataset.lyricFoundryUnresolvedCount = String(
         unresolvedCount,
-        reviewCount,
+      );
+      elements.lyricsInput.dataset.lyricFoundryHumanAnchorCount = String(
         humanCorrectedCount,
-      },
-      sidecarFilename: null,
-    };
+      );
 
-    elements.lyricsInput.dataset.lyricFoundryMode = unresolvedCount
-      ? "listened-partial"
-      : "";
-    elements.lyricsInput.dataset.lyricFoundryPlacedCount = String(
-      admittedCues.length,
-    );
-    elements.lyricsInput.dataset.lyricFoundryUnresolvedCount = String(
-      unresolvedCount,
-    );
-    elements.lyricsInput.dataset.lyricFoundryHumanAnchorCount = String(
-      humanCorrectedCount,
-    );
+      if (!admittedCues.length) {
+        state.lyricProvenance = provenance;
+        elements.syncSaveNote.textContent = `${unresolvedCount} unresolved. No timing was invented or admitted.`;
+        closeSyncDialog();
+        return;
+      }
 
-    if (!admittedCues.length) {
-      state.lyricProvenance = provenance;
-      elements.syncSaveNote.textContent = `${unresolvedCount} unresolved. No timing was invented or admitted.`;
+      const lrc = await api.formatLrc({
+        cues: admittedCues,
+        title: elements.titleInput.value.trim() || stem(state.audio.filename),
+        artist: elements.artistInput.value.trim(),
+        note: unresolvedCount
+          ? `${admittedCues.length} admitted placements · ${unresolvedCount} unresolved · ${humanCorrectedCount} human anchors`
+          : humanCorrectedCount
+            ? `${humanCorrectedCount} lines human-corrected after local alignment`
+            : reviewCount
+              ? `${reviewCount} lower-confidence lines accepted after review`
+              : `${admittedCues.length} lines aligned locally`,
+      });
+      const saved = await api.saveLyricSidecar(state.audioPath, lrc);
+      const sidecarFilename = saved?.saved ? basename(saved.path) : null;
+      provenance.sidecarFilename = sidecarFilename;
+      await setLyricsValue(lrc, provenance);
+      elements.syncSaveNote.textContent = unresolvedCount
+        ? `${admittedCues.length} placed · ${unresolvedCount} unresolved. Only admitted timing will render.`
+        : saved?.saved
+          ? `${basename(saved.path)} saved beside the song.`
+          : saved
+            ? "Timing is active in this render; the existing sidecar was kept."
+            : "Timing is active in this render; the sidecar could not be written.";
       closeSyncDialog();
-      return;
-    }
-
-    const lrc = await api.formatLrc({
-      cues: admittedCues,
-      title: elements.titleInput.value.trim() || stem(state.audio.filename),
-      artist: elements.artistInput.value.trim(),
-      note: unresolvedCount
-        ? `${admittedCues.length} admitted placements · ${unresolvedCount} unresolved · ${humanCorrectedCount} human anchors`
-        : humanCorrectedCount
-          ? `${humanCorrectedCount} lines human-corrected after local alignment`
-          : reviewCount
-            ? `${reviewCount} lower-confidence lines accepted after review`
-            : `${admittedCues.length} lines aligned locally`,
-    });
-    const saved = await api.saveLyricSidecar(state.audioPath, lrc);
-    const sidecarFilename = saved?.saved ? basename(saved.path) : null;
-    provenance.sidecarFilename = sidecarFilename;
-    await setLyricsValue(lrc, provenance);
-    elements.syncSaveNote.textContent = unresolvedCount
-      ? `${admittedCues.length} placed · ${unresolvedCount} unresolved. Only admitted timing will render.`
-      : saved?.saved
-        ? `${basename(saved.path)} saved beside the song.`
-        : saved
-          ? "Timing is active in this render; the existing sidecar was kept."
-          : "Timing is active in this render; the sidecar could not be written.";
-    closeSyncDialog();
     } catch (error) {
       setError(
         `The reviewed timing was not accepted. The Listener is still open so you can retry.\n${error?.message || error}`,
@@ -1126,6 +1132,19 @@ function selectCueForTime(cues, timestampSeconds, mediaDuration) {
   elements.imageDrop.addEventListener("click", pickImage);
   elements.lyricsImport.addEventListener("click", pickLyrics);
   elements.lyricsAutoSync.addEventListener("click", beginAutoSync);
+  window.addEventListener("haunted-listener-relisten", async () => {
+    if (
+      !state.audio ||
+      state.syncing ||
+      !elements.lyricsInput.value.trim() ||
+      state.lyricSummary?.timed
+    ) {
+      return;
+    }
+    clearError();
+    openSyncDialog();
+    await runAutoSync();
+  });
   elements.removeImage.addEventListener("click", clearImage);
   elements.renderButton.addEventListener("click", startRender);
   elements.cancelButton.addEventListener("click", async () => {
@@ -1139,7 +1158,11 @@ function selectCueForTime(cues, timestampSeconds, mediaDuration) {
     if (state.result) api.revealFile(state.result.outputPath);
   });
   elements.lyricsInput.addEventListener("input", () => {
-    if (!state.internalLyricUpdate) state.lyricProvenance = null;
+    if (!state.internalLyricUpdate) {
+      state.lyricProvenance = null;
+      state.alignment = null;
+      state.selectedCueIndex = null;
+    }
     scheduleLyricInspection();
   });
   elements.syncClose.addEventListener("click", closeSyncDialog);
