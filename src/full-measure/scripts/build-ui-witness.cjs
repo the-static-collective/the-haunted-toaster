@@ -8,6 +8,7 @@ const RENDERER_FILES = Object.freeze([
   "styles.css",
   "candidate-ui.css",
   "listener-transport.css",
+  "video-source-ui.js",
   "toast-feel-controller.js",
   "app.js",
   "candidate-ui.js",
@@ -49,7 +50,7 @@ function buildUiWitness({ rootDir, outputDir, commit }) {
     .replace("<body>", `<body data-ui-witness-commit="${safeCommit}">`)
     .replace(
       firstRendererScript,
-      `<script>window.__uiWitnessToastFeels = ${toastFeels}; window.__uiWitnessBuildInfo = ${buildInfo};</script>\n    <script src="./witness-bridge.js"></script>\n    <script src="./witness-controller.js"></script>\n    ${firstRendererScript}`,
+      `<script>window.__uiWitnessToastFeels = ${toastFeels}; window.__uiWitnessBuildInfo = ${buildInfo};</script>\n    <script src="./witness-bridge.js"></script>\n    <script src="./witness-controller.js"></script>\n    <script src="./video-source-ui.js"></script>\n    ${firstRendererScript}`,
     );
 
   fs.rmSync(outputDir, { recursive: true, force: true });
