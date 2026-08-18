@@ -54,7 +54,9 @@ const PRESETS = {
 };
 
 function getPreset(presetId) {
-  return PRESETS[presetId] || PRESETS.porchlight;
+  const preset = PRESETS[presetId];
+  if (!preset) throw new TypeError(`Unknown render preset: ${String(presetId)}`);
+  return preset;
 }
 
 module.exports = {
