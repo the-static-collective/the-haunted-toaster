@@ -13,6 +13,7 @@ const RENDERER_FILES = Object.freeze([
   "app.js",
   "candidate-ui.js",
   "past-toasts-ui.js",
+  "thoughtline-ui.js",
   "lyric-foundry-ui.js",
   "sync-keyboard.js",
 ]);
