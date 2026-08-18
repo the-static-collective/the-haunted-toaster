@@ -2,16 +2,36 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const { buildCandidateCreativeContext } = require("../src/creative-context-providers.cjs");
 
+function loadBuilder() {
+  try {
+    return require("../src/creative-context-providers.cjs").buildCandidateCreativeContext;
+  } catch (error) {
+    if (error?.code === "MODULE_NOT_FOUND" && String(error.message).includes("creative-context-providers.cjs")) {
+      return undefined;
+    }
+    throw error;
+  }
+}
+
+const buildCandidateCreativeContext = loadBuilder();
 const root = path.resolve(__dirname, "..");
 const readJson = (relativePath) =>
   JSON.parse(fs.readFileSync(path.join(root, relativePath), "utf8"));
 const analysis = readJson("fixtures/analysis/sectional.v1.json");
 const constraints = readJson("constraints/porchlight.v2.json");
 
+function requireBuilder() {
+  assert.equal(
+    typeof buildCandidateCreativeContext,
+    "function",
+    "buildCandidateCreativeContext must exist",
+  );
+  return buildCandidateCreativeContext;
+}
+
 test("candidate context contains required song and garment boundaries", () => {
-  const table = buildCandidateCreativeContext({ analysis, constraints });
+  const table = requireBuilder()({ analysis, constraints });
   const ids = table.entries.map((entry) => entry.providerId);
   assert.ok(ids.includes("source/song"));
   assert.ok(ids.includes("constraint/garment"));
@@ -23,7 +43,7 @@ test("candidate context contains required song and garment boundaries", () => {
 });
 
 test("Native Color and receipt memory appear only when truthfully available", () => {
-  const table = buildCandidateCreativeContext({
+  const table = requireBuilder()({
     analysis,
     constraints,
     nativeChromaticProfile: {
@@ -45,15 +65,16 @@ test("Native Color and receipt memory appear only when truthfully available", ()
 });
 
 test("optional providers are absent rather than fabricated when no evidence exists", () => {
-  const table = buildCandidateCreativeContext({ analysis, constraints });
+  const table = requireBuilder()({ analysis, constraints });
   const ids = table.entries.map((entry) => entry.providerId);
   assert.equal(ids.includes("source/image-native-color"), false);
   assert.equal(ids.includes("memory/receipt-v1"), false);
 });
 
 test("same normalized evidence produces the same table identity", () => {
-  const first = buildCandidateCreativeContext({ analysis, constraints });
-  const second = buildCandidateCreativeContext({
+  const builder = requireBuilder();
+  const first = builder({ analysis, constraints });
+  const second = builder({
     analysis: structuredClone(analysis),
     constraints: structuredClone(constraints),
   });
