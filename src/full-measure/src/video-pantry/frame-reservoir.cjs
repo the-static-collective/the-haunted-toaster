@@ -1,5 +1,9 @@
 const crypto = require("node:crypto");
-const { VIDEO_SOURCE_SCHEMA, normalizeSha256 } = require("./schema.cjs");
+const {
+  VIDEO_SOURCE_SCHEMA,
+  canonicalSpecimenId,
+  normalizeSha256,
+} = require("./schema.cjs");
 
 const FRAME_RESERVOIR_SCHEMA = "haunted-toaster/frame-reservoir/v1";
 const FRAME_RESERVOIR_POLICY_VERSION = "frame-reservoir-v1";
@@ -49,6 +53,13 @@ function inspectVideoBinding(binding) {
   const specimenId = String(binding.specimenId || "").trim();
   if (!specimenId) throw new TypeError("Frame Reservoir requires a stable video specimen identity.");
   const sourceSha256 = normalizeSha256(binding.sourceSha256);
+  const expectedSpecimenId = canonicalSpecimenId({
+    sha256: sourceSha256,
+    byteLength: binding.byteLength,
+  });
+  if (specimenId !== expectedSpecimenId) {
+    throw new TypeError("Frame Reservoir video specimen identity must match admitted content identity.");
+  }
   const durationSeconds = Number(binding.probe.durationSeconds);
   const width = Number(binding.probe.width);
   const height = Number(binding.probe.height);
