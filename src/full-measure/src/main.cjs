@@ -26,6 +26,8 @@ const {
   listenerPackStatus,
 } = require("./align/listener-pack.cjs");
 const { createCandidateSession } = require("./candidate-session.cjs");
+const { appendFieldWitnessReceipt } = require("./memory/field-witness-receipt.cjs");
+const { archiveSuccessfulRender } = require("./memory/receipt-archive.cjs");
 const { inspectAudio } = require("./render/analyze.cjs");
 const {
   MAX_CUES,
@@ -59,10 +61,15 @@ let mainWindow = null;
 let activeRender = null;
 let activeListen = null;
 let activeListenerInstall = null;
+let lastFieldRender = null;
 const candidateSession = createCandidateSession();
 
 function listenerRoot() {
   return path.join(app.getPath("userData"), "listener");
+}
+
+function fieldWitnessRoot() {
+  return path.join(app.getPath("userData"), "field-witness");
 }
 
 function safeBaseName(value) {
@@ -88,6 +95,98 @@ async function assertLocalFile(filePath, allowedExtensions, label) {
   return resolved;
 }
 
+async function askFieldWitnessClaim(message, detail) {
+  const result = await dialog.showMessageBox(mainWindow, {
+    type: "question",
+    title: "Alpha.9 field witness",
+    message,
+    detail,
+    buttons: ["Yes", "No", "Cancel witness"],
+    defaultId: 0,
+    cancelId: 2,
+    noLink: true,
+  });
+  if (result.response === 2) return null;
+  return result.response === 0;
+}
+
+async function captureFieldWitness() {
+  if (activeRender || activeListen || activeListenerInstall) {
+    await dialog.showMessageBox(mainWindow, {
+      type: "info",
+      title: "Alpha.9 field witness",
+      message: "Finish the active Toaster job first.",
+      detail: "Field witness evidence is only recorded after a completed accepted render.",
+      buttons: ["OK"],
+    });
+    return null;
+  }
+  if (!lastFieldRender?.receiptSha256) {
+    await dialog.showMessageBox(mainWindow, {
+      type: "info",
+      title: "Alpha.9 field witness",
+      message: "No accepted render is armed for field witness yet.",
+      detail: "Complete the final render for this field session, then press Ctrl+Shift+W.",
+      buttons: ["OK"],
+    });
+    return null;
+  }
+
+  const claims = {};
+  const questions = [
+    [
+      "aggressiveRenderCompleted",
+      "Did the aggressive render complete without the former FFmpeg/parser failure?",
+      "Answer for the aggressive lane you exercised earlier in this same field session (MADD CLOWN preferred; Risky Hybrid, Wire Heat, or Burnt Halo are also valid).",
+    ],
+    [
+      "lowAndSlowExpressiveReachPreserved",
+      "Did Low & Slow preserve meaningful full-width climax expansion?",
+      "The positive control should keep expressive reach rather than collapsing back into a squared-off field.",
+    ],
+    [
+      "listenerDraftPreserved",
+      "After closing and reopening Listener, were your exact human timing edits preserved?",
+      "This is the close → reopen durability gate. Ordinary Listen Closer must not replace your in-progress human timing work.",
+    ],
+    [
+      "relistenHumanAnchorsPreserved",
+      "After explicit Re-listen, were your human anchors preserved?",
+      "Machine-owned evidence may lawfully change; the human anchors themselves must remain authoritative.",
+    ],
+  ];
+
+  for (const [key, message, detail] of questions) {
+    const answer = await askFieldWitnessClaim(message, detail);
+    if (answer === null) return null;
+    claims[key] = answer;
+  }
+
+  const witness = await appendFieldWitnessReceipt({
+    rootDir: fieldWitnessRoot(),
+    renderReceiptSha256: lastFieldRender.receiptSha256,
+    buildHeadSha: buildInfo.commit,
+    claims,
+    note: null,
+  });
+
+  await dialog.showMessageBox(mainWindow, {
+    type: witness.passed ? "info" : "warning",
+    title: "Alpha.9 field witness recorded",
+    message: witness.passed
+      ? "All four alpha.9 trust gates were witnessed PASS."
+      : "Field witness recorded with at least one open gate.",
+    detail: [
+      `Lane bound to receipt: ${witness.laneId}`,
+      `Build: ${witness.buildHeadSha}`,
+      `Render receipt: ${witness.renderReceiptSha256}`,
+      `Witness id: ${witness.witnessId}`,
+    ].join("\n"),
+    buttons: ["OK"],
+  });
+  return witness;
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
@@ -109,6 +208,25 @@ function createWindow() {
   mainWindow.setMenuBarVisibility(false);
   mainWindow.loadFile(path.join(__dirname, "renderer", "index.html"));
   mainWindow.once("ready-to-show", () => mainWindow?.show());
+  mainWindow.webContents.on("before-input-event", (event, input) => {
+    if (
+      input.type === "keyDown" &&
+      input.control &&
+      input.shift &&
+      String(input.key || "").toLowerCase() === "w"
+    ) {
+      event.preventDefault();
+      void captureFieldWitness().catch(async (error) => {
+        await dialog.showMessageBox(mainWindow, {
+          type: "error",
+          title: "Field witness could not be recorded",
+          message: String(error?.message || error || "Unknown field witness error."),
+          detail: "The completed render remains unchanged. No field witness receipt was written.",
+          buttons: ["OK"],
+        });
+      });
+    }
+  });
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
@@ -451,7 +569,7 @@ function registerIpc() {
     activeRender = controller;
 
     try {
-      return await renderVideo(
+      const renderResult = await renderVideo(
         {
           ...config,
           ...(selectedExecution || {}),
@@ -473,6 +591,28 @@ function registerIpc() {
           },
         },
       );
+
+      try {
+        const archived = await archiveSuccessfulRender({
+          rootDir: fieldWitnessRoot(),
+          renderResult,
+        });
+        lastFieldRender = {
+          receiptSha256: archived.receiptSha256,
+          laneId: archived.visualIdentity?.toastFeelId || null,
+        };
+      } catch (error) {
+        lastFieldRender = null;
+        await dialog.showMessageBox(mainWindow, {
+          type: "warning",
+          title: "Render completed; field witness archive unavailable",
+          message: String(error?.message || error || "The accepted render could not be archived."),
+          detail: "Your completed render is unchanged, but Ctrl+Shift+W cannot bind a field witness to it.",
+          buttons: ["OK"],
+        });
+      }
+
+      return renderResult;
     } finally {
       activeRender = null;
     }
@@ -516,10 +656,4 @@ app.whenReady().then(() => {
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
-});
-
-app.on("before-quit", () => {
-  activeRender?.abort();
-  activeListen?.abort();
-  activeListenerInstall?.abort();
 });
