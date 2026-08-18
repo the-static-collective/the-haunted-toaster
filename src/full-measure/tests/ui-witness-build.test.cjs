@@ -67,7 +67,7 @@ test("Vercel publishes only the generated renderer witness", () => {
   });
 });
 
-test("UI witness exposes only the bounded canonical state set", () => {
+test("UI witness exposes the bounded alpha and beta home state set", () => {
   assert.deepEqual(CANONICAL_WITNESS_STATES, [
     "empty",
     "song-ready",
@@ -77,8 +77,12 @@ test("UI witness exposes only the bounded canonical state set", () => {
     "rendering",
     "complete",
     "failure",
+    "beta-home",
+    "beta-history",
   ]);
   assert.equal(normalizeWitnessState("listener"), "listener");
+  assert.equal(normalizeWitnessState("beta-home"), "beta-home");
+  assert.equal(normalizeWitnessState("beta-history"), "beta-history");
   assert.equal(normalizeWitnessState("starting-field"), "toast-feel");
   assert.equal(normalizeWitnessState("invented-state"), "empty");
 });
