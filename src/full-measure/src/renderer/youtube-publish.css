@@ -1,0 +1,135 @@
+.youtube-publish-card {
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(12, 11, 16, 0.72);
+  display: grid;
+  gap: 12px;
+}
+
+.youtube-publish-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.youtube-publish-heading > span {
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.62;
+}
+
+.youtube-publish-heading > strong {
+  font-size: 1rem;
+}
+
+.youtube-publish-heading > small,
+.youtube-client-setup > small,
+#youtubeStatusText {
+  line-height: 1.45;
+  opacity: 0.72;
+}
+
+.youtube-client-setup {
+  display: grid;
+  gap: 7px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.youtube-client-setup label {
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.youtube-client-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.youtube-client-row input {
+  min-width: 0;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28);
+  color: inherit;
+  padding: 9px 10px;
+}
+
+.youtube-publish-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.youtube-publish-actions button,
+#youtubeSaveClientId {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.youtube-publish-actions button:disabled,
+#youtubeSaveClientId:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.youtube-progress {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+}
+
+.youtube-progress-track {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.youtube-progress-track span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+  opacity: 0.78;
+  transition: width 120ms linear;
+}
+
+#youtubeProgressText,
+#youtubeStatusText {
+  font-size: 0.72rem;
+}
+
+#youtubeStatusText[data-tone="error"] {
+  opacity: 1;
+  font-weight: 700;
+}
+
+#youtubeStatusText[data-tone="success"] {
+  opacity: 0.9;
+}
+
+@media (max-width: 760px) {
+  .youtube-client-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .youtube-progress-track span {
+    transition: none;
+  }
+}
