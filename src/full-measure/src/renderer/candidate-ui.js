@@ -38,6 +38,13 @@
   `;
   shapeCard.insertAdjacentElement("afterend", launch);
 
+  if (!document.querySelector('script[data-thoughtline-ui]')) {
+    const thoughtlineScript = document.createElement("script");
+    thoughtlineScript.src = "./thoughtline-ui.js";
+    thoughtlineScript.dataset.thoughtlineUi = "true";
+    document.body.append(thoughtlineScript);
+  }
+
   const modal = document.createElement("div");
   modal.className = "candidate-modal is-hidden";
   modal.setAttribute("role", "dialog");
@@ -185,6 +192,7 @@
     launch.querySelector("strong").textContent = "Generate six visions";
     for (const input of lockList.querySelectorAll("input")) input.checked = false;
     updateRenderLabel();
+    window.dispatchEvent(new CustomEvent("toaster-influence-trace", { detail: null }));
     if (notifyMain) api.clearCandidates().catch(() => {});
   }
 
@@ -256,6 +264,9 @@
     converge.disabled = !(view.candidates || []).length;
     stomp.disabled = true;
     use.disabled = true;
+    window.dispatchEvent(new CustomEvent("toaster-influence-trace", {
+      detail: view.influenceTrace || null,
+    }));
   }
 
   async function generateSix() {
