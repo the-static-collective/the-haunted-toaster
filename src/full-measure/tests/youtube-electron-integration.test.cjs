@@ -42,6 +42,17 @@ test("Electron main delegates YouTube publication to a purpose-specific main-pro
   assert.doesNotMatch(youtubeMain, /config\?\.outputPath/);
 });
 
+test("one completed toast can create at most one YouTube publication in the active session", () => {
+  assert.match(
+    youtubeMain,
+    /ipcMain\.handle\("youtube:publish"[\s\S]*?if \(lastUploadedVideoId\) \{[\s\S]*?already uploaded/i,
+  );
+  assert.match(
+    renderer,
+    /state\.youtube\.videoId = result\.videoId;[\s\S]*?youtubePublishButton\.disabled = true;[\s\S]*?Uploaded privately/i,
+  );
+});
+
 test("sandbox preload exposes only purpose-specific YouTube publication calls", () => {
   assert.match(preload, /getYouTubeStatus:\s*\(\) => ipcRenderer\.invoke\("youtube:status"\)/);
   assert.match(preload, /configureYouTube:\s*\(clientId\) =>\s*ipcRenderer\.invoke\("youtube:configure", \{ clientId \}\)/);
