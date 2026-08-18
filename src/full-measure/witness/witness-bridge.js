@@ -1,6 +1,8 @@
 (() => {
   const listeners = new Map();
   let renderMode = "complete";
+  let currentVideo = null;
+  const pantrySpecimens = [];
 
   function subscribe(channel, callback) {
     const callbacks = listeners.get(channel) || [];
@@ -51,6 +53,44 @@
     };
   }
 
+  function witnessVideoBinding({ persisted = true, index = 1 } = {}) {
+    return {
+      schema: "haunted-toaster/video-source/v1",
+      specimenId: `sha256:ui-witness-video-${String(index).padStart(2, "0")}:4096`,
+      sourceSha256: `ui-witness-video-${String(index).padStart(2, "0")}`,
+      byteLength: 4096,
+      path: `/witness/visual-specimen-${index}.mp4`,
+      filename: `visual-specimen-${index}.mp4`,
+      probe: {
+        durationSeconds: 4,
+        width: 1920,
+        height: 1080,
+        frameRate: "24/1",
+        container: "mov,mp4,m4a,3gp,3g2,mj2",
+        codec: "h264",
+        hasAudio: false,
+      },
+      persisted,
+    };
+  }
+
+  function addWitnessPantrySpecimen(binding) {
+    if (!binding?.persisted) return false;
+    if (pantrySpecimens.some((item) => item.specimenId === binding.specimenId)) return false;
+    pantrySpecimens.push({
+      specimenId: binding.specimenId,
+      sourceSha256: binding.sourceSha256,
+      byteLength: binding.byteLength,
+      filename: binding.filename,
+      paths: [binding.path],
+      probe: structuredClone(binding.probe),
+      analysis: { state: "pending", version: null },
+      admittedAt: "2026-08-17T00:00:00.000Z",
+    });
+    pantrySpecimens.sort((left, right) => left.specimenId.localeCompare(right.specimenId));
+    return true;
+  }
+
   const commit = document.body.dataset.uiWitnessCommit || "local";
   const buildInfo = Object.freeze({
     version: "unknown",
@@ -68,6 +108,38 @@
   window.fullMeasure = Object.freeze({
     chooseAudio: async () => "/witness/Dreamstate Divide.wav",
     chooseImage: async () => "/witness/native-color-specimen.png",
+    chooseVideo: async ({ addToPantry = true } = {}) => {
+      currentVideo = witnessVideoBinding({ persisted: addToPantry !== false, index: 1 });
+      const inserted = addWitnessPantrySpecimen(currentVideo);
+      return {
+        binding: structuredClone(currentVideo),
+        inserted,
+        pantryCount: currentVideo.persisted ? pantrySpecimens.length : null,
+      };
+    },
+    chooseVideoFolder: async () => {
+      let admitted = 0;
+      let duplicates = 0;
+      for (const index of [1, 2, 3]) {
+        if (addWitnessPantrySpecimen(witnessVideoBinding({ persisted: true, index }))) admitted += 1;
+        else duplicates += 1;
+      }
+      return {
+        admitted,
+        duplicates,
+        refused: [],
+        catalogSize: pantrySpecimens.length,
+        specimenIds: pantrySpecimens.map((item) => item.specimenId),
+      };
+    },
+    listVideoPantry: async () => ({
+      schema: "haunted-toaster/video-pantry-catalog/v1",
+      specimens: structuredClone(pantrySpecimens),
+    }),
+    clearVideo: async () => {
+      currentVideo = null;
+      return true;
+    },
     chooseLyrics: async () => null,
     chooseOutput: async () => "/witness/Dreamstate-Divide-alpha8.mp4",
     inspectAudio: async () => ({
