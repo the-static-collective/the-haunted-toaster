@@ -4,8 +4,14 @@ const base = require("./nested-response-generation.cjs");
 const MEMORY_SEAT_POLICY = "toaster-memory-seat-v1";
 const MAX_MEMORY_SEAT_ATTEMPTS = 4;
 
+function memoryApplication(candidate) {
+  return candidate?.memoryInfluence ||
+    candidate?.scoreArtifact?.derivation?.policy?.memoryInfluence?.application ||
+    null;
+}
+
 function isApplied(candidate) {
-  return candidate?.memoryInfluence?.applied === true;
+  return memoryApplication(candidate)?.applied === true;
 }
 
 function memoryAttemptSeed(options, attempt) {
@@ -22,6 +28,7 @@ function reindexCandidate(candidate, index) {
   return deepFreeze({
     ...candidate,
     index,
+    memoryInfluence: memoryApplication(candidate),
   });
 }
 
