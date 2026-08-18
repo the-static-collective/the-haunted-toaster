@@ -2,6 +2,7 @@
   const listeners = new Map();
   let renderMode = "complete";
   let reToastReceiptSha256 = null;
+  let candidateInfluenceTrace = null;
   let pastToasts = [
     {
       receiptSha256: "1".repeat(64),
@@ -59,7 +60,7 @@
       requestedCount: 6,
       producedCount: 6,
       shortfall: false,
-      influenceTrace: null,
+      influenceTrace: candidateInfluenceTrace ? structuredClone(candidateInfluenceTrace) : null,
       candidates: roles.map((role, index) => ({
         index,
         role,
@@ -177,7 +178,7 @@
       reToastReceiptSha256 = null;
       return previous ? { receiptSha256: previous } : null;
     },
-    getCurrentInfluenceTrace: async () => null,
+    getCurrentInfluenceTrace: async () => candidateInfluenceTrace ? structuredClone(candidateInfluenceTrace) : null,
     openPastToastArtifact: async ({ receiptSha256, kind }) => {
       const toast = currentPastToast(receiptSha256);
       if (!toast || toast.availability?.[kind] !== true) {
@@ -216,6 +217,9 @@
     setPastToasts(nextToasts) {
       pastToasts = Array.isArray(nextToasts) ? structuredClone(nextToasts) : [];
       reToastReceiptSha256 = null;
+    },
+    setCandidateInfluenceTrace(trace) {
+      candidateInfluenceTrace = trace ? structuredClone(trace) : null;
     },
     getReToastReceiptSha256() {
       return reToastReceiptSha256;
