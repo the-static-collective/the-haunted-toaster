@@ -1,8 +1,10 @@
+const crypto = require("node:crypto");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 
 const YOUTUBE_UPLOAD_SCOPE = "https://www.googleapis.com/auth/youtube.upload";
 const YOUTUBE_AUTHORIZATION_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
+const GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
 const YOUTUBE_RESUMABLE_UPLOAD_ENDPOINT = "https://www.googleapis.com/upload/youtube/v3/videos";
 const PUBLICATION_RECEIPT_SCHEMA = "haunted-toaster.youtube-publication.v1";
 const DEFAULT_CHUNK_SIZE = 8 * 1024 * 1024;
@@ -25,6 +27,121 @@ function buildAuthorizationUrl({ clientId, redirectUri, state, codeChallenge }) 
   return url.toString();
 }
 
+function createPkcePair({ randomBytesImpl = crypto.randomBytes } = {}) {
+  if (typeof randomBytesImpl !== "function") {
+    throw new Error("PKCE requires a cryptographic random byte source.");
+  }
+  const entropy = Buffer.from(randomBytesImpl(64));
+  if (entropy.length < 32) {
+    throw new Error("PKCE requires at least 32 bytes of entropy.");
+  }
+  const verifier = entropy.toString("base64url").slice(0, 128);
+  const challenge = crypto
+    .createHash("sha256")
+    .update(verifier, "ascii")
+    .digest("base64url");
+  return { verifier, challenge };
+}
+
+function parseOAuthCallback(callbackUrl, expectedState) {
+  const url = new URL(callbackUrl);
+  const receivedState = url.searchParams.get("state");
+  if (!expectedState || receivedState !== expectedState) {
+    throw new Error("YouTube authorization state did not match the request.");
+  }
+  const providerError = url.searchParams.get("error");
+  if (providerError) {
+    throw new Error(`YouTube authorization failed: ${providerError}.`);
+  }
+  const code = url.searchParams.get("code");
+  if (!code) throw new Error("YouTube authorization returned no code.");
+  return { code };
+}
+
+async function responseError(response, label) {
+  let detail = "";
+  try {
+    detail = String(await response.text()).trim();
+  } catch {}
+  const suffix = detail ? ` ${detail.slice(0, 1_000)}` : "";
+  return new Error(`${label} failed with HTTP ${response.status}.${suffix}`);
+}
+
+async function tokenResponse(response, label) {
+  if (!response.ok) throw await responseError(response, label);
+  let payload;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new Error(`${label} returned an unreadable response.`);
+  }
+  if (!payload?.access_token) {
+    throw new Error(`${label} returned no access token.`);
+  }
+  return payload;
+}
+
+async function exchangeAuthorizationCode({
+  clientId,
+  code,
+  codeVerifier,
+  redirectUri,
+  fetchImpl = globalThis.fetch,
+  signal,
+}) {
+  if (!clientId || !code || !codeVerifier || !redirectUri) {
+    throw new Error("YouTube token exchange requires clientId, code, codeVerifier, and redirectUri.");
+  }
+  if (typeof fetchImpl !== "function") throw new Error("Fetch is unavailable.");
+  const body = new URLSearchParams({
+    client_id: clientId,
+    code,
+    code_verifier: codeVerifier,
+    grant_type: "authorization_code",
+    redirect_uri: redirectUri,
+  });
+  const response = await fetchImpl(GOOGLE_TOKEN_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+    signal,
+  });
+  const payload = await tokenResponse(response, "YouTube authorization-code exchange");
+  return {
+    accessToken: String(payload.access_token),
+    refreshToken: payload.refresh_token ? String(payload.refresh_token) : null,
+    expiresInSeconds: Number(payload.expires_in) || 0,
+  };
+}
+
+async function refreshAccessToken({
+  clientId,
+  refreshToken,
+  fetchImpl = globalThis.fetch,
+  signal,
+}) {
+  if (!clientId || !refreshToken) {
+    throw new Error("YouTube token refresh requires clientId and refreshToken.");
+  }
+  if (typeof fetchImpl !== "function") throw new Error("Fetch is unavailable.");
+  const body = new URLSearchParams({
+    client_id: clientId,
+    refresh_token: refreshToken,
+    grant_type: "refresh_token",
+  });
+  const response = await fetchImpl(GOOGLE_TOKEN_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+    signal,
+  });
+  const payload = await tokenResponse(response, "YouTube token refresh");
+  return {
+    accessToken: String(payload.access_token),
+    expiresInSeconds: Number(payload.expires_in) || 0,
+  };
+}
+
 function buildPrivateVideoMetadata({ title, description = "" }) {
   const normalizedTitle = String(title || "").trim().slice(0, 100);
   if (!normalizedTitle) {
@@ -40,15 +157,6 @@ function buildPrivateVideoMetadata({ title, description = "" }) {
       privacyStatus: "private",
     },
   };
-}
-
-async function responseError(response, label) {
-  let detail = "";
-  try {
-    detail = String(await response.text()).trim();
-  } catch {}
-  const suffix = detail ? ` ${detail.slice(0, 1_000)}` : "";
-  return new Error(`${label} failed with HTTP ${response.status}.${suffix}`);
 }
 
 async function beginResumableUpload({
@@ -192,6 +300,14 @@ async function uploadResumableFile({
   throw new Error("YouTube upload ended without a completed video response.");
 }
 
+function studioEditUrl(videoId) {
+  const normalized = String(videoId || "").trim();
+  if (!/^[A-Za-z0-9_-]{6,64}$/.test(normalized)) {
+    throw new Error("A valid YouTube video ID is required for Studio handoff.");
+  }
+  return `https://studio.youtube.com/video/${normalized}/edit`;
+}
+
 function publicationReceiptPath(outputPath) {
   const parsed = path.parse(outputPath);
   return path.join(parsed.dir, `${parsed.name}.youtube-receipt.json`);
@@ -242,7 +358,12 @@ module.exports = {
   beginResumableUpload,
   buildAuthorizationUrl,
   buildPrivateVideoMetadata,
+  createPkcePair,
+  exchangeAuthorizationCode,
+  parseOAuthCallback,
   publicationReceiptPath,
+  refreshAccessToken,
+  studioEditUrl,
   uploadResumableFile,
   writePublicationReceipt,
 };
