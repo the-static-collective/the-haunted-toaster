@@ -1,13 +1,19 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const crypto = require("node:crypto");
 const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 const {
   YOUTUBE_UPLOAD_SCOPE,
+  beginResumableUpload,
   buildAuthorizationUrl,
   buildPrivateVideoMetadata,
-  beginResumableUpload,
+  createPkcePair,
+  exchangeAuthorizationCode,
+  parseOAuthCallback,
+  refreshAccessToken,
+  studioEditUrl,
   uploadResumableFile,
   writePublicationReceipt,
 } = require("../src/publish/youtube-publish.cjs");
@@ -30,6 +36,104 @@ test("authorization URL requests only youtube.upload with PKCE and offline acces
   assert.equal(url.searchParams.get("code_challenge"), "challenge-token");
   assert.equal(url.searchParams.get("code_challenge_method"), "S256");
   assert.equal(url.searchParams.get("state"), "state-token");
+});
+
+test("PKCE verifier and S256 challenge are base64url and reproducible from supplied entropy", () => {
+  const entropy = Buffer.alloc(64, 0xa5);
+  const pair = createPkcePair({ randomBytesImpl: () => entropy });
+  const expectedVerifier = entropy.toString("base64url");
+  const expectedChallenge = crypto
+    .createHash("sha256")
+    .update(expectedVerifier, "ascii")
+    .digest("base64url");
+
+  assert.equal(pair.verifier, expectedVerifier);
+  assert.equal(pair.challenge, expectedChallenge);
+  assert.match(pair.verifier, /^[A-Za-z0-9_-]{43,128}$/);
+});
+
+test("OAuth callback accepts only the expected state and authorization code", () => {
+  assert.deepEqual(
+    parseOAuthCallback("http://127.0.0.1:43123/callback?code=abc&state=expected", "expected"),
+    { code: "abc" },
+  );
+  assert.throws(
+    () => parseOAuthCallback("http://127.0.0.1:43123/callback?code=abc&state=wrong", "expected"),
+    /state/i,
+  );
+  assert.throws(
+    () => parseOAuthCallback("http://127.0.0.1:43123/callback?error=access_denied&state=expected", "expected"),
+    /access_denied/i,
+  );
+});
+
+test("authorization-code exchange sends PKCE without requiring a client secret", async () => {
+  const requests = [];
+  const fetchImpl = async (url, options) => {
+    requests.push({ url: String(url), options });
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        access_token: "access-token",
+        refresh_token: "refresh-token",
+        expires_in: 3600,
+        token_type: "Bearer",
+      }),
+      text: async () => "",
+    };
+  };
+
+  const tokens = await exchangeAuthorizationCode({
+    clientId: "desktop-client.apps.googleusercontent.com",
+    code: "auth-code",
+    codeVerifier: "verifier",
+    redirectUri: "http://127.0.0.1:43123/callback",
+    fetchImpl,
+  });
+
+  assert.deepEqual(tokens, {
+    accessToken: "access-token",
+    refreshToken: "refresh-token",
+    expiresInSeconds: 3600,
+  });
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, "https://oauth2.googleapis.com/token");
+  const form = new URLSearchParams(requests[0].options.body);
+  assert.equal(form.get("client_id"), "desktop-client.apps.googleusercontent.com");
+  assert.equal(form.get("code"), "auth-code");
+  assert.equal(form.get("code_verifier"), "verifier");
+  assert.equal(form.get("grant_type"), "authorization_code");
+  assert.equal(form.get("redirect_uri"), "http://127.0.0.1:43123/callback");
+  assert.equal(form.has("client_secret"), false);
+});
+
+test("refresh-token exchange returns a fresh access token without exposing refresh material", async () => {
+  const requests = [];
+  const fetchImpl = async (url, options) => {
+    requests.push({ url: String(url), options });
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ access_token: "fresh-access", expires_in: 1800 }),
+      text: async () => "",
+    };
+  };
+
+  const tokens = await refreshAccessToken({
+    clientId: "desktop-client.apps.googleusercontent.com",
+    refreshToken: "stored-refresh",
+    fetchImpl,
+  });
+
+  assert.deepEqual(tokens, {
+    accessToken: "fresh-access",
+    expiresInSeconds: 1800,
+  });
+  const form = new URLSearchParams(requests[0].options.body);
+  assert.equal(form.get("grant_type"), "refresh_token");
+  assert.equal(form.get("refresh_token"), "stored-refresh");
+  assert.equal(form.has("client_secret"), false);
 });
 
 test("beta upload metadata is private-only", () => {
@@ -165,4 +269,12 @@ test("publication receipt is separate, private, source-bound, and contains no cr
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
+});
+
+test("Studio handoff is scoped to the uploaded video id", () => {
+  assert.equal(
+    studioEditUrl("yt-video-123"),
+    "https://studio.youtube.com/video/yt-video-123/edit",
+  );
+  assert.throws(() => studioEditUrl("../../escape"), /video id/i);
 });
