@@ -85,6 +85,7 @@ test("alpha capability set keeps Toast Feel furniture and beta contact sheet hid
     await tick();
     assert.equal(view.document.querySelector("#toastFeelChoices").classList.contains("is-hidden"), false);
     assert.equal(view.document.querySelector("#betaSixUpWindow").classList.contains("is-hidden"), true);
+    assert.equal(view.document.querySelector("#slateToastFeel").textContent, "Loading…");
   } finally {
     view.dom.window.close();
   }
@@ -98,6 +99,8 @@ test("beta candidate ecology replaces preselection with the same six-up family p
     assert.equal(view.document.querySelector("#toastFeelChoices").classList.contains("is-hidden"), true);
     assert.equal(view.document.querySelector("#betaSixUpWindow").classList.contains("is-hidden"), false);
     assert.equal(view.document.querySelector("#garmentHeading").textContent, "Six-Up");
+    assert.equal(view.document.querySelector("#slateToastFeel").closest("div").querySelector("dt").textContent, "Creative field");
+    assert.equal(view.document.querySelector("#slateToastFeel").textContent, "Six-Up field");
 
     view.document.querySelector("#betaSixUpGenerate").click();
     await tick();
