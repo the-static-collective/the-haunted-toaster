@@ -25,6 +25,144 @@ env:
   APP_DIR: src/full-measure
 
 jobs:
+  track0b-patch:
+    name: Apply Track 0B branch patch
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 155 && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Apply bounded Listener durability patch
+        shell: python
+        run: |
+          from pathlib import Path
+
+          app_path = Path('src/full-measure/src/renderer/app.js')
+          foundry_path = Path('src/full-measure/src/renderer/lyric-foundry-ui.js')
+          app = app_path.read_text(encoding='utf-8')
+          foundry = foundry_path.read_text(encoding='utf-8')
+
+          def replace_once(text, old, new, label):
+              count = text.count(old)
+              if count == 0 and new in text:
+                  return text
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly one match, found {count}')
+              return text.replace(old, new, 1)
+
+          old_begin = '''  async function beginAutoSync() {
+            if (
+              !state.audio ||
+              !elements.lyricsInput.value.trim() ||
+              state.lyricSummary?.timed
+            ) {
+              return;
+            }
+            clearError();
+            openSyncDialog();
+            const status = await refreshListenerStatus();
+            if (status.ready) {
+              await runAutoSync();
+            } else {
+              showSyncView("setup");
+            }
+          }
+          '''
+          new_begin = '''  async function beginAutoSync() {
+            if (
+              !state.audio ||
+              !elements.lyricsInput.value.trim() ||
+              state.lyricSummary?.timed
+            ) {
+              return;
+            }
+            clearError();
+            if (state.alignment) {
+              openSyncDialog();
+              showAlignmentEditor(state.alignment);
+              return;
+            }
+            openSyncDialog();
+            const status = await refreshListenerStatus();
+            if (status.ready) {
+              await runAutoSync();
+            } else {
+              showSyncView("setup");
+            }
+          }
+          '''
+          app = replace_once(app, old_begin, new_begin, 'beginAutoSync')
+
+          old_pick = '''      if (!selected) return;
+              await setLyricsValue(selected.content, {
+          '''
+          new_pick = '''      if (!selected) return;
+              state.alignment = null;
+              state.selectedCueIndex = null;
+              await setLyricsValue(selected.content, {
+          '''
+          app = replace_once(app, old_pick, new_pick, 'pickLyrics invalidation')
+
+          old_input = '''  elements.lyricsInput.addEventListener("input", () => {
+            if (!state.internalLyricUpdate) state.lyricProvenance = null;
+            scheduleLyricInspection();
+          });
+          '''
+          new_input = '''  elements.lyricsInput.addEventListener("input", () => {
+            if (!state.internalLyricUpdate) {
+              state.lyricProvenance = null;
+              state.alignment = null;
+              state.selectedCueIndex = null;
+            }
+            scheduleLyricInspection();
+          });
+          '''
+          app = replace_once(app, old_input, new_input, 'manual lyric invalidation')
+
+          old_wire = '''  elements.lyricsAutoSync.addEventListener("click", beginAutoSync);
+          '''
+          new_wire = '''  elements.lyricsAutoSync.addEventListener("click", beginAutoSync);
+            window.addEventListener("haunted-listener-relisten", async () => {
+              if (
+                !state.audio ||
+                state.syncing ||
+                !elements.lyricsInput.value.trim() ||
+                state.lyricSummary?.timed
+              ) {
+                return;
+              }
+              clearError();
+              openSyncDialog();
+              await runAutoSync();
+            });
+          '''
+          app = replace_once(app, old_wire, new_wire, 'explicit relisten event')
+
+          foundry = replace_once(
+              foundry,
+              '      listenCloser?.click();\n',
+              '      window.dispatchEvent(new CustomEvent("haunted-listener-relisten"));\n',
+              'Foundry relisten dispatch',
+          )
+
+          app_path.write_text(app, encoding='utf-8')
+          foundry_path.write_text(foundry, encoding='utf-8')
+
+      - name: Commit production repair
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/full-measure/src/renderer/app.js src/full-measure/src/renderer/lyric-foundry-ui.js
+          git diff --cached --quiet && exit 0
+          git commit -m "fix: preserve Listener draft across close and reopen"
+          git push origin HEAD:${GITHUB_HEAD_REF}
+
   verify:
     name: Verify renderer
     runs-on: ubuntu-latest
