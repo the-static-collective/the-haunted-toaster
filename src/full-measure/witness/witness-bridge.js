@@ -3,6 +3,9 @@
   let renderMode = "complete";
   let currentVideo = null;
   const pantrySpecimens = [];
+  const requestedState = new URLSearchParams(window.location.search).get("state") || "empty";
+  const betaHomeState = requestedState === "beta-home" || requestedState === "beta-history";
+  const betaHistoryState = requestedState === "beta-history";
 
   function subscribe(channel, callback) {
     const callbacks = listeners.get(channel) || [];
@@ -91,6 +94,35 @@
     return true;
   }
 
+  function recentToastFixtures() {
+    return [
+      {
+        id: "receipt-jubilee",
+        title: "Jubilee",
+        rating: 5,
+        disposition: "keep",
+        mediaAvailable: true,
+        receiptAvailable: true,
+      },
+      {
+        id: "receipt-ice9",
+        title: "ice9",
+        rating: 3,
+        disposition: "weird",
+        mediaAvailable: true,
+        receiptAvailable: true,
+      },
+      {
+        id: "receipt-residual",
+        title: "The Absolute Residual",
+        rating: null,
+        disposition: null,
+        mediaAvailable: false,
+        receiptAvailable: true,
+      },
+    ];
+  }
+
   const commit = document.body.dataset.uiWitnessCommit || "local";
   const buildInfo = Object.freeze({
     version: "unknown",
@@ -101,11 +133,22 @@
     ...(window.__uiWitnessBuildInfo || {}),
     commit,
   });
+
+  function witnessBuildInfo() {
+    const info = structuredClone(buildInfo);
+    const capabilities = Array.isArray(info.capabilities) ? info.capabilities : [];
+    if (betaHomeState && !capabilities.includes("betaCandidateEcologyV1")) {
+      capabilities.push("betaCandidateEcologyV1");
+    }
+    info.capabilities = capabilities;
+    return info;
+  }
+
   window.__consoleErrors = [];
   window.addEventListener("error", (event) => window.__consoleErrors.push(String(event.error?.message || event.message)));
   window.addEventListener("unhandledrejection", (event) => window.__consoleErrors.push(String(event.reason?.message || event.reason)));
 
-  window.fullMeasure = Object.freeze({
+  const bridge = {
     chooseAudio: async () => "/witness/Dreamstate Divide.wav",
     chooseImage: async () => "/witness/native-color-specimen.png",
     chooseVideo: async ({ addToPantry = true } = {}) => {
@@ -199,7 +242,7 @@
     revealFile: async () => {},
     openFile: async () => {},
     getVersion: async () => buildInfo.version,
-    getBuildInfo: async () => structuredClone(buildInfo),
+    getBuildInfo: async () => witnessBuildInfo(),
     getToastFeels: async () => structuredClone(window.__uiWitnessToastFeels || []),
     pathForFile: () => "",
     onProgress: (callback) => subscribe("progress", callback),
@@ -207,7 +250,17 @@
     onListenerInstallProgress: (callback) => subscribe("listener-install", callback),
     onLyricSyncProgress: (callback) => subscribe("lyric-progress", callback),
     onLyricSyncPhase: (callback) => subscribe("lyric-phase", callback),
-  });
+  };
+
+  if (betaHistoryState) {
+    bridge.listPastToasts = async ({ limit = 3 } = {}) => ({
+      toasts: recentToastFixtures().slice(0, Math.max(0, Math.min(3, Number(limit) || 3))),
+    });
+    bridge.openPastToast = async () => true;
+    bridge.openPastToasts = async () => true;
+  }
+
+  window.fullMeasure = Object.freeze(bridge);
 
   window.__uiWitness = Object.freeze({
     setRenderMode(mode) {
