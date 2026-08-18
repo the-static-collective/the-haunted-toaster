@@ -5,6 +5,7 @@
   root.RecentToastsUI = api;
   const install = () => {
     if (root.fullMeasure) {
+      void api.applyBetaHomeSlate({ document: root.document, api: root.fullMeasure });
       void api.installRecentToasts({ document: root.document, api: root.fullMeasure });
     }
   };
@@ -14,6 +15,22 @@
     install();
   }
 })(typeof window !== "undefined" ? window : null, () => {
+  async function applyBetaHomeSlate({ document, api } = {}) {
+    const slateValue = document?.querySelector?.("#slateToastFeel");
+    if (!slateValue || typeof api?.getBuildInfo !== "function") return false;
+    try {
+      const buildInfo = await api.getBuildInfo();
+      const capabilities = Array.isArray(buildInfo?.capabilities) ? buildInfo.capabilities : [];
+      if (!capabilities.includes("betaCandidateEcologyV1")) return false;
+      const label = slateValue.closest("div")?.querySelector("dt");
+      if (label) label.textContent = "Creative field";
+      slateValue.textContent = "Six-Up field";
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   function normalizeToasts(value) {
     const records = Array.isArray(value) ? value : value?.toasts;
     return Array.isArray(records) ? records.slice(0, 3) : [];
@@ -108,6 +125,7 @@
   }
 
   return {
+    applyBetaHomeSlate,
     availabilityLabel,
     installRecentToasts,
     normalizeToasts,
