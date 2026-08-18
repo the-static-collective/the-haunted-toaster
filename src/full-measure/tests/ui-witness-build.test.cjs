@@ -29,6 +29,8 @@ test("UI witness is generated from production renderer assets", (t) => {
   assert.match(generated, /witness-bridge\.js/);
   assert.match(generated, /witness-controller\.js/);
   assert.match(generated, /video-source-ui\.js/);
+  assert.match(generated, /beta-home-ui\.css/);
+  assert.match(generated, /recent-toasts-ui\.js/);
   assert.ok(generated.indexOf("witness-bridge.js") < generated.indexOf("toast-feel-controller.js"));
   assert.ok(generated.indexOf("video-source-ui.js") < generated.indexOf("toast-feel-controller.js"));
   for (const method of ["chooseVideo", "chooseVideoFolder", "listVideoPantry", "clearVideo"]) {
@@ -45,16 +47,16 @@ test("UI witness is generated from production renderer assets", (t) => {
   ]) {
     assert.match(generated, new RegExp(`"${capability}"`));
   }
-  assert.equal(
-    fs.readFileSync(path.join(outputDir, "styles.css"), "utf8"),
-    fs.readFileSync(path.join(rendererDir, "styles.css"), "utf8"),
-  );
-  assert.equal(
-    fs.readFileSync(path.join(outputDir, "video-source-ui.js"), "utf8"),
-    fs.readFileSync(path.join(rendererDir, "video-source-ui.js"), "utf8"),
-  );
+  for (const filename of ["styles.css", "beta-home-ui.css", "video-source-ui.js", "recent-toasts-ui.js"]) {
+    assert.equal(
+      fs.readFileSync(path.join(outputDir, filename), "utf8"),
+      fs.readFileSync(path.join(rendererDir, filename), "utf8"),
+    );
+    assert.ok(result.rendererFiles.includes(filename));
+  }
   assert.match(generated, /data-ui-witness-commit="deadbeef"/);
   assert.ok(production.includes("./styles.css"));
+  assert.ok(production.includes("./beta-home-ui.css"));
 });
 
 test("Vercel publishes only the generated renderer witness", () => {
