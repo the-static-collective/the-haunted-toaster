@@ -6,6 +6,7 @@ module.exports = {
   ...require("./resolver.cjs"),
   ...require("./operations.cjs"),
   ...require("./candidate-family.cjs"),
+  ...require("./memory-influence.cjs"),
   ...require("./converge-frontier.cjs"),
   ...require("./diversity-engine.cjs"),
   ...require("./visible-distance.cjs"),
@@ -25,4 +26,5 @@ module.exports = {
   ...require("./nested-response.cjs"),
   ...require("./mutation-lattice-generation.cjs"),
   ...require("./nested-response-generation.cjs"),
+  ...require("./memory-generation.cjs"),
 };

@@ -14,6 +14,7 @@ const {
 } = require("./schema.cjs");
 const { createVisualScore, artifact } = require("./operations.cjs");
 const { resolve } = require("./resolver.cjs");
+const { applyMemoryInfluence, memoryInfluenceAxis } = require("./memory-influence.cjs");
 
 const CANDIDATE_FAMILY_SCHEMA = "haunted-toaster/candidate-family/v1";
 const CANDIDATE_FAMILY_POLICY = "coverage-before-randomness-v1";
@@ -195,6 +196,7 @@ function makeCandidate({
   baselineScoreRef,
   constraints,
   locks,
+  memoryInfluence,
   parent,
   parentScoreRef,
   rootSeed,
@@ -210,7 +212,7 @@ function makeCandidate({
     attempt,
   });
   const prng = createPrng(`${seed}:${slot.role}`);
-  const score = structuredClone(baseline);
+  let score = structuredClone(baseline);
   score.schema = VISUAL_SCORE_SCHEMA;
   score.seed = seed;
   score.prng = PRNG_ID;
@@ -222,6 +224,28 @@ function makeCandidate({
 
   if (parent) {
     for (const lock of locks) score[lock] = structuredClone(parent[lock]);
+  }
+
+  let memoryApplication = null;
+  if (memoryInfluence) {
+    const axis = memoryInfluenceAxis(memoryInfluence);
+    if (axis && locks.includes(axis)) {
+      memoryApplication = Object.freeze({
+        applied: false,
+        reason: "axis-locked",
+        axis,
+        target: String(memoryInfluence.target || ""),
+      });
+    } else {
+      const applied = applyMemoryInfluence(score, constraints, memoryInfluence);
+      score = applied.score;
+      memoryApplication = Object.freeze({
+        applied: applied.applied,
+        reason: applied.reason,
+        axis: applied.axis,
+        target: applied.target,
+      });
+    }
   }
 
   const validated = assertScore(score, constraints);
@@ -242,9 +266,18 @@ function makeCandidate({
       appliedAxes: unlockedAxes,
       prng: PRNG_ID,
       constraintPackId: constraints.id,
+      memoryInfluence: memoryInfluence
+        ? {
+            plan: structuredClone(memoryInfluence),
+            application: memoryApplication,
+          }
+        : null,
     },
   };
-  return artifact(validated, derivation);
+  return {
+    scoreArtifact: artifact(validated, derivation),
+    memoryInfluence: memoryApplication,
+  };
 }
 
 function generateCandidateSet({
@@ -256,6 +289,7 @@ function generateCandidateSet({
   locks = [],
   rootSeed,
   count = 6,
+  memoryInfluence = null,
 }) {
   if (rootSeed === undefined || rootSeed === null || String(rootSeed).length === 0) {
     throw new TypeError("rootSeed is required.");
@@ -281,11 +315,12 @@ function generateCandidateSet({
     const slot = SLOT_POLICIES[slotIndex];
     let accepted = null;
     for (let attempt = 0; attempt < 24; attempt += 1) {
-      const scoreArtifact = makeCandidate({
+      const result = makeCandidate({
         baseline,
         baselineScoreRef,
         constraints,
         locks: normalizedLocks,
+        memoryInfluence: count === 6 && slotIndex === 5 ? memoryInfluence : null,
         parent,
         parentScoreRef,
         rootSeed,
@@ -293,9 +328,9 @@ function generateCandidateSet({
         slot,
         attempt,
       });
-      const key = canonicalStringify(creativeState(scoreArtifact.score));
+      const key = canonicalStringify(creativeState(result.scoreArtifact.score));
       if (seenCreativeStates.has(key)) continue;
-      accepted = scoreArtifact;
+      accepted = result;
       seenCreativeStates.add(key);
       break;
     }
@@ -305,14 +340,15 @@ function generateCandidateSet({
       continue;
     }
 
-    const timeline = resolve(analysis, accepted.score, constraints, rendererProfile);
+    const timeline = resolve(analysis, accepted.scoreArtifact.score, constraints, rendererProfile);
     candidates.push(deepFreeze({
       index: candidates.length,
       slotIndex,
       role: slot.role,
-      scoreAddress: accepted.address,
-      scoreArtifact: accepted,
-      changedAxes: changedAxes(baseline, accepted.score),
+      scoreAddress: accepted.scoreArtifact.address,
+      scoreArtifact: accepted.scoreArtifact,
+      changedAxes: changedAxes(baseline, accepted.scoreArtifact.score),
+      memoryInfluence: accepted.memoryInfluence,
       timeline,
       timelineHash: timeline.timelineHash,
     }));
@@ -347,6 +383,7 @@ function generateCandidateSet({
     scoreAddresses: candidates.map((candidate) => candidate.scoreAddress),
     timelineHashes: candidates.map((candidate) => candidate.timelineHash),
     shortfall,
+    memoryInfluence: memoryInfluence ? structuredClone(memoryInfluence) : null,
   };
 
   return deepFreeze({
@@ -374,6 +411,7 @@ function replayCandidateFamily(family, {
     locks: family.locks,
     rootSeed: family.rootSeed,
     count: family.requestedCount,
+    memoryInfluence: family.memoryInfluence || null,
   });
   const addressesMatch = canonicalStringify(replayed.scoreAddresses) === canonicalStringify(family.scoreAddresses);
   const timelinesMatch = canonicalStringify(replayed.timelineHashes) === canonicalStringify(family.timelineHashes);

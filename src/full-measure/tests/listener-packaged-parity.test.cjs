@@ -29,7 +29,7 @@ test("packaged Electron entrypoint includes the active Listener transport assets
   assert.match(rendererHtml, /src="\.\/sync-keyboard\.js"/);
 });
 
-test("sandboxed preload boots and exposes the renderer bridge without local CommonJS", () => {
+test("sandboxed preload boots and exposes Listener plus memory bridge without local CommonJS", () => {
   let exposedName = null;
   let exposedBridge = null;
   const sandbox = {
@@ -70,6 +70,17 @@ test("sandboxed preload boots and exposes the renderer bridge without local Comm
   vm.runInNewContext(preload, sandbox, { filename: "preload.cjs" });
 
   assert.equal(exposedName, "fullMeasure");
-  assert.equal(typeof exposedBridge?.chooseAudio, "function");
-  assert.equal(typeof exposedBridge?.prepareListenerLyrics, "function");
+  for (const method of [
+    "chooseAudio",
+    "prepareListenerLyrics",
+    "listPastToasts",
+    "getPastToast",
+    "submitToastVerdict",
+    "armReToast",
+    "clearReToast",
+    "getCurrentInfluenceTrace",
+    "openPastToastArtifact",
+  ]) {
+    assert.equal(typeof exposedBridge?.[method], "function", `missing ${method}`);
+  }
 });

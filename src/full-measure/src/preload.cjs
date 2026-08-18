@@ -142,6 +142,18 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   selectCandidate: (config) => ipcRenderer.invoke("candidate:select", config),
   clearCandidates: () => ipcRenderer.invoke("candidate:clear"),
   clearCandidateImage: () => ipcRenderer.invoke("candidate:clear-image"),
+  listPastToasts: () => ipcRenderer.invoke("memory:list-past-toasts"),
+  getPastToast: (receiptSha256) => ipcRenderer.invoke("memory:get-past-toast", receiptSha256),
+  submitToastVerdict: (config) => ipcRenderer.invoke("memory:submit-verdict", config),
+  armReToast: (receiptSha256) => ipcRenderer.invoke("memory:arm-retoast", receiptSha256),
+  clearReToast: () => ipcRenderer.invoke("memory:clear-retoast"),
+  getCurrentInfluenceTrace: () => ipcRenderer.invoke("memory:current-influence-trace"),
+  openPastToastArtifact: ({ receiptSha256, kind, reveal = false }) =>
+    ipcRenderer.invoke("memory:open-artifact", {
+      receiptSha256,
+      kind,
+      reveal: reveal === true,
+    }),
   startRender: async (config) => ipcRenderer.invoke("render:start", await withLyricFoundry(config)),
   cancelRender: () => ipcRenderer.invoke("render:cancel"),
   revealFile: (filePath) => ipcRenderer.invoke("shell:reveal", filePath),

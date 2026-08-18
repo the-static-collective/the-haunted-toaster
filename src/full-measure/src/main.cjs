@@ -26,6 +26,7 @@ const {
   listenerPackStatus,
 } = require("./align/listener-pack.cjs");
 const { createCandidateSession } = require("./candidate-session.cjs");
+const { createMemoryService } = require("./memory/memory-service.cjs");
 const { inspectAudio } = require("./render/analyze.cjs");
 const {
   MAX_CUES,
@@ -59,7 +60,13 @@ let mainWindow = null;
 let activeRender = null;
 let activeListen = null;
 let activeListenerInstall = null;
-const candidateSession = createCandidateSession();
+
+function toasterMemoryRoot() {
+  return path.join(app.getPath("userData"), "toaster-memory-v1");
+}
+
+const memoryService = createMemoryService({ rootProvider: toasterMemoryRoot });
+const candidateSession = createCandidateSession({ memoryProvider: memoryService });
 
 function listenerRoot() {
   return path.join(app.getPath("userData"), "listener");
@@ -123,6 +130,46 @@ function assertCandidateAvailable() {
 function registerIpc() {
   candidateSession.registerIpc(ipcMain, assertCandidateAvailable);
   ipcMain.handle("app:toast-feels", () => listToastFeels());
+
+  ipcMain.handle("memory:list-past-toasts", () => memoryService.listPastToasts());
+  ipcMain.handle("memory:get-past-toast", (_event, receiptSha256) =>
+    memoryService.getPastToast(String(receiptSha256 || "")),
+  );
+  ipcMain.handle("memory:submit-verdict", (_event, config = {}) =>
+    memoryService.submitVerdict({
+      renderReceiptSha256: String(config?.renderReceiptSha256 || ""),
+      rating: config?.rating,
+      disposition: config?.disposition ?? null,
+      wouldReToast: config?.wouldReToast === true,
+    }),
+  );
+  ipcMain.handle("memory:arm-retoast", (_event, receiptSha256) => {
+    assertCandidateAvailable();
+    return candidateSession.armReToast(String(receiptSha256 || ""));
+  });
+  ipcMain.handle("memory:clear-retoast", () => {
+    assertCandidateAvailable();
+    return candidateSession.clearReToast();
+  });
+  ipcMain.handle("memory:current-influence-trace", () =>
+    candidateSession.currentInfluenceTrace(),
+  );
+  ipcMain.handle("memory:open-artifact", async (_event, config = {}) => {
+    const artifact = await memoryService.resolveArtifact({
+      receiptSha256: String(config?.receiptSha256 || ""),
+      kind: String(config?.kind || ""),
+    });
+    if (!artifact.exists || !artifact.path) {
+      throw new Error(`Archived ${String(config?.kind || "artifact")} is unavailable.`);
+    }
+    if (config?.reveal === true) {
+      shell.showItemInFolder(artifact.path);
+      return true;
+    }
+    const error = await shell.openPath(artifact.path);
+    if (error) throw new Error(error);
+    return true;
+  });
 
   ipcMain.handle("dialog:choose-audio", async () => {
     const result = await dialog.showOpenDialog(mainWindow, {
@@ -248,7 +295,7 @@ function registerIpc() {
     const audioPath = await assertLocalFile(
       config?.audioPath,
       AUDIO_EXTENSIONS,
-      "song",
+      "lyrics file",
     );
     const content = String(config?.content || "").slice(0, MAX_LYRIC_TEXT);
     if (!content.trim()) throw new Error("There are no timed lyrics to save.");
@@ -447,14 +494,19 @@ function registerIpc() {
       presetId: config.presetId,
       toastFeelId: config.toastFeelId,
     });
+    const {
+      memoryContext: selectedMemoryContext = null,
+      reToastAncestor: selectedReToastAncestor = null,
+      ...rendererExecution
+    } = selectedExecution || {};
     const controller = new AbortController();
     activeRender = controller;
 
     try {
-      return await renderVideo(
+      const renderResult = await renderVideo(
         {
           ...config,
-          ...(selectedExecution || {}),
+          ...rendererExecution,
           audioPath,
           imagePath,
           outputPath,
@@ -473,6 +525,42 @@ function registerIpc() {
           },
         },
       );
+
+      let memoryArchive = null;
+      let archiveEntry = null;
+      try {
+        archiveEntry = await memoryService.archiveSuccessfulRender(renderResult);
+        memoryArchive = {
+          ok: true,
+          receiptSha256: archiveEntry.receiptSha256,
+          witnessRecorded: false,
+        };
+      } catch (error) {
+        memoryArchive = {
+          ok: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+
+      if (archiveEntry && selectedMemoryContext) {
+        try {
+          await memoryService.recordWitnessEncounter({
+            archiveEntry,
+            renderReceipt: renderResult.receipt,
+            memoryContext: selectedMemoryContext,
+            reToastAncestor: selectedReToastAncestor,
+          });
+          memoryArchive = { ...memoryArchive, witnessRecorded: true };
+        } catch (error) {
+          memoryArchive = {
+            ...memoryArchive,
+            witnessRecorded: false,
+            witnessError: error instanceof Error ? error.message : String(error),
+          };
+        }
+      }
+
+      return { ...renderResult, memoryArchive };
     } finally {
       activeRender = null;
     }

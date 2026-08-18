@@ -13,6 +13,7 @@
     <title>Full Measure</title>
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="./candidate-ui.css" />
+    <link rel="stylesheet" href="./memory-ui.css" />
     <link rel="stylesheet" href="./listener-transport.css" />
   </head>
   <body>
@@ -34,6 +35,7 @@
           <p>Finished song in. Finished music video out.</p>
         </div>
       </div>
+      <button class="past-toasts-open" id="pastToastsOpen" type="button">Past Toasts</button>
       <div class="local-badge">
         <span class="status-dot"></span>
         <div>
@@ -181,6 +183,11 @@
           </div>
         </div>
 
+        <div class="retoast-badge is-hidden" id="retoastBadge">
+          <span id="retoastBadgeText"></span>
+          <button id="retoastClear" type="button">Clear</button>
+        </div>
+
         <aside class="principle-note">
           <span class="receipt-stamp">RECEIPT</span>
           <p>
@@ -273,6 +280,27 @@
         </p>
       </section>
     </main>
+
+    <div
+      class="past-toasts-drawer is-hidden"
+      id="pastToastsDrawer"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pastToastsTitle"
+    >
+      <button class="past-toasts-backdrop" type="button" data-past-toasts-close aria-label="Close Past Toasts"></button>
+      <section class="past-toasts-surface">
+        <header class="past-toasts-header">
+          <div>
+            <span>RECEIPT-BACKED HISTORY</span>
+            <h2 id="pastToastsTitle">Past Toasts</h2>
+          </div>
+          <button class="past-toasts-close" type="button" data-past-toasts-close aria-label="Close Past Toasts">×</button>
+        </header>
+        <div class="past-toasts-status" id="pastToastsStatus">Local receipt history.</div>
+        <div class="past-toasts-list" id="pastToastsList"></div>
+      </section>
+    </div>
 
     <div
       class="sync-dialog is-hidden"
@@ -440,6 +468,7 @@
     <script src="./toast-feel-controller.js"></script>
     <script src="./app.js"></script>
     <script src="./candidate-ui.js"></script>
+    <script src="./past-toasts-ui.js"></script>
     <script src="./lyric-foundry-ui.js"></script>
     <script src="./sync-keyboard.js"></script>
   </body>

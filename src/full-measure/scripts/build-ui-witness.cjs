@@ -7,10 +7,13 @@ const { UI_WITNESS_POLICY } = require("../src/ui-witness-policy.cjs");
 const RENDERER_FILES = Object.freeze([
   "styles.css",
   "candidate-ui.css",
+  "memory-ui.css",
   "listener-transport.css",
   "toast-feel-controller.js",
   "app.js",
   "candidate-ui.js",
+  "past-toasts-ui.js",
+  "thoughtline-ui.js",
   "lyric-foundry-ui.js",
   "sync-keyboard.js",
 ]);

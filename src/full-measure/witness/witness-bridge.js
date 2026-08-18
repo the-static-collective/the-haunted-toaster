@@ -1,6 +1,40 @@
 (() => {
   const listeners = new Map();
   let renderMode = "complete";
+  let reToastReceiptSha256 = null;
+  let candidateInfluenceTrace = null;
+  let pastToasts = [
+    {
+      receiptSha256: "1".repeat(64),
+      createdAt: "2026-08-17T21:10:00.000Z",
+      title: "Dreamstate Divide",
+      artist: "The Static Collective",
+      visualIdentity: {
+        garmentId: "openField",
+        toastFeelId: "wire-heat",
+        topology: "split-horizon",
+      },
+      features: [
+        "topology:split-horizon",
+        "toastFeel:wire-heat",
+        "witnessWindow:witness-window-v1",
+      ],
+      availability: {
+        receipt: true,
+        score: true,
+        timeline: true,
+        srt: true,
+        vtt: true,
+        video: true,
+      },
+      availableArtifacts: ["receipt", "score", "srt", "timeline", "video", "vtt"],
+      latestVerdict: {
+        rating: 4,
+        disposition: "keep",
+        wouldReToast: true,
+      },
+    },
+  ];
 
   function subscribe(channel, callback) {
     const callbacks = listeners.get(channel) || [];
@@ -26,6 +60,7 @@
       requestedCount: 6,
       producedCount: 6,
       shortfall: false,
+      influenceTrace: candidateInfluenceTrace ? structuredClone(candidateInfluenceTrace) : null,
       candidates: roles.map((role, index) => ({
         index,
         role,
@@ -49,6 +84,14 @@
       removed: [],
       prepared: [],
     };
+  }
+
+  function clonePastToasts() {
+    return structuredClone(pastToasts);
+  }
+
+  function currentPastToast(receiptSha256) {
+    return pastToasts.find((toast) => toast.receiptSha256 === receiptSha256) || null;
   }
 
   const commit = document.body.dataset.uiWitnessCommit || "local";
@@ -113,6 +156,36 @@
     selectCandidate: async ({ index }) => ({ familyHash: "ui-witness-family-v1", index }),
     clearCandidates: async () => {},
     clearCandidateImage: async () => {},
+    listPastToasts: async () => clonePastToasts(),
+    getPastToast: async (receiptSha256) => structuredClone(currentPastToast(receiptSha256)),
+    submitToastVerdict: async (config) => {
+      const toast = currentPastToast(config?.renderReceiptSha256);
+      if (!toast) throw new Error("Witness toast not found.");
+      toast.latestVerdict = {
+        rating: Number(config.rating),
+        disposition: config.disposition || null,
+        wouldReToast: config.wouldReToast === true,
+      };
+      return structuredClone(toast.latestVerdict);
+    },
+    armReToast: async (receiptSha256) => {
+      if (!currentPastToast(receiptSha256)) throw new Error("Witness toast not found.");
+      reToastReceiptSha256 = receiptSha256;
+      return { receiptSha256 };
+    },
+    clearReToast: async () => {
+      const previous = reToastReceiptSha256;
+      reToastReceiptSha256 = null;
+      return previous ? { receiptSha256: previous } : null;
+    },
+    getCurrentInfluenceTrace: async () => candidateInfluenceTrace ? structuredClone(candidateInfluenceTrace) : null,
+    openPastToastArtifact: async ({ receiptSha256, kind }) => {
+      const toast = currentPastToast(receiptSha256);
+      if (!toast || toast.availability?.[kind] !== true) {
+        throw new Error(`Witness ${String(kind || "artifact")} unavailable.`);
+      }
+      return true;
+    },
     startRender: async () => {
       publish("phase", { message: "Rendering the witnessed timeline…" });
       publish("progress", { ratio: 0.47, renderedSeconds: 14.1, duration: 30 });
@@ -140,6 +213,16 @@
   window.__uiWitness = Object.freeze({
     setRenderMode(mode) {
       renderMode = ["complete", "failure", "pending"].includes(mode) ? mode : "complete";
+    },
+    setPastToasts(nextToasts) {
+      pastToasts = Array.isArray(nextToasts) ? structuredClone(nextToasts) : [];
+      reToastReceiptSha256 = null;
+    },
+    setCandidateInfluenceTrace(trace) {
+      candidateInfluenceTrace = trace ? structuredClone(trace) : null;
+    },
+    getReToastReceiptSha256() {
+      return reToastReceiptSha256;
     },
   });
 
