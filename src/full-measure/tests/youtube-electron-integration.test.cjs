@@ -8,7 +8,7 @@ const read = (...parts) => fs.readFileSync(path.join(root, ...parts), "utf8");
 const main = read("src", "main.cjs");
 const preload = read("src", "preload.cjs");
 const html = read("src", "renderer", "index.html");
-const renderer = read("src", "renderer", "app.js");
+const renderer = read("src", "renderer", "youtube-publish-ui.js");
 
 test("Electron main owns YouTube credentials, browser auth, and last-render publication authority", () => {
   assert.match(main, /safeStorage/);
@@ -63,6 +63,7 @@ test("production renderer makes private YouTube delivery explicit after a comple
     assert.match(html, new RegExp(`id=["']${id}["']`));
   }
 
+  assert.match(html, /youtube-publish-ui\.js/);
   assert.match(html, /Publish privately to YouTube/i);
   assert.match(html, /Public|Unlisted/i);
   assert.match(html, /YouTube Studio/i);
