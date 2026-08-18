@@ -53,6 +53,10 @@
       Array.isArray(value.edges);
   }
 
+  function cloneTrace(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
   function truncate(value, limit = 26) {
     const text = String(value || "");
     return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
@@ -195,7 +199,7 @@
     if (event.key === "Escape" && !panel.classList.contains("is-hidden")) closePanel();
   });
   window.addEventListener("toaster-influence-trace", (event) => {
-    currentTrace = validTrace(event.detail) ? structuredClone(event.detail) : null;
+    currentTrace = validTrace(event.detail) ? cloneTrace(event.detail) : null;
     openButton.disabled = !currentTrace;
     openButton.classList.toggle("has-trace", Boolean(currentTrace));
     if (!currentTrace) closePanel();
