@@ -14,6 +14,43 @@
     install();
   }
 })(typeof window !== "undefined" ? window : null, () => {
+  function ensureVideoSourceStyles(document) {
+    if (document.querySelector("#videoSourceStyles")) return;
+    const style = document.createElement("style");
+    style.id = "videoSourceStyles";
+    style.textContent = `
+      .video-pantry-row {
+        align-items: end;
+        margin-top: 12px;
+      }
+      .video-memory-toggle {
+        display: flex !important;
+        gap: 7px;
+        align-items: center;
+        justify-content: flex-start !important;
+        min-height: 22px;
+        margin: 0 2px !important;
+        color: var(--muted) !important;
+        font-size: 8px !important;
+        letter-spacing: 0.3px !important;
+        cursor: pointer;
+      }
+      .video-memory-toggle input[type="checkbox"] {
+        flex: 0 0 14px;
+        width: 14px;
+        height: 14px;
+        margin: 0;
+        padding: 0;
+        border-radius: 3px;
+        accent-color: var(--gold);
+      }
+      .video-folder-field .lyrics-import {
+        min-height: 22px;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   function formatVideoHint(binding) {
     const probe = binding?.probe || {};
     const duration = Number(probe.durationSeconds);
@@ -32,6 +69,7 @@
     if (!panel || panel.querySelector("#videoSourceBlock")) return false;
     const anchor = panel.querySelector(".field-row");
     if (!anchor || !api) return false;
+    ensureVideoSourceStyles(document);
 
     const block = document.createElement("div");
     block.id = "videoSourceBlock";
@@ -48,9 +86,9 @@
       <div class="field-row video-pantry-row">
         <label class="field" for="addVideoToPantry">
           <span>Video memory</span>
-          <span><input id="addVideoToPantry" type="checkbox" checked /> Add to VSPantry</span>
+          <span class="video-memory-toggle"><input id="addVideoToPantry" type="checkbox" checked /> Add to VSPantry</span>
         </label>
-        <div class="field">
+        <div class="field video-folder-field">
           <span>Visual specimens</span>
           <button class="lyrics-import" id="videoFolderImport" type="button">Import video folder</button>
         </div>
