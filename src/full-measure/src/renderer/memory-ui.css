@@ -1,7 +1,9 @@
 .past-toasts-open,
 .retoast-badge button,
 .past-toasts-close,
-.past-toast-card button {
+.past-toast-card button,
+.thoughtline-open,
+.thoughtline-close {
   font: inherit;
 }
 
@@ -224,6 +226,203 @@
   color: rgba(255, 255, 255, 0.58);
 }
 
+.thoughtline-open {
+  margin-top: 8px;
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  color: rgba(255, 255, 255, 0.45);
+  padding: 9px 12px;
+  cursor: pointer;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+}
+
+.thoughtline-open.has-trace:not(:disabled) {
+  border-color: rgba(131, 209, 191, 0.36);
+  color: rgba(220, 255, 249, 0.82);
+  background: rgba(131, 209, 191, 0.055);
+}
+
+.thoughtline-open:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.thoughtline-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 88;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.thoughtline-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.thoughtline-surface {
+  position: relative;
+  width: min(980px, 96vw);
+  max-height: min(760px, 92vh);
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  background: #0c0b0f;
+  box-shadow: 0 28px 100px rgba(0, 0, 0, 0.52);
+}
+
+.thoughtline-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px 26px 14px;
+}
+
+.thoughtline-header span {
+  display: block;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+}
+
+.thoughtline-header h2 {
+  margin: 5px 0 4px;
+  font-size: 28px;
+}
+
+.thoughtline-header p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.thoughtline-close {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+}
+
+.thoughtline-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 14px;
+  padding: 0 20px 20px;
+}
+
+.thoughtline-graph {
+  width: 100%;
+  min-height: 420px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  background: radial-gradient(circle at center, rgba(131, 209, 191, 0.055), rgba(255, 255, 255, 0.012) 58%, transparent 72%);
+}
+
+.thoughtline-edge {
+  stroke: rgba(240, 191, 104, 0.46);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  cursor: pointer;
+}
+
+.thoughtline-edge:focus,
+.thoughtline-edge:hover {
+  stroke: rgba(255, 226, 174, 0.9);
+  stroke-width: 3;
+  outline: none;
+}
+
+.thoughtline-node circle:not(.thoughtline-node-pulse) {
+  fill: #17151d;
+  stroke: rgba(131, 209, 191, 0.72);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.thoughtline-node--candidate circle:not(.thoughtline-node-pulse) {
+  stroke: rgba(240, 191, 104, 0.92);
+}
+
+.thoughtline-node text {
+  fill: rgba(255, 255, 255, 0.68);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.thoughtline-node {
+  cursor: pointer;
+}
+
+.thoughtline-node:focus {
+  outline: none;
+}
+
+.thoughtline-node-pulse {
+  fill: none;
+  stroke: rgba(131, 209, 191, 0.18);
+  stroke-width: 1;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: thoughtline-pulse 2.8s ease-in-out infinite;
+}
+
+.thoughtline-inspector {
+  min-height: 160px;
+  align-self: stretch;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.025);
+  overflow: auto;
+}
+
+.thoughtline-inspector strong,
+.thoughtline-inspector span,
+.thoughtline-inspector code {
+  display: block;
+}
+
+.thoughtline-inspector strong {
+  margin-bottom: 6px;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.thoughtline-inspector span {
+  margin-bottom: 10px;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 12px;
+}
+
+.thoughtline-inspector code {
+  overflow-wrap: anywhere;
+  padding: 6px 0;
+  color: rgba(131, 209, 191, 0.72);
+  font-size: 10px;
+}
+
+@keyframes thoughtline-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.94); }
+  50% { opacity: 0.85; transform: scale(1.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thoughtline-node-pulse,
+  .thoughtline-edge {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 @media (max-width: 760px) {
   .past-toasts-drawer {
     grid-template-columns: 1fr;
@@ -231,5 +430,9 @@
 
   .past-toasts-backdrop {
     display: none;
+  }
+
+  .thoughtline-stage {
+    grid-template-columns: 1fr;
   }
 }
