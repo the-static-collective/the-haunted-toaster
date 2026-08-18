@@ -6,34 +6,40 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const read = (...parts) => fs.readFileSync(path.join(root, ...parts), "utf8");
 const main = read("src", "main.cjs");
+const youtubeMain = read("src", "publish", "youtube-main.cjs");
 const preload = read("src", "preload.cjs");
 const html = read("src", "renderer", "index.html");
 const renderer = read("src", "renderer", "youtube-publish-ui.js");
 
-test("Electron main owns YouTube credentials, browser auth, and last-render publication authority", () => {
+test("Electron main delegates YouTube publication to a purpose-specific main-process boundary", () => {
   assert.match(main, /safeStorage/);
-  assert.match(main, /createYouTubeCredentialStore/);
-  assert.match(main, /buildAuthorizationUrl/);
-  assert.match(main, /createPkcePair/);
-  assert.match(main, /parseOAuthCallback/);
-  assert.match(main, /beginResumableUpload/);
-  assert.match(main, /uploadResumableFile/);
-  assert.match(main, /writePublicationReceipt/);
-  assert.match(main, /studioEditUrl/);
-  assert.match(main, /let lastCompletedRender = null/);
-  assert.match(main, /let activeYouTubePublish = null/);
+  assert.match(main, /createYouTubePublishing/);
+  assert.match(main, /youtubePublishing\.registerIpc\(\)/);
+  assert.match(main, /youtubePublishing\.noteCompletedRender\(result\)/);
+  assert.match(main, /youtubePublishing\.abort\(\)/);
 
-  assert.match(main, /ipcMain\.handle\("youtube:status"/);
-  assert.match(main, /ipcMain\.handle\("youtube:configure"/);
-  assert.match(main, /ipcMain\.handle\("youtube:publish"/);
-  assert.match(main, /ipcMain\.handle\("youtube:cancel"/);
-  assert.match(main, /ipcMain\.handle\("youtube:open-studio"/);
-  assert.match(main, /event\.sender\.send\("youtube:progress"/);
+  assert.match(youtubeMain, /createYouTubeCredentialStore/);
+  assert.match(youtubeMain, /buildAuthorizationUrl/);
+  assert.match(youtubeMain, /createPkcePair/);
+  assert.match(youtubeMain, /parseOAuthCallback/);
+  assert.match(youtubeMain, /beginResumableUpload/);
+  assert.match(youtubeMain, /uploadResumableFile/);
+  assert.match(youtubeMain, /writePublicationReceipt/);
+  assert.match(youtubeMain, /studioEditUrl/);
+  assert.match(youtubeMain, /let lastCompletedRender = null/);
+  assert.match(youtubeMain, /let activeYouTubePublish = null/);
 
-  assert.match(main, /const outputPath = lastCompletedRender\.outputPath/);
-  assert.match(main, /sourceSha256:\s*lastCompletedRender\.receipt\.output\.sha256/);
-  assert.match(main, /lastCompletedRender = result/);
-  assert.doesNotMatch(main, /config\?\.outputPath/);
+  assert.match(youtubeMain, /ipcMain\.handle\("youtube:status"/);
+  assert.match(youtubeMain, /ipcMain\.handle\("youtube:configure"/);
+  assert.match(youtubeMain, /ipcMain\.handle\("youtube:publish"/);
+  assert.match(youtubeMain, /ipcMain\.handle\("youtube:cancel"/);
+  assert.match(youtubeMain, /ipcMain\.handle\("youtube:open-studio"/);
+  assert.match(youtubeMain, /event\.sender\.send\("youtube:progress"/);
+
+  assert.match(youtubeMain, /const outputPath = lastCompletedRender\.outputPath/);
+  assert.match(youtubeMain, /sourceSha256:\s*lastCompletedRender\.receipt\.output\.sha256/);
+  assert.match(youtubeMain, /lastCompletedRender = result/);
+  assert.doesNotMatch(youtubeMain, /config\?\.outputPath/);
 });
 
 test("sandbox preload exposes only purpose-specific YouTube publication calls", () => {
