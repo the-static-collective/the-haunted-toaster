@@ -11,6 +11,7 @@ const schemaPath = path.join(ROOT, 'video-pantry', 'schema.cjs');
 const catalogPath = path.join(ROOT, 'video-pantry', 'catalog.cjs');
 const admitPath = path.join(ROOT, 'video-pantry', 'admit.cjs');
 const folderPath = path.join(ROOT, 'video-pantry', 'import-folder.cjs');
+const frameReservoirPath = path.join(ROOT, 'video-pantry', 'frame-reservoir.cjs');
 
 function requireFeature(filePath, label) {
   assert.equal(fs.existsSync(filePath), true, `${label} module must exist`);
@@ -35,6 +36,19 @@ function fakeProbe(name = 'clip.mp4') {
     container: name.endsWith('.webm') ? 'matroska,webm' : 'mov,mp4,m4a,3gp,3g2,mj2',
     codec: name.endsWith('.webm') ? 'vp9' : 'h264',
     hasAudio: false,
+  };
+}
+
+function fakeVideoBinding() {
+  const sourceSha256 = 'a'.repeat(64);
+  return {
+    schema: 'haunted-toaster/video-source/v1',
+    specimenId: `sha256:${sourceSha256}:1234`,
+    sourceSha256,
+    byteLength: 1234,
+    filename: 'clip.mp4',
+    probe: fakeProbe(),
+    persisted: true,
   };
 }
 
@@ -148,4 +162,74 @@ test('folder intake reports one bad specimen without aborting good admissions', 
   assert.equal(result.admitted, 1);
   assert.equal(result.refused.length, 1);
   assert.match(result.refused[0].error, /bad probe/);
+});
+
+test('Frame Reservoir exposes every source frame as an addressable latent still without materializing image bytes', () => {
+  const { deriveFrameReservoir, addressFrame } = requireFeature(frameReservoirPath, 'Frame Reservoir');
+  const binding = fakeVideoBinding();
+  const reservoir = deriveFrameReservoir(binding, { representativeCount: 9 });
+
+  assert.equal(reservoir.schema, 'haunted-toaster/frame-reservoir/v1');
+  assert.equal(reservoir.policyVersion, 'frame-reservoir-v1');
+  assert.equal(reservoir.specimenId, binding.specimenId);
+  assert.equal(reservoir.frameCount, 96);
+  assert.equal(reservoir.frameRate, '24/1');
+  assert.equal(reservoir.representativeFrames.length, 9);
+  assert.deepEqual(reservoir.representativeFrames.map((frame) => frame.ordinal), [0, 11, 23, 35, 47, 59, 71, 83, 95]);
+  assert.deepEqual(addressFrame(binding, 95), {
+    frameId: `${binding.specimenId}#frame:95`,
+    ordinal: 95,
+    atMillis: 3958,
+  });
+  assert.throws(() => addressFrame(binding, 96), /frame ordinal/i);
+});
+
+test('Frame Reservoir publishes transformation affordances without claiming renderer execution', () => {
+  const { FRAME_MOTION_AFFORDANCES, deriveFrameReservoir } = requireFeature(frameReservoirPath, 'Frame Reservoir');
+  const reservoir = deriveFrameReservoir(fakeVideoBinding());
+  const ids = FRAME_MOTION_AFFORDANCES.map((item) => item.id);
+
+  assert.equal(new Set(ids).size, ids.length);
+  assert.deepEqual(ids, [
+    'ken-burns-punch-v1',
+    'ken-burns-traverse-v1',
+    'mirror-x-v1',
+    'mirror-y-v1',
+    'rotate-quarter-v1',
+    'rotate-half-v1',
+    'quadrant-mirror-v1',
+    'nested-crop-v1',
+    'tunnel-fold-v1',
+    'radial-echo-v1',
+  ]);
+  assert.equal(reservoir.affordanceVocabularyVersion, 'frame-motion-affordances-v1');
+  assert.deepEqual(reservoir.affordanceIds, ids);
+  assert.equal(Object.hasOwn(reservoir, 'renderPlan'), false);
+  assert.equal(Object.hasOwn(reservoir, 'timeline'), false);
+});
+
+test('Frame Motion seed is stable by addressed still plus affordance and changes when either changes', () => {
+  const { addressFrame, deriveFrameMotionSeed } = requireFeature(frameReservoirPath, 'Frame Reservoir');
+  const binding = fakeVideoBinding();
+  const frame0 = addressFrame(binding, 0);
+  const frame1 = addressFrame(binding, 1);
+  const a = deriveFrameMotionSeed({ frameId: frame0.frameId, affordanceId: 'mirror-x-v1' });
+  const b = deriveFrameMotionSeed({ frameId: frame0.frameId, affordanceId: 'mirror-x-v1' });
+  const c = deriveFrameMotionSeed({ frameId: frame1.frameId, affordanceId: 'mirror-x-v1' });
+  const d = deriveFrameMotionSeed({ frameId: frame0.frameId, affordanceId: 'rotate-quarter-v1' });
+
+  assert.match(a, /^[0-9a-f]{64}$/);
+  assert.equal(a, b);
+  assert.notEqual(a, c);
+  assert.notEqual(a, d);
+  assert.throws(() => deriveFrameMotionSeed({ frameId: frame0.frameId, affordanceId: 'unknown-v1' }), /affordance/i);
+});
+
+test('Frame Reservoir refuses malformed or non-video bindings instead of inventing frame geometry', () => {
+  const { deriveFrameReservoir } = requireFeature(frameReservoirPath, 'Frame Reservoir');
+  const missingProbe = { ...fakeVideoBinding() };
+  delete missingProbe.probe;
+  assert.throws(() => deriveFrameReservoir(missingProbe), /probe/i);
+  assert.throws(() => deriveFrameReservoir({ ...fakeVideoBinding(), schema: 'something-else' }), /video source/i);
+  assert.throws(() => deriveFrameReservoir({ ...fakeVideoBinding(), probe: { ...fakeProbe(), frameRate: '0/1' } }), /frame rate/i);
 });
