@@ -40,6 +40,22 @@ function responsiveScoreAndTimeline(topology) {
   };
 }
 
+function longResponsiveScoreAndTimeline(topology) {
+  const scoreArtifact = generation.createVisualScore({ seed: `alpha9-long-responsive-ffmpeg-${topology}`, constraints, overrides: { topology, temporalDensity: "transient" } });
+  const baseTimeline = generation.resolve(analysis, scoreArtifact.score, constraints, profile);
+  const durationSeconds = Number(analysis.durationSeconds);
+  const sampleCount = 241;
+  const energySamples = Array.from({ length: sampleCount }, (_, index) => {
+    const ratio = index / (sampleCount - 1);
+    const time = Number((durationSeconds * ratio).toFixed(6));
+    const db = -28 + Math.sin(index / 5) * 7 + Math.sin(index / 17) * 3 + (index % 37 === 0 ? 5 : 0);
+    return { time, db };
+  });
+  const responseWitness = generation.deriveResponseWitness({ energySamples, sections: analysis.sections, durationSeconds });
+  const timeline = generation.attachNestedResponse(baseTimeline, { responseWitness, score: scoreArtifact.score });
+  return { score: scoreArtifact.score, timeline, responseWitness };
+}
+
 function productionLikeGraph() {
   return [
     "[0:a]aformat=channel_layouts=stereo[waveAudio]",
@@ -102,6 +118,21 @@ test("Elastic topology response expressions produce actual FFmpeg frames under r
       assert.match(compiled.graph, /pow\([^;]+,6\)/);
       await proveFrames(temp, `responsive-${topology}`, compiled);
     }
+  } finally { await fsPromises.rm(temp, { recursive: true, force: true }); }
+});
+
+test("Long transient response compacts before the real FFmpeg parser", async () => {
+  const temp = await fsPromises.mkdtemp(path.join(os.tmpdir(), "ht-alpha9-long-response-"));
+  try {
+    await fsPromises.writeFile(path.join(temp, "alpha9-render-proof.ass"), assFixture, "utf8");
+    const { timeline, responseWitness } = longResponsiveScoreAndTimeline("split-horizon");
+    assert.equal(responseWitness.sampleCount, 241);
+    assert.equal(timeline.nestedResponse.sourceKnotCount, 241);
+    assert.ok(timeline.nestedResponse.knotCount <= generation.MAX_NESTED_RESPONSE_KNOTS);
+    assert.equal(timeline.nestedResponse.compactionPolicyVersion, "nested-response-compaction-v1");
+    const compiled = compileTimelineFilterGraph(productionLikeGraph(), createTimelineExecution(timeline));
+    assert.equal(compiled.topology, "split-horizon");
+    await proveFrames(temp, "long-responsive-split-horizon", compiled);
   } finally { await fsPromises.rm(temp, { recursive: true, force: true }); }
 });
 
