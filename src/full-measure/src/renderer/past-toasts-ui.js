@@ -104,8 +104,6 @@
     copy.append(title, meta);
     const retoast = document.createElement("button");
     retoast.type = "button";
-    retoast.dataset.toastRet oast = "";
-    retoast.removeAttribute("data-toast-ret-oast");
     retoast.setAttribute("data-toast-retoast", "");
     retoast.textContent = "Re-toast";
     heading.append(copy, retoast);
@@ -152,8 +150,6 @@
     retoastIntent.className = "past-toast-intent";
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
-    checkbox.dataset.toastWouldRet oast = "";
-    checkbox.removeAttribute("data-toast-would-ret-oast");
     checkbox.setAttribute("data-toast-would-retoast", "");
     checkbox.checked = verdict?.wouldReToast === true;
     retoastIntent.append(checkbox, document.createTextNode(" would re-toast"));
