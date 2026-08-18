@@ -72,6 +72,12 @@ test("beta home semantic windows exist without hiding alpha Toast Feel truth", (
   assert.ok(document.querySelector("#toastFeelChoices"));
 });
 
+test("production renderer loads the beta home presentation assets", () => {
+  const document = loadRendererDocument();
+  assert.ok(document.querySelector('link[href="./beta-home-ui.css"]'));
+  assert.ok(document.querySelector('script[src="./recent-toasts-ui.js"]'));
+});
+
 test("alpha capability set keeps Toast Feel furniture and beta contact sheet hidden", async () => {
   const view = candidateHarness([]);
   try {
