@@ -206,6 +206,7 @@ function nextOffsetFromRange(rangeHeader, fallbackOffset) {
 
 async function uploadResumableFile({
   sessionUrl,
+  accessToken,
   filePath,
   sizeBytes,
   mimeType = "video/mp4",
@@ -246,6 +247,7 @@ async function uploadResumableFile({
       const response = await fetchImpl(sessionUrl, {
         method: "PUT",
         headers: {
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           "Content-Length": String(bytesRead),
           "Content-Type": mimeType,
           "Content-Range": `bytes ${offset}-${end}/${sizeBytes}`,
