@@ -8,10 +8,12 @@ const RENDERER_FILES = Object.freeze([
   "styles.css",
   "candidate-ui.css",
   "listener-transport.css",
+  "beta-home-ui.css",
   "video-source-ui.js",
   "toast-feel-controller.js",
   "app.js",
   "candidate-ui.js",
+  "recent-toasts-ui.js",
   "lyric-foundry-ui.js",
   "sync-keyboard.js",
 ]);
