@@ -22,6 +22,7 @@ test("UI witness is generated from production renderer assets", (t) => {
   const generated = fs.readFileSync(path.join(outputDir, "index.html"), "utf8");
   const rendererDir = path.join(rootDir, "src", "renderer");
   const production = fs.readFileSync(path.join(rendererDir, "index.html"), "utf8");
+  const witnessBridge = fs.readFileSync(path.join(rootDir, "witness", "witness-bridge.js"), "utf8");
 
   assert.equal(result.commit, "deadbeef");
   assert.equal(result.policy, "ui-witness-v1");
@@ -30,6 +31,9 @@ test("UI witness is generated from production renderer assets", (t) => {
   assert.match(generated, /video-source-ui\.js/);
   assert.ok(generated.indexOf("witness-bridge.js") < generated.indexOf("toast-feel-controller.js"));
   assert.ok(generated.indexOf("video-source-ui.js") < generated.indexOf("toast-feel-controller.js"));
+  for (const method of ["chooseVideo", "chooseVideoFolder", "listVideoPantry", "clearVideo"]) {
+    assert.match(witnessBridge, new RegExp(`${method}\\s*:`));
+  }
   assert.match(generated, /__uiWitnessToastFeels/);
   assert.match(generated, /__uiWitnessBuildInfo/);
   assert.match(generated, /"version":"0\.5\.0-alpha\.8"/);
