@@ -8,11 +8,11 @@ const { registerVideoPantryIpc } = require("./video-pantry/electron-ipc.cjs");
 const {
   analyzeNativeChromaticProfile: defaultAnalyzeNativeChromaticProfile,
 } = require("./native-color-analysis.cjs");
-const openField = require("../constraints/open-field.v1.json");
-const porchlight = require("../constraints/porchlight.v2.json");
-const wireOrchard = require("../constraints/wire-orchard.v2.json");
-const absoluteResidual = require("../constraints/absolute-residual.v2.json");
-const rendererProfile = require("../profiles/toaster-raster-3.json");
+const openField = require("../constraints/open-field.v3.json");
+const porchlight = require("../constraints/porchlight.v3.json");
+const wireOrchard = require("../constraints/wire-orchard.v3.json");
+const absoluteResidual = require("../constraints/absolute-residual.v3.json");
+const rendererProfile = require("../profiles/toaster-raster-4.json");
 
 const CONSTRAINTS_BY_PRESET = Object.freeze({
   openField,
@@ -279,8 +279,14 @@ function createCandidateSession({
         parentNativeColorPlan: parent.timeline?.nativeColor || null,
       });
       if (config.converge === true) {
+        const parentAlreadyCounted = acceptedHistory.some(
+          (score) => generation.addressVisualScore(score) === parent.scoreAddress,
+        );
+        const coverageHistory = parentAlreadyCounted
+          ? acceptedHistory
+          : [...acceptedHistory, parent.scoreArtifact.score];
         nextFamily = generation.replaceFinalCandidateWithConverge(nextFamily, {
-          history: acceptedHistory,
+          history: coverageHistory,
           parentScore: parent.scoreArtifact.score,
           locks: config.locks || [],
           constraints,
@@ -292,6 +298,23 @@ function createCandidateSession({
           nativeChromaticProfile: profile,
           parentNativeColorPlan: parent.timeline?.nativeColor || null,
         });
+        const convergeCandidate = nextFamily.candidates.find(
+          (candidate) => candidate.role === "converge-frontier",
+        );
+        const visibleDistance = convergeCandidate
+          ? generation.visibleSemanticDistance(
+              parent.scoreArtifact.score,
+              convergeCandidate.scoreArtifact.score,
+              constraints,
+            )
+          : 0;
+        if (!convergeCandidate || !convergeCandidate.changedAxes?.length || visibleDistance < 8) {
+          const refusal = new Error(
+            "CONVERGE_NO_DISTINCT_TARGET: no distinct coverage target remains under current locks/constraints.",
+          );
+          refusal.code = "CONVERGE_NO_DISTINCT_TARGET";
+          throw refusal;
+        }
       }
       return await materialize(nextFamily, config, signal, familyBinding?.labInfluence || null);
     } finally {

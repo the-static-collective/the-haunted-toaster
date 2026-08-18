@@ -4,7 +4,7 @@ const {
   hashCanonical,
   quantizeNumber,
 } = require("./canonical.cjs");
-const { EXPRESSIVE_RENDERER_POLICY } = require("./renderer-policy.cjs");
+const { isExpressiveRendererPolicy } = require("./renderer-policy.cjs");
 
 const NATIVE_COLOR_POLICY = "native-color-witness-v1";
 const NATIVE_COLOR_PLAN_SCHEMA = "haunted-toaster/native-color-plan/v1";
@@ -70,7 +70,7 @@ function decompressionWindows(timeline, analysis) {
 }
 
 function resolveNativeColorPlan(timeline, { profile, analysis, relationship } = {}) {
-  if (timeline?.rendererPolicy !== EXPRESSIVE_RENDERER_POLICY) return timeline;
+  if (!isExpressiveRendererPolicy(timeline?.rendererPolicy)) return timeline;
   if (!RELATIONSHIPS.includes(relationship)) {
     throw new TypeError(`Unknown Native Color relationship: ${String(relationship)}.`);
   }
