@@ -1,0 +1,46 @@
+name: Generate UI witness baselines
+
+on:
+  push:
+    branches:
+      - agent/receipt-memory-witness-loop-alpha9
+    paths:
+      - .github/workflows/update-ui-witness-baselines.yml
+
+permissions:
+  contents: write
+
+jobs:
+  update-baselines:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/full-measure/package-lock.json
+      - name: Install dependencies
+        working-directory: src/full-measure
+        run: npm ci
+      - name: Install Chromium
+        working-directory: src/full-measure
+        run: npx playwright install --with-deps chromium
+      - name: Build canonical UI witness
+        working-directory: src/full-measure
+        run: npm run witness:build
+      - name: Generate exact Playwright baselines
+        working-directory: src/full-measure
+        run: npx playwright test --config=tests/ui-witness.playwright.config.cjs --update-snapshots
+      - name: Commit baseline images to this implementation branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/full-measure/tests/ui-witness-baselines
+          if git diff --cached --quiet; then
+            echo "No baseline changes to commit."
+            exit 0
+          fi
+          git commit -m "test: promote ui witness baselines"
+          git push origin HEAD:agent/receipt-memory-witness-loop-alpha9
