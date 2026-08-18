@@ -1,4 +1,5 @@
 const { contextBridge, ipcRenderer, webUtils } = require("electron");
+const { installVideoSourceControls } = require("./video-source-preload.cjs");
 
 const PRODUCT_NAME = "The Haunted Toaster";
 const MAX_LISTENER_EVIDENCE = 10_000;
@@ -21,6 +22,8 @@ window.addEventListener("DOMContentLoaded", () => {
     listenCloser.textContent = "Listen Closer";
     listenCloser.title = "Optional · help the Toaster place lyrics more precisely";
   }
+
+  installVideoSourceControls({ document, ipcRenderer });
 });
 
 function subscribe(channel, callback) {
@@ -104,6 +107,10 @@ async function withLyricFoundry(config = {}) {
 contextBridge.exposeInMainWorld("fullMeasure", {
   chooseAudio: () => ipcRenderer.invoke("dialog:choose-audio"),
   chooseImage: () => ipcRenderer.invoke("dialog:choose-image"),
+  chooseVideo: (options = {}) => ipcRenderer.invoke("dialog:choose-video", options),
+  chooseVideoFolder: () => ipcRenderer.invoke("dialog:choose-video-folder"),
+  listVideoPantry: () => ipcRenderer.invoke("video-pantry:list"),
+  clearVideo: () => ipcRenderer.invoke("video:clear"),
   chooseLyrics: () => ipcRenderer.invoke("dialog:choose-lyrics"),
   chooseOutput: (suggestedName) => ipcRenderer.invoke("dialog:choose-output", suggestedName),
   inspectAudio: (filePath) => ipcRenderer.invoke("media:inspect", filePath),
