@@ -340,6 +340,12 @@ button.recent-toast-row:hover {
   background: rgba(131, 209, 191, 0.035);
 }
 
+@media (max-width: 1200px) {
+  .audio-drop .choose-chip {
+    display: none;
+  }
+}
+
 @media (max-height: 780px) {
   .home-window {
     margin-top: 10px;
