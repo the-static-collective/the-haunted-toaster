@@ -14,6 +14,41 @@ function makeDom() {
   `);
 }
 
+function makeSlateDom() {
+  return new JSDOM(`
+    <dl>
+      <div>
+        <dt>Toast Feel</dt>
+        <dd id="slateToastFeel">Loading…</dd>
+      </div>
+    </dl>
+  `);
+}
+
+test("beta creative-field slate survives later alpha refreshes", async () => {
+  const { applyBetaHomeSlate } = require(uiPath);
+  const dom = makeSlateDom();
+  const api = {
+    async getBuildInfo() {
+      return { capabilities: ["betaCandidateEcologyV1"] };
+    },
+  };
+
+  assert.equal(await applyBetaHomeSlate({ document: dom.window.document, api }), true);
+  const value = dom.window.document.querySelector("#slateToastFeel");
+  const label = value.closest("div").querySelector("dt");
+  assert.equal(label.textContent, "Creative field");
+  assert.equal(value.textContent, "Six-Up field");
+
+  value.textContent = "Loading…";
+  label.textContent = "Toast Feel";
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.equal(label.textContent, "Creative field");
+  assert.equal(value.textContent, "Six-Up field");
+  dom.window.close();
+});
+
 test("Recent Toasts stays absent when the receipt-memory bridge does not exist", async () => {
   const { installRecentToasts } = require(uiPath);
   const dom = makeDom();
