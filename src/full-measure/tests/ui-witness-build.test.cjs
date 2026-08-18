@@ -27,7 +27,9 @@ test("UI witness is generated from production renderer assets", (t) => {
   assert.equal(result.policy, "ui-witness-v1");
   assert.match(generated, /witness-bridge\.js/);
   assert.match(generated, /witness-controller\.js/);
+  assert.match(generated, /video-source-ui\.js/);
   assert.ok(generated.indexOf("witness-bridge.js") < generated.indexOf("toast-feel-controller.js"));
+  assert.ok(generated.indexOf("video-source-ui.js") < generated.indexOf("toast-feel-controller.js"));
   assert.match(generated, /__uiWitnessToastFeels/);
   assert.match(generated, /__uiWitnessBuildInfo/);
   assert.match(generated, /"version":"0\.5\.0-alpha\.8"/);
@@ -42,6 +44,10 @@ test("UI witness is generated from production renderer assets", (t) => {
   assert.equal(
     fs.readFileSync(path.join(outputDir, "styles.css"), "utf8"),
     fs.readFileSync(path.join(rendererDir, "styles.css"), "utf8"),
+  );
+  assert.equal(
+    fs.readFileSync(path.join(outputDir, "video-source-ui.js"), "utf8"),
+    fs.readFileSync(path.join(rendererDir, "video-source-ui.js"), "utf8"),
   );
   assert.match(generated, /data-ui-witness-commit="deadbeef"/);
   assert.ok(production.includes("./styles.css"));
