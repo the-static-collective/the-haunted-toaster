@@ -1,5 +1,5 @@
 const { execFile } = require("node:child_process");
-const ffprobeStatic = require("ffprobe-static");
+const { resolveFfprobe } = require("../render/tooling.cjs");
 
 function runExecFile(execFileImpl, command, args) {
   return new Promise((resolve, reject) => {
@@ -63,9 +63,17 @@ function parseProbeEvidence(raw) {
   };
 }
 
-async function probeVideo(filePath, { ffprobePath = ffprobeStatic.path, execFileImpl = execFile } = {}) {
-  if (!ffprobePath) throw new Error("ffprobe is unavailable.");
-  const stdout = await runExecFile(execFileImpl, ffprobePath, [
+async function probeVideo(
+  filePath,
+  {
+    ffprobePath = null,
+    resolveFfprobeImpl = resolveFfprobe,
+    execFileImpl = execFile,
+  } = {},
+) {
+  const binary = ffprobePath || resolveFfprobeImpl();
+  if (!binary) throw new Error("ffprobe is unavailable.");
+  const stdout = await runExecFile(execFileImpl, binary, [
     "-v", "error",
     "-print_format", "json",
     "-show_format",
