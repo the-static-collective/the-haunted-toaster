@@ -59,6 +59,7 @@ function candidateHarness(capabilities = []) {
     clearCandidateImage: async () => {},
   };
   window.eval(fs.readFileSync(path.join(rendererRoot, "candidate-ui.js"), "utf8"));
+  window.eval(fs.readFileSync(path.join(rendererRoot, "recent-toasts-ui.js"), "utf8"));
   return { dom, window, document, calls };
 }
 
