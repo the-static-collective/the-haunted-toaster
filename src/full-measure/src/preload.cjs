@@ -144,6 +144,13 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   clearCandidateImage: () => ipcRenderer.invoke("candidate:clear-image"),
   startRender: async (config) => ipcRenderer.invoke("render:start", await withLyricFoundry(config)),
   cancelRender: () => ipcRenderer.invoke("render:cancel"),
+  getYouTubeStatus: () => ipcRenderer.invoke("youtube:status"),
+  configureYouTube: (clientId) =>
+    ipcRenderer.invoke("youtube:configure", { clientId }),
+  publishToYouTube: (config) => ipcRenderer.invoke("youtube:publish", config),
+  cancelYouTubePublish: () => ipcRenderer.invoke("youtube:cancel"),
+  openYouTubeStudio: (videoId) =>
+    ipcRenderer.invoke("youtube:open-studio", videoId),
   revealFile: (filePath) => ipcRenderer.invoke("shell:reveal", filePath),
   openFile: (filePath) => ipcRenderer.invoke("shell:open", filePath),
   getVersion: () => ipcRenderer.invoke("app:version"),
@@ -152,6 +159,7 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   pathForFile: (file) => webUtils.getPathForFile(file),
   onProgress: (callback) => subscribe("render:progress", callback),
   onPhase: (callback) => subscribe("render:phase", callback),
+  onYouTubeProgress: (callback) => subscribe("youtube:progress", callback),
   onListenerInstallProgress: (callback) => subscribe("listener:install-progress", callback),
   onLyricSyncProgress: (callback) => subscribe("lyrics:sync-progress", callback),
   onLyricSyncPhase: (callback) => subscribe("lyrics:sync-phase", callback),
