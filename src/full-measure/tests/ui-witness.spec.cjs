@@ -117,6 +117,8 @@ for (const state of ["beta-home", "beta-history"]) {
     await expect(page.locator("#betaSixUpGrid .beta-six-up-cell")).toHaveCount(6);
     await expect(page.locator("#videoSourceMount")).toBeVisible();
     await expect(page.locator("#videoPantryWindow")).toBeVisible();
+    await expect(page.locator("#slateToastFeel")).toHaveText("Six-Up field");
+    await expect(page.locator("#slateToastFeel").locator("xpath=../dt")).toHaveText("Creative field");
 
     if (state === "beta-history") {
       await expect(page.locator("#recentToastsWindow")).toBeVisible();
@@ -157,6 +159,7 @@ test("beta home remains horizontally usable at Electron minimum 1080x720", async
   expect(geometry.workspaceRight).toBeLessThanOrEqual(geometry.viewportWidth);
 
   await expect(page.locator("#videoDrop")).toBeVisible();
+  await expect(page.locator("#audioChooseChip")).toBeHidden();
   await expect(page.locator("#betaSixUpGrid .beta-six-up-cell")).toHaveCount(6);
   await expect(page.locator("#renderButton")).toBeAttached();
 
