@@ -1,9 +1,16 @@
 const { contextBridge, ipcRenderer, webUtils } = require("electron");
-const { installVideoSourceControls } = require("./video-source-preload.cjs");
 
 const PRODUCT_NAME = "The Haunted Toaster";
 const MAX_LISTENER_EVIDENCE = 10_000;
 let pendingListenerEvidence = null;
+
+function installVideoSourceUiScript() {
+  if (document.querySelector('script[data-haunted-video-source="v1"]')) return;
+  const script = document.createElement("script");
+  script.src = "./video-source-ui.js";
+  script.dataset.hauntedVideoSource = "v1";
+  document.body.appendChild(script);
+}
 
 window.addEventListener("DOMContentLoaded", () => {
   document.title = PRODUCT_NAME;
@@ -23,7 +30,7 @@ window.addEventListener("DOMContentLoaded", () => {
     listenCloser.title = "Optional · help the Toaster place lyrics more precisely";
   }
 
-  installVideoSourceControls({ document, ipcRenderer });
+  installVideoSourceUiScript();
 });
 
 function subscribe(channel, callback) {
