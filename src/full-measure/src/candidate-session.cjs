@@ -4,6 +4,7 @@ const { admitLabProposal, parseLabProposalTransfer } = require("./lab-proposal.c
 const { renderCandidateFamilyPreviews } = require("./render/candidate-preview.cjs");
 const { createLyricTrack } = require("./render/lyrics.cjs");
 const { getToastFeel } = require("./toast-feels.cjs");
+const { registerVideoPantryIpc } = require("./video-pantry/electron-ipc.cjs");
 const {
   analyzeNativeChromaticProfile: defaultAnalyzeNativeChromaticProfile,
 } = require("./native-color-analysis.cjs");
@@ -59,6 +60,14 @@ function sameOptionalPath(left, right) {
   return path.resolve(left) === path.resolve(right);
 }
 
+function sameVideoBinding(left, right) {
+  if (!left && !right) return true;
+  if (!left || !right) return false;
+  if (left.specimenId && right.specimenId) return left.specimenId === right.specimenId;
+  if (left.path && right.path) return path.resolve(left.path) === path.resolve(right.path);
+  return false;
+}
+
 function createCandidateSession({
   renderCandidateFamilyPreviews: renderPreviews = renderCandidateFamilyPreviews,
   analyzeNativeChromaticProfile: analyzeProfile = defaultAnalyzeNativeChromaticProfile,
@@ -66,6 +75,7 @@ function createCandidateSession({
   let audioPath = null;
   let mediaAnalysis = null;
   let imagePath = null;
+  let video = null;
   let nativeChromaticProfile = null;
   let family = null;
   let familyBinding = null;
@@ -97,6 +107,26 @@ function createCandidateSession({
       nativeChromaticProfile = null;
     }
     imagePath = resolved;
+  }
+
+  function noteVideo(nextVideo) {
+    if (!nextVideo) return clearVideo();
+    const next = structuredClone(nextVideo);
+    if (!sameVideoBinding(video, next)) clearCandidates();
+    video = next;
+    return structuredClone(video);
+  }
+
+  function clearVideo() {
+    if (video) clearCandidates();
+    video = null;
+    return null;
+  }
+
+  function state() {
+    return {
+      video: video ? structuredClone(video) : null,
+    };
   }
 
   async function ensureNativeChromaticProfile() {
@@ -372,19 +402,32 @@ function createCandidateSession({
       noteImage(null);
       return true;
     });
+    if (process.versions?.electron) {
+      const { app, BrowserWindow, dialog } = require("electron");
+      registerVideoPantryIpc({
+        app,
+        dialog,
+        ipcMain,
+        getMainWindow: () => BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0] || null,
+        candidateSession: { noteVideo, clearVideo },
+      });
+    }
   }
 
   return {
     clearCandidates,
+    clearVideo,
     executionForRender,
     generate,
     importLabProposal,
     mutate,
     noteAudio,
     noteImage,
+    noteVideo,
     registerIpc,
     select,
     stageLabProposal,
+    state,
     stomp,
   };
 }
