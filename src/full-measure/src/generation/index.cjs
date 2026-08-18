@@ -23,4 +23,5 @@ module.exports = {
   ...require("./native-color.cjs"),
   ...require("./native-color-generation.cjs"),
   ...require("./creative-context-table.cjs"),
+  ...require("./influence-diet.cjs"),
 };
