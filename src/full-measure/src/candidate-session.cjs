@@ -1,5 +1,6 @@
 const path = require("node:path");
 const generation = require("./generation/index.cjs");
+const { buildInfluenceTrace } = require("./memory/influence-trace.cjs");
 const { admitLabProposal, parseLabProposalTransfer } = require("./lab-proposal.cjs");
 const { renderCandidateFamilyPreviews } = require("./render/candidate-preview.cjs");
 const { createLyricTrack } = require("./render/lyrics.cjs");
@@ -67,9 +68,18 @@ function sameOptionalPath(left, right) {
   return path.resolve(left) === path.resolve(right);
 }
 
+function receiptIdentity(value) {
+  const identity = String(value || "").toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(identity)) {
+    throw new TypeError("Re-toast requires an archived render receipt SHA-256 identity.");
+  }
+  return identity;
+}
+
 function createCandidateSession({
   renderCandidateFamilyPreviews: renderPreviews = renderCandidateFamilyPreviews,
   analyzeNativeChromaticProfile: analyzeProfile = defaultAnalyzeNativeChromaticProfile,
+  memoryProvider = null,
 } = {}) {
   let audioPath = null;
   let mediaAnalysis = null;
@@ -80,6 +90,7 @@ function createCandidateSession({
   let selection = null;
   let stagedLabProposal = null;
   let acceptedHistory = [];
+  let pendingReToastReceiptSha256 = null;
   let busy = false;
 
   function clearCandidates() {
@@ -114,6 +125,9 @@ function createCandidateSession({
   }
 
   function stageLabProposal(transfer) {
+    if (pendingReToastReceiptSha256) {
+      throw new Error("Re-toast ancestry and Lab Proposal ancestry cannot coexist; clear one first.");
+    }
     const parsed = parseLabProposalTransfer(transfer);
     stagedLabProposal = parsed;
     clearCandidates();
@@ -122,6 +136,28 @@ function createCandidateSession({
       proposalId: parsed.proposal?.id || null,
       title: parsed.proposal?.title || "Lab proposal",
     };
+  }
+
+  async function armReToast(receiptSha256) {
+    if (stagedLabProposal) {
+      throw new Error("Re-toast ancestry and Lab Proposal ancestry cannot coexist; clear the Lab Proposal first.");
+    }
+    pendingReToastReceiptSha256 = receiptIdentity(receiptSha256);
+    clearCandidates();
+    return { receiptSha256: pendingReToastReceiptSha256 };
+  }
+
+  function clearReToast() {
+    if (!pendingReToastReceiptSha256) return null;
+    const previous = { receiptSha256: pendingReToastReceiptSha256 };
+    pendingReToastReceiptSha256 = null;
+    return previous;
+  }
+
+  function currentInfluenceTrace() {
+    return familyBinding?.memoryContext?.influenceTrace
+      ? structuredClone(familyBinding.memoryContext.influenceTrace)
+      : null;
   }
 
   function currentConstraints(presetId) {
@@ -147,7 +183,27 @@ function createCandidateSession({
     return timedLyricTrack(config.lyrics, Number(mediaAnalysis.duration));
   }
 
-  async function materialize(nextFamily, config, signal, influence = null) {
+  function memoryContextForFamily(nextFamily, memoryContext) {
+    if (!memoryContext?.capsule) return memoryContext ? structuredClone(memoryContext) : null;
+    const influenceTrace = buildInfluenceTrace({
+      capsule: memoryContext.capsule,
+      familyHash: nextFamily.familyHash,
+      candidates: nextFamily.candidates,
+    });
+    return {
+      ...structuredClone(memoryContext),
+      influenceTrace,
+    };
+  }
+
+  async function materialize(
+    nextFamily,
+    config,
+    signal,
+    influence = null,
+    memoryContext = null,
+    reToastAncestor = null,
+  ) {
     const feel = currentToastFeel(config.toastFeelId);
     if (nextFamily.toastFeel?.id !== feel.id) {
       throw new Error("Candidate family Toast Feel does not match the requested appliance state.");
@@ -165,6 +221,7 @@ function createCandidateSession({
       nextFamily,
       { signal },
     );
+    const boundMemoryContext = memoryContextForFamily(nextFamily, memoryContext);
     family = nextFamily;
     familyBinding = {
       audioPath,
@@ -173,13 +230,48 @@ function createCandidateSession({
       toastFeelId: feel.id,
       toastFeel: structuredClone(nextFamily.toastFeel),
       labInfluence: influence,
+      memoryContext: boundMemoryContext,
+      reToastAncestor: reToastAncestor ? structuredClone(reToastAncestor) : null,
     };
     selection = null;
     return {
       ...previewView,
       toastFeel: structuredClone(nextFamily.toastFeel),
       labInfluence: influence,
+      reToastAncestor: reToastAncestor ? structuredClone(reToastAncestor) : null,
+      influenceTrace: boundMemoryContext?.influenceTrace
+        ? structuredClone(boundMemoryContext.influenceTrace)
+        : null,
     };
+  }
+
+  async function resolveReToastAncestor() {
+    if (!pendingReToastReceiptSha256) return null;
+    if (!memoryProvider?.resolveReToastAncestor) {
+      throw new Error("Re-toast ancestry is armed but no local memory provider is available.");
+    }
+    const resolved = await memoryProvider.resolveReToastAncestor(pendingReToastReceiptSha256);
+    if (!resolved?.score) {
+      throw new Error(`Re-toast ancestor ${pendingReToastReceiptSha256} has no recoverable VisualScore.`);
+    }
+    const scoreAddress = generation.addressVisualScore(resolved.score);
+    if (resolved.scoreAddress && resolved.scoreAddress !== scoreAddress) {
+      throw new Error("Re-toast ancestor score identity does not match its archived evidence.");
+    }
+    return {
+      receiptSha256: pendingReToastReceiptSha256,
+      scoreAddress,
+      score: resolved.score,
+    };
+  }
+
+  async function generationMemoryContext(constraints) {
+    if (!memoryProvider?.contextForGeneration) return null;
+    return memoryProvider.contextForGeneration({
+      mediaAnalysis,
+      constraints,
+      explicitAncestorReceiptSha256: pendingReToastReceiptSha256,
+    });
   }
 
   async function generate(config = {}, signal) {
@@ -193,9 +285,13 @@ function createCandidateSession({
       const analysis = toGenerationAnalysis(mediaAnalysis);
       const responseWitness = responseWitnessFor(mediaAnalysis, analysis);
       const useLabProposal = config.useLabProposal === true;
+      if (useLabProposal && pendingReToastReceiptSha256) {
+        throw new Error("Re-toast ancestry and Lab Proposal ancestry cannot coexist; clear one first.");
+      }
       if (useLabProposal && !stagedLabProposal) {
         throw new Error("Use Lab Proposal is on, but no Lab proposal is staged.");
       }
+      const ancestor = await resolveReToastAncestor();
       const admitted = useLabProposal
         ? admitLabProposal(stagedLabProposal, constraints)
         : null;
@@ -207,26 +303,43 @@ function createCandidateSession({
             admittedScoreAddress: admitted.scoreArtifact.address,
           }
         : { enabled: false };
+      const memoryContext = await generationMemoryContext(constraints);
+      const reToastAncestor = ancestor
+        ? { receiptSha256: ancestor.receiptSha256, scoreAddress: ancestor.scoreAddress }
+        : null;
       const nextFamily = generation.generateCandidateSet({
         analysis,
         responseWitness,
         garmentConstraints: constraints,
         rendererProfile,
-        parentScore: admitted?.scoreArtifact.score || null,
+        parentScore: ancestor?.score || admitted?.scoreArtifact.score || null,
         rootSeed: config.rootSeed,
         count: 6,
         phase: "initial",
         lyricTrack,
         toastFeelId: feel.id,
         nativeChromaticProfile: profile,
+        memoryInfluence: memoryContext?.influencePlan || null,
       });
-      return await materialize(nextFamily, config, signal, influence);
+      const view = await materialize(
+        nextFamily,
+        config,
+        signal,
+        influence,
+        memoryContext,
+        reToastAncestor,
+      );
+      if (ancestor) pendingReToastReceiptSha256 = null;
+      return view;
     } finally {
       busy = false;
     }
   }
 
   async function importLabProposal(config = {}, signal) {
+    if (pendingReToastReceiptSha256) {
+      throw new Error("Re-toast ancestry and Lab Proposal ancestry cannot coexist; clear one first.");
+    }
     stageLabProposal(config.transfer);
     return generate({ ...config, useLabProposal: true }, signal);
   }
@@ -300,7 +413,14 @@ function createCandidateSession({
           throw refusal;
         }
       }
-      return await materialize(nextFamily, config, signal, familyBinding?.labInfluence || null);
+      return await materialize(
+        nextFamily,
+        config,
+        signal,
+        familyBinding?.labInfluence || null,
+        familyBinding?.memoryContext || null,
+        familyBinding?.reToastAncestor || null,
+      );
     } finally {
       busy = false;
     }
@@ -334,7 +454,14 @@ function createCandidateSession({
         nativeChromaticProfile: profile,
         parentNativeColorPlan: parent.timeline?.nativeColor || null,
       });
-      return await materialize(nextFamily, config, signal, familyBinding?.labInfluence || null);
+      return await materialize(
+        nextFamily,
+        config,
+        signal,
+        familyBinding?.labInfluence || null,
+        familyBinding?.memoryContext || null,
+        familyBinding?.reToastAncestor || null,
+      );
     } finally {
       busy = false;
     }
@@ -358,6 +485,10 @@ function createCandidateSession({
       frontierEvidence: candidate.frontierEvidence || null,
       acceptedHistoryCount: acceptedHistory.length,
       labInfluence: familyBinding?.labInfluence || { enabled: false },
+      reToastAncestor: familyBinding?.reToastAncestor
+        ? structuredClone(familyBinding.reToastAncestor)
+        : null,
+      influenceTrace: currentInfluenceTrace(),
     };
   }
 
@@ -372,6 +503,12 @@ function createCandidateSession({
       resolvedTimeline: selection.timeline,
       analysis: mediaAnalysis,
       labInfluence: familyBinding.labInfluence || { enabled: false },
+      memoryContext: familyBinding.memoryContext
+        ? structuredClone(familyBinding.memoryContext)
+        : null,
+      reToastAncestor: familyBinding.reToastAncestor
+        ? structuredClone(familyBinding.reToastAncestor)
+        : null,
       toastFeel: structuredClone(familyBinding.toastFeel),
       nativeChromaticProfile: nativeChromaticProfile
         ? structuredClone(nativeChromaticProfile)
@@ -415,7 +552,10 @@ function createCandidateSession({
   }
 
   return {
+    armReToast,
     clearCandidates,
+    clearReToast,
+    currentInfluenceTrace,
     executionForRender,
     generate,
     importLabProposal,
