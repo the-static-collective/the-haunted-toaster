@@ -18,6 +18,7 @@
   let sequence = 0;
   let busy = false;
   let acceptedSelection = null;
+  let betaHomeEnabled = false;
 
   const garmentPanel = document.querySelector(".garment-panel");
   const shapeCard = document.querySelector("#timeline")?.closest(".shape-card");
@@ -25,6 +26,14 @@
   const audioTitle = document.querySelector("#audioDropTitle");
   const songFacts = document.querySelector("#songFacts");
   if (!garmentPanel || !shapeCard || !renderButton || !audioTitle || !songFacts) return;
+
+  const betaSixUpWindow = document.querySelector("#betaSixUpWindow");
+  const betaSixUpGrid = document.querySelector("#betaSixUpGrid");
+  const betaSixUpGenerate = document.querySelector("#betaSixUpGenerate");
+  const betaSixUpState = document.querySelector("#betaSixUpState");
+  const toastFeelChoices = document.querySelector("#toastFeelChoices");
+  const garmentHeading = document.querySelector("#garmentHeading");
+  const garmentSubheading = document.querySelector("#garmentSubheading");
 
   const launch = document.createElement("button");
   launch.type = "button";
@@ -120,18 +129,20 @@
   function nextRootSeed(kind) {
     sequence += 1;
     const song = audioTitle.textContent.trim().replace(/\s+/g, "-").slice(0, 80) || "song";
-    return `local-six-up:openField:${currentToastFeelId() || "unselected"}:${song}:${kind}:${sequence}`;
+    const pressureDomain = betaHomeEnabled ? "toastmood-field" : (currentToastFeelId() || "unselected");
+    return `local-six-up:openField:${pressureDomain}:${song}:${kind}:${sequence}`;
   }
 
   function configFor(kind) {
-    return {
+    const config = {
       rootSeed: nextRootSeed(kind),
       presetId: "openField",
-      toastFeelId: currentToastFeelId(),
       title: document.querySelector("#titleInput")?.value || "",
       artist: document.querySelector("#artistInput")?.value || "",
       lyrics: document.querySelector("#lyricsInput")?.value || "",
     };
+    if (!betaHomeEnabled) config.toastFeelId = currentToastFeelId();
+    return config;
   }
 
   function selectedLocks() {
@@ -155,7 +166,11 @@
     stomp.disabled = nextBusy || selectedIndex === null;
     use.disabled = nextBusy || selectedIndex === null;
     launch.disabled = nextBusy;
-    if (message) status.textContent = message;
+    if (betaSixUpGenerate) betaSixUpGenerate.disabled = nextBusy;
+    if (message) {
+      status.textContent = message;
+      if (betaHomeEnabled && betaSixUpState) betaSixUpState.textContent = message;
+    }
     modal.classList.toggle("is-busy", nextBusy);
   }
 
@@ -172,11 +187,18 @@
     }
   }
 
+  function clearHomeFamily() {
+    if (!betaSixUpGrid) return;
+    betaSixUpGrid.replaceChildren();
+    if (betaSixUpState) betaSixUpState.textContent = songIsReady() ? "Ready for six" : "Waiting for source";
+  }
+
   function clearUi({ notifyMain = true } = {}) {
     family = null;
     selectedIndex = null;
     acceptedSelection = null;
     grid.replaceChildren();
+    clearHomeFamily();
     status.textContent = "Generate six to begin.";
     mutate.disabled = true;
     converge.disabled = true;
@@ -208,6 +230,11 @@
       card.classList.toggle("is-selected", active);
       card.setAttribute("aria-pressed", active ? "true" : "false");
     }
+    for (const card of betaSixUpGrid?.querySelectorAll(".beta-six-up-cell") || []) {
+      const active = Number(card.dataset.index) === index;
+      card.classList.toggle("is-selected", active);
+      card.setAttribute("aria-pressed", active ? "true" : "false");
+    }
     mutate.disabled = busy;
     converge.disabled = busy;
     stomp.disabled = busy;
@@ -215,6 +242,33 @@
     const candidate = family?.candidates?.find((item) => item.index === index);
     if (candidate) status.textContent = `Candidate ${index + 1} selected · ${candidate.signature}`;
     updateRenderLabel();
+  }
+
+  function renderHomeFamily(view) {
+    if (!betaHomeEnabled || !betaSixUpGrid) return;
+    betaSixUpGrid.replaceChildren();
+    for (const candidate of view.candidates || []) {
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "beta-six-up-cell";
+      card.dataset.index = String(candidate.index);
+      card.setAttribute("aria-pressed", "false");
+      card.setAttribute("aria-label", `Candidate ${candidate.index + 1}: ${candidate.signature}`);
+      card.title = candidate.signature;
+      card.innerHTML = `
+        <img src="${candidate.thumbnailDataUrl}" alt="" />
+        <b>${candidate.index + 1}</b>
+      `;
+      card.addEventListener("click", () => {
+        chooseCard(candidate.index);
+        openModal();
+      });
+      betaSixUpGrid.append(card);
+    }
+    if (betaSixUpState) {
+      const shortfall = view.shortfall ? ` · ${view.producedCount}/${view.requestedCount} distinct` : "";
+      betaSixUpState.textContent = `${view.producedCount} visions ready${shortfall}`;
+    }
   }
 
   function renderFamily(view) {
@@ -247,6 +301,7 @@
       grid.append(card);
     }
 
+    renderHomeFamily(view);
     const shortfall = view.shortfall ? ` · ${view.producedCount}/${view.requestedCount} materially distinct` : "";
     const frontier = frontierSummary(view);
     status.textContent = frontier
@@ -258,19 +313,22 @@
     use.disabled = true;
   }
 
-  async function generateSix() {
+  async function generateSix({ focus = true } = {}) {
     if (busy) return;
     if (!songIsReady()) {
-      openModal();
+      if (focus) openModal();
       status.textContent = "Choose and inspect a song before generating.";
+      if (betaHomeEnabled && betaSixUpState) betaSixUpState.textContent = "Choose a song first";
       return;
     }
-    openModal();
+    if (focus) openModal();
     setBusy(true, "Compiling six exact timeline previews…");
     try {
       renderFamily(await api.generateCandidates(configFor("generate")));
     } catch (error) {
-      status.textContent = error?.message || String(error);
+      const message = error?.message || String(error);
+      status.textContent = message;
+      if (betaHomeEnabled && betaSixUpState) betaSixUpState.textContent = message;
     } finally {
       setBusy(false);
     }
@@ -340,10 +398,29 @@
     }
   }
 
+  async function configureHomeMode() {
+    if (!api.getBuildInfo || !betaSixUpWindow || !betaSixUpGrid || !betaSixUpGenerate || !toastFeelChoices) return;
+    try {
+      const buildInfo = await api.getBuildInfo();
+      const capabilities = Array.isArray(buildInfo?.capabilities) ? buildInfo.capabilities : [];
+      if (!capabilities.includes("betaCandidateEcologyV1")) return;
+      betaHomeEnabled = true;
+      toastFeelChoices.classList.add("is-hidden");
+      betaSixUpWindow.classList.remove("is-hidden");
+      launch.classList.add("is-hidden");
+      if (garmentHeading) garmentHeading.textContent = "Six-Up";
+      if (garmentSubheading) garmentSubheading.textContent = "Six creatures first. Choose one, choose two, or keep playing.";
+      if (betaSixUpState) betaSixUpState.textContent = songIsReady() ? "Ready for six" : "Waiting for source";
+    } catch {
+      // Capability lookup failure preserves the proven alpha surface.
+    }
+  }
+
   launch.addEventListener("click", () => {
     openModal();
     if (!family && songIsReady()) generateSix();
   });
+  betaSixUpGenerate?.addEventListener("click", () => generateSix({ focus: false }));
   regenerate.addEventListener("click", generateSix);
   mutate.addEventListener("click", () => mutateSix(false));
   converge.addEventListener("click", () => mutateSix(true));
@@ -354,7 +431,9 @@
     if (event.key === "Escape" && !modal.classList.contains("is-hidden")) closeModal();
   });
 
-  window.addEventListener("toast-feel-change", () => clearUi());
+  window.addEventListener("toast-feel-change", () => {
+    if (!betaHomeEnabled) clearUi();
+  });
   document.querySelector("#removeImage")?.addEventListener("click", () => {
     api.clearCandidateImage().catch(() => {});
     clearUi({ notifyMain: false });
@@ -374,4 +453,6 @@
       if (family || acceptedSelection) clearUi();
     });
   }
+
+  void configureHomeMode();
 })();

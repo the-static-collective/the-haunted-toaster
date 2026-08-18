@@ -9,9 +9,23 @@ function flush() {
   return new Promise((resolve) => setImmediate(resolve));
 }
 
-test('Video source controls install beside existing inputs with pantry default on', async () => {
+function makeDom() {
+  return new JSDOM(`
+    <section class="inputs-panel">
+      <button class="image-drop" id="imageDrop"></button>
+      <div id="videoSourceMount"></div>
+      <div class="field-row" id="next"></div>
+      <section id="videoPantryWindow">
+        <strong id="videoPantryStatus">Reading local catalogue…</strong>
+        <button id="videoFolderImport" type="button">Import video folder</button>
+      </section>
+    </section>
+  `);
+}
+
+test('Video source mounts as one compact row with pantry default on', async () => {
   const { installVideoSourceControls } = require(uiPath);
-  const dom = new JSDOM('<section class="inputs-panel"><div class="field-row" id="next"></div></section>');
+  const dom = makeDom();
   const calls = [];
   const api = {
     async listVideoPantry() { calls.push({ method: 'listVideoPantry' }); return { specimens: [] }; },
@@ -30,22 +44,29 @@ test('Video source controls install beside existing inputs with pantry default o
     async chooseVideoFolder() { return null; },
     async clearVideo() { return true; },
   };
-  installVideoSourceControls({ document: dom.window.document, api });
-  const checkbox = dom.window.document.querySelector('#addVideoToPantry');
+
+  assert.equal(installVideoSourceControls({ document: dom.window.document, api }), true);
+  const sourceMount = dom.window.document.querySelector('#videoSourceMount');
+  const checkbox = sourceMount.querySelector('#addVideoToPantry');
+  assert.ok(sourceMount.querySelector('#videoDrop'));
   assert.ok(checkbox);
   assert.equal(checkbox.checked, true);
-  assert.match(dom.window.document.querySelector('#videoSourceBlock').textContent, /Video/);
-  assert.match(dom.window.document.querySelector('#videoSourceBlock').textContent, /Add to VSPantry/);
-  dom.window.document.querySelector('#videoDrop').click();
+  assert.match(sourceMount.textContent, /Add one video/);
+  assert.match(sourceMount.textContent, /Add to VSPantry/);
+  assert.equal(sourceMount.querySelector('#videoFolderImport'), null);
+  assert.ok(dom.window.document.querySelector('#videoPantryWindow #videoFolderImport'));
+
+  sourceMount.querySelector('#videoDrop').click();
   await flush();
   const choose = calls.find((call) => call.method === 'chooseVideo');
   assert.deepEqual(choose.payload, { addToPantry: true });
-  assert.match(dom.window.document.querySelector('#videoDropTitle').textContent, /jubilee\.mp4/);
+  assert.match(sourceMount.querySelector('#videoDropTitle').textContent, /jubilee\.mp4/);
+  assert.match(dom.window.document.querySelector('#videoPantryStatus').textContent, /1 specimen/);
 });
 
 test('Video source checkbox permits ephemeral session-only admission', async () => {
   const { installVideoSourceControls } = require(uiPath);
-  const dom = new JSDOM('<section class="inputs-panel"><div class="field-row"></div></section>');
+  const dom = makeDom();
   const calls = [];
   const api = {
     async listVideoPantry() { return { specimens: [] }; },
@@ -64,4 +85,31 @@ test('Video source checkbox permits ephemeral session-only admission', async () 
   const choose = calls.find((call) => call.method === 'chooseVideo');
   assert.deepEqual(choose.payload, { addToPantry: false });
   assert.match(dom.window.document.querySelector('#videoDropHint').textContent, /session only/i);
+  assert.match(dom.window.document.querySelector('#videoPantryStatus').textContent, /unchanged/i);
+});
+
+test('Video source install is idempotent and pantry folder action belongs to the pantry window', async () => {
+  const { installVideoSourceControls } = require(uiPath);
+  const dom = makeDom();
+  let imports = 0;
+  const api = {
+    async listVideoPantry() { return { specimens: [{ specimenId: 'a' }, { specimenId: 'b' }] }; },
+    async chooseVideo() { return null; },
+    async chooseVideoFolder() {
+      imports += 1;
+      return { catalogSize: 4, admitted: 2, duplicates: 1, refused: [] };
+    },
+    async clearVideo() { return true; },
+  };
+
+  assert.equal(installVideoSourceControls({ document: dom.window.document, api }), true);
+  assert.equal(installVideoSourceControls({ document: dom.window.document, api }), false);
+  await flush();
+  assert.match(dom.window.document.querySelector('#videoPantryStatus').textContent, /2 specimens/);
+
+  dom.window.document.querySelector('#videoFolderImport').click();
+  await flush();
+  assert.equal(imports, 1);
+  assert.match(dom.window.document.querySelector('#videoPantryStatus').textContent, /4 total/);
+  assert.equal(dom.window.document.querySelectorAll('#videoDrop').length, 1);
 });
