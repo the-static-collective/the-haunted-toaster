@@ -4,6 +4,10 @@ const path = require("node:path");
 const test = require("node:test");
 
 const root = path.resolve(__dirname, "..");
+const app = fs.readFileSync(
+  path.join(root, "src", "renderer", "app.js"),
+  "utf8",
+);
 const foundryUi = fs.readFileSync(
   path.join(root, "src", "renderer", "lyric-foundry-ui.js"),
   "utf8",
@@ -42,4 +46,13 @@ test("Listener prepares lyrics, validates stable anchors, then activates bounded
   assert.match(guided, /mapped\.start < startTime/);
   assert.match(guided, /mapped\.end > endTime/);
   assert.doesNotMatch(guided, /interpolat|evenly|Math\.random|Date\.now/);
+});
+
+test("closing and reopening Listener preserves the in-progress human-edited alignment", () => {
+  assert.match(app, /if \(state\.alignment\) \{\s*openSyncDialog\(\);\s*showAlignmentEditor\(state\.alignment\);\s*return;/s);
+  assert.match(app, /haunted-listener-relisten/);
+  assert.match(app, /state\.alignment = null;\s*state\.selectedCueIndex = null;\s*scheduleLyricInspection\(\);/s);
+  assert.match(foundryUi, /haunted-listener-relisten/);
+  assert.doesNotMatch(foundryUi, /listenCloser\?\.click\(\)/);
+  assert.doesNotMatch(app, /function closeSyncDialog\(\)[\s\S]*?state\.alignment\s*=\s*null/);
 });
