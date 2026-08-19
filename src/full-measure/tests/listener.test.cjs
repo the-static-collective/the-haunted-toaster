@@ -135,11 +135,11 @@ test("auto-sync runs a private listening pass and returns editable LRC", async (
     assert.ok(observedArguments.includes("-ml"));
     assert.deepEqual(phases, ["preparing", "listening", "matching", "ready"]);
     assert.equal(result.matchedCount, 2);
-    assert.equal(DEFAULT_PLACEMENT_LEAD_SECONDS, 0.22);
-    assert.match(result.lrc, /\[00:00\.78\]The spoon remembers/);
-    assert.match(result.lrc, /\[00:03\.78\]The porch light stays/);
+    assert.equal(DEFAULT_PLACEMENT_LEAD_SECONDS, 0);
+    assert.match(result.lrc, /\[00:01\.00\]The spoon remembers/);
+    assert.match(result.lrc, /\[00:04\.00\]The porch light stays/);
     assert.equal(result.engine.source, "fixture");
-    assert.equal(result.engine.placementLeadSeconds, 0.22);
+    assert.equal(result.engine.placementLeadSeconds, 0);
   } finally {
     await fs.rm(root, { recursive: true, force: true });
   }
