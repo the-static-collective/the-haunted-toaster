@@ -40,11 +40,17 @@ test("candidate UI sends no Toast Feel pressure until the human explicitly choos
   assert.match(ui, /toastFeelId:\s*currentCandidateToastFeelId\(\)/);
 });
 
-test("preload exposes the pure move dealer without creating another IPC authority path", () => {
+test("move proposals preserve sandboxed preload and cross only a read-only proposal IPC", () => {
   const preload = source("src/preload.cjs");
-  assert.match(preload, /require\("\.\/candidate-move-deck\.cjs"\)/);
-  assert.match(preload, /dealCandidateMoves:\s*\(context\)\s*=>\s*dealCandidateMoves\(context\)/);
-  assert.doesNotMatch(preload, /ipcRenderer\.invoke\("candidate:deal-moves"/);
+  const session = source("src/candidate-session.cjs");
+  assert.doesNotMatch(preload, /require\("\.\/candidate-move-deck\.cjs"\)/);
+  assert.match(
+    preload,
+    /dealCandidateMoves:\s*\(context\)\s*=>\s*ipcRenderer\.invoke\("candidate:deal-moves", context\)/,
+  );
+  assert.match(session, /require\("\.\/candidate-move-deck\.cjs"\)/);
+  assert.match(session, /ipcMain\.handle\("candidate:deal-moves"/);
+  assert.doesNotMatch(session, /candidate:deal-moves[\s\S]{0,300}(?:mutate|cross|stomp|select)\(/);
 });
 
 test("candidate UI replaces the verb toolbar with one contextual second six-up", () => {
