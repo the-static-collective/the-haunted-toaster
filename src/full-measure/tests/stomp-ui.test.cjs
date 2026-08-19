@@ -48,11 +48,11 @@ function harness() {
     getToastFeelId: () => "wire-heat",
     getCandidateToastFeelId: () => "wire-heat",
   };
+  window.candidateMoveDeck = { dealCandidateMoves };
   window.HTMLElement.prototype.scrollIntoView = () => {};
 
   const calls = { generated: [], stomped: [], mutated: [], crossed: [] };
   window.fullMeasure = {
-    dealCandidateMoves,
     generateCandidates: async (config) => {
       calls.generated.push(config);
       return family("family-1");
