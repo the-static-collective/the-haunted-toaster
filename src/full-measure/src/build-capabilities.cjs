@@ -5,6 +5,10 @@ const {
 } = require("./generation/renderer-policy.cjs");
 const { MUTATION_LATTICE_POLICY } = require("./generation/mutation-lattice-generation.cjs");
 const { TOPOLOGY_ARC_POLICY } = require("./generation/topology-arc.cjs");
+const {
+  CROSS_POLICY,
+  TOASTMOOD_FIELD_POLICY,
+} = require("./generation/beta-candidate-ecology.cjs");
 const { OUTPUT_PROFILES } = require("./render/output-profiles.cjs");
 const { TOAST_FEEL_CONTRACT, TOAST_FEELS } = require("./toast-feels.cjs");
 const { NATIVE_COLOR_POLICY, RELATIONSHIPS } = require("./generation/native-color.cjs");
@@ -96,6 +100,12 @@ function deriveBuildCapabilities() {
       : null,
     mutationLatticeActive && TOPOLOGY_ARC_POLICY === "topology-arc-v1"
       ? "topologyArcV1"
+      : null,
+    typeof session.generate === "function" &&
+      typeof session.cross === "function" &&
+      TOASTMOOD_FIELD_POLICY === "toastmood-field-v1" &&
+      CROSS_POLICY === "two-parent-cross-v1"
+      ? "betaCandidateEcologyV1"
       : null,
   ].filter(Boolean);
 
