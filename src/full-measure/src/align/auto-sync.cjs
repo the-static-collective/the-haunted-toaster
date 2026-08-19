@@ -24,7 +24,7 @@ const {
   runProcess,
 } = require("../render/tooling.cjs");
 
-const DEFAULT_PLACEMENT_LEAD_SECONDS = 0.22;
+const DEFAULT_PLACEMENT_LEAD_SECONDS = 0;
 
 function recommendedThreadCount() {
   const available = os.availableParallelism?.() || os.cpus().length || 4;
