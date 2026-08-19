@@ -4,30 +4,126 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { JSDOM } = require("jsdom");
 
-const rendererRoot = path.join(__dirname, "..", "src", "renderer");
+const root = path.resolve(__dirname, "..");
+const rendererRoot = path.join(root, "src", "renderer");
 const html = fs.readFileSync(path.join(rendererRoot, "index.html"), "utf8");
 
-function documentForRenderer() {
+function loadRendererDocument() {
   return new JSDOM(html).window.document;
 }
 
-test("beta home semantic windows exist without creating a second candidate surface", () => {
-  const document = documentForRenderer();
+function tick() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function candidateFamily() {
+  return {
+    schema: "haunted-toaster/candidate-family/v1",
+    familyHash: "beta-family-1",
+    producedCount: 6,
+    requestedCount: 6,
+    shortfall: false,
+    toastmoodField: { policy: "toastmood-field-v1" },
+    candidates: Array.from({ length: 6 }, (_, index) => ({
+      index,
+      role: index === 0 ? "toastmood:low-and-slow" : "coverage",
+      signature: `creature-${index + 1}`,
+      scoreAddress: `htvs1_beta_${index + 1}`,
+      thumbnailDataUrl: "data:image/png;base64,",
+      changedAxes: index ? ["topology"] : [],
+      toastmoodLane: { id: `lane-${index + 1}`, name: `Lane ${index + 1}` },
+    })),
+  };
+}
+
+function candidateHarness(capabilities = []) {
+  const dom = new JSDOM(html, {
+    runScripts: "outside-only",
+    url: "file:///haunted-toaster/index.html",
+  });
+  const { window } = dom;
+  const { document } = window;
+  document.querySelector("#songFacts").classList.remove("is-hidden");
+  document.querySelector("#audioDropTitle").textContent = "Specimen";
+  window.toastFeel = {
+    getToastFeelId: () => "low-and-slow",
+    getCandidateToastFeelId: () => null,
+  };
+  window.HTMLElement.prototype.scrollIntoView = () => {};
+  const calls = { generated: [] };
+  window.fullMeasure = {
+    getBuildInfo: async () => ({ capabilities }),
+    generateCandidates: async (config) => {
+      calls.generated.push(config);
+      return candidateFamily();
+    },
+    mutateCandidates: async () => candidateFamily(),
+    crossCandidates: async () => candidateFamily(),
+    stompCandidates: async () => candidateFamily(),
+    selectCandidate: async () => ({}),
+    clearCandidates: async () => {},
+    clearCandidateImage: async () => {},
+  };
+  window.eval(fs.readFileSync(path.join(rendererRoot, "candidate-ui.js"), "utf8"));
+  window.eval(fs.readFileSync(path.join(rendererRoot, "recent-toasts-ui.js"), "utf8"));
+  return { dom, window, document, calls };
+}
+
+test("beta home semantic windows exist without hiding alpha Toast Feel truth", () => {
+  const document = loadRendererDocument();
 
   assert.ok(document.querySelector("#videoSourceMount"));
   assert.ok(document.querySelector("#videoPantryWindow"));
   assert.ok(document.querySelector("#betaSixUpWindow")?.classList.contains("is-hidden"));
   assert.ok(document.querySelector("#betaSixUpGrid"));
-  assert.ok(document.querySelector("#betaSixUpGenerate"));
-  assert.ok(document.querySelector("#betaSixUpState"));
   assert.ok(document.querySelector("#recentToastsWindow")?.classList.contains("is-hidden"));
-  assert.ok(document.querySelector("#recentToastsList"));
   assert.ok(document.querySelector("#toastFeelChoices"));
-  assert.equal(document.querySelectorAll("#candidateGrid").length, 0);
 });
 
-test("production renderer loads beta home presentation assets", () => {
-  const document = documentForRenderer();
+test("production renderer loads the beta home presentation assets", () => {
+  const document = loadRendererDocument();
   assert.ok(document.querySelector('link[href="./beta-home-ui.css"]'));
   assert.ok(document.querySelector('script[src="./recent-toasts-ui.js"]'));
+});
+
+test("alpha capability set keeps Toast Feel furniture and beta contact sheet hidden", async () => {
+  const view = candidateHarness([]);
+  try {
+    await tick();
+    await tick();
+    assert.equal(view.document.querySelector("#toastFeelChoices").classList.contains("is-hidden"), false);
+    assert.equal(view.document.querySelector("#betaSixUpWindow").classList.contains("is-hidden"), true);
+    assert.equal(view.document.querySelector("#slateToastFeel").textContent, "Loading…");
+  } finally {
+    view.dom.window.close();
+  }
+});
+
+test("beta candidate ecology projects the same six-up family without changing candidate authority", async () => {
+  const view = candidateHarness(["betaCandidateEcologyV1"]);
+  try {
+    await tick();
+    await tick();
+    assert.equal(view.document.querySelector("#toastFeelChoices").classList.contains("is-hidden"), true);
+    assert.equal(view.document.querySelector("#betaSixUpWindow").classList.contains("is-hidden"), false);
+    assert.equal(view.document.querySelector("#garmentHeading").textContent, "Six-Up");
+    assert.equal(view.document.querySelector("#slateToastFeel").closest("div").querySelector("dt").textContent, "Creative field");
+    assert.equal(view.document.querySelector("#slateToastFeel").textContent, "Six-Up field");
+
+    view.document.querySelector("#betaSixUpGenerate").click();
+    await tick();
+    await tick();
+
+    assert.equal(view.calls.generated.length, 1);
+    assert.equal(view.calls.generated[0].toastFeelId, null);
+    assert.match(view.calls.generated[0].rootSeed, /:unselected:/);
+    assert.doesNotMatch(view.calls.generated[0].rootSeed, /:toastmood-field:/);
+    assert.equal(view.document.querySelectorAll("#betaSixUpGrid .beta-six-up-cell").length, 6);
+    assert.equal(view.document.querySelectorAll("#candidateGrid .candidate-card").length, 6);
+
+    view.document.querySelector("#betaSixUpGrid .beta-six-up-cell").click();
+    assert.equal(view.document.querySelector(".candidate-modal").classList.contains("is-hidden"), false);
+  } finally {
+    view.dom.window.close();
+  }
 });
