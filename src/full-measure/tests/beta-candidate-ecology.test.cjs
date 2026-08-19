@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const generation = require("../src/generation/index.cjs");
+const { deriveBuildCapabilities } = require("../src/build-capabilities.cjs");
 const {
   CONSTRAINTS_BY_PRESET,
   createCandidateSession,
@@ -53,6 +54,12 @@ async function generateField(session, rootSeed = "beta-ecology-no-preselection")
     lyrics: "",
   });
 }
+
+test("build capabilities truthfully advertise landed beta candidate ecology", () => {
+  assert.equal(generation.TOASTMOOD_FIELD_POLICY, "toastmood-field-v1");
+  assert.equal(generation.CROSS_POLICY, "two-parent-cross-v1");
+  assert.ok(deriveBuildCapabilities().capabilities.includes("betaCandidateEcologyV1"));
+});
 
 test("ordinary beta generation reaches six lane-identified candidates without Toast Feel preselection", async () => {
   const session = createSession();
