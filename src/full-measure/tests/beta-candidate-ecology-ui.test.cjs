@@ -40,24 +40,28 @@ test("candidate UI sends no Toast Feel pressure until the human explicitly choos
   assert.match(ui, /toastFeelId:\s*currentCandidateToastFeelId\(\)/);
 });
 
-test("move proposals preserve sandboxed preload and cross only a read-only proposal IPC", () => {
+test("move proposals stay a renderer-local deterministic projection with no preload or IPC authority", () => {
   const preload = source("src/preload.cjs");
   const session = source("src/candidate-session.cjs");
-  assert.doesNotMatch(preload, /require\("\.\/candidate-move-deck\.cjs"\)/);
-  assert.match(
-    preload,
-    /dealCandidateMoves:\s*\(context\)\s*=>\s*ipcRenderer\.invoke\("candidate:deal-moves", context\)/,
+  const html = source("src/renderer/index.html");
+  const wrapper = source("src/candidate-move-deck.cjs");
+
+  assert.doesNotMatch(preload, /candidate-move-deck|candidate:deal-moves|dealCandidateMoves/);
+  assert.doesNotMatch(session, /candidate:deal-moves/);
+  assert.match(html, /src="\.\/candidate-move-deck\.js"/);
+  assert.ok(
+    html.indexOf('./candidate-move-deck.js') < html.indexOf('./candidate-ui.js'),
+    "move dealer must load before candidate UI",
   );
-  assert.match(session, /require\("\.\/candidate-move-deck\.cjs"\)/);
-  assert.match(session, /ipcMain\.handle\("candidate:deal-moves"/);
-  assert.doesNotMatch(session, /candidate:deal-moves[\s\S]{0,300}(?:mutate|cross|stomp|select)\(/);
+  assert.match(wrapper, /require\("\.\/renderer\/candidate-move-deck\.js"\)/);
 });
 
 test("candidate UI replaces the verb toolbar with one contextual second six-up", () => {
   const ui = source("src/renderer/candidate-ui.js");
   assert.match(ui, /id="candidateMoveGrid"/);
   assert.match(ui, /id="candidateMoveRedeal"/);
-  assert.match(ui, /api\.dealCandidateMoves/);
+  assert.match(ui, /window\.candidateMoveDeck/);
+  assert.match(ui, /dealCandidateMoves/);
   assert.match(ui, /moveDealIndex/);
   assert.match(ui, /proposal\.parentIndexes/);
   assert.match(ui, /api\.crossCandidates/);
