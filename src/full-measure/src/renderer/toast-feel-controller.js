@@ -4,6 +4,7 @@
   const host = documentRoot.querySelector("#toastFeelChoices");
   let feelings = [];
   let selection = null;
+  let explicitSelection = null;
   let disabled = false;
 
   function publicEvidence(feel) {
@@ -22,8 +23,9 @@
     }));
   }
 
-  function select(feel, { announce = true, focus = false } = {}) {
+  function select(feel, { announce = true, focus = false, explicit = true } = {}) {
     selection = feel;
+    if (explicit) explicitSelection = feel;
     for (const button of host.querySelectorAll(".toast-feel")) {
       const active = button.dataset.toastFeelId === feel.id;
       button.classList.toggle("is-selected", active);
@@ -94,7 +96,7 @@
     host.replaceChildren(...feelings.map(createButton));
     host.setAttribute("aria-busy", "false");
     setDisabled(disabled);
-    return select(feelings[0]);
+    return select(feelings[0], { explicit: false });
   }
 
   const ready = initialize().catch((error) => {
@@ -109,6 +111,7 @@
   window.toastFeel = Object.freeze({
     getSelection: () => selection ? publicEvidence(selection) : null,
     getToastFeelId: () => selection?.id || null,
+    getCandidateToastFeelId: () => explicitSelection?.id || null,
     ready,
     setDisabled,
   });

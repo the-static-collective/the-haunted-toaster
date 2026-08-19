@@ -8,6 +8,59 @@ function isV3(options = {}) {
   return options.rendererProfile?.id === MUTATION_LATTICE_RENDERER_PROFILE_ID;
 }
 
+function normalizeRequestedCount(baseFamily, options = {}) {
+  if (!isV3(options)) return baseFamily;
+  const requestedCount = Number(options.count || baseFamily.requestedCount || 6);
+  if (!Number.isInteger(requestedCount) || requestedCount < 1 || baseFamily.candidates.length <= requestedCount) {
+    return baseFamily;
+  }
+
+  const constraints = options.garmentConstraints || options.constraints;
+  const candidates = baseFamily.candidates.slice(0, requestedCount);
+  const {
+    familyHash: _familyHash,
+    candidates: _candidates,
+    scoreAddresses: _scoreAddresses,
+    timelineHashes: _timelineHashes,
+    roles: _roles,
+    producedCount: _producedCount,
+    shortfall: _shortfall,
+    mutationLattice: priorLattice,
+    ...stableCore
+  } = baseFamily;
+  const prePlanCore = {
+    ...structuredClone(stableCore),
+    requestedCount,
+    producedCount: candidates.length,
+    roles: candidates.map((candidate) => candidate.role),
+    scoreAddresses: candidates.map((candidate) => candidate.scoreAddress),
+    timelineHashes: candidates.map((candidate) => candidate.timelineHash),
+    shortfall: null,
+  };
+  const prePlanFamily = {
+    ...prePlanCore,
+    familyHash: hashCanonical(prePlanCore, "HauntedToaster-CandidateFamily-v1"),
+    candidates,
+  };
+  const plan = base.buildMutationLatticePlan({
+    family: prePlanFamily,
+    constraints,
+    rendererProfile: options.rendererProfile,
+    toastFeelId: options.toastFeelId || baseFamily.toastFeel?.id || null,
+    analysis: options.analysis,
+    priorPlanSha256: priorLattice?.priorPlanSha256 || null,
+  });
+  const core = {
+    ...prePlanCore,
+    mutationLattice: plan,
+  };
+  return deepFreeze({
+    ...core,
+    familyHash: hashCanonical(core, "HauntedToaster-CandidateFamily-v1"),
+    candidates,
+  });
+}
+
 function bindResponseToFamily(baseFamily, options = {}) {
   if (!isV3(options) || !options.responseWitness) return baseFamily;
   const constraints = options.garmentConstraints || options.constraints;
@@ -55,7 +108,7 @@ function bindResponseToFamily(baseFamily, options = {}) {
 }
 
 function generateCandidateSet(options = {}) {
-  return bindResponseToFamily(base.generateCandidateSet(options), options);
+  return bindResponseToFamily(normalizeRequestedCount(base.generateCandidateSet(options), options), options);
 }
 
 function generateStompCandidateSet(options = {}) {
@@ -126,6 +179,7 @@ module.exports = {
   bindResponseToFamily,
   generateCandidateSet,
   generateStompCandidateSet,
+  normalizeRequestedCount,
   replaceFinalCandidateWithConverge,
   replayCandidateFamily,
 };

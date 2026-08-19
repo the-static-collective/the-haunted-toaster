@@ -132,9 +132,7 @@ function createCandidateSession({
   }
 
   function state() {
-    return {
-      video: video ? structuredClone(video) : null,
-    };
+    return { video: video ? structuredClone(video) : null };
   }
 
   async function ensureNativeChromaticProfile() {
@@ -160,7 +158,8 @@ function createCandidateSession({
     return constraints;
   }
 
-  function currentToastFeel(toastFeelId) {
+  function currentToastFeel(toastFeelId, { optional = false } = {}) {
+    if ((toastFeelId === undefined || toastFeelId === null || toastFeelId === "") && optional) return null;
     const feel = getToastFeel(toastFeelId);
     if (!feel) throw new TypeError(`Unknown Toast Feel: ${String(toastFeelId)}.`);
     return feel;
@@ -178,10 +177,14 @@ function createCandidateSession({
   }
 
   async function materialize(nextFamily, config, signal, influence = null) {
-    const feel = currentToastFeel(config.toastFeelId);
-    if (nextFamily.toastFeel?.id !== feel.id) {
+    const requestedFeel = currentToastFeel(config.toastFeelId, { optional: true });
+    const familyFeel = nextFamily.toastFeel?.id
+      ? currentToastFeel(nextFamily.toastFeel.id)
+      : null;
+    if (requestedFeel && familyFeel?.id !== requestedFeel.id) {
       throw new Error("Candidate family Toast Feel does not match the requested appliance state.");
     }
+    const feel = requestedFeel || familyFeel;
     const previewView = await renderPreviews(
       {
         audioPath,
@@ -200,21 +203,25 @@ function createCandidateSession({
       audioPath,
       imagePath,
       presetId: config.presetId,
-      toastFeelId: feel.id,
-      toastFeel: structuredClone(nextFamily.toastFeel),
+      toastFeelId: feel?.id || null,
+      toastFeel: feel ? structuredClone(nextFamily.toastFeel || feel) : null,
+      toastmoodField: nextFamily.toastmoodField ? structuredClone(nextFamily.toastmoodField) : null,
+      cross: nextFamily.cross ? structuredClone(nextFamily.cross) : null,
       labInfluence: influence,
     };
     selection = null;
     return {
       ...previewView,
-      toastFeel: structuredClone(nextFamily.toastFeel),
+      toastFeel: feel ? structuredClone(nextFamily.toastFeel || feel) : null,
+      toastmoodField: nextFamily.toastmoodField ? structuredClone(nextFamily.toastmoodField) : null,
+      cross: nextFamily.cross ? structuredClone(nextFamily.cross) : null,
       labInfluence: influence,
     };
   }
 
   async function generate(config = {}, signal) {
     assertReady();
-    const feel = currentToastFeel(config.toastFeelId);
+    const feel = currentToastFeel(config.toastFeelId, { optional: true });
     busy = true;
     try {
       const constraints = currentConstraints(config.presetId);
@@ -247,7 +254,7 @@ function createCandidateSession({
         count: 6,
         phase: "initial",
         lyricTrack,
-        toastFeelId: feel.id,
+        toastFeelId: feel?.id || null,
         nativeChromaticProfile: profile,
       });
       return await materialize(nextFamily, config, signal, influence);
@@ -261,14 +268,26 @@ function createCandidateSession({
     return generate({ ...config, useLabProposal: true }, signal);
   }
 
-  async function mutate(config = {}, signal) {
-    assertReady();
-    const feel = currentToastFeel(config.toastFeelId);
+  function assertCurrentFamily(config) {
     if (!family || family.familyHash !== config.familyHash) {
       throw new Error("Candidate family is no longer current; generate six again.");
     }
+  }
+
+  function feelForParent(config, parent) {
+    const explicit = currentToastFeel(config.toastFeelId, { optional: true });
+    if (explicit) return explicit;
+    if (parent?.toastmoodLane?.id) return currentToastFeel(parent.toastmoodLane.id);
+    if (familyBinding?.toastFeelId) return currentToastFeel(familyBinding.toastFeelId);
+    return null;
+  }
+
+  async function mutate(config = {}, signal) {
+    assertReady();
+    assertCurrentFamily(config);
     const parent = family.candidates[Number(config.parentIndex)];
     if (!parent) throw new TypeError("Choose a current candidate before mutating.");
+    const feel = feelForParent(config, parent);
     busy = true;
     try {
       const constraints = currentConstraints(config.presetId);
@@ -287,7 +306,7 @@ function createCandidateSession({
         count: 6,
         phase: "branch",
         lyricTrack,
-        toastFeelId: feel.id,
+        toastFeelId: feel?.id || null,
         nativeChromaticProfile: profile,
         parentNativeColorPlan: parent.timeline?.nativeColor || null,
       });
@@ -308,7 +327,7 @@ function createCandidateSession({
           rendererProfile,
           rootSeed: config.rootSeed,
           lyricTrack,
-          toastFeelId: feel.id,
+          toastFeelId: feel?.id || null,
           nativeChromaticProfile: profile,
           parentNativeColorPlan: parent.timeline?.nativeColor || null,
         });
@@ -330,7 +349,55 @@ function createCandidateSession({
           throw refusal;
         }
       }
-      return await materialize(nextFamily, config, signal, familyBinding?.labInfluence || null);
+      return await materialize(
+        nextFamily,
+        { ...config, toastFeelId: feel?.id || null },
+        signal,
+        familyBinding?.labInfluence || null,
+      );
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function cross(config = {}, signal) {
+    assertReady();
+    assertCurrentFamily(config);
+    if (!Array.isArray(config.parentIndexes) || config.parentIndexes.length !== 2) {
+      throw new TypeError("CROSS requires exactly two current parent candidates.");
+    }
+    const indexes = config.parentIndexes.map(Number);
+    if (indexes[0] === indexes[1]) throw new TypeError("CROSS requires two distinct current parent candidates.");
+    const parents = indexes.map((index) => family.candidates[index]);
+    if (parents.some((parent) => !parent)) throw new TypeError("CROSS parents must both belong to the current family.");
+    const feel = currentToastFeel(config.toastFeelId, { optional: true });
+    busy = true;
+    try {
+      const constraints = currentConstraints(config.presetId);
+      const profile = await ensureNativeChromaticProfile();
+      const analysis = toGenerationAnalysis(mediaAnalysis);
+      const responseWitness = responseWitnessFor(mediaAnalysis, analysis);
+      const nextFamily = generation.generateCrossCandidateSet({
+        analysis,
+        responseWitness,
+        garmentConstraints: constraints,
+        rendererProfile,
+        parentCandidates: parents,
+        parentFamilyHash: family.familyHash,
+        locks: config.locks || [],
+        rootSeed: config.rootSeed,
+        count: 6,
+        phase: "cross",
+        lyricTrack: lyricTrackFor(config),
+        toastFeelId: feel?.id || null,
+        nativeChromaticProfile: profile,
+      });
+      return await materialize(
+        nextFamily,
+        { ...config, toastFeelId: feel?.id || null },
+        signal,
+        familyBinding?.labInfluence || null,
+      );
     } finally {
       busy = false;
     }
@@ -338,12 +405,11 @@ function createCandidateSession({
 
   async function stomp(config = {}, signal) {
     assertReady();
-    const feel = currentToastFeel(config.toastFeelId);
-    if (!family || family.familyHash !== config.familyHash) {
-      throw new Error("Candidate family is no longer current; generate six again.");
-    }
+    assertCurrentFamily(config);
     const parent = family.candidates[Number(config.parentIndex)];
     if (!parent) throw new TypeError("Choose a current candidate before stomping.");
+    const feel = feelForParent(config, parent);
+    if (!feel) throw new TypeError("STOMP requires a current or explicit Toast Feel.");
     busy = true;
     try {
       const constraints = currentConstraints(config.presetId);
@@ -364,21 +430,29 @@ function createCandidateSession({
         nativeChromaticProfile: profile,
         parentNativeColorPlan: parent.timeline?.nativeColor || null,
       });
-      return await materialize(nextFamily, config, signal, familyBinding?.labInfluence || null);
+      return await materialize(
+        nextFamily,
+        { ...config, toastFeelId: feel.id },
+        signal,
+        familyBinding?.labInfluence || null,
+      );
     } finally {
       busy = false;
     }
   }
 
   function select(config = {}) {
-    if (!family || family.familyHash !== config.familyHash) {
-      throw new Error("Candidate family is no longer current; generate six again.");
-    }
+    assertCurrentFamily(config);
     const candidate = family.candidates[Number(config.index)];
     if (!candidate) throw new TypeError("Choose a current candidate.");
     selection = candidate;
     if (!acceptedHistory.some((score) => generation.addressVisualScore(score) === candidate.scoreAddress)) {
       acceptedHistory.push(candidate.scoreArtifact.score);
+    }
+    if (!familyBinding.toastFeelId && candidate.toastmoodLane?.id) {
+      const inheritedFeel = currentToastFeel(candidate.toastmoodLane.id);
+      familyBinding.toastFeelId = inheritedFeel.id;
+      familyBinding.toastFeel = structuredClone(inheritedFeel);
     }
     return {
       familyHash: family.familyHash,
@@ -386,6 +460,9 @@ function createCandidateSession({
       scoreAddress: candidate.scoreAddress,
       timelineHash: candidate.timelineHash,
       frontierEvidence: candidate.frontierEvidence || null,
+      crossLineage: candidate.crossLineage || null,
+      toastmoodLane: candidate.toastmoodLane || null,
+      toastFeel: familyBinding.toastFeel ? structuredClone(familyBinding.toastFeel) : null,
       acceptedHistoryCount: acceptedHistory.length,
       labInfluence: familyBinding?.labInfluence || { enabled: false },
     };
@@ -395,14 +472,14 @@ function createCandidateSession({
     if (!selection || !familyBinding) return null;
     if (path.resolve(config.audioPath) !== familyBinding.audioPath) return null;
     if (config.presetId !== familyBinding.presetId) return null;
-    if (config.toastFeelId !== familyBinding.toastFeelId) return null;
+    if ((config.toastFeelId || null) !== (familyBinding.toastFeelId || null)) return null;
     if (!sameOptionalPath(config.imagePath, familyBinding.imagePath)) return null;
     return {
       visualScore: selection.scoreArtifact.score,
       resolvedTimeline: selection.timeline,
       analysis: mediaAnalysis,
       labInfluence: familyBinding.labInfluence || { enabled: false },
-      toastFeel: structuredClone(familyBinding.toastFeel),
+      toastFeel: familyBinding.toastFeel ? structuredClone(familyBinding.toastFeel) : null,
       nativeChromaticProfile: nativeChromaticProfile
         ? structuredClone(nativeChromaticProfile)
         : null,
@@ -425,6 +502,10 @@ function createCandidateSession({
     ipcMain.handle("candidate:mutate", (_event, config) => {
       assertAvailable();
       return mutate(config);
+    });
+    ipcMain.handle("candidate:cross", (_event, config) => {
+      assertAvailable();
+      return cross(config);
     });
     ipcMain.handle("candidate:stomp", (_event, config) => {
       assertAvailable();
@@ -457,6 +538,7 @@ function createCandidateSession({
   return {
     clearCandidates,
     clearVideo,
+    cross,
     executionForRender,
     generate,
     importLabProposal,
