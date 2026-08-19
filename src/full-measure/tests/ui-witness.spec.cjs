@@ -39,24 +39,51 @@ for (const state of ALPHA_STATES) {
 
     if (state === "six-up") {
       const cards = page.locator(".candidate-card");
+      const moves = page.locator(".candidate-move-card");
+      const movePanel = page.locator(".candidate-move-panel");
       const actions = page.locator(".candidate-actions");
       const surface = page.locator(".candidate-surface");
       const scrollRegion = page.locator("#candidateGrid");
-      const crossMark = page.locator("#candidateCrossMark");
-      const cross = page.locator("#candidateCross");
+      const redeal = page.locator("#candidateMoveRedeal");
       await expect(cards).toHaveCount(6);
-      await expect(crossMark).toBeVisible();
-      await expect(crossMark).toHaveText("Mark CROSS parent");
-      await expect(cross).toBeVisible();
-      await expect(cross).toHaveText("CROSS A + B");
       await expect(scrollRegion).toHaveCount(1);
+      await expect(moves).toHaveCount(0);
+      await expect(redeal).toBeDisabled();
+
+      await cards.first().click();
+      await expect(moves).toHaveCount(6);
+      await expect(redeal).toBeEnabled();
+      expect(await moves.evaluateAll((items) => items.map((item) => item.dataset.moveKind))).toEqual([
+        "expand",
+        "mutate",
+        "converge",
+        "stomp",
+        "cross",
+        "cross",
+      ]);
+      await expect(moves.nth(0)).toContainText("EXPAND");
+      await expect(moves.nth(3)).toContainText("STOMP");
+      await expect(moves.nth(4)).toContainText(/CROSS · #1 × #[2-6]/);
+      await expect(moves.nth(5)).toContainText(/CROSS · #1 × #[2-6]/);
+
+      const candidateBeforeRedeal = await cards.evaluateAll((items) => items.map((item) => item.textContent));
+      const moveAddressesBefore = await moves.evaluateAll((items) => items.map((item) => item.dataset.moveAddress));
+      const dealAddressBefore = await redeal.getAttribute("data-deal-address");
+      await redeal.click();
+      await expect(moves).toHaveCount(6);
+      expect(await cards.evaluateAll((items) => items.map((item) => item.textContent))).toEqual(candidateBeforeRedeal);
+      expect(await moves.evaluateAll((items) => items.map((item) => item.dataset.moveAddress))).not.toEqual(moveAddressesBefore);
+      expect(await redeal.getAttribute("data-deal-address")).not.toBe(dealAddressBefore);
+      await expect(page.locator("#candidateStatus")).toContainText("candidate family unchanged");
 
       const actionBox = await actions.boundingBox();
+      const moveBox = await movePanel.boundingBox();
       const cardBoxes = await cards.evaluateAll((items) => items.map((item) => {
         const box = item.getBoundingClientRect();
         return { top: box.top, bottom: box.bottom };
       }));
-      expect(Math.max(...cardBoxes.map(({ bottom }) => bottom))).toBeLessThanOrEqual(actionBox.y);
+      expect(Math.max(...cardBoxes.map(({ bottom }) => bottom))).toBeLessThanOrEqual(moveBox.y);
+      expect(moveBox.y + moveBox.height).toBeLessThanOrEqual(actionBox.y);
 
       const before = await surface.evaluate((element) => {
         const box = element.getBoundingClientRect();
@@ -183,7 +210,7 @@ for (const state of ["beta-home", "beta-history"]) {
       await expect(page.locator("#recentToastsWindow")).toBeHidden();
     }
 
-    // Home candidate is the same candidate: choosing it opens the focused #179 room.
+    // Home candidate is the same candidate: choosing it opens the focused candidate room.
     await page.locator("#betaSixUpGrid .beta-six-up-cell").first().click();
     await expect(page.locator(".candidate-modal")).not.toHaveClass(/is-hidden/);
     const surface = page.locator(".candidate-surface");
