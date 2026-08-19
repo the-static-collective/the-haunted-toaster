@@ -43,17 +43,16 @@ test("candidate UI sends no Toast Feel pressure until the human explicitly choos
 test("move proposals stay a renderer-local deterministic projection with no preload or IPC authority", () => {
   const preload = source("src/preload.cjs");
   const session = source("src/candidate-session.cjs");
-  const html = source("src/renderer/index.html");
+  const ui = source("src/renderer/candidate-ui.js");
   const wrapper = source("src/candidate-move-deck.cjs");
+  const witnessBuilder = source("scripts/build-ui-witness.cjs");
 
   assert.doesNotMatch(preload, /candidate-move-deck|candidate:deal-moves|dealCandidateMoves/);
   assert.doesNotMatch(session, /candidate:deal-moves/);
-  assert.match(html, /src="\.\/candidate-move-deck\.js"/);
-  assert.ok(
-    html.indexOf('./candidate-move-deck.js') < html.indexOf('./candidate-ui.js'),
-    "move dealer must load before candidate UI",
-  );
+  assert.match(ui, /script\.src\s*=\s*"\.\/candidate-move-deck\.js"/);
+  assert.match(ui, /window\.candidateMoveDeck\?\.dealCandidateMoves/);
   assert.match(wrapper, /require\("\.\/renderer\/candidate-move-deck\.js"\)/);
+  assert.match(witnessBuilder, /"candidate-move-deck\.js"/);
 });
 
 test("candidate UI replaces the verb toolbar with one contextual second six-up", () => {
