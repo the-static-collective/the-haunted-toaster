@@ -87,6 +87,47 @@ test("consumes repeated chorus lines in chronological order", () => {
   );
 });
 
+test("keeps a strongly witnessed lyric after a long instrumental gap", () => {
+  const result = alignLyricsToTranscript(
+    ["First witness stands", "The porch light stays"].join("\n"),
+    {
+      segments: [
+        { start: 1, end: 2, text: "first witness stands", confidence: 0.96 },
+        { start: 25, end: 26, text: "the porch light stays", confidence: 0.96 },
+      ],
+    },
+    30,
+  );
+
+  assert.equal(result.cues[0].start, 1);
+  assert.equal(result.cues[1].status, "high");
+  assert.equal(result.cues[1].start, 25);
+});
+
+test("rechecks a weak lyric after a long gap and lets the following line recover", () => {
+  const result = alignLyricsToTranscript(
+    [
+      "First witness stands",
+      "The spoon remembers",
+      "The porch light stays",
+    ].join("\n"),
+    {
+      segments: [
+        { start: 1, end: 2, text: "first witness stands", confidence: 0.96 },
+        { start: 25, end: 25.8, text: "we remember", confidence: 0.86 },
+        { start: 26, end: 27, text: "the porch light stays", confidence: 0.96 },
+      ],
+    },
+    30,
+  );
+
+  assert.equal(result.cues[0].start, 1);
+  assert.equal(result.cues[1].status, "unmatched");
+  assert.equal(result.cues[1].start, null);
+  assert.equal(result.cues[2].status, "high");
+  assert.equal(result.cues[2].start, 26);
+});
+
 test("can place Listener entrances slightly ahead without changing transcript evidence", () => {
   const result = alignLyricsToTranscript(
     "The porch light stays",
