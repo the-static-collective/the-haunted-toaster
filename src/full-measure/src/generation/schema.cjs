@@ -12,7 +12,7 @@ const PROFILE_SCHEMA = "haunted-toaster/renderer-profile/v1";
 const ANALYSIS_SCHEMA = "haunted-toaster/audio-analysis-fixture/v1";
 const TIMELINE_SCHEMA = "haunted-toaster/resolved-timeline/v1";
 
-const TOPOLOGIES = Object.freeze(["linear", "circle", "mirrored-ring", "spiral", "quad-mirror"]);
+const TOPOLOGIES = Object.freeze(["linear", "circle", "mirrored-ring", "spiral", "quad-mirror", "elastic-spine", "split-horizon", "cathedral-fan", "echo-tunnel"]);
 const MOTION_GRAMMARS = Object.freeze(["still", "drift", "pulse", "orbit", "fracture"]);
 const PALETTE_LOGICS = Object.freeze(["garment", "analogous", "split-complement", "duotone"]);
 const MATERIAL_TEXTURES = Object.freeze(["clean", "grain", "photocopy", "gate-weave"]);

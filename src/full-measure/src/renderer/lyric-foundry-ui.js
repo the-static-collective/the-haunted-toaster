@@ -203,7 +203,7 @@
       pendingBeforeEvidence = previousEvidence;
       pendingAnchorCount = anchors.length;
       api.stageListenerEvidence?.({ anchors, previousEvidence });
-      listenCloser?.click();
+      window.dispatchEvent(new CustomEvent("haunted-listener-relisten"));
     });
   }
 

@@ -46,7 +46,7 @@ test('canonical candidate session owns the bounded Video/VSPantry integration se
   assert.match(source, /process\.versions\?\.electron/);
   assert.match(source, /ipcMain\.handle\("candidate:stomp"/);
   assert.match(source, /createLyricTrack/);
-  assert.match(source, /const openField = require\("\.\.\/constraints\/open-field\.v1\.json"\)/);
+  assert.match(source, /const openField = require\("\.\.\/constraints\/open-field\.v3\.json"\)/);
 });
 
 test('preload exposes Video and VSPantry methods without filesystem authority', () => {

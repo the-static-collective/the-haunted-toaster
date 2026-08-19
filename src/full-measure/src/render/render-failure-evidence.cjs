@@ -2,6 +2,7 @@ const crypto = require("node:crypto");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const { canonicalStringify } = require("../generation/index.cjs");
+const { promoteTopologyResponseEvidence } = require("./visual-compiler-evidence.cjs");
 
 const RENDER_FAILURE_EVIDENCE_SCHEMA = "full-measure.render-failure.v1";
 
@@ -11,11 +12,7 @@ function portableBasename(value) {
 
 function looksAbsolutePath(value) {
   if (typeof value !== "string" || !value) return false;
-  return (
-    path.isAbsolute(value) ||
-    /^[A-Za-z]:[\\/]/.test(value) ||
-    /^\\\\/.test(value)
-  );
+  return path.isAbsolute(value) || /^[A-Za-z]:[\\/]/.test(value) || /^\\\\/.test(value);
 }
 
 function sanitizeFfmpegArg(value) {
@@ -24,15 +21,8 @@ function sanitizeFfmpegArg(value) {
 
 function sanitizeMediaEvidence(media) {
   if (!media || typeof media !== "object") return null;
-  const {
-    path: ignoredPath,
-    filename,
-    ...rest
-  } = media;
-  return {
-    filename: portableBasename(filename || ignoredPath),
-    ...rest,
-  };
+  const { path: ignoredPath, filename, ...rest } = media;
+  return { filename: portableBasename(filename || ignoredPath), ...rest };
 }
 
 function compactBuildInfo(buildInfo) {
@@ -83,10 +73,7 @@ async function writeRenderFailureBundle({
 
   const directory = `${outputPath}.render-failure`;
   const graph = await fs.readFile(filterPath, "utf8");
-  const graphSha256 = crypto
-    .createHash("sha256")
-    .update(graph, "utf8")
-    .digest("hex");
+  const graphSha256 = crypto.createHash("sha256").update(graph, "utf8").digest("hex");
   const processFailure = error.processFailure;
   const timeline = resolvedTimeline || {};
 
@@ -94,10 +81,7 @@ async function writeRenderFailureBundle({
     schema: RENDER_FAILURE_EVIDENCE_SCHEMA,
     jobId: jobId || null,
     createdAt: new Date().toISOString(),
-    startedAt:
-      startedAt instanceof Date
-        ? startedAt.toISOString()
-        : startedAt || null,
+    startedAt: startedAt instanceof Date ? startedAt.toISOString() : startedAt || null,
     build: compactBuildInfo(buildInfo),
     process: {
       binary: portableBasename(processFailure.binary),
@@ -119,15 +103,13 @@ async function writeRenderFailureBundle({
     },
     render: {
       graphSha256,
-      visualCompiler: visualCompiler || null,
+      visualCompiler: promoteTopologyResponseEvidence(visualCompiler || null),
     },
   };
 
   const argsEvidence = {
     binary: portableBasename(processFailure.binary),
-    args: Array.isArray(ffmpegArgs)
-      ? ffmpegArgs.map(sanitizeFfmpegArg)
-      : [],
+    args: Array.isArray(ffmpegArgs) ? ffmpegArgs.map(sanitizeFfmpegArg) : [],
   };
 
   await fs.rm(directory, { recursive: true, force: true });
@@ -136,26 +118,10 @@ async function writeRenderFailureBundle({
   await Promise.all([
     fs.writeFile(path.join(directory, "failure.json"), jsonText(failure), "utf8"),
     fs.writeFile(path.join(directory, "render.ffgraph"), graph, "utf8"),
-    fs.writeFile(
-      path.join(directory, "visual-score.json"),
-      canonicalArtifactText(visualScore),
-      "utf8",
-    ),
-    fs.writeFile(
-      path.join(directory, "resolved-timeline.json"),
-      canonicalArtifactText(resolvedTimeline),
-      "utf8",
-    ),
-    fs.writeFile(
-      path.join(directory, "ffmpeg-args.json"),
-      jsonText(argsEvidence),
-      "utf8",
-    ),
-    fs.writeFile(
-      path.join(directory, "ffmpeg.stderr.log"),
-      processFailure.stderr || "",
-      "utf8",
-    ),
+    fs.writeFile(path.join(directory, "visual-score.json"), canonicalArtifactText(visualScore), "utf8"),
+    fs.writeFile(path.join(directory, "resolved-timeline.json"), canonicalArtifactText(resolvedTimeline), "utf8"),
+    fs.writeFile(path.join(directory, "ffmpeg-args.json"), jsonText(argsEvidence), "utf8"),
+    fs.writeFile(path.join(directory, "ffmpeg.stderr.log"), processFailure.stderr || "", "utf8"),
   ]);
 
   return Object.freeze({

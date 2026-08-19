@@ -43,7 +43,8 @@ test("an ordinary Toast Feel deterministically biases a complete six-up family",
   assert.deepEqual(first.timelineHashes, second.timelineHashes);
   assert.equal(first.familyHash, second.familyHash);
   assert.equal(first.toastFeel.id, "risky-hybrid");
-  assert.equal(first.toastFeel.contractVersion, "toast-feel-v1");
+  assert.equal(first.toastFeel.contractVersion, "toast-feel-v2");
+  assert.match(first.toastFeel.affinityHash, /^[0-9a-f]{64}$/);
   assert.match(first.toastFeel.pressureHash, /^[0-9a-f]{64}$/);
   assert.equal(first.candidates.length, 6);
   for (const candidate of first.candidates) {

@@ -39,7 +39,7 @@ test("UI witness is generated from production renderer assets", (t) => {
   assert.match(generated, /"version":"0\.5\.0-alpha\.8"/);
   for (const capability of [
     "uiWitnessV1",
-    "toastFeelV1",
+    "toastFeelV2",
     "nativeColorWitnessV1",
     "renderFailureEvidenceV1",
   ]) {
