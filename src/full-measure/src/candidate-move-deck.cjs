@@ -51,6 +51,13 @@ function normalizeCandidates(candidates) {
 function canonicalContext(context = {}) {
   const familyHash = assertNonEmptyString(context.familyHash, "Current family hash");
   const candidates = normalizeCandidates(context.candidates);
+  const selectedSupplied =
+    context.selectedIndex !== undefined &&
+    context.selectedIndex !== null &&
+    context.selectedIndex !== "";
+  if (!selectedSupplied) {
+    throw new TypeError("Choose a current candidate before dealing moves.");
+  }
   const selectedIndex = Number(context.selectedIndex);
   const selected = candidates.find((candidate) => candidate.index === selectedIndex);
   if (!Number.isInteger(selectedIndex) || !selected) {
