@@ -18,6 +18,7 @@
   let sequence = 0;
   let busy = false;
   let acceptedSelection = null;
+  let crossParents = [];
 
   const garmentPanel = document.querySelector(".garment-panel");
   const shapeCard = document.querySelector("#timeline")?.closest(".shape-card");
@@ -61,12 +62,14 @@
       <div class="candidate-grid" id="candidateGrid"></div>
       <footer class="candidate-actions">
         <div class="candidate-locks" id="candidateLocks">
-          <span>Lock before mutating</span>
+          <span>Lock before mutating or crossing</span>
           <div class="candidate-lock-list"></div>
         </div>
         <div class="candidate-action-buttons">
           <button class="candidate-mutate" id="candidateMutate" type="button" disabled>Mutate six descendants</button>
           <button class="candidate-mutate" id="candidateConverge" type="button" disabled title="Push the selected creature into underexplored lawful territory">CONVERGE · push this creature</button>
+          <button class="candidate-mutate" id="candidateCrossMark" type="button" disabled>Mark CROSS parent</button>
+          <button class="candidate-mutate" id="candidateCross" type="button" disabled>CROSS A + B</button>
           <span class="candidate-stomp-control">
             <button class="candidate-mutate candidate-stomp" id="candidateStomp" type="button" disabled>STOMP</button>
             <small id="candidateStompHelp">Bored? Floor the next six.</small>
@@ -83,6 +86,8 @@
   const regenerate = modal.querySelector("#candidateRegenerate");
   const mutate = modal.querySelector("#candidateMutate");
   const converge = modal.querySelector("#candidateConverge");
+  const crossMark = modal.querySelector("#candidateCrossMark");
+  const cross = modal.querySelector("#candidateCross");
   const stomp = modal.querySelector("#candidateStomp");
   const use = modal.querySelector("#candidateUse");
   const lockList = modal.querySelector(".candidate-lock-list");
@@ -99,6 +104,10 @@
 
   function currentToastFeelId() {
     return window.toastFeel?.getToastFeelId();
+  }
+
+  function currentCandidateToastFeelId() {
+    return window.toastFeel?.getCandidateToastFeelId?.() ?? null;
   }
 
   function shortAddress(address) {
@@ -120,14 +129,14 @@
   function nextRootSeed(kind) {
     sequence += 1;
     const song = audioTitle.textContent.trim().replace(/\s+/g, "-").slice(0, 80) || "song";
-    return `local-six-up:openField:${currentToastFeelId() || "unselected"}:${song}:${kind}:${sequence}`;
+    return `local-six-up:openField:${currentCandidateToastFeelId() || "unselected"}:${song}:${kind}:${sequence}`;
   }
 
   function configFor(kind) {
     return {
       rootSeed: nextRootSeed(kind),
       presetId: "openField",
-      toastFeelId: currentToastFeelId(),
+      toastFeelId: currentCandidateToastFeelId(),
       title: document.querySelector("#titleInput")?.value || "",
       artist: document.querySelector("#artistInput")?.value || "",
       lyrics: document.querySelector("#lyricsInput")?.value || "",
@@ -147,6 +156,24 @@
       .join(" × ");
   }
 
+  function updateCrossUi() {
+    crossMark.disabled = busy || selectedIndex === null;
+    cross.disabled = busy || crossParents.length !== 2;
+    const selectedIsParent = selectedIndex !== null && crossParents.includes(selectedIndex);
+    crossMark.textContent = selectedIsParent ? "Unmark CROSS parent" : "Mark CROSS parent";
+    for (const card of grid.querySelectorAll(".candidate-card")) {
+      const index = Number(card.dataset.index);
+      const parentPosition = crossParents.indexOf(index);
+      if (parentPosition >= 0) {
+        card.dataset.crossParent = parentPosition === 0 ? "A" : "B";
+        card.title = `CROSS parent ${parentPosition === 0 ? "A" : "B"}`;
+      } else {
+        delete card.dataset.crossParent;
+        card.removeAttribute("title");
+      }
+    }
+  }
+
   function setBusy(nextBusy, message) {
     busy = nextBusy;
     regenerate.disabled = nextBusy;
@@ -155,6 +182,7 @@
     stomp.disabled = nextBusy || selectedIndex === null;
     use.disabled = nextBusy || selectedIndex === null;
     launch.disabled = nextBusy;
+    updateCrossUi();
     if (message) status.textContent = message;
     modal.classList.toggle("is-busy", nextBusy);
   }
@@ -176,14 +204,18 @@
     family = null;
     selectedIndex = null;
     acceptedSelection = null;
+    crossParents = [];
     grid.replaceChildren();
     status.textContent = "Generate six to begin.";
     mutate.disabled = true;
     converge.disabled = true;
+    crossMark.disabled = true;
+    cross.disabled = true;
     stomp.disabled = true;
     use.disabled = true;
     launch.querySelector("strong").textContent = "Generate six visions";
     for (const input of lockList.querySelectorAll("input")) input.checked = false;
+    updateCrossUi();
     updateRenderLabel();
     if (notifyMain) api.clearCandidates().catch(() => {});
   }
@@ -212,6 +244,7 @@
     converge.disabled = busy;
     stomp.disabled = busy;
     use.disabled = busy;
+    updateCrossUi();
     const candidate = family?.candidates?.find((item) => item.index === index);
     if (candidate) status.textContent = `Candidate ${index + 1} selected · ${candidate.signature}`;
     updateRenderLabel();
@@ -221,6 +254,7 @@
     family = view;
     selectedIndex = null;
     acceptedSelection = null;
+    crossParents = [];
     grid.replaceChildren();
     updateRenderLabel();
 
@@ -231,13 +265,14 @@
       card.dataset.index = String(candidate.index);
       card.setAttribute("aria-pressed", "false");
       const changed = candidate.changedAxes?.length ? candidate.changedAxes.join(" · ") : "baseline";
+      const lane = candidate.toastmoodLane?.name ? ` · ${candidate.toastmoodLane.name}` : "";
       card.innerHTML = `
         <span class="candidate-image-wrap">
           <img src="${candidate.thumbnailDataUrl}" alt="Candidate ${candidate.index + 1} exact timeline preview" />
           <b>${candidate.index + 1}</b>
         </span>
         <span class="candidate-copy">
-          <small>${roleLabel(candidate.role)}</small>
+          <small>${roleLabel(candidate.role)}${lane}</small>
           <strong>${candidate.signature}</strong>
           <em>${changed}</em>
           <code>${shortAddress(candidate.scoreAddress)}</code>
@@ -251,11 +286,16 @@
     const frontier = frontierSummary(view);
     status.textContent = frontier
       ? `CONVERGE · underexplored ${frontier} · choose one.`
-      : `${view.producedCount} exact previews ready${shortfall}. Choose one.`;
+      : view.cross?.policy
+        ? `CROSS · ${view.producedCount} exact two-parent descendants ready. Choose one.`
+        : view.toastmoodField?.policy
+          ? `Field · ${view.producedCount} distinct Toastmood lanes ready${shortfall}. Choose one.`
+          : `${view.producedCount} exact previews ready${shortfall}. Choose one.`;
     mutate.disabled = true;
     converge.disabled = !(view.candidates || []).length;
     stomp.disabled = true;
     use.disabled = true;
+    updateCrossUi();
   }
 
   async function generateSix() {
@@ -266,7 +306,13 @@
       return;
     }
     openModal();
-    setBusy(true, "Compiling six exact timeline previews…");
+    const pressure = currentCandidateToastFeelId();
+    setBusy(
+      true,
+      pressure
+        ? `Compiling six exact previews with ${currentToastFeelId()} pressure…`
+        : "Compiling six exact previews across the Toastmood field…",
+    );
     try {
       renderFamily(await api.generateCandidates(configFor("generate")));
     } catch (error) {
@@ -305,6 +351,49 @@
     }
   }
 
+  function markCrossParent() {
+    if (busy || selectedIndex === null) return;
+    const existing = crossParents.indexOf(selectedIndex);
+    if (existing >= 0) {
+      crossParents.splice(existing, 1);
+      status.textContent = crossParents.length
+        ? `CROSS parent A is candidate ${crossParents[0] + 1}. Choose parent B.`
+        : "No CROSS parents marked.";
+      updateCrossUi();
+      return;
+    }
+    if (crossParents.length >= 2) {
+      status.textContent = "CROSS already has exactly two parents. Unmark one before replacing it.";
+      return;
+    }
+    crossParents.push(selectedIndex);
+    status.textContent = crossParents.length === 2
+      ? `CROSS parents A/B ready: candidates ${crossParents[0] + 1} + ${crossParents[1] + 1}.`
+      : `CROSS parent A is candidate ${selectedIndex + 1}. Choose parent B.`;
+    updateCrossUi();
+  }
+
+  async function crossSix() {
+    if (busy || !family) return;
+    if (crossParents.length !== 2) {
+      status.textContent = "Mark exactly two current candidates before CROSS.";
+      return;
+    }
+    setBusy(true, "CROSS: composing six deterministic two-parent descendants…");
+    try {
+      renderFamily(await api.crossCandidates({
+        ...configFor("cross"),
+        familyHash: family.familyHash,
+        parentIndexes: [...crossParents],
+        locks: selectedLocks(),
+      }));
+    } catch (error) {
+      status.textContent = error?.message || String(error);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function stompSix() {
     if (busy || !family || selectedIndex === null) return;
     setBusy(true, "STOMP: riding the rails for six stranger descendants…");
@@ -322,6 +411,21 @@
     }
   }
 
+  function bindElectedFieldFeel(selection) {
+    if (!selection?.toastFeel || currentCandidateToastFeelId()) return;
+    const evidence = {
+      id: selection.toastFeel.id,
+      name: selection.toastFeel.name,
+      contractVersion: selection.toastFeel.contractVersion,
+      semanticClass: selection.toastFeel.semanticClass,
+      source: "candidate-lane",
+    };
+    window.dispatchEvent(new CustomEvent("candidate-toast-feel-binding", { detail: evidence }));
+    window.dispatchEvent(new CustomEvent("toast-feel-change", {
+      detail: { ...evidence, name: `Field · ${evidence.name}` },
+    }));
+  }
+
   async function useSelected() {
     if (busy || !family || selectedIndex === null) return;
     setBusy(true, "Binding the exact winner to production render…");
@@ -329,6 +433,7 @@
       acceptedSelection = await api.selectCandidate({ familyHash: family.familyHash, index: selectedIndex });
       const candidate = family.candidates.find((item) => item.index === selectedIndex);
       launch.querySelector("strong").textContent = `Chosen · ${shortAddress(candidate?.scoreAddress)}`;
+      bindElectedFieldFeel(acceptedSelection);
       updateRenderLabel();
       status.textContent = "Exact winner bound. Production render will consume this accepted timeline.";
       closeModal(true);
@@ -347,6 +452,8 @@
   regenerate.addEventListener("click", generateSix);
   mutate.addEventListener("click", () => mutateSix(false));
   converge.addEventListener("click", () => mutateSix(true));
+  crossMark.addEventListener("click", markCrossParent);
+  cross.addEventListener("click", crossSix);
   stomp.addEventListener("click", stompSix);
   use.addEventListener("click", useSelected);
   for (const close of modal.querySelectorAll("[data-candidate-close]")) close.addEventListener("click", closeModal);
@@ -354,7 +461,10 @@
     if (event.key === "Escape" && !modal.classList.contains("is-hidden")) closeModal();
   });
 
-  window.addEventListener("toast-feel-change", () => clearUi());
+  window.addEventListener("toast-feel-change", (event) => {
+    if (event.detail?.source === "candidate-lane") return;
+    clearUi();
+  });
   document.querySelector("#removeImage")?.addEventListener("click", () => {
     api.clearCandidateImage().catch(() => {});
     clearUi({ notifyMain: false });

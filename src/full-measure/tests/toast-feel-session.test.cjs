@@ -109,12 +109,14 @@ test("candidate session never analyzes or invents Native Color without an image"
   assert.equal(previewFamilies.at(-1).nativeColor, undefined);
 });
 
-test("candidate session rejects missing and unknown Toast Feel ids", async () => {
+test("candidate session accepts field generation without preselection and still rejects unknown Toast Feel ids", async () => {
   const { session } = sessionFixture();
-  await assert.rejects(() => session.generate({
+  const field = await session.generate({
     presetId: "openField",
-    rootSeed: "missing-toast",
-  }), /Unknown Toast Feel/);
+    rootSeed: "missing-toast-now-field",
+  });
+  assert.equal(field.toastFeel, null);
+  assert.equal(field.toastmoodField.policy, "toastmood-field-v1");
   await assert.rejects(() => session.generate({
     presetId: "openField",
     toastFeelId: "hot-garbage",

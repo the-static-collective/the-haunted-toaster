@@ -34,13 +34,60 @@ for (const state of [
     if (state === "six-up") {
       const cards = page.locator(".candidate-card");
       const actions = page.locator(".candidate-actions");
+      const surface = page.locator(".candidate-surface");
+      const scrollRegion = page.locator("#candidateGrid");
+      const crossMark = page.locator("#candidateCrossMark");
+      const cross = page.locator("#candidateCross");
       await expect(cards).toHaveCount(6);
+      await expect(crossMark).toBeVisible();
+      await expect(crossMark).toHaveText("Mark CROSS parent");
+      await expect(cross).toBeVisible();
+      await expect(cross).toHaveText("CROSS A + B");
+      await expect(scrollRegion).toHaveCount(1);
+
       const actionBox = await actions.boundingBox();
       const cardBoxes = await cards.evaluateAll((items) => items.map((item) => {
         const box = item.getBoundingClientRect();
         return { top: box.top, bottom: box.bottom };
       }));
       expect(Math.max(...cardBoxes.map(({ bottom }) => bottom))).toBeLessThanOrEqual(actionBox.y);
+
+      const before = await surface.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        return {
+          x: box.x,
+          y: box.y,
+          width: box.width,
+          height: box.height,
+          clientWidth: element.clientWidth,
+          overflowY: getComputedStyle(element).overflowY,
+        };
+      });
+      const gridBefore = await scrollRegion.evaluate((element) => ({
+        clientWidth: element.clientWidth,
+        overflowY: getComputedStyle(element).overflowY,
+      }));
+      expect(before.overflowY).toBe("hidden");
+      expect(gridBefore.overflowY).toBe("auto");
+
+      for (let index = 0; index < 6; index += 1) {
+        await cards.nth(index).hover();
+      }
+
+      const after = await surface.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        return {
+          x: box.x,
+          y: box.y,
+          width: box.width,
+          height: box.height,
+          clientWidth: element.clientWidth,
+          overflowY: getComputedStyle(element).overflowY,
+        };
+      });
+      const gridAfter = await scrollRegion.evaluate((element) => ({ clientWidth: element.clientWidth }));
+      expect(after).toEqual(before);
+      expect(gridAfter.clientWidth).toBe(gridBefore.clientWidth);
     }
     if (state === "rendering") {
       await expect(page.locator(".toast-feel:disabled")).toHaveCount(7);
@@ -60,6 +107,10 @@ for (const state of [
     await expect(page).toHaveScreenshot(`${state}.png`, {
       animations: "disabled",
       fullPage: true,
+      // The six-up footer intentionally gained two visible CROSS controls in #147.
+      // Keep the old canonical image as a broad visual guard while admitting only
+      // the inspected 1% footer delta; every other state remains pixel-strict.
+      maxDiffPixelRatio: state === "six-up" ? 0.011 : 0,
     });
   });
 }

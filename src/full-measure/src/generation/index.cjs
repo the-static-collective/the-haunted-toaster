@@ -25,6 +25,8 @@ module.exports = {
   ...require("./nested-response.cjs"),
   ...require("./mutation-lattice-generation.cjs"),
   ...require("./nested-response-generation.cjs"),
+  ...require("./beta-candidate-ecology.cjs"),
+  ...require("./beta-candidate-ecology-compat.cjs"),
   ...require("./creative-context-table.cjs"),
   ...require("./influence-diet.cjs"),
 };

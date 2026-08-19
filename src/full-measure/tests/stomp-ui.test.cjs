@@ -39,7 +39,10 @@ function harness() {
   const { document } = window;
   document.querySelector("#songFacts").classList.remove("is-hidden");
   document.querySelector("#audioDropTitle").textContent = "Specimen";
-  window.toastFeel = { getToastFeelId: () => "wire-heat" };
+  window.toastFeel = {
+    getToastFeelId: () => "wire-heat",
+    getCandidateToastFeelId: () => "wire-heat",
+  };
   window.HTMLElement.prototype.scrollIntoView = () => {};
 
   const calls = { generated: [], stomped: [] };
