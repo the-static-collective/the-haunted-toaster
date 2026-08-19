@@ -1,25 +1,24 @@
 (() => {
-  function loadMoveDeck(boot) {
+  function loadMoveDeck(onReady) {
     if (window.candidateMoveDeck?.dealCandidateMoves) {
-      boot();
+      onReady();
       return;
     }
     const existing = document.querySelector('script[data-candidate-move-deck="v1"]');
     if (existing) {
-      existing.addEventListener("load", boot, { once: true });
+      existing.addEventListener("load", onReady, { once: true });
       return;
     }
     const script = document.createElement("script");
     script.src = "./candidate-move-deck.js";
     script.dataset.candidateMoveDeck = "v1";
-    script.addEventListener("load", boot, { once: true });
+    script.addEventListener("load", onReady, { once: true });
     document.head.append(script);
   }
 
   function boot() {
     const api = window.fullMeasure;
-    const moveDeck = window.candidateMoveDeck;
-    if (!api?.generateCandidates || !moveDeck?.dealCandidateMoves) return;
+    if (!api?.generateCandidates) return;
 
     const LOCKABLE_AXES = [
       ["topology", "Topology"],
@@ -202,7 +201,7 @@
     function setBusy(nextBusy, message) {
       busy = nextBusy;
       regenerate.disabled = nextBusy;
-      redeal.disabled = nextBusy || selectedIndex === null;
+      redeal.disabled = nextBusy || selectedIndex === null || !window.candidateMoveDeck?.dealCandidateMoves;
       use.disabled = nextBusy || selectedIndex === null;
       launch.disabled = nextBusy;
       for (const button of moveGrid.querySelectorAll(".candidate-move-card")) button.disabled = nextBusy;
@@ -265,7 +264,12 @@
         renderMoveEmpty();
         return;
       }
-      const deal = moveDeck.dealCandidateMoves(moveDeckContext());
+      const dealer = window.candidateMoveDeck?.dealCandidateMoves;
+      if (!dealer) {
+        renderMoveEmpty("Move deck loading…");
+        return;
+      }
+      const deal = dealer(moveDeckContext());
       moveGrid.replaceChildren();
       for (const proposal of deal.proposals) {
         const button = document.createElement("button");
@@ -299,7 +303,11 @@
       use.disabled = busy;
       renderMoveDeck();
       const candidate = family?.candidates?.find((item) => item.index === index);
-      if (candidate) status.textContent = `Candidate ${index + 1} selected · six lawful moves dealt.`;
+      if (candidate) {
+        status.textContent = window.candidateMoveDeck?.dealCandidateMoves
+          ? `Candidate ${index + 1} selected · six lawful moves dealt.`
+          : `Candidate ${index + 1} selected · move deck loading.`;
+      }
       updateRenderLabel();
     }
 
@@ -496,7 +504,14 @@
         if (family || acceptedSelection) clearUi();
       });
     }
+
+    loadMoveDeck(() => {
+      if (family && selectedIndex !== null) {
+        renderMoveDeck();
+        status.textContent = `Candidate ${selectedIndex + 1} selected · six lawful moves dealt.`;
+      }
+    });
   }
 
-  loadMoveDeck(boot);
+  boot();
 })();
