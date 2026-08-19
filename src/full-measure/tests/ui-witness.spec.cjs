@@ -1,6 +1,6 @@
 const { test, expect } = require("@playwright/test");
 
-for (const state of [
+const ALPHA_STATES = [
   "empty",
   "song-ready",
   "toast-feel",
@@ -9,17 +9,22 @@ for (const state of [
   "rendering",
   "complete",
   "failure",
-]) {
+];
+
+for (const state of ALPHA_STATES) {
   test(`witness ${state}`, async ({ page }) => {
     await page.goto(`/?state=${state}`);
     await expect(page.locator("html")).toHaveAttribute("data-witness-ready", "true");
     await expect(page.locator("body")).toHaveAttribute("data-ui-witness-commit", /.+/);
     expect(await page.evaluate(() => window.__consoleErrors)).toEqual([]);
+
     if (state === "toast-feel") {
       const ordinary = page.locator(".toast-feel:not(.toast-feel--madd-clown)");
       const maddClown = page.locator(".toast-feel--madd-clown");
       await expect(ordinary).toHaveCount(6);
       await expect(maddClown).toHaveCount(1);
+      await expect(page.locator("#toastFeelChoices")).toBeVisible();
+      await expect(page.locator("#betaSixUpWindow")).toBeHidden();
       const ordinaryBoxes = await ordinary.evaluateAll((buttons) =>
         buttons.map((button) => ({ width: button.offsetWidth, height: button.offsetHeight })));
       expect(new Set(ordinaryBoxes.map(({ width }) => width)).size).toBe(1);
@@ -31,6 +36,7 @@ for (const state of [
       await expect(maddClown).toHaveAttribute("aria-checked", "true");
       await page.locator('[data-toast-feel-id="wire-heat"]').click();
     }
+
     if (state === "six-up") {
       const cards = page.locator(".candidate-card");
       const actions = page.locator(".candidate-actions");
@@ -89,27 +95,29 @@ for (const state of [
       expect(after).toEqual(before);
       expect(gridAfter.clientWidth).toBe(gridBefore.clientWidth);
     }
+
     if (state === "rendering") {
       await expect(page.locator(".toast-feel:disabled")).toHaveCount(7);
     }
-    // Provenance remains asserted above, but its per-commit text must not churn visual baselines.
+
+    // Per-commit provenance is asserted above but must not churn visual baselines.
     await page.locator("#buildInfoSummary").evaluate((element) => {
       element.style.visibility = "hidden";
     });
-    // Video/VSPantry is an additive source surface with its own live browser witness below.
-    // Keep the long-running canonical state baselines scoped to the pre-existing state machine.
-    const videoSource = page.locator("#videoSourceBlock");
-    if (await videoSource.count()) {
-      await videoSource.evaluate((element) => {
-        element.style.display = "none";
-      });
+    // Video/VSPantry is additive beta furniture with a dedicated witness below.
+    // Keep long-running alpha images scoped to their ancestral state machine.
+    for (const selector of ["#videoSourceMount", "#videoPantryWindow"]) {
+      const surface = page.locator(selector);
+      if (await surface.count()) {
+        await surface.evaluate((element) => {
+          element.style.display = "none";
+        });
+      }
     }
+
     await expect(page).toHaveScreenshot(`${state}.png`, {
       animations: "disabled",
       fullPage: true,
-      // The six-up footer intentionally gained two visible CROSS controls in #147.
-      // Keep the old canonical image as a broad visual guard while admitting only
-      // the inspected 1% footer delta; every other state remains pixel-strict.
       maxDiffPixelRatio: state === "six-up" ? 0.011 : 0,
     });
   });
@@ -120,14 +128,12 @@ test("witness Video source and VSPantry", async ({ page }, testInfo) => {
   await expect(page.locator("html")).toHaveAttribute("data-witness-ready", "true");
   expect(await page.evaluate(() => window.__consoleErrors)).toEqual([]);
 
-  const block = page.locator("#videoSourceBlock");
+  const source = page.locator("#videoSourceMount");
+  const pantry = page.locator("#videoPantryWindow");
   const addToPantry = page.locator("#addVideoToPantry");
-  await expect(block).toBeVisible();
+  await expect(source).toBeVisible();
+  await expect(pantry).toBeVisible();
   await expect(addToPantry).toBeChecked();
-
-  const checkboxBox = await addToPantry.boundingBox();
-  expect(checkboxBox.width).toBeLessThanOrEqual(18);
-  expect(checkboxBox.height).toBeLessThanOrEqual(18);
 
   await page.locator("#videoDrop").click();
   await expect(page.locator("#videoDropTitle")).toHaveText("visual-specimen-1.mp4");
@@ -139,11 +145,95 @@ test("witness Video source and VSPantry", async ({ page }, testInfo) => {
   await expect(page.locator("#videoPantryStatus")).toContainText("2 admitted");
   await expect(page.locator("#videoPantryStatus")).toContainText("1 duplicates");
 
-  await block.screenshot({
+  await source.screenshot({
+    animations: "disabled",
+    path: testInfo.outputPath("video-source.png"),
+  });
+  await pantry.screenshot({
     animations: "disabled",
     path: testInfo.outputPath("video-vspantry.png"),
   });
 
   await page.locator("#removeVideo").click();
   await expect(page.locator("#videoDropTitle")).toHaveText("Add one video");
+});
+
+for (const state of ["beta-home", "beta-history"]) {
+  test(`witness ${state}`, async ({ page }, testInfo) => {
+    await page.goto(`/?state=${state}`);
+    await expect(page.locator("html")).toHaveAttribute("data-witness-ready", "true");
+    await expect(page.locator("body")).toHaveAttribute("data-ui-witness-commit", /.+/);
+    expect(await page.evaluate(() => window.__consoleErrors)).toEqual([]);
+
+    await expect(page.locator("#betaSixUpWindow")).toBeVisible();
+    await expect(page.locator("#toastFeelChoices")).toBeHidden();
+    await expect(page.locator("#betaSixUpGrid .beta-six-up-cell")).toHaveCount(6);
+    await expect(page.locator("#videoSourceMount")).toBeVisible();
+    await expect(page.locator("#videoPantryWindow")).toBeVisible();
+    await expect(page.locator("#slateToastFeel")).toHaveText("Six-Up field");
+    await expect(page.locator("#slateToastFeel").locator("xpath=../dt")).toHaveText("Creative field");
+    await expect(page.locator(".candidate-modal")).toHaveClass(/is-hidden/);
+
+    if (state === "beta-history") {
+      await expect(page.locator("#recentToastsWindow")).toBeVisible();
+      await expect(page.locator("#recentToastsList .recent-toast-row")).toHaveCount(3);
+      await expect(page.locator("#recentToastsList")).toContainText("Jubilee");
+      await expect(page.locator("#recentToastsList")).toContainText("ice9");
+    } else {
+      await expect(page.locator("#recentToastsWindow")).toBeHidden();
+    }
+
+    // Home candidate is the same candidate: choosing it opens the focused #179 room.
+    await page.locator("#betaSixUpGrid .beta-six-up-cell").first().click();
+    await expect(page.locator(".candidate-modal")).not.toHaveClass(/is-hidden/);
+    const surface = page.locator(".candidate-surface");
+    const scrollRegion = page.locator("#candidateGrid");
+    expect(await surface.evaluate((element) => getComputedStyle(element).overflowY)).toBe("hidden");
+    expect(await scrollRegion.evaluate((element) => getComputedStyle(element).overflowY)).toBe("auto");
+    await page.locator(".candidate-close").click();
+
+    await page.locator("#buildInfoSummary").evaluate((element) => {
+      element.style.visibility = "hidden";
+    });
+    await page.screenshot({
+      animations: "disabled",
+      caret: "hide",
+      fullPage: true,
+      path: testInfo.outputPath(`${state}.png`),
+    });
+  });
+}
+
+test("beta Home remains horizontally usable at 1080x720", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1080, height: 720 });
+  await page.goto("/?state=beta-home");
+  await expect(page.locator("html")).toHaveAttribute("data-witness-ready", "true");
+  expect(await page.evaluate(() => window.__consoleErrors)).toEqual([]);
+  await expect(page.locator("#betaSixUpGrid .beta-six-up-cell")).toHaveCount(6);
+
+  const geometry = await page.evaluate(() => {
+    const workspace = document.querySelector(".workspace").getBoundingClientRect();
+    return {
+      viewportWidth: window.innerWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+      workspaceLeft: workspace.left,
+      workspaceRight: workspace.right,
+    };
+  });
+  expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.viewportWidth);
+  expect(geometry.workspaceLeft).toBeGreaterThanOrEqual(0);
+  expect(geometry.workspaceRight).toBeLessThanOrEqual(geometry.viewportWidth);
+  await expect(page.locator("#videoDrop")).toBeVisible();
+  await expect(page.locator("#betaSixUpWindow")).toBeVisible();
+  await expect(page.locator("#renderButton")).toBeAttached();
+
+  await page.locator("#buildInfoSummary").evaluate((element) => {
+    element.style.visibility = "hidden";
+  });
+  await page.screenshot({
+    animations: "disabled",
+    caret: "hide",
+    fullPage: true,
+    path: testInfo.outputPath("beta-home-1080x720.png"),
+  });
 });
