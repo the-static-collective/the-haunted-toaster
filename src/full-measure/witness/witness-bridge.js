@@ -3,6 +3,9 @@
   let renderMode = "complete";
   let currentVideo = null;
   const pantrySpecimens = [];
+  const requestedState = new URLSearchParams(window.location.search).get("state") || "empty";
+  const betaHomeState = requestedState === "beta-home" || requestedState === "beta-history";
+  const betaHistoryState = requestedState === "beta-history";
 
   function subscribe(channel, callback) {
     const callbacks = listeners.get(channel) || [];
@@ -28,6 +31,10 @@
       requestedCount: 6,
       producedCount: 6,
       shortfall: false,
+      toastmoodField: betaHomeState ? {
+        policy: "toastmood-field-v1",
+        mandatoryPreselection: false,
+      } : null,
       candidates: roles.map((role, index) => ({
         index,
         role,
@@ -35,6 +42,9 @@
         scoreAddress: `htvs1_ui_witness_${String(index + 1).padStart(2, "0")}`,
         thumbnailDataUrl: thumbnail(index),
         changedAxes: index ? ["motion", "palette", "material"].slice(0, 1 + (index % 3)) : [],
+        toastmoodLane: betaHomeState
+          ? { id: `witness-lane-${index + 1}`, name: `Witness lane ${index + 1}` }
+          : null,
         frontierEvidence: role === "converge-frontier"
           ? { selectedFrontierTarget: { topology: "mirrored-ring", motionGrammar: "fracture", materialTexture: "photocopy" } }
           : null,
@@ -91,6 +101,33 @@
     return true;
   }
 
+  const RECENT_TOASTS = Object.freeze([
+    Object.freeze({
+      id: "toast-jubilee",
+      title: "Jubilee",
+      rating: 5,
+      disposition: "keep",
+      mediaAvailable: true,
+      receiptAvailable: true,
+    }),
+    Object.freeze({
+      id: "toast-ice9",
+      title: "ice9",
+      rating: 4,
+      disposition: "weird",
+      mediaAvailable: true,
+      receiptAvailable: true,
+    }),
+    Object.freeze({
+      id: "toast-danco",
+      title: "release (DANCO)",
+      rating: 5,
+      disposition: "keep",
+      mediaAvailable: true,
+      receiptAvailable: true,
+    }),
+  ]);
+
   const commit = document.body.dataset.uiWitnessCommit || "local";
   const buildInfo = Object.freeze({
     version: "unknown",
@@ -101,6 +138,16 @@
     ...(window.__uiWitnessBuildInfo || {}),
     commit,
   });
+
+  function witnessBuildInfo() {
+    const info = structuredClone(buildInfo);
+    const capabilities = new Set(Array.isArray(info.capabilities) ? info.capabilities : []);
+    if (betaHomeState) capabilities.add("betaCandidateEcologyV1");
+    else capabilities.delete("betaCandidateEcologyV1");
+    info.capabilities = [...capabilities];
+    return info;
+  }
+
   window.__consoleErrors = [];
   window.addEventListener("error", (event) => window.__consoleErrors.push(String(event.error?.message || event.message)));
   window.addEventListener("unhandledrejection", (event) => window.__consoleErrors.push(String(event.reason?.message || event.reason)));
@@ -181,6 +228,7 @@
     cancelLyricSync: async () => {},
     generateCandidates: async () => candidateFamily(),
     mutateCandidates: async () => candidateFamily(),
+    crossCandidates: async () => candidateFamily(),
     stompCandidates: async () => candidateFamily(),
     selectCandidate: async ({ index }) => ({ familyHash: "ui-witness-family-v1", index }),
     clearCandidates: async () => {},
@@ -199,8 +247,13 @@
     revealFile: async () => {},
     openFile: async () => {},
     getVersion: async () => buildInfo.version,
-    getBuildInfo: async () => structuredClone(buildInfo),
+    getBuildInfo: async () => witnessBuildInfo(),
     getToastFeels: async () => structuredClone(window.__uiWitnessToastFeels || []),
+    ...(betaHistoryState ? {
+      listPastToasts: async ({ limit = 3 } = {}) => structuredClone(RECENT_TOASTS.slice(0, Math.min(3, Number(limit) || 3))),
+      openPastToast: async () => true,
+      openPastToasts: async () => true,
+    } : {}),
     pathForFile: () => "",
     onProgress: (callback) => subscribe("progress", callback),
     onPhase: (callback) => subscribe("phase", callback),
