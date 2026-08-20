@@ -39,13 +39,16 @@ function registerVideoPantryIpc({
     };
   });
 
-  ipcMain.handle("dialog:choose-video-folder", async () => {
+  ipcMain.handle("dialog:choose-video-folder", async (event) => {
     const result = await dialog.showOpenDialog(getMainWindow(), {
       title: "Import video specimens into VSPantry",
       properties: ["openDirectory"],
     });
     if (result.canceled) return null;
-    return admitVideoFolderImpl(result.filePaths[0], { catalogPath: catalogPath() });
+    return admitVideoFolderImpl(result.filePaths[0], {
+      catalogPath: catalogPath(),
+      onProgress: (progress) => event?.sender?.send?.("video-pantry:import-progress", progress),
+    });
   });
 
   ipcMain.handle("video-pantry:list", () => loadCatalogImpl(catalogPath()));
