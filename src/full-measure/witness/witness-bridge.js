@@ -165,12 +165,42 @@
       };
     },
     chooseVideoFolder: async () => {
+      publish("video-pantry-import", {
+        phase: "discovered",
+        total: 3,
+        index: 0,
+        filename: null,
+        admitted: 0,
+        duplicates: 0,
+        refused: 0,
+      });
+      publish("video-pantry-import", {
+        phase: "processing",
+        total: 3,
+        index: 1,
+        filename: "visual-specimen-1.mp4",
+        admitted: 0,
+        duplicates: 0,
+        refused: 0,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
       let admitted = 0;
       let duplicates = 0;
       for (const index of [1, 2, 3]) {
         if (addWitnessPantrySpecimen(witnessVideoBinding({ persisted: true, index }))) admitted += 1;
         else duplicates += 1;
       }
+      publish("video-pantry-import", {
+        phase: "complete",
+        total: 3,
+        index: 3,
+        filename: null,
+        admitted,
+        duplicates,
+        refused: 0,
+        catalogSize: pantrySpecimens.length,
+      });
       return {
         admitted,
         duplicates,
@@ -257,6 +287,7 @@
     pathForFile: () => "",
     onProgress: (callback) => subscribe("progress", callback),
     onPhase: (callback) => subscribe("phase", callback),
+    onVideoPantryImportProgress: (callback) => subscribe("video-pantry-import", callback),
     onListenerInstallProgress: (callback) => subscribe("listener-install", callback),
     onLyricSyncProgress: (callback) => subscribe("lyric-progress", callback),
     onLyricSyncPhase: (callback) => subscribe("lyric-phase", callback),
