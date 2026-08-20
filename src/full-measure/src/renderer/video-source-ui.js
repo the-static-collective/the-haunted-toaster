@@ -27,6 +27,25 @@
     ].filter(Boolean).join(" · ");
   }
 
+  function countLabel(value, singular, plural = `${singular}s`) {
+    const count = Math.max(0, Number(value) || 0);
+    return `${count} ${count === 1 ? singular : plural}`;
+  }
+
+  function formatImportProgress(progress = {}) {
+    const total = Math.max(0, Number(progress.total) || 0);
+    const index = Math.max(0, Math.min(total, Number(progress.index) || 0));
+    const filename = progress.phase === "processing" && progress.filename
+      ? ` · ${String(progress.filename)}`
+      : "";
+    return [
+      `Importing VSPantry · ${index} / ${total}${filename}`,
+      countLabel(progress.admitted, "admitted", "admitted"),
+      countLabel(progress.duplicates, "duplicate"),
+      countLabel(progress.refused, "refused", "refused"),
+    ].join(" · ");
+  }
+
   function installVideoSourceControls({ document, api } = {}) {
     const sourceMount = document?.querySelector?.("#videoSourceMount");
     const pantryWindow = document?.querySelector?.("#videoPantryWindow");
@@ -61,14 +80,39 @@
     const hint = sourceMount.querySelector("#videoDropHint");
     const addToPantry = sourceMount.querySelector("#addVideoToPantry");
     const remove = sourceMount.querySelector("#removeVideo");
+    let importInFlight = false;
+    let pantryStateBeforeImport = "empty";
+
+    function setImportBusy(busy) {
+      importInFlight = Boolean(busy);
+      importFolder.disabled = importInFlight;
+      if (importInFlight) {
+        pantryStateBeforeImport = pantryWindow.dataset.pantryState || "empty";
+        importFolder.setAttribute("aria-busy", "true");
+        pantryWindow.dataset.pantryState = "importing";
+      } else {
+        importFolder.removeAttribute("aria-busy");
+        if (pantryWindow.dataset.pantryState === "importing") {
+          pantryWindow.dataset.pantryState = pantryStateBeforeImport;
+        }
+      }
+    }
+
+    function renderImportProgress(progress) {
+      if (!progress || typeof progress !== "object") return;
+      status.textContent = formatImportProgress(progress);
+      pantryWindow.dataset.pantryState = "importing";
+    }
 
     async function refreshPantry() {
       try {
         const catalog = await api.listVideoPantry();
+        if (importInFlight) return;
         const count = Array.isArray(catalog?.specimens) ? catalog.specimens.length : 0;
         status.textContent = `${count} specimen${count === 1 ? "" : "s"}`;
         pantryWindow.dataset.pantryState = count ? "populated" : "empty";
       } catch (error) {
+        if (importInFlight) return;
         status.textContent = `Unavailable · ${String(error?.message || error)}`;
         pantryWindow.dataset.pantryState = "unavailable";
       }
@@ -93,16 +137,23 @@
     });
 
     importFolder.addEventListener("click", async () => {
+      setImportBusy(true);
       try {
         const result = await api.chooseVideoFolder();
         if (!result) return;
         const refused = Array.isArray(result.refused) ? result.refused.length : 0;
-        status.textContent = `${result.catalogSize} total · ${result.admitted} admitted · ${result.duplicates} duplicates${refused ? ` · ${refused} refused` : ""}`;
+        status.textContent = `${result.catalogSize} total · ${result.admitted} admitted · ${countLabel(result.duplicates, "duplicate")}${refused ? ` · ${countLabel(refused, "refused", "refused")}` : ""}`;
         pantryWindow.dataset.pantryState = result.catalogSize ? "populated" : "empty";
       } catch (error) {
         status.textContent = `Folder import refused · ${String(error?.message || error)}`;
+      } finally {
+        setImportBusy(false);
       }
     });
+
+    if (typeof api.onVideoPantryImportProgress === "function") {
+      api.onVideoPantryImportProgress(renderImportProgress);
+    }
 
     remove.addEventListener("click", async () => {
       await api.clearVideo();
@@ -116,6 +167,7 @@
   }
 
   return {
+    formatImportProgress,
     formatVideoHint,
     installVideoSourceControls,
   };

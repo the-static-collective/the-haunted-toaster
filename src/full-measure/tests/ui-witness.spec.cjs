@@ -169,6 +169,8 @@ test("witness Video source and VSPantry", async ({ page }, testInfo) => {
 
   const source = page.locator("#videoSourceMount");
   const pantry = page.locator("#videoPantryWindow");
+  const status = page.locator("#videoPantryStatus");
+  const importFolder = page.locator("#videoFolderImport");
   const addToPantry = page.locator("#addVideoToPantry");
   await expect(source).toBeVisible();
   await expect(pantry).toBeVisible();
@@ -177,12 +179,29 @@ test("witness Video source and VSPantry", async ({ page }, testInfo) => {
   await page.locator("#videoDrop").click();
   await expect(page.locator("#videoDropTitle")).toHaveText("visual-specimen-1.mp4");
   await expect(page.locator("#videoDropHint")).toContainText("in VSPantry");
-  await expect(page.locator("#videoPantryStatus")).toContainText("1 specimen");
+  await expect(status).toContainText("1 specimen");
 
-  await page.locator("#videoFolderImport").click();
-  await expect(page.locator("#videoPantryStatus")).toContainText("3 total");
-  await expect(page.locator("#videoPantryStatus")).toContainText("2 admitted");
-  await expect(page.locator("#videoPantryStatus")).toContainText("1 duplicates");
+  await importFolder.click();
+  await expect(importFolder).toBeDisabled();
+  await expect(importFolder).toHaveAttribute("aria-busy", "true");
+  await expect(pantry).toHaveAttribute("data-pantry-state", "importing");
+  await expect(status).toContainText("Importing VSPantry");
+  await expect(status).toContainText("1 / 3");
+  await expect(status).toContainText("visual-specimen-1.mp4");
+  await expect(status).toContainText("0 admitted");
+  await expect(status).toContainText("0 duplicates");
+  await expect(status).toContainText("0 refused");
+
+  await pantry.screenshot({
+    animations: "disabled",
+    path: testInfo.outputPath("video-vspantry-progress.png"),
+  });
+
+  await expect(status).toContainText("3 total");
+  await expect(status).toContainText("2 admitted");
+  await expect(status).toContainText("1 duplicate");
+  await expect(importFolder).toBeEnabled();
+  await expect(importFolder).not.toHaveAttribute("aria-busy", "true");
 
   await source.screenshot({
     animations: "disabled",

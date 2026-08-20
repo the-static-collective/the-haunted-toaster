@@ -11,6 +11,7 @@ const LOW_PLACEMENT_MIN_SCORE = 0.5;
 const LOW_PLACEMENT_MIN_SIMILARITY = 0.47;
 const LOW_PLACEMENT_MAX_SKIPPED_ENTRIES = 8;
 const LOW_PLACEMENT_NEXT_LINE_SCORE = 0.52;
+const LONG_GAP_RECHECK_SECONDS = 20;
 
 function round(value, places = 3) {
   const factor = 10 ** places;
@@ -362,8 +363,17 @@ function hasSufficientTimingEvidence(
   candidate,
   confidence,
   hasPreviousPlacement,
+  previousPlacementEnd = null,
 ) {
   if (!candidate) return false;
+
+  const priorEnd = Number(previousPlacementEnd);
+  const longGap = Boolean(
+    hasPreviousPlacement &&
+      Number.isFinite(priorEnd) &&
+      candidate.start - priorEnd >= LONG_GAP_RECHECK_SECONDS,
+  );
+  if (longGap && confidence.status !== "high") return false;
   if (confidence.status !== "low") return true;
 
   const directEvidence =
@@ -399,6 +409,7 @@ function alignLyricsToTranscript(
   const cues = [];
   let cursor = 0;
   let hasPreviousPlacement = false;
+  let previousPlacementEnd = null;
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
     const line = lines[lineIndex];
@@ -427,6 +438,7 @@ function alignLyricsToTranscript(
       candidate,
       confidence,
       hasPreviousPlacement,
+      previousPlacementEnd,
     );
 
     if (!candidate || stealsNextLine || !sufficientTimingEvidence) {
@@ -465,6 +477,7 @@ function alignLyricsToTranscript(
     });
     cursor = candidate.endIndex + 1;
     hasPreviousPlacement = true;
+    previousPlacementEnd = candidate.end;
   }
 
   const counts = {

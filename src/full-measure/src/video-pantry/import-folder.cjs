@@ -15,6 +15,15 @@ async function listSupportedVideoFiles(folderPath) {
     .sort();
 }
 
+function emitProgress(onProgress, payload) {
+  if (typeof onProgress !== "function") return;
+  try {
+    onProgress(Object.freeze({ ...payload }));
+  } catch {
+    // Progress is observability only. A detached renderer must not abort intake.
+  }
+}
+
 async function admitVideoFolder(
   folderPath,
   {
@@ -23,6 +32,7 @@ async function admitVideoFolder(
     probeVideoImpl,
     hashFileImpl,
     observedAt = null,
+    onProgress = null,
   } = {},
 ) {
   const files = await listSupportedVideoFiles(folderPath);
@@ -30,8 +40,23 @@ async function admitVideoFolder(
   let duplicates = 0;
   const refused = [];
   const touchedIds = new Set();
+  const progress = (phase, index, filename = null, extra = {}) => emitProgress(onProgress, {
+    phase,
+    total: files.length,
+    index,
+    filename,
+    admitted,
+    duplicates,
+    refused: refused.length,
+    ...extra,
+  });
 
-  for (const filePath of files) {
+  progress("discovered", 0);
+
+  for (let index = 0; index < files.length; index += 1) {
+    const filePath = files[index];
+    const filename = path.basename(filePath);
+    progress("processing", index + 1, filename);
     try {
       const result = await admitVideoImpl(filePath, {
         catalogPath,
@@ -46,13 +71,15 @@ async function admitVideoFolder(
     } catch (error) {
       refused.push({
         path: filePath,
-        filename: path.basename(filePath),
+        filename,
         error: String(error?.message || error),
       });
     }
+    progress("processed", index + 1, filename);
   }
 
   const catalog = await loadCatalog(catalogPath);
+  progress("complete", files.length, null, { catalogSize: catalog.specimens.length });
   return {
     admitted,
     duplicates,
