@@ -39,9 +39,9 @@
       ? ` · ${String(progress.filename)}`
       : "";
     return [
-      `Importing VSPantry · ${index} / ${total}`,
+      `Importing · ${index}/${total}`,
       countLabel(progress.admitted, "admitted", "admitted"),
-      countLabel(progress.duplicates, "duplicate"),
+      `${Math.max(0, Number(progress.duplicates) || 0)} dup`,
       countLabel(progress.refused, "refused", "refused"),
     ].join(" · ") + filename;
   }
