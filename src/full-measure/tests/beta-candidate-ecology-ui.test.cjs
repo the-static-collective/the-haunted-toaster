@@ -40,15 +40,46 @@ test("candidate UI sends no Toast Feel pressure until the human explicitly choos
   assert.match(ui, /toastFeelId:\s*currentCandidateToastFeelId\(\)/);
 });
 
-test("preload and candidate UI expose exact two-parent CROSS as a separate action", () => {
+test("move proposals stay a renderer-local deterministic projection with no preload or IPC authority", () => {
   const preload = source("src/preload.cjs");
+  const session = source("src/candidate-session.cjs");
   const ui = source("src/renderer/candidate-ui.js");
-  assert.match(preload, /crossCandidates:\s*\(config\)\s*=>\s*ipcRenderer\.invoke\("candidate:cross", config\)/);
-  assert.match(ui, /id="candidateCross"/);
-  assert.match(ui, /id="candidateCrossMark"/);
+  const wrapper = source("src/candidate-move-deck.cjs");
+  const witnessBuilder = source("scripts/build-ui-witness.cjs");
+
+  assert.doesNotMatch(preload, /candidate-move-deck|candidate:deal-moves|dealCandidateMoves/);
+  assert.doesNotMatch(session, /candidate:deal-moves/);
+  assert.match(ui, /script\.src\s*=\s*"\.\/candidate-move-deck\.js"/);
+  assert.match(ui, /window\.candidateMoveDeck\?\.dealCandidateMoves/);
+  assert.match(wrapper, /require\("\.\/renderer\/candidate-move-deck\.js"\)/);
+  assert.match(witnessBuilder, /"candidate-move-deck\.js"/);
+});
+
+test("candidate UI replaces the verb toolbar with one contextual second six-up", () => {
+  const ui = source("src/renderer/candidate-ui.js");
+  assert.match(ui, /id="candidateMoveGrid"/);
+  assert.match(ui, /id="candidateMoveRedeal"/);
+  assert.match(ui, /window\.candidateMoveDeck/);
+  assert.match(ui, /dealCandidateMoves/);
+  assert.match(ui, /moveDealIndex/);
+  assert.match(ui, /proposal\.parentIndexes/);
   assert.match(ui, /api\.crossCandidates/);
-  assert.match(ui, /parentIndexes:\s*\[\.\.\.crossParents\]/);
-  assert.match(ui, /crossParents\.length\s*!==\s*2/);
+  assert.match(ui, /api\.stompCandidates/);
+  assert.match(ui, /api\.mutateCandidates/);
+  assert.match(ui, /id="candidateUse"/);
+  assert.doesNotMatch(ui, /id="candidateCrossMark"/);
+  assert.doesNotMatch(ui, /id="candidateCross"/);
+  assert.doesNotMatch(ui, /Mark CROSS parent/);
+  assert.doesNotMatch(ui, /CROSS A \+ B/);
+});
+
+test("re-deal is proposal-only and candidate operations are isolated behind proposal execution", () => {
+  const ui = source("src/renderer/candidate-ui.js");
+  const redealHandler = ui.match(/function redealMoves\(\)\s*\{([\s\S]*?)\n\s*\}/);
+  assert.ok(redealHandler, "candidate UI must define one bounded re-deal handler");
+  assert.match(redealHandler[1], /moveDealIndex\s*\+=\s*1/);
+  assert.match(redealHandler[1], /renderMoveDeck\(\)/);
+  assert.doesNotMatch(redealHandler[1], /mutateCandidates|crossCandidates|stompCandidates|generateCandidates/);
 });
 
 test("candidate hover changes emphasis without changing six-up geometry", () => {
@@ -74,6 +105,13 @@ test("six-up shell never owns native scrolling; candidate grid is the bounded sc
   assert.ok(gridRule, "candidate grid rule must remain explicit");
   assert.match(gridRule[1], /min-height:\s*0;/, "candidate grid must be allowed to shrink inside the viewport cap");
   assert.match(gridRule[1], /overflow-y:\s*auto;/, "only the bounded candidate grid may scroll when necessary");
+});
+
+test("second six-up remains fixed furniture rather than a second scroll authority", () => {
+  const css = source("src/renderer/candidate-ui.css");
+  const moveGridRule = css.match(/\.candidate-move-grid\s*\{([^}]*)\}/s);
+  assert.ok(moveGridRule, "second six-up grid must have an explicit layout rule");
+  assert.doesNotMatch(moveGridRule[1], /overflow(?:-y)?:\s*(?:auto|scroll)/);
 });
 
 test("accepted field candidate binds its elected lane through the existing production render event", () => {

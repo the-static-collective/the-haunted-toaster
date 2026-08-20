@@ -140,6 +140,7 @@ test("six-up card visibly names the base creature so magnetic can be selected be
   };
 
   try {
+    window.eval(fs.readFileSync(path.join(rendererRoot, "candidate-move-deck.js"), "utf8"));
     window.eval(fs.readFileSync(path.join(rendererRoot, "candidate-ui.js"), "utf8"));
     document.querySelector(".candidate-launch").click();
     await tick();

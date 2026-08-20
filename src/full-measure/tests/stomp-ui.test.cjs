@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { JSDOM } = require("jsdom");
+const { dealCandidateMoves } = require("../src/candidate-move-deck.cjs");
 
 const root = path.resolve(__dirname, "..");
 const rendererRoot = path.join(root, "src", "renderer");
@@ -16,17 +17,21 @@ function family(hash = "family-1") {
   return {
     schema: "haunted-toaster/candidate-family/v1",
     familyHash: hash,
-    producedCount: 1,
+    producedCount: 6,
     requestedCount: 6,
-    shortfall: true,
-    candidates: [{
-      index: 0,
-      role: "baseline",
-      signature: "spiral · pulse · grain",
-      scoreAddress: `htvs1_${hash}`,
+    shortfall: false,
+    candidates: Array.from({ length: 6 }, (_, index) => ({
+      index,
+      role: index === 0 ? "baseline" : `frontier-${index}`,
+      signature: `creature-${index + 1} · pulse · grain`,
+      scoreAddress: `htvs1_${hash}_${index + 1}`,
       thumbnailDataUrl: "data:image/png;base64,",
-      changedAxes: [],
-    }],
+      changedAxes: index ? ["motion"] : [],
+      toastmoodLane: {
+        id: `lane-${index + 1}`,
+        name: `Lane ${index + 1}`,
+      },
+    })),
   };
 }
 
@@ -43,15 +48,23 @@ function harness() {
     getToastFeelId: () => "wire-heat",
     getCandidateToastFeelId: () => "wire-heat",
   };
+  window.candidateMoveDeck = { dealCandidateMoves };
   window.HTMLElement.prototype.scrollIntoView = () => {};
 
-  const calls = { generated: [], stomped: [] };
+  const calls = { generated: [], stomped: [], mutated: [], crossed: [] };
   window.fullMeasure = {
     generateCandidates: async (config) => {
       calls.generated.push(config);
       return family("family-1");
     },
-    mutateCandidates: async () => family("family-mutate"),
+    mutateCandidates: async (config) => {
+      calls.mutated.push(config);
+      return family("family-mutate");
+    },
+    crossCandidates: async (config) => {
+      calls.crossed.push(config);
+      return family("family-cross");
+    },
     stompCandidates: async (config) => {
       calls.stomped.push(config);
       return family("family-stomp");
@@ -65,25 +78,22 @@ function harness() {
   return { dom, window, document, calls };
 }
 
-test("STOMP is a selected-candidate one-shot action with exact boredom copy", async () => {
+test("STOMP is dealt as one selected-candidate move and still uses the existing one-shot authority path", async () => {
   const view = harness();
   const { document, calls } = view;
   try {
-    const stomp = document.querySelector("#candidateStomp");
-    const help = document.querySelector("#candidateStompHelp");
-    assert.ok(stomp);
-    assert.equal(stomp.textContent.trim(), "STOMP");
-    assert.equal(help?.textContent.trim(), "Bored? Floor the next six.");
-    assert.equal(stomp.disabled, true);
-
     document.querySelector(".candidate-launch").click();
     await tick();
     await tick();
     assert.equal(calls.generated.length, 1);
-    assert.equal(stomp.disabled, true);
 
     document.querySelector(".candidate-card").click();
-    assert.equal(stomp.disabled, false);
+    const moveCards = [...document.querySelectorAll(".candidate-move-card")];
+    assert.equal(moveCards.length, 6);
+    const stomp = moveCards.find((card) => card.dataset.moveKind === "stomp");
+    assert.ok(stomp, "second six-up must deal one STOMP proposal");
+    assert.match(stomp.textContent, /STOMP/);
+    assert.match(stomp.textContent, /stranger six/i);
 
     stomp.click();
     await tick();
@@ -95,15 +105,13 @@ test("STOMP is a selected-candidate one-shot action with exact boredom copy", as
     assert.equal(calls.stomped[0].toastFeelId, "wire-heat");
     assert.match(calls.stomped[0].rootSeed, /:stomp:/);
 
-    // The returned family is ordinary six-up state; there is no armed toggle.
-    assert.equal(stomp.getAttribute("aria-pressed"), null);
-    assert.equal(stomp.disabled, true);
+    assert.equal(document.querySelectorAll("#candidateStomp").length, 0);
   } finally {
     view.dom.window.close();
   }
 });
 
-test("preload and candidate session expose an explicit STOMP request path", () => {
+test("preload and candidate session keep the existing explicit STOMP execution path", () => {
   const preload = fs.readFileSync(path.join(root, "src", "preload.cjs"), "utf8");
   const session = fs.readFileSync(path.join(root, "src", "candidate-session.cjs"), "utf8");
   assert.match(preload, /stompCandidates:\s*\(config\)\s*=>\s*ipcRenderer\.invoke\("candidate:stomp", config\)/);

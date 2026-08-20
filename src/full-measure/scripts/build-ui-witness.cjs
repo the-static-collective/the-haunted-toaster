@@ -12,6 +12,7 @@ const RENDERER_FILES = Object.freeze([
   "video-source-ui.js",
   "toast-feel-controller.js",
   "app.js",
+  "candidate-move-deck.js",
   "candidate-ui.js",
   "recent-toasts-ui.js",
   "lyric-foundry-ui.js",

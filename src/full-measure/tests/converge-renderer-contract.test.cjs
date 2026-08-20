@@ -8,16 +8,23 @@ const candidateUi = fs.readFileSync(
   path.join(root, "src", "renderer", "candidate-ui.js"),
   "utf8",
 );
+const moveDeck = fs.readFileSync(
+  path.join(root, "src", "renderer", "candidate-move-deck.js"),
+  "utf8",
+);
 
-test("CONVERGE remains a one-parent mutation pedal", () => {
-  assert.match(candidateUi, /parentIndex: selectedIndex/);
-  assert.match(candidateUi, /converge: useConverge/);
-  assert.doesNotMatch(candidateUi, /partner|second parent|co-parent/i);
+test("CONVERGE remains a one-parent mutation move", () => {
+  assert.match(moveDeck, /kind: "converge"/);
+  assert.match(moveDeck, /action: "mutate"/);
+  assert.match(candidateUi, /const converge = proposal\.kind === "converge"/);
+  assert.match(candidateUi, /parentIndex: proposal\.parentIndex \?\? selectedIndex/);
+  assert.match(candidateUi, /converge,/);
 });
 
-test("CONVERGE explains the missing selection instead of inventing partner selection", () => {
-  assert.match(candidateUi, /Choose the creature to push into new territory\./);
-  assert.match(candidateUi, /CONVERGE · push this creature/);
+test("CONVERGE is proposed only after a current creature exists", () => {
+  assert.match(candidateUi, /Choose a creature above to deal moves\./);
+  assert.match(moveDeck, /CONVERGE · underexplored/);
+  assert.match(moveDeck, /parentIndex: context\.selectedIndex/);
 });
 
 test("CONVERGE returns to the same six-up surface with terse frontier evidence", () => {
