@@ -42,6 +42,14 @@ function productionLikeGraph() {
   ].join(";\n");
 }
 
+function compiledGraphFor(topology) {
+  const { timeline } = scoreAndTimeline(topology);
+  return compileTimelineFilterGraph(
+    productionLikeGraph(),
+    createTimelineExecution(timeline),
+  );
+}
+
 const assFixture = [
   "[Script Info]",
   "ScriptType: v4.00+",
@@ -139,4 +147,30 @@ test("Topology Arc compiles the exact accepted schedule and produces FFmpeg fram
   } finally {
     await fsPromises.rm(temp, { recursive: true, force: true });
   }
+});
+
+test("Shape Pack layered topology compositing is bounded instead of screen-additive", () => {
+  for (const topology of ["cathedral-fan", "echo-tunnel"]) {
+    const compiled = compiledGraphFor(topology);
+    assert.doesNotMatch(
+      compiled.graph,
+      /blend=all_mode=screen/,
+      `${topology} must not turn repeated bright geometry into additive white pressure`,
+    );
+  }
+});
+
+test("Echo Tunnel has explicit recession falloff instead of concentric full-strength Circle clones", () => {
+  const compiled = compiledGraphFor("echo-tunnel");
+  const alphaStages = compiled.graph.match(/colorchannelmixer=aa=/g) || [];
+
+  assert.ok(
+    alphaStages.length >= 4,
+    `echo-tunnel should carry per-depth alpha falloff; found only ${alphaStages.length} alpha stage(s)`,
+  );
+  assert.doesNotMatch(
+    compiled.graph,
+    /scale=\d+:\d+,pad=\d+:\d+:\(ow-iw\)\/2:\(oh-ih\)\/2:color=black@0/,
+    "echo-tunnel nested planes must converge toward a vanishing axis rather than remain perfectly concentric",
+  );
 });

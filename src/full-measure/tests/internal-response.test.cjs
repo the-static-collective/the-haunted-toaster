@@ -153,7 +153,7 @@ test("camera surrender spends less geometric movement and binds intensity to cam
   assert.notEqual(subdued.graph, higher.graph);
 });
 
-test("expressive atmosphere uses lifted internal energy deterministically while v1 stays unchanged", () => {
+test("expressive atmosphere keeps v2 lift while raster-4 preserves response headroom", () => {
   const legacy = buildAtmosphereAss({
     timeline: atmosphereTimeline(generation.VISUAL_LANGUAGE_RENDERER_POLICY, 0.25),
     width: 640,
@@ -166,6 +166,16 @@ test("expressive atmosphere uses lifted internal energy deterministically while 
   });
   const replay = buildAtmosphereAss({
     timeline: atmosphereTimeline(generation.EXPRESSIVE_RENDERER_POLICY, 0.25),
+    width: 640,
+    height: 360,
+  });
+  const raster4 = buildAtmosphereAss({
+    timeline: atmosphereTimeline(generation.MUTATION_LATTICE_RENDERER_POLICY, 0.25),
+    width: 640,
+    height: 360,
+  });
+  const raster4Replay = buildAtmosphereAss({
+    timeline: atmosphereTimeline(generation.MUTATION_LATTICE_RENDERER_POLICY, 0.25),
     width: 640,
     height: 360,
   });
@@ -182,5 +192,10 @@ test("expressive atmosphere uses lifted internal energy deterministically while 
   assert.ok(expressive.eventCount > legacy.eventCount);
   assert.equal(expressive.content, replay.content);
   assert.equal(expressive.contentSha256, replay.contentSha256);
+  assert.equal(raster4.compiler, ATMOSPHERE_COMPILER_V2);
+  assert.equal(raster4.responseEnergy, 0.25);
+  assert.ok(raster4.responseEnergy < expressive.responseEnergy);
+  assert.equal(raster4.content, raster4Replay.content);
+  assert.equal(raster4.contentSha256, raster4Replay.contentSha256);
   assert.ok(peak.eventCount > expressive.eventCount);
 });
