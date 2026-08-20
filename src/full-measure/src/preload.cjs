@@ -167,6 +167,7 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   pathForFile: (file) => webUtils.getPathForFile(file),
   onProgress: (callback) => subscribe("render:progress", callback),
   onPhase: (callback) => subscribe("render:phase", callback),
+  onVideoPantryImportProgress: (callback) => subscribe("video-pantry:import-progress", callback),
   onListenerInstallProgress: (callback) => subscribe("listener:install-progress", callback),
   onLyricSyncProgress: (callback) => subscribe("lyrics:sync-progress", callback),
   onLyricSyncPhase: (callback) => subscribe("lyrics:sync-phase", callback),
