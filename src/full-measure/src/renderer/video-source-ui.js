@@ -39,11 +39,11 @@
       ? ` · ${String(progress.filename)}`
       : "";
     return [
-      `Importing VSPantry · ${index} / ${total}${filename}`,
+      `Importing VSPantry · ${index} / ${total}`,
       countLabel(progress.admitted, "admitted", "admitted"),
       countLabel(progress.duplicates, "duplicate"),
       countLabel(progress.refused, "refused", "refused"),
-    ].join(" · ");
+    ].join(" · ") + filename;
   }
 
   function installVideoSourceControls({ document, api } = {}) {
