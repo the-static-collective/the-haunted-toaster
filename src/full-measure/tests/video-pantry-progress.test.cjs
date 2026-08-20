@@ -175,6 +175,14 @@ test('VSPantry UI shows live progress and keeps the import action busy until ter
   assert.match(status.textContent, /36 admitted/);
   assert.match(status.textContent, /1 duplicate/);
   assert.match(status.textContent, /0 refused/);
+  const progressText = status.textContent;
+  const filenameOffset = progressText.indexOf('video-1787036262252.mp4');
+  for (const countText of ['36 admitted', '1 duplicate', '0 refused']) {
+    assert.ok(
+      progressText.indexOf(countText) < filenameOffset,
+      `${countText} must precede the potentially ellipsized filename`,
+    );
+  }
 
   resolveImport({ catalogSize: 123, admitted: 122, duplicates: 1, refused: [] });
   await flush();
