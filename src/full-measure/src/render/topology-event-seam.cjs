@@ -70,10 +70,8 @@ function compileGrabSeam(eventResponse, geometry) {
     "[waveFull]split=3[grabTopologyBase][grabOuterSource][grabInnerSource]",
     `[grabOuterSource]crop=${g.outerWidth}:${g.outerHeight}:${g.outerX}:${g.outerY},${scaleExpression(stretch, 0.22, 0.12)},colorchannelmixer=aa=${outerAlpha}[grabOuterPatch]`,
     `[grabInnerSource]crop=${g.innerWidth}:${g.innerHeight}:${g.innerX}:${g.innerY},${scaleExpression(stretch, 0.46, 0.24)},colorchannelmixer=aa=${innerAlpha}[grabInnerPatch]`,
-    `[grabTopologyBase][grabOuterPatch]overlay=x='${g.outerX}+(${vectorX})*main_w*${outerTravel}-(overlay_w-${g.outerWidth})/2':y='${g.outerY}+(${vectorY})*main_h*${outerTravel}-(overlay_h-${g.outerHeight})/2':enable='${enable}':format=auto:eof_action=pass[grabOuterCompositeRaw]`,
-    "[grabOuterCompositeRaw]setsar=1[grabOuterComposite]",
-    `[grabOuterComposite][grabInnerPatch]overlay=x='${g.innerX}+(${vectorX})*main_w-(overlay_w-${g.innerWidth})/2':y='${g.innerY}+(${vectorY})*main_h-(overlay_h-${g.innerHeight})/2':enable='${enable}':format=auto:eof_action=pass[grabTopologyFinalRaw]`,
-    "[grabTopologyFinalRaw]setsar=1[grabTopologyFinal]",
+    `[grabTopologyBase][grabOuterPatch]overlay=x='${g.outerX}+(${vectorX})*main_w*${outerTravel}-(overlay_w-${g.outerWidth})/2':y='${g.outerY}+(${vectorY})*main_h*${outerTravel}-(overlay_h-${g.outerHeight})/2':enable='${enable}':format=auto:eof_action=pass[grabOuterComposite]`,
+    `[grabOuterComposite][grabInnerPatch]overlay=x='${g.innerX}+(${vectorX})*main_w-(overlay_w-${g.innerWidth})/2':y='${g.innerY}+(${vectorY})*main_h-(overlay_h-${g.innerHeight})/2':enable='${enable}':format=auto:eof_action=pass[grabTopologyFinal]`,
   ].join(";\n");
 }
 

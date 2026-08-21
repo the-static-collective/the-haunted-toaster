@@ -43,7 +43,7 @@ function productionLikeGraph() {
   ].join(";\n");
 }
 
-test("GRAB compiles and executes real FFmpeg frames through anticipation, pull, recoil, and residual time", async () => {
+function candidateFixture() {
   const family = generation.generateCandidateSet({
     analysis,
     garmentConstraints: constraints,
@@ -52,40 +52,17 @@ test("GRAB compiles and executes real FFmpeg frames through anticipation, pull, 
     count: 6,
   });
   const candidate = family.candidates.find((item) => item.timeline.baseState.topology !== "linear") || family.candidates[0];
-  const timeline = generation.resolveTopologyEvents(candidate.timeline, {
-    family,
-    candidateIndex: candidate.index,
-    events: [{
-      id: "grab-smoke-1",
-      kind: "grab",
-      prepareTick: 100,
-      strikeTick: 200,
-      releaseTick: 400,
-      residueUntilTick: 700,
-      parameters: {
-        anchorX: 0.25,
-        anchorY: 0.5,
-        targetX: 0.75,
-        targetY: 0.45,
-        radiusX: 0.22,
-        radiusY: 0.18,
-        pull: 0.8,
-        recoil: 0.55,
-        falloff: 0.7,
-        residualVectorX: 0.08,
-        residualVectorY: -0.03,
-        residualStretch: 0.06,
-      },
-      evidenceRefs: ["fixture:grab-smoke-1"],
-    }],
-  });
+  return { family, candidate };
+}
+
+async function executeTimeline(timeline, graphName) {
   const execution = createTimelineExecution(timeline);
   const compiled = compileTimelineFilterGraph(productionLikeGraph(), execution);
   const temp = await fsPromises.mkdtemp(path.join(os.tmpdir(), "ht-grab-smoke-"));
 
   try {
     await fsPromises.writeFile(path.join(temp, "topology-grab-smoke.ass"), assFixture, "utf8");
-    const graphPath = path.join(temp, "grab.ffgraph");
+    const graphPath = path.join(temp, graphName);
     await fsPromises.writeFile(graphPath, `${compiled.graph}\n`, "utf8");
 
     await runProcess(
@@ -115,11 +92,51 @@ test("GRAB compiles and executes real FFmpeg frames through anticipation, pull, 
       ],
       { cwd: temp },
     );
-
-    assert.equal(compiled.topology, candidate.timeline.baseState.topology);
-    assert.equal(compiled.topologyEvents.planSha256, timeline.topologyEvents.planSha256);
-    assert.match(compiled.graph, /grabTopologyFinal/);
+    return compiled;
   } finally {
     await fsPromises.rm(temp, { recursive: true, force: true });
   }
+}
+
+test("the accepted candidate executes real FFmpeg before GRAB is attached", async () => {
+  const { candidate } = candidateFixture();
+  const compiled = await executeTimeline(candidate.timeline, "baseline.ffgraph");
+  assert.equal(compiled.topology, candidate.timeline.baseState.topology);
+  assert.equal(compiled.topologyEvents, undefined);
+});
+
+test("GRAB compiles and executes real FFmpeg frames through anticipation, pull, recoil, and residual time", async () => {
+  const { family, candidate } = candidateFixture();
+  const timeline = generation.resolveTopologyEvents(candidate.timeline, {
+    family,
+    candidateIndex: candidate.index,
+    events: [{
+      id: "grab-smoke-1",
+      kind: "grab",
+      prepareTick: 100,
+      strikeTick: 200,
+      releaseTick: 400,
+      residueUntilTick: 700,
+      parameters: {
+        anchorX: 0.25,
+        anchorY: 0.5,
+        targetX: 0.75,
+        targetY: 0.45,
+        radiusX: 0.22,
+        radiusY: 0.18,
+        pull: 0.8,
+        recoil: 0.55,
+        falloff: 0.7,
+        residualVectorX: 0.08,
+        residualVectorY: -0.03,
+        residualStretch: 0.06,
+      },
+      evidenceRefs: ["fixture:grab-smoke-1"],
+    }],
+  });
+  const compiled = await executeTimeline(timeline, "grab.ffgraph");
+
+  assert.equal(compiled.topology, candidate.timeline.baseState.topology);
+  assert.equal(compiled.topologyEvents.planSha256, timeline.topologyEvents.planSha256);
+  assert.match(compiled.graph, /grabTopologyFinal/);
 });
