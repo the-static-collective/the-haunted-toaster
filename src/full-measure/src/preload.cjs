@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
 const PRODUCT_NAME = "The Haunted Toaster";
 const MAX_LISTENER_EVIDENCE = 10_000;
+const RESOLUTION_WITNESS_SCALES = Object.freeze(["", "1", "0.5", "0.25"]);
 let pendingListenerEvidence = null;
 
 function installVideoSourceUiScript() {
@@ -10,6 +11,76 @@ function installVideoSourceUiScript() {
   script.src = "./video-source-ui.js";
   script.dataset.hauntedVideoSource = "v1";
   document.body.appendChild(script);
+}
+
+function installResolutionFieldWitness() {
+  if (document.querySelector("#resolutionWitnessScale")) return;
+
+  const renderPanel = document.querySelector(".render-panel");
+  const slate = renderPanel?.querySelector(".slate");
+  if (!renderPanel || !slate) return;
+
+  const witness = document.createElement("section");
+  witness.className = "shape-card resolution-field-witness";
+  witness.dataset.resolutionFieldWitness = "v0.1";
+  witness.setAttribute("aria-label", "Resolution Field observation fixture");
+
+  const heading = document.createElement("div");
+  heading.className = "shape-heading";
+  heading.style.display = "flex";
+  heading.style.justifyContent = "space-between";
+  heading.style.gap = "12px";
+
+  const title = document.createElement("span");
+  title.textContent = "Field witness · Resolution";
+  const posture = document.createElement("strong");
+  posture.textContent = "Observation only";
+  heading.append(title, posture);
+
+  const label = document.createElement("label");
+  label.htmlFor = "resolutionWitnessScale";
+  label.textContent = "Atmosphere internal scale";
+  label.style.display = "block";
+  label.style.marginTop = "10px";
+  label.style.color = "#a99ea5";
+  label.style.fontSize = "9px";
+
+  const select = document.createElement("select");
+  select.id = "resolutionWitnessScale";
+  select.setAttribute("aria-describedby", "resolutionWitnessMetrics");
+  select.style.width = "100%";
+  select.style.marginTop = "6px";
+  select.style.padding = "8px 9px";
+  select.style.border = "1px solid rgba(240, 191, 104, 0.18)";
+  select.style.borderRadius = "7px";
+  select.style.color = "#d3cbd1";
+  select.style.background = "#0c0b0e";
+  select.style.font = "9px ui-monospace, Cascadia Code, monospace";
+
+  const labels = new Map([
+    ["", "Ancestral · off"],
+    ["1", "Native · 1.0"],
+    ["0.5", "Half · 0.5"],
+    ["0.25", "Quarter · 0.25"],
+  ]);
+  for (const value of RESOLUTION_WITNESS_SCALES) {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = labels.get(value);
+    select.appendChild(option);
+  }
+
+  const metrics = document.createElement("small");
+  metrics.id = "resolutionWitnessMetrics";
+  metrics.textContent = "Ancestral path · Resolution Field not requested.";
+  metrics.style.display = "block";
+  metrics.style.marginTop = "8px";
+  metrics.style.color = "#8d828a";
+  metrics.style.font = "8px/1.5 ui-monospace, Cascadia Code, monospace";
+  metrics.style.whiteSpace = "normal";
+
+  witness.append(heading, label, select, metrics);
+  slate.insertAdjacentElement("afterend", witness);
 }
 
 window.addEventListener("DOMContentLoaded", () => {
@@ -31,6 +102,7 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   installVideoSourceUiScript();
+  installResolutionFieldWitness();
 });
 
 function subscribe(channel, callback) {
@@ -111,6 +183,75 @@ async function withLyricFoundry(config = {}) {
   };
 }
 
+function selectedResolutionWitnessScale() {
+  const select = document.querySelector("#resolutionWitnessScale");
+  const selectedScale = String(select?.value || "");
+  if (!RESOLUTION_WITNESS_SCALES.includes(selectedScale)) {
+    throw new Error(
+      "Resolution Field witness scale is outside the bounded 1.0 / 0.5 / 0.25 contract.",
+    );
+  }
+  return selectedScale;
+}
+
+function withResolutionFieldWitness(
+  config = {},
+  selectedScale = selectedResolutionWitnessScale(),
+) {
+  if (!selectedScale) return { ...config };
+  return {
+    ...config,
+    atmosphereResolutionScale: Number(selectedScale),
+  };
+}
+
+function formatResolutionWitnessBytes(bytes) {
+  const numeric = Number(bytes);
+  if (!Number.isFinite(numeric) || numeric < 0) return "unreported bytes";
+  return `${(numeric / 1024 / 1024).toFixed(1)} MiB (${Math.round(numeric)} B)`;
+}
+
+function reportResolutionFieldWitness(result, selectedScale) {
+  const metrics = document.querySelector("#resolutionWitnessMetrics");
+  if (!metrics) return;
+
+  const receipt = result?.receipt;
+  if (!receipt?.render || !receipt?.output?.video) {
+    metrics.textContent = "Witness result unavailable · no completed render receipt returned.";
+    return;
+  }
+
+  const elapsedSeconds = Number(receipt.render.elapsedSeconds);
+  const sizeBytes = Number(receipt.output.sizeBytes);
+  const width = Number(receipt.output.video.width);
+  const height = Number(receipt.output.video.height);
+  const sampleAspectRatio = receipt.output.video.sampleAspectRatio || "unreported";
+  const resolutionField =
+    receipt.render.visualCompiler.atmosphere &&
+    receipt.render.visualCompiler.atmosphere.resolutionField;
+
+  const elapsedText = Number.isFinite(elapsedSeconds)
+    ? `${elapsedSeconds.toFixed(3)} s`
+    : "unreported time";
+  const outputText =
+    Number.isFinite(width) && Number.isFinite(height)
+      ? `${width}×${height}`
+      : "unreported geometry";
+  const requestedText = selectedScale ? `${selectedScale}× requested` : "ancestral path";
+  const fieldText = resolutionField
+    ? `${resolutionField.internalWidth}×${resolutionField.internalHeight} → ${resolutionField.outputWidth}×${resolutionField.outputHeight} @ ${resolutionField.scale}×`
+    : "no Resolution Field evidence";
+
+  metrics.textContent = [
+    requestedText,
+    fieldText,
+    elapsedText,
+    formatResolutionWitnessBytes(sizeBytes),
+    `output ${outputText}`,
+    `SAR ${sampleAspectRatio}`,
+  ].join(" · ");
+}
+
 contextBridge.exposeInMainWorld("fullMeasure", {
   chooseAudio: () => ipcRenderer.invoke("dialog:choose-audio"),
   chooseImage: () => ipcRenderer.invoke("dialog:choose-image"),
@@ -157,7 +298,21 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   selectCandidate: (config) => ipcRenderer.invoke("candidate:select", config),
   clearCandidates: () => ipcRenderer.invoke("candidate:clear"),
   clearCandidateImage: () => ipcRenderer.invoke("candidate:clear-image"),
-  startRender: async (config) => ipcRenderer.invoke("render:start", await withLyricFoundry(config)),
+  startRender: async (config) => {
+    const selectedScale = selectedResolutionWitnessScale();
+    const select = document.querySelector("#resolutionWitnessScale");
+    if (select) select.disabled = true;
+
+    try {
+      const witnessConfig = withResolutionFieldWitness(config, selectedScale);
+      const preparedConfig = await withLyricFoundry(witnessConfig);
+      const result = await ipcRenderer.invoke("render:start", preparedConfig);
+      reportResolutionFieldWitness(result, selectedScale);
+      return result;
+    } finally {
+      if (select) select.disabled = false;
+    }
+  },
   cancelRender: () => ipcRenderer.invoke("render:cancel"),
   revealFile: (filePath) => ipcRenderer.invoke("shell:reveal", filePath),
   openFile: (filePath) => ipcRenderer.invoke("shell:open", filePath),
