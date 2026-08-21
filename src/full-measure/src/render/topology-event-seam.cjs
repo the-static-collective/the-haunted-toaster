@@ -86,7 +86,7 @@ function applyTopologyEventSeam(compiled, execution) {
     throw new Error("Production filter graph is missing the post-topology composite seam.");
   }
   const localFilters = compileGrabSeam(eventResponse, compiled.geometry);
-  const replacement = `${localFilters};\n[base][grabTopologyFinal]overlay=${seam[1]}[grabStage0Raw];\n[grabStage0Raw]setsar=1[stage0]`;
+  const replacement = `${localFilters};\n[base][grabTopologyFinal]overlay=${seam[1]}[stage0]`;
 
   return Object.freeze({
     ...compiled,
