@@ -24,7 +24,7 @@ jobs:
         run: |
           set +e
           cd src/full-measure
-          node --test tests/topology-events.test.cjs
+          node --test tests/topology-events.test.cjs tests/topology-event-render.test.cjs
           rc=$?
           cd ../..
           if [ "$rc" -eq 0 ]; then state=success; description="focused GRAB contract passed"; else state=failure; description="focused GRAB contract failed"; fi
