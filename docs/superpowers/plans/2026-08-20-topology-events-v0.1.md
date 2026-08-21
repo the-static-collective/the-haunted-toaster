@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Prove one deterministic `GRAB` topology event end-to-end, through the existing accepted timeline/topology compiler seam, while freezing a four-verb event-plan contract that can later admit APERTURE, SPEAK, and GROW without creating new base topologies.
+**Goal:** Prove one deterministic, locally deforming `GRAB` topology event end-to-end through the existing accepted CandidateFamily → ResolvedTimeline → topology compiler seam, while freezing a four-verb contract that can later admit APERTURE, SPEAK, and GROW without creating new base topologies.
 
-**Architecture:** Add one pure generation-side topology-event planner and one pure render-side event-expression compiler. The generation plan is addressed with existing canonical helpers and carries no renderer commands. The render adapter compiles only accepted plan evidence and is attached once in `topology-compilers.cjs` alongside the existing elastic topology response. `GRAB` is the only rendered event in the first implementation; APERTURE/SPEAK/GROW remain contract fixtures until GRAB proves the seam.
+**Architecture:** Add one generation-side topology-event resolver that accepts an already constituted CandidateFamily, selected candidate index, and accepted ResolvedTimeline; derives authoritative locks/topology/score identity from those specimens; creates an addressed plan; and attaches that plan inside the canonical timeline body while rebuilding `timelineHash` and `canonicalJson`. Add one render-side compiler that consumes only the attached plan and produces a bounded local GRAB deformation field. `GRAB` is the only rendered event in the first implementation; APERTURE/SPEAK/GROW remain contract fixtures until GRAB proves the seam.
 
-**Tech Stack:** Node.js/CommonJS, `node:test`, existing canonical hashing helpers, existing ResolvedTimeline/topology compiler/FFmpeg expression path.
+**Tech Stack:** Node.js/CommonJS, `node:test`, existing canonical hashing helpers, CandidateFamily v1, ResolvedTimeline v1, existing timeline execution/topology compiler/FFmpeg path.
 
 **Spec:** `docs/superpowers/specs/2026-08-20-topology-events-v0.1-design.md`
 
@@ -19,12 +19,18 @@
 - `body` is never a primitive event kind.
 - First executable renderer event is `grab` only.
 - Base topology identity remains frozen and unchanged.
+- Authoritative locks come only from accepted `CandidateFamily.locks`.
+- Caller input must not contain an independent `locks` field or `sourceTopology` field.
 - `topology` lock refuses topology-event planning in v0.1.
+- The accepted timeline must match the selected candidate by score address and base topology.
+- The event plan must be attached inside the canonical timeline body and must participate in `timelineHash` / `canonicalJson`.
+- A plan addressed to another topology or timeline must fail before render.
+- GRAB must produce a bounded local deformation field; whole-frame pan/zoom alone cannot satisfy the contract.
 - Reuse `canonicalStringify`, `hashCanonical`, and `deepFreeze`; no new serializer/hasher.
 - No renderer-local randomness, raw audio read, sensor read, model call, clock, filesystem discovery, or hidden mutable event state.
 - Existing Topology Arc and Elastic Topology Response semantics remain unchanged.
-- Historical artifacts and pinned renderer policies remain compatible.
-- Preview and production must share accepted event plan/evidence.
+- Historical no-event artifacts and pinned renderer policies remain compatible.
+- Preview and production must share the same accepted timeline/plan evidence.
 - Broad gate is root `npm run verify`.
 
 ---
@@ -44,23 +50,34 @@ Modify only after focused modules are green:
 
 ```text
 src/full-measure/src/generation/index.cjs
+src/full-measure/src/render/timeline-execution.cjs
 src/full-measure/src/render/topology-compilers.cjs
 src/full-measure/tests/topology-response-compiler.test.cjs
 src/full-measure/tests/timeline-topology-smoke.test.cjs
+```
+
+Read and reuse the attachment pattern in:
+
+```text
+src/full-measure/src/generation/native-color.cjs
 ```
 
 Do not change `generation/topology-arc.cjs` or `render/topology-response.cjs` merely to share the new vocabulary.
 
 ---
 
-### Task 1: Freeze and address the topology-event plan contract
+### Task 1: Freeze the event contract against accepted CandidateFamily lineage
 
 **Files:**
 - Create: `src/full-measure/src/generation/topology-events.cjs`
 - Create: `src/full-measure/tests/topology-events.test.cjs`
 - Modify: `src/full-measure/src/generation/index.cjs`
 
-- [ ] **Step 1: Write RED contract tests**
+**Interfaces:**
+- Consumes: accepted CandidateFamily v1, candidate index, accepted ResolvedTimeline, requested event specimens.
+- Produces: addressed/refused TopologyEventPlan v0.1; no rendering.
+
+- [ ] **Step 1: Write RED contract constants**
 
 Require exact constants:
 
@@ -70,136 +87,269 @@ TOPOLOGY_EVENT_PLAN_SCHEMA === "haunted-toaster/topology-event-plan/v0.1"
 TOPOLOGY_EVENT_KINDS deepEqual ["aperture", "speak", "grab", "grow"]
 ```
 
-Use a canonical GRAB fixture:
+- [ ] **Step 2: Build the fixture through the real CandidateFamily seam**
+
+Use existing fixture `analysis`, constraints, renderer profile, parent score, and candidate-family helpers rather than inventing a second lock model.
+
+Generate a family containing an accepted candidate and preserve:
+
+```text
+family.familyHash
+family.locks
+candidate.scoreAddress
+candidate.timeline.timelineHash
+candidate.timeline.baseState.topology
+```
+
+The topology-event API shape under test is:
 
 ```js
-const grabInput = {
-  sourceTopology: "spiral",
-  locks: [],
-  timebase: 1000,
-  durationTicks: 12000,
-  events: [{
-    id: "grab-1",
-    kind: "grab",
-    prepareTick: 3000,
-    strikeTick: 4000,
-    releaseTick: 5000,
-    residueUntilTick: 7000,
-    parameters: {
-      anchorX: 0.25,
-      anchorY: 0.5,
-      targetX: 0.75,
-      targetY: 0.45,
-      pull: 0.8,
-      recoil: 0.55,
-      residualOffsetX: 0.08,
-      residualOffsetY: -0.03,
-    },
-    evidenceRefs: ["fixture:grab-1"],
-  }],
+resolveTopologyEvents(candidate.timeline, {
+  family,
+  candidateIndex: candidate.index,
+  events: [grabRequest],
+})
+```
+
+The event request contains only event-local values:
+
+```js
+const grabRequest = {
+  id: "grab-1",
+  kind: "grab",
+  prepareTick: 3000,
+  strikeTick: 4000,
+  releaseTick: 5000,
+  residueUntilTick: 7000,
+  parameters: {
+    anchorX: 0.25,
+    anchorY: 0.5,
+    targetX: 0.75,
+    targetY: 0.45,
+    radiusX: 0.22,
+    radiusY: 0.18,
+    pull: 0.8,
+    recoil: 0.55,
+    falloff: 0.7,
+    residualVectorX: 0.08,
+    residualVectorY: -0.03,
+    residualStretch: 0.06,
+  },
+  evidenceRefs: ["fixture:grab-1"],
 };
 ```
 
+There is intentionally no `locks`, `sourceTopology`, `scoreAddress`, or caller-provided timeline hash in the request.
+
+- [ ] **Step 3: Write RED authoritative-lock tests**
+
+Generate a CandidateFamily with a parent and `locks: ["topology"]`.
+
+Require:
+
+```text
+eventCount = 0
+refusal.reason = topology-lock-prohibits-topology-events
+lockedAxes deepEqual family.locks
+```
+
+Also prove there is no supported caller field capable of replacing `family.locks` with `[]`.
+
+Unknown top-level resolver options such as `locks` or `sourceTopology` must fail closed rather than be silently ignored.
+
+- [ ] **Step 4: Write RED candidate/timeline identity tests**
+
+Require failure when any of these is true:
+
+1. `candidateIndex` does not exist;
+2. `timeline.scoreAddress !== family.candidates[candidateIndex].scoreAddress`;
+3. `timeline.baseState.topology !== family.candidates[candidateIndex].timeline.baseState.topology`;
+4. supplied timeline is from another candidate in the same family;
+5. supplied family is not CandidateFamily v1.
+
+These are representation/identity failures, not renderer refusals.
+
+- [ ] **Step 5: Implement descriptor-safe exact validation and plan derivation**
+
+Use the project's hostile-input posture:
+
+- plain objects only;
+- exact known keys;
+- own data descriptors only;
+- safe integers for ticks/timebase/duration;
+- finite bounded numeric parameters;
+- no mutation of caller arrays/objects.
+
+The normalized plan derives:
+
+```text
+acceptedFamilyHash = family.familyHash
+acceptedScoreAddress = selectedCandidate.scoreAddress
+sourceTimelineHash = supplied timeline.timelineHash
+sourceTopology = supplied timeline.baseState.topology
+lockedAxes = family.locks
+```
+
+Do not accept caller substitutes for those values.
+
+- [ ] **Step 6: Normalize GRAB parameters**
+
+Normalize to six decimal places.
+
+Bounds:
+
+```text
+anchorX, anchorY, targetX, targetY: 0..1
+radiusX, radiusY: >0..1
+pull, recoil, falloff: 0..1
+residualVectorX, residualVectorY, residualStretch: -1..1
+```
+
+For APERTURE/SPEAK/GROW, implement exact kind-specific request validators now even though their render adapters remain deferred. Do not use arbitrary opaque object pass-through.
+
+- [ ] **Step 7: Prove plan normalization/addressing**
+
 Tests must prove:
 
-- plan is deeply frozen;
-- same input deep clone produces same `planSha256`;
+- same accepted family/candidate/timeline + deep-cloned request yields same `planSha256`;
 - event order normalizes by `prepareTick`, then `id`;
 - evidence refs normalize unique/sorted;
-- source input remains unchanged;
-- `body` is rejected as unsupported event kind;
-- unknown keys/accessors/non-plain wrappers fail closed;
-- invalid tick order refuses/throws according to representation vs lawful scheduling boundary.
+- plan is deeply frozen;
+- source inputs remain unchanged;
+- `body` is rejected as a primitive kind;
+- unknown fields/accessors/non-plain wrappers fail closed;
+- invalid tick order fails/refuses at the documented boundary.
 
-- [ ] **Step 2: Run focused test and verify RED**
+- [ ] **Step 8: Run focused tests**
 
 ```bash
 cd src/full-measure
 node --test tests/topology-events.test.cjs
 ```
 
-Expected: FAIL because module does not exist.
-
-- [ ] **Step 3: Implement descriptor-safe exact validation**
-
-Use the same hostile-input posture as current generation primitives:
-
-- plain objects only;
-- exact known keys;
-- data descriptors only;
-- safe integers for all ticks/timebase/duration;
-- finite bounded numeric parameters;
-- no mutation of caller arrays/objects.
-
-`GRAB` numeric coordinates and signed residual offsets are normalized to six decimal places. `pull` and `recoil` are bounded `0..1`; normalized position values are bounded `0..1`; residual offsets are bounded `-1..1`.
-
-For APERTURE/SPEAK/GROW in Task 1, admit only schema-valid opaque parameter maps with an explicit kind-specific validator placeholder **implemented now**, not a generic arbitrary-object pass-through. Keep their first parameter sets minimal per spec even though they do not render yet.
-
-- [ ] **Step 4: Implement addressed refusal for topology lock**
-
-A valid input containing `locks: ["topology"]` returns a frozen plan with:
-
-```text
-eventCount = 0
-refusal.reason = topology-lock-prohibits-topology-events
-```
-
-The refusal and overall plan are hashed with dedicated canonical domains.
-
-- [ ] **Step 5: Export through generation index and run focused tests**
-
-```bash
-node --test tests/topology-events.test.cjs
-```
-
 Expected: PASS.
 
-- [ ] **Step 6: Commit Task 1**
+- [ ] **Step 9: Commit Task 1**
 
 ```bash
 git add -- src/full-measure/src/generation/topology-events.cjs src/full-measure/src/generation/index.cjs src/full-measure/tests/topology-events.test.cjs
-git commit -m "feat: add topology event plan v0.1"
+git commit -m "feat: bind topology events to accepted candidate lineage"
 ```
 
 ---
 
-### Task 2: Compile one GRAB event into deterministic additive expressions
+### Task 2: Attach topology-event evidence inside the canonical ResolvedTimeline identity
+
+**Files:**
+- Modify: `src/full-measure/src/generation/topology-events.cjs`
+- Modify: `src/full-measure/tests/topology-events.test.cjs`
+- Modify: `src/full-measure/src/render/timeline-execution.cjs`
+
+**Interfaces:**
+- Consumes: current accepted ResolvedTimeline + addressed plan from Task 1.
+- Produces: new accepted ResolvedTimeline containing `topologyEvents` in its canonical body.
+
+- [ ] **Step 1: Write RED timeline identity tests**
+
+Follow the identity pattern already used by `resolveNativeColorPlan(...)`.
+
+Require:
+
+```js
+const before = candidate.timeline;
+const after = resolveTopologyEvents(before, { family, candidateIndex, events });
+
+assert.equal(after.topologyEvents.sourceTimelineHash, before.timelineHash);
+assert.notEqual(after.timelineHash, before.timelineHash);
+assert.match(after.canonicalJson, /topologyEvents/);
+```
+
+Also prove:
+
+```text
+changing only event plan content / planSha256 changes final timelineHash
+same attached plan produces same final timelineHash
+no-event/refusal path preserves documented compatibility behavior
+```
+
+- [ ] **Step 2: Implement canonical attachment**
+
+Model the mechanics on `generation/native-color.cjs`:
+
+```text
+strip old timelineHash + canonicalJson + prior topologyEvents wrapper field
+clone remaining body
+insert topologyEvents plan
+hash body with HauntedToaster-ResolvedTimeline-v1
+rebuild canonicalJson from exact body
+deepFreeze
+```
+
+Do not store execution-significant topology-event evidence outside that body.
+
+- [ ] **Step 3: Add source-topology and source-timeline attachment guards**
+
+Before attachment require:
+
+```text
+plan.sourceTimelineHash === timeline.timelineHash
+plan.sourceTopology === timeline.baseState.topology
+plan.acceptedScoreAddress === timeline.scoreAddress
+plan.acceptedFamilyHash === family.familyHash
+```
+
+Write negative tests for each mismatch.
+
+The key regression specimen:
+
+```text
+plan.sourceTopology = spiral
+accepted timeline.baseState.topology = linear
+→ attachment fails before render
+```
+
+- [ ] **Step 4: Add `assertTopologyEvents(timeline)` in timeline execution**
+
+Optional plan validation must include:
+
+- exact schema/policy;
+- lowercase SHA-256 where applicable;
+- ordered bounded event windows;
+- `sourceTopology === timeline.baseState.topology`;
+- `acceptedScoreAddress === timeline.scoreAddress`;
+- event envelope within `durationTicks`;
+- supported primitive kinds only;
+- event count equals event array length.
+
+It must not attempt to validate or recreate CandidateFamily authority at render time; that authority was consumed upstream during attachment.
+
+- [ ] **Step 5: Prove renderer cannot consume an orphan raw request**
+
+There should be no `compileTopologyEvents(rawRequest)` production path.
+
+The renderer accepts only a ResolvedTimeline that has already passed `assertResolvedTimeline(...)` / `assertTopologyEvents(...)`.
+
+- [ ] **Step 6: Run focused tests and commit**
+
+```bash
+node --test tests/topology-events.test.cjs tests/timeline-topology-smoke.test.cjs
+git add -- src/full-measure/src/generation/topology-events.cjs src/full-measure/src/render/timeline-execution.cjs src/full-measure/tests/topology-events.test.cjs src/full-measure/tests/timeline-topology-smoke.test.cjs
+git commit -m "feat: bind topology event plan into timeline identity"
+```
+
+---
+
+### Task 3: Compile GRAB into a deterministic bounded local deformation field
 
 **Files:**
 - Create: `src/full-measure/src/render/topology-events.cjs`
 - Create: `src/full-measure/tests/topology-event-render.test.cjs`
 
-- [ ] **Step 1: Write RED expression-shape tests**
+**Interfaces:**
+- Consumes: only `timeline.topologyEvents` from an accepted timeline.
+- Produces: deterministic renderer-neutral local deformation field/evidence for the shared topology compiler seam.
 
-Import a future:
-
-```js
-compileTopologyEvents(timeline)
-```
-
-Construct a minimal accepted timeline carrying the normalized GRAB plan under a dedicated non-renderer-private sidecar field selected during implementation from the existing resolved timeline extension pattern. If no lawful extension point exists, stop and upgrade the design before changing canonical schema.
-
-Require output:
-
-```js
-{
-  evidence: {
-    policyVersion: "topology-events-v0.1",
-    planSha256,
-    eventCount: 1,
-    renderedKinds: ["grab"],
-  },
-  expressions: {
-    offsetX: "...",
-    offsetY: "...",
-    scale: "...",
-  },
-}
-```
-
-No generated expression may include random functions or read undeclared external state.
-
-- [ ] **Step 2: Prove phase behavior numerically before producing FFmpeg strings**
+- [ ] **Step 1: Write RED sampling tests before FFmpeg compilation**
 
 Expose a pure helper:
 
@@ -207,38 +357,112 @@ Expose a pure helper:
 sampleGrabEvent(event, atTick)
 ```
 
-Test exact semantic phases:
+Return a bounded local field specimen:
 
-- before `prepareTick`: all offsets `0`, scale `1`;
-- prepare→strike: monotonic movement toward target;
-- strike: maximum declared pull;
-- strike→release: recoil toward residual offset;
-- release→residueUntil: non-zero residual offset remains;
-- after residueUntil: offset returns `0`, scale `1`.
+```js
+{
+  centerX,
+  centerY,
+  radiusX,
+  radiusY,
+  vectorX,
+  vectorY,
+  stretch,
+  falloff,
+}
+```
 
-This is the primary correctness proof. FFmpeg string tests should verify deterministic compilation, not attempt to prove motion from opaque string comparison alone.
+Test semantic phases:
 
-- [ ] **Step 3: Implement piecewise deterministic interpolation**
+- before `prepareTick`: `vectorX=0`, `vectorY=0`, `stretch=0`;
+- prepare→strike: magnitude grows monotonically toward the target vector;
+- strike: maximum declared local pull;
+- strike→release: local field recoils toward residual vector/stretch;
+- release→`residueUntilTick`: non-zero local residual remains;
+- after `residueUntilTick`: neutral field returns.
 
-Use finite arithmetic and existing formatting conventions from `render/topology-response.cjs`. Do not import state from the topology-response module that would couple semantics; local small numeric helpers are acceptable.
+The center/radii stay bounded and deterministic throughout.
 
-The GRAB expression compiler should build additive expressions that can be composed with existing topology response travel rather than replacing it.
+- [ ] **Step 2: Add the anti-pan/zoom regression test**
 
-- [ ] **Step 4: Verify exact replay**
+The compiled GRAB representation must contain a bounded local region/falloff and may not reduce to only:
 
-Deep-cloned identical plan/timeline must yield deep-equal evidence and byte-identical expression strings.
+```text
+global offsetX
+global offsetY
+global scale
+```
 
-- [ ] **Step 5: Run focused tests and commit**
+A test should fail if the compiler returns only whole-frame transform values.
+
+- [ ] **Step 3: Implement deterministic interpolation**
+
+Use finite arithmetic and existing formatting conventions where appropriate.
+
+The event field represents a local pull toward the drag target with bounded falloff and residual stretch. Do not import mutable state from the elastic topology-response module.
+
+- [ ] **Step 4: Compile the field to a shared local-warp recipe**
+
+Expose:
+
+```js
+compileTopologyEvents(timeline)
+```
+
+Expected conceptual result:
+
+```js
+{
+  evidence: {
+    policyVersion: "topology-events-v0.1",
+    planSha256,
+    sourceTopology,
+    eventCount: 1,
+    renderedKinds: ["grab"],
+  },
+  localDeformation: {
+    // deterministic time expressions / normalized local-warp parameters
+    centerX,
+    centerY,
+    radiusX,
+    radiusY,
+    vectorX,
+    vectorY,
+    stretch,
+    falloff,
+  },
+}
+```
+
+No generated expression may include random functions or read undeclared external state.
+
+- [ ] **Step 5: Choose one deterministic FFmpeg-local deformation construction**
+
+Implementation may use a masked displacement/warp, remap, or equivalent local construction, but it must satisfy all of these:
+
+1. deformation is spatially bounded around the declared region;
+2. falloff decays toward region boundary;
+3. neighboring pixels visibly stretch/pull rather than the entire frame merely translating;
+4. outside region remains recognizably governed by the base topology;
+5. same accepted timeline compiles byte-identically.
+
+If the current FFmpeg seam cannot express a bounded local deformation without invasive duplication, stop and amend the design before substituting global pan/zoom.
+
+- [ ] **Step 6: Verify exact replay**
+
+Deep-cloned identical accepted timeline must yield deep-equal evidence and byte-identical compiled field/filter fragments.
+
+- [ ] **Step 7: Run focused tests and commit**
 
 ```bash
 node --test tests/topology-event-render.test.cjs
 git add -- src/full-measure/src/render/topology-events.cjs src/full-measure/tests/topology-event-render.test.cjs
-git commit -m "feat: compile deterministic GRAB topology event"
+git commit -m "feat: compile deterministic local GRAB field"
 ```
 
 ---
 
-### Task 3: Attach topology events once at the shared topology compiler context
+### Task 4: Attach topology events once at the shared topology compiler context
 
 **Files:**
 - Modify: `src/full-measure/src/render/topology-compilers.cjs`
@@ -247,38 +471,37 @@ git commit -m "feat: compile deterministic GRAB topology event"
 
 - [ ] **Step 1: Add RED shared-context tests**
 
-Require the topology context to compile topology events once when accepted event evidence is present.
+Require the topology context to compile topology events once when accepted `timeline.topologyEvents` evidence is present.
 
 Do not add GRAB branches to every topology compiler.
 
-The context should expose something like:
+The context should expose one local deformation representation, for example:
 
 ```text
-context.eventResponse.expressions.offsetX
-offsetY
-scale
+context.eventResponse.localDeformation
 ```
 
-with neutral values when no event plan exists.
+and be `null` when no event plan exists.
 
-- [ ] **Step 2: Compose GRAB with existing responsive-frame transform**
+- [ ] **Step 2: Preserve frozen topology identity and reject foreign-addressed plans**
 
-At the shared post-topology geometry seam, compose:
+Existing `frozenTopology(execution)` must still reject segment topology drift.
+
+Additionally, before event compilation require:
 
 ```text
-existing elastic travel + event offset
-existing elastic extent * event scale
+timeline.topologyEvents.sourceTopology === timeline.baseState.topology
 ```
 
-rather than choosing one system over the other.
+The negative regression test must construct an otherwise valid timeline whose attached event evidence claims another topology and require failure before filter-graph creation.
 
-If the current filter graph cannot safely express additive composition once, stop and revise the design instead of scattering event-specific filters through topology compilers.
+- [ ] **Step 3: Compose local GRAB with existing topology response once**
 
-- [ ] **Step 3: Preserve frozen topology identity**
+Apply the local deformation at one shared post-topology/pre-final-composite seam.
 
-Tests must still prove `frozenTopology(execution)` rejects segment topology drift exactly as before.
+Do **not** replace existing elastic response. Do **not** scatter separate GRAB implementations through individual topology compiler functions.
 
-A GRAB event never changes `baseState.topology` or segment topology.
+Do **not** collapse the effect into whole-frame global travel/scale.
 
 - [ ] **Step 4: Prove no-plan compatibility**
 
@@ -286,60 +509,56 @@ For a historical/no-event timeline, generated topology replacement/filter graph 
 
 - [ ] **Step 5: Prove event-plan graph distinction**
 
-Same base score/timeline with one accepted GRAB plan must produce a deterministic graph distinct from the no-event graph while keeping topology compiler identity unchanged.
+Same base accepted candidate with one attached GRAB plan must produce a deterministic graph distinct from the no-event graph while keeping topology compiler identity unchanged.
 
 - [ ] **Step 6: Run focused topology tests and commit**
 
 ```bash
 node --test tests/topology-event-render.test.cjs tests/topology-response-compiler.test.cjs tests/timeline-topology-smoke.test.cjs
 git add -- src/full-measure/src/render/topology-compilers.cjs src/full-measure/tests/topology-response-compiler.test.cjs src/full-measure/tests/timeline-topology-smoke.test.cjs
-git commit -m "feat: route GRAB through shared topology compiler seam"
+git commit -m "feat: route local GRAB through shared topology seam"
 ```
 
 ---
 
-### Task 4: Prove accepted-plan authority and preview/production parity seam
+### Task 5: Prove accepted-plan authority and preview/production parity
 
 **Files:**
-- Modify only the smallest existing timeline/sidecar compiler file necessary after Task 2 identifies the lawful extension point.
-- Add/modify the closest existing test that already proves preview/production consume the same ResolvedTimeline evidence.
+- Modify only the smallest existing preview/production parity test or helper necessary.
+- Prefer no new canonical schema version because `topologyEvents` is attached using the established optional-plan/re-address pattern; if current validation proves this assumption false, stop and amend the design before proceeding.
 
-- [ ] **Step 1: Identify the existing extension seam instead of inventing a second timeline**
-
-Inspect:
-
-```text
-generation/resolver.cjs
-generation/schema.cjs
-render/timeline-execution.cjs
-render/timeline-preview.cjs
-render/sidecars.cjs
-```
-
-Select the smallest existing accepted-evidence carrier that can hold the addressed topology event plan without changing historical `VisualScore` meaning.
-
-If this requires a canonical schema version bump, stop and amend the design/issue before coding it.
-
-- [ ] **Step 2: Write RED authority tests**
+- [ ] **Step 1: Write RED authority/parity tests**
 
 Prove:
 
 - renderer cannot accept a raw unscheduled event request;
-- event plan must arrive through the accepted timeline/evidence seam;
-- preview and production resolve the same `planSha256`;
-- no event plan is a normal backward-compatible path.
+- event plan must arrive inside an accepted ResolvedTimeline;
+- final accepted timeline hash includes the attached plan;
+- changing `planSha256` changes `timelineHash`;
+- preview and production resolve the same final `timelineHash` and `planSha256`;
+- no-event timeline is a normal backward-compatible path.
 
-- [ ] **Step 3: Wire only the accepted plan**
+- [ ] **Step 2: Prove the family lock survived the whole crossing**
 
-No audio analysis or generation choice occurs in render.
+A CandidateFamily created with `locks: ["topology"]` must be unable to produce an executable topology-event timeline through any supported public API.
 
-- [ ] **Step 4: Run focused parity/smoke tests and commit**
+This is an end-to-end regression, not merely a planner unit test.
 
-Use the existing relevant test files discovered in Step 1; commit only task-local paths.
+- [ ] **Step 3: Prove topology addressing survived the whole crossing**
+
+A plan derived for candidate A/topology A cannot be attached to candidate B or rendered over topology B, even if event parameters are otherwise valid.
+
+- [ ] **Step 4: Wire only the accepted timeline**
+
+No audio analysis, lock selection, topology selection, or event generation choice occurs in render.
+
+- [ ] **Step 5: Run focused parity/smoke tests and commit**
+
+Use the closest existing tests discovered during implementation; commit only task-local paths.
 
 ---
 
-### Task 5: Full verification and field-witness handoff
+### Task 6: Full verification and field-witness handoff
 
 **Files:**
 - No planned production changes; fixes only if verification exposes task-related defects.
@@ -366,10 +585,11 @@ If the exact script name differs on current main, use the repository-declared re
 
 - [ ] **Step 3: Inspect final diff**
 
-Confirm no changes to:
+Confirm no unintended changes to:
 
 - source audio behavior;
 - candidate Creative Verb Kernel;
+- CandidateFamily lock semantics;
 - Topology Arc semantics;
 - Elastic Topology Response semantics;
 - topology vocabulary/base values;
@@ -382,14 +602,24 @@ Confirm no changes to:
 Create one deterministic GRAB fixture/render pair demonstrating:
 
 ```text
-stable → anticipation → contact → pull → recoil → residual displacement → settle
+stable
+→ local anticipation
+→ contact
+→ bounded regional pull/stretch
+→ local recoil
+→ residual local displacement/stretch
+→ settle
 ```
 
-The human gate is qualitative: does this read as something **happening to** the topology, rather than a generic zoom/pan effect?
+The human gate is qualitative and strict:
+
+> Does this read as one region **grabbing and deforming** visual material, rather than a generic camera move, pan, zoom, or whole-frame wobble?
+
+If it reads as generic pan/zoom, the founding specimen has failed even when determinism tests pass.
 
 Do not claim APERTURE/SPEAK/GROW implemented at this stage.
 
-- [ ] **Step 5: Commit only any final task-local corrections**
+- [ ] **Step 5: Commit only final task-local corrections**
 
 No empty commit.
 
@@ -399,10 +629,10 @@ No empty commit.
 
 After GRAB passes packaged human witness:
 
-1. APERTURE through the same event-plan/render-expression seam.
+1. APERTURE through the same accepted-plan/local-event seam.
 2. SPEAK through a bounded explicit seam/emission adapter.
 3. GROW with the first persistent strand and visible age-order proof.
-4. BODY as choreography that compiles into the existing primitive kinds.
+4. BODY as choreography that compiles into existing primitive kinds.
 
 Each follow-on gets its own RED tests and must not widen the event-plan grammar unnecessarily.
 
@@ -410,17 +640,32 @@ Each follow-on gets its own RED tests and must not widen the event-plan grammar 
 
 Before calling implementation complete:
 
-- focused generation contract tests pass;
-- focused GRAB sampling/expression tests pass;
+- CandidateFamily lineage/lock tests pass;
+- topology-lock bypass regression passes;
+- candidate/timeline score-address mismatch regression passes;
+- source-topology mismatch regression passes;
+- attached plan changes canonical timeline identity;
+- changing `planSha256` changes `timelineHash`;
+- focused GRAB local-deformation sampling tests pass;
+- anti-pan/zoom regression passes;
 - shared topology compiler tests pass;
 - no-plan graph compatibility passes;
-- topology identity remains frozen;
+- frozen topology identity remains intact;
 - accepted-plan authority/parity tests pass;
 - `npm run verify` passes;
 - render smoke passes;
-- deterministic human witness exists;
+- deterministic local GRAB human witness exists;
 - no release/tag/promotion occurred.
 
 ## Execution stop
 
-Stop the first implementation after **GRAB** proves the shared seam. Do not implement all four moments in one pass merely because the contract names them.
+Stop the first implementation after **GRAB** proves the shared seam with all four authority invariants intact:
+
+```text
+locks come from the accepted family
+plan topology equals accepted timeline topology
+plan is inside canonical timeline identity
+GRAB is a local deformation, not whole-frame pan/zoom
+```
+
+Do not implement all four moments in one pass merely because the contract names them.
