@@ -185,11 +185,11 @@ test("witness Video source and VSPantry", async ({ page }, testInfo) => {
   await expect(importFolder).toBeDisabled();
   await expect(importFolder).toHaveAttribute("aria-busy", "true");
   await expect(pantry).toHaveAttribute("data-pantry-state", "importing");
-  await expect(status).toContainText("Importing VSPantry");
-  await expect(status).toContainText("1 / 3");
+  await expect(status).toContainText("Importing");
+  await expect(status).toContainText("1/3");
   await expect(status).toContainText("visual-specimen-1.mp4");
   await expect(status).toContainText("0 admitted");
-  await expect(status).toContainText("0 duplicates");
+  await expect(status).toContainText("0 dup");
   await expect(status).toContainText("0 refused");
 
   await pantry.screenshot({

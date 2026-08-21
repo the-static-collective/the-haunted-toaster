@@ -169,12 +169,19 @@ test('VSPantry UI shows live progress and keeps the import action busy until ter
   assert.equal(pantry.dataset.pantryState, 'importing');
 
   progressHandler({ phase: 'processing', total: 123, index: 37, filename: 'video-1787036262252.mp4', admitted: 36, duplicates: 1, refused: 0 });
-  assert.match(status.textContent, /Importing VSPantry/);
-  assert.match(status.textContent, /37 \/ 123/);
+  assert.match(status.textContent, /^Importing · 37\/123/);
   assert.match(status.textContent, /video-1787036262252\.mp4/);
   assert.match(status.textContent, /36 admitted/);
-  assert.match(status.textContent, /1 duplicate/);
+  assert.match(status.textContent, /1 dup/);
   assert.match(status.textContent, /0 refused/);
+  const progressText = status.textContent;
+  const filenameOffset = progressText.indexOf('video-1787036262252.mp4');
+  for (const countText of ['36 admitted', '1 dup', '0 refused']) {
+    assert.ok(
+      progressText.indexOf(countText) < filenameOffset,
+      `${countText} must precede the potentially ellipsized filename`,
+    );
+  }
 
   resolveImport({ catalogSize: 123, admitted: 122, duplicates: 1, refused: [] });
   await flush();
