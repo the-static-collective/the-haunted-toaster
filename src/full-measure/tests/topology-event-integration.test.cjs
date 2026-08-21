@@ -57,6 +57,7 @@ test("accepted CandidateFamily → ResolvedTimeline → production compiler carr
     count: 6,
   });
   const candidate = family.candidates.find((item) => item.timeline.baseState.topology !== "linear") || family.candidates[0];
+  const historicalExecution = createTimelineExecution(candidate.timeline);
   const accepted = generation.resolveTopologyEvents(candidate.timeline, {
     family,
     candidateIndex: candidate.index,
@@ -76,10 +77,10 @@ test("accepted CandidateFamily → ResolvedTimeline → production compiler carr
   assert.match(compiled.graph, /\[grabOuterSource\]crop=/);
   assert.match(compiled.graph, /\[grabInnerSource\]crop=/);
   assert.match(compiled.graph, /\[base\]\[grabTopologyFinal\]overlay=/);
-  assert.equal(execution.segments.some((segment) => segment.startTick === 3000), true);
-  assert.equal(execution.segments.some((segment) => segment.startTick === 4000), true);
-  assert.equal(execution.segments.some((segment) => segment.startTick === 5000), true);
-  assert.equal(execution.segments.some((segment) => segment.startTick === 7000), true);
+  assert.deepEqual(
+    execution.segments.map(({ startTick, endTick }) => [startTick, endTick]),
+    historicalExecution.segments.map(({ startTick, endTick }) => [startTick, endTick]),
+  );
 });
 
 test("the same accepted timeline without a topology event remains graph-compatible", () => {
