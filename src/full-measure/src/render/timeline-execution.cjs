@@ -336,8 +336,6 @@ function executionSegments(timeline) {
     ...(timeline.possessionArc?.transitions || []).map((transition) => transition.atTick),
     ...(timeline.nativeColor?.decompressionWindows || [])
       .flatMap((window) => [window.startTick, window.endTick]),
-    ...(timeline.topologyEvents?.events || [])
-      .flatMap((event) => [event.prepareTick, event.strikeTick, event.releaseTick, event.residueUntilTick]),
   ].sort((left, right) => left - right);
   for (const atTick of eventTicks) {
     if (atTick > 0 && atTick < timeline.durationTicks) {
