@@ -1,6 +1,7 @@
 const base = require("./timeline-filter-base.cjs");
 const { MUTATION_LATTICE_RENDERER_POLICY } = require("../generation/renderer-policy.cjs");
 const { compileTopologyResponse } = require("./topology-response.cjs");
+const { applyTopologyEventSeam } = require("./topology-event-seam.cjs");
 const { compactTopologyResponseEvidence } = require("./visual-compiler-evidence.cjs");
 
 function decorateOperators(operators, topologyResponse) {
@@ -15,7 +16,10 @@ function decorateOperators(operators, topologyResponse) {
 }
 
 function compileTimelineFilterGraph(graph, execution) {
-  const compiled = base.compileTimelineFilterGraph(graph, execution);
+  const compiled = applyTopologyEventSeam(
+    base.compileTimelineFilterGraph(graph, execution),
+    execution,
+  );
   if (execution?.timeline?.rendererPolicy !== MUTATION_LATTICE_RENDERER_POLICY) {
     return compiled;
   }
