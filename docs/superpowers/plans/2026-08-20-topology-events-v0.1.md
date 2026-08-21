@@ -4,7 +4,7 @@
 
 **Goal:** Prove one deterministic, locally deforming `GRAB` topology event end-to-end through the existing accepted CandidateFamily → ResolvedTimeline → topology compiler seam, while freezing a four-verb contract that can later admit APERTURE, SPEAK, and GROW without creating new base topologies.
 
-**Architecture:** Add one generation-side topology-event resolver that accepts an already constituted CandidateFamily, selected candidate index, and accepted ResolvedTimeline; derives authoritative locks/topology/score identity from those specimens; creates an addressed plan; and attaches that plan inside the canonical timeline body while rebuilding `timelineHash` and `canonicalJson`. Add one render-side compiler that consumes only the attached plan and produces a bounded local GRAB deformation field. `GRAB` is the only rendered event in the first implementation; APERTURE/SPEAK/GROW remain contract fixtures until GRAB proves the seam.
+**Architecture:** Add one generation-side topology-event resolver that accepts an already constituted CandidateFamily, selected candidate index, and accepted ResolvedTimeline; first verifies the CandidateFamily's canonical content address; then derives authoritative locks/topology/score identity from those specimens; creates an addressed plan; and attaches that plan inside the canonical timeline body while rebuilding `timelineHash` and `canonicalJson`. Add one render-side compiler that consumes only the attached plan and produces a bounded local GRAB deformation field. `GRAB` is the only rendered event in the first implementation; APERTURE/SPEAK/GROW remain contract fixtures until GRAB proves the seam.
 
 **Tech Stack:** Node.js/CommonJS, `node:test`, existing canonical hashing helpers, CandidateFamily v1, ResolvedTimeline v1, existing timeline execution/topology compiler/FFmpeg path.
 
@@ -19,7 +19,8 @@
 - `body` is never a primitive event kind.
 - First executable renderer event is `grab` only.
 - Base topology identity remains frozen and unchanged.
-- Authoritative locks come only from accepted `CandidateFamily.locks`.
+- Before reading CandidateFamily locks or candidate identity, recompute the canonical CandidateFamily core hash with domain `HauntedToaster-CandidateFamily-v1` and require equality with `family.familyHash`.
+- Authoritative locks come only from a canonically verified accepted `CandidateFamily.locks`.
 - Caller input must not contain an independent `locks` field or `sourceTopology` field.
 - `topology` lock refuses topology-event planning in v0.1.
 - The accepted timeline must match the selected candidate by score address and base topology.
@@ -62,11 +63,17 @@ Read and reuse the attachment pattern in:
 src/full-measure/src/generation/native-color.cjs
 ```
 
+Read the exact CandidateFamily hash core in:
+
+```text
+src/full-measure/src/generation/candidate-family.cjs
+```
+
 Do not change `generation/topology-arc.cjs` or `render/topology-response.cjs` merely to share the new vocabulary.
 
 ---
 
-### Task 1: Freeze the event contract against accepted CandidateFamily lineage
+### Task 1: Freeze the event contract against canonically verified CandidateFamily lineage
 
 **Files:**
 - Create: `src/full-measure/src/generation/topology-events.cjs`
@@ -141,9 +148,54 @@ const grabRequest = {
 
 There is intentionally no `locks`, `sourceTopology`, `scoreAddress`, or caller-provided timeline hash in the request.
 
-- [ ] **Step 3: Write RED authoritative-lock tests**
+- [ ] **Step 3: Write RED CandidateFamily-address integrity tests**
 
-Generate a CandidateFamily with a parent and `locks: ["topology"]`.
+Before any lock or candidate field is trusted, reconstruct exactly the `familyCore` used by `generateCandidateSet(...)`:
+
+```text
+schema
+policy
+scoreSchema
+prng
+rootSeed
+parentScoreRef
+baselineScoreRef
+constraintPackId
+analysisHash
+constraintsHash
+rendererProfileHash
+locks
+requestedCount
+producedCount
+roles
+scoreAddresses
+timelineHashes
+shortfall
+```
+
+Require:
+
+```js
+hashCanonical(familyCore, "HauntedToaster-CandidateFamily-v1") === family.familyHash
+```
+
+Negative fixture:
+
+```text
+start from a genuine family with locks = [topology]
+clone it
+replace clone.locks with []
+leave clone.familyHash unchanged
+→ resolver throws before reading the forged lock set or creating a plan
+```
+
+Also test mutations of `scoreAddresses`, `timelineHashes`, and `roles` with stale `familyHash` so the verifier is demonstrably the exact family-core address check rather than a lock-only special case.
+
+The family hash is a content address, not a signature. This test proves internal identity consistency and stale/tampered representation refusal; it does not claim that arbitrary externally forged JSON becomes trusted merely because its author can compute a hash. The production call site must use the already retained accepted CandidateFamily specimen from candidate generation/selection, not deserialize a new remote family document for this purpose.
+
+- [ ] **Step 4: Write RED authoritative-lock tests**
+
+Generate a canonically valid CandidateFamily with a parent and `locks: ["topology"]`.
 
 Require:
 
@@ -157,19 +209,33 @@ Also prove there is no supported caller field capable of replacing `family.locks
 
 Unknown top-level resolver options such as `locks` or `sourceTopology` must fail closed rather than be silently ignored.
 
-- [ ] **Step 4: Write RED candidate/timeline identity tests**
+- [ ] **Step 5: Write RED candidate/timeline identity tests**
 
-Require failure when any of these is true:
+After family-address verification, require failure when any of these is true:
 
 1. `candidateIndex` does not exist;
 2. `timeline.scoreAddress !== family.candidates[candidateIndex].scoreAddress`;
 3. `timeline.baseState.topology !== family.candidates[candidateIndex].timeline.baseState.topology`;
 4. supplied timeline is from another candidate in the same family;
-5. supplied family is not CandidateFamily v1.
+5. supplied family is not CandidateFamily v1;
+6. `producedCount`, `roles`, `scoreAddresses`, or `timelineHashes` do not align with the candidate array.
 
 These are representation/identity failures, not renderer refusals.
 
-- [ ] **Step 5: Implement descriptor-safe exact validation and plan derivation**
+- [ ] **Step 6: Implement `verifyCandidateFamilyAddress(...)` before deriving locks**
+
+The helper must:
+
+1. validate the CandidateFamily wrapper shape needed by this module;
+2. reconstruct the exact canonical `familyCore` fields listed in Step 3;
+3. recompute `hashCanonical(familyCore, "HauntedToaster-CandidateFamily-v1")`;
+4. require exact equality with `family.familyHash`;
+5. verify candidate-count and parallel-array alignment;
+6. return a cloned/frozen verified view or the original already-frozen family without mutating caller input.
+
+Only **after** this function succeeds may `family.locks`, candidate score addresses, or candidate timeline hashes be used to derive the topology-event plan.
+
+- [ ] **Step 7: Implement descriptor-safe exact event validation and plan derivation**
 
 Use the project's hostile-input posture:
 
@@ -183,16 +249,16 @@ Use the project's hostile-input posture:
 The normalized plan derives:
 
 ```text
-acceptedFamilyHash = family.familyHash
+acceptedFamilyHash = verified family.familyHash
 acceptedScoreAddress = selectedCandidate.scoreAddress
 sourceTimelineHash = supplied timeline.timelineHash
 sourceTopology = supplied timeline.baseState.topology
-lockedAxes = family.locks
+lockedAxes = verified family.locks
 ```
 
 Do not accept caller substitutes for those values.
 
-- [ ] **Step 6: Normalize GRAB parameters**
+- [ ] **Step 8: Normalize GRAB parameters**
 
 Normalize to six decimal places.
 
@@ -207,11 +273,11 @@ residualVectorX, residualVectorY, residualStretch: -1..1
 
 For APERTURE/SPEAK/GROW, implement exact kind-specific request validators now even though their render adapters remain deferred. Do not use arbitrary opaque object pass-through.
 
-- [ ] **Step 7: Prove plan normalization/addressing**
+- [ ] **Step 9: Prove plan normalization/addressing**
 
 Tests must prove:
 
-- same accepted family/candidate/timeline + deep-cloned request yields same `planSha256`;
+- same verified family/candidate/timeline + deep-cloned request yields same `planSha256`;
 - event order normalizes by `prepareTick`, then `id`;
 - evidence refs normalize unique/sorted;
 - plan is deeply frozen;
@@ -220,7 +286,7 @@ Tests must prove:
 - unknown fields/accessors/non-plain wrappers fail closed;
 - invalid tick order fails/refuses at the documented boundary.
 
-- [ ] **Step 8: Run focused tests**
+- [ ] **Step 10: Run focused tests**
 
 ```bash
 cd src/full-measure
@@ -229,11 +295,11 @@ node --test tests/topology-events.test.cjs
 
 Expected: PASS.
 
-- [ ] **Step 9: Commit Task 1**
+- [ ] **Step 11: Commit Task 1**
 
 ```bash
 git add -- src/full-measure/src/generation/topology-events.cjs src/full-measure/src/generation/index.cjs src/full-measure/tests/topology-events.test.cjs
-git commit -m "feat: bind topology events to accepted candidate lineage"
+git commit -m "feat: bind topology events to verified candidate lineage"
 ```
 
 ---
@@ -295,7 +361,7 @@ Before attachment require:
 plan.sourceTimelineHash === timeline.timelineHash
 plan.sourceTopology === timeline.baseState.topology
 plan.acceptedScoreAddress === timeline.scoreAddress
-plan.acceptedFamilyHash === family.familyHash
+plan.acceptedFamilyHash === verified family.familyHash
 ```
 
 Write negative tests for each mismatch.
@@ -321,7 +387,7 @@ Optional plan validation must include:
 - supported primitive kinds only;
 - event count equals event array length.
 
-It must not attempt to validate or recreate CandidateFamily authority at render time; that authority was consumed upstream during attachment.
+It must not attempt to recreate CandidateFamily authority at render time; family identity and locks were consumed upstream during verified attachment.
 
 - [ ] **Step 5: Prove renderer cannot consume an orphan raw request**
 
@@ -421,7 +487,6 @@ Expected conceptual result:
     renderedKinds: ["grab"],
   },
   localDeformation: {
-    // deterministic time expressions / normalized local-warp parameters
     centerX,
     centerY,
     radiusX,
@@ -540,9 +605,9 @@ Prove:
 
 - [ ] **Step 2: Prove the family lock survived the whole crossing**
 
-A CandidateFamily created with `locks: ["topology"]` must be unable to produce an executable topology-event timeline through any supported public API.
+A canonically verified CandidateFamily created with `locks: ["topology"]` must be unable to produce an executable topology-event timeline through any supported public API.
 
-This is an end-to-end regression, not merely a planner unit test.
+Also prove that cloning that family, changing `locks` to `[]`, and retaining the original `familyHash` is rejected before planning.
 
 - [ ] **Step 3: Prove topology addressing survived the whole crossing**
 
@@ -589,7 +654,7 @@ Confirm no unintended changes to:
 
 - source audio behavior;
 - candidate Creative Verb Kernel;
-- CandidateFamily lock semantics;
+- CandidateFamily lock/hash semantics;
 - Topology Arc semantics;
 - Elastic Topology Response semantics;
 - topology vocabulary/base values;
@@ -640,6 +705,8 @@ Each follow-on gets its own RED tests and must not widen the event-plan grammar 
 
 Before calling implementation complete:
 
+- CandidateFamily canonical address verification passes;
+- stale/tampered family core regression passes;
 - CandidateFamily lineage/lock tests pass;
 - topology-lock bypass regression passes;
 - candidate/timeline score-address mismatch regression passes;
@@ -659,10 +726,11 @@ Before calling implementation complete:
 
 ## Execution stop
 
-Stop the first implementation after **GRAB** proves the shared seam with all four authority invariants intact:
+Stop the first implementation after **GRAB** proves the shared seam with all five authority invariants intact:
 
 ```text
-locks come from the accepted family
+CandidateFamily core verifies against familyHash before use
+locks come from that verified accepted family
 plan topology equals accepted timeline topology
 plan is inside canonical timeline identity
 GRAB is a local deformation, not whole-frame pan/zoom
