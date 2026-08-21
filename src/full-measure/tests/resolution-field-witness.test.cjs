@@ -4,7 +4,6 @@ const fs = require("node:fs");
 const fsPromises = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
-const { JSDOM } = require("jsdom");
 const { probeMedia } = require("../src/render/analyze.cjs");
 const { resolveFfmpeg, runProcess } = require("../src/render/tooling.cjs");
 
@@ -43,35 +42,30 @@ test("media probe reports observed video sample aspect ratio", async () => {
   }
 });
 
-test("packaged render slate exposes only the bounded Resolution Field witness scales", () => {
-  const dom = new JSDOM(source("src/renderer/index.html"));
-  try {
-    const select = dom.window.document.querySelector("#resolutionWitnessScale");
-    assert.ok(select, "field build must expose one Resolution Field witness selector");
-    assert.deepEqual(
-      [...select.options].map((option) => option.value),
-      ["", "1", "0.5", "0.25"],
-    );
-  } finally {
-    dom.window.close();
-  }
+test("packaged preload mounts only the bounded Resolution Field witness scales", () => {
+  const preload = source("src/preload.cjs");
+
+  assert.match(
+    preload,
+    /RESOLUTION_WITNESS_SCALES\s*=\s*Object\.freeze\(\["",\s*"1",\s*"0\.5",\s*"0\.25"\]\)/,
+  );
+  assert.match(preload, /resolutionWitnessScale/);
+  assert.match(preload, /installResolutionFieldWitness/);
 });
 
 test("field witness forwards the selected scale and reports only receipt-derived measurements", () => {
-  const app = source("src/renderer/app.js");
+  const preload = source("src/preload.cjs");
 
-  assert.match(app, /resolutionWitnessScale:\s*null/);
+  assert.match(preload, /withResolutionFieldWitness/);
+  assert.match(preload, /atmosphereResolutionScale/);
+  assert.match(preload, /reportResolutionFieldWitness/);
+  assert.match(preload, /receipt\.render\.elapsedSeconds/);
+  assert.match(preload, /receipt\.output\.sizeBytes/);
+  assert.match(preload, /receipt\.output\.video\.width/);
+  assert.match(preload, /receipt\.output\.video\.height/);
+  assert.match(preload, /receipt\.output\.video\.sampleAspectRatio/);
   assert.match(
-    app,
-    /atmosphereResolutionScale:\s*state\.resolutionWitnessScale/,
-  );
-  assert.match(app, /receipt\.render\.elapsedSeconds/);
-  assert.match(app, /receipt\.output\.sizeBytes/);
-  assert.match(app, /receipt\.output\.video\.width/);
-  assert.match(app, /receipt\.output\.video\.height/);
-  assert.match(app, /receipt\.output\.video\.sampleAspectRatio/);
-  assert.match(
-    app,
+    preload,
     /receipt\.render\.visualCompiler\.atmosphere\.resolutionField/,
   );
 });
