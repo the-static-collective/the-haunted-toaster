@@ -11,6 +11,10 @@ const {
 const {
   applyResolutionFieldToAtmosphereGraph,
 } = require("../src/render/atmosphere-resolution-field.cjs");
+const {
+  INNER_CADENCE_23976,
+  applyTemporalSamplingToGraph,
+} = require("../src/render/temporal-sampling.cjs");
 const { compileTimelineFilterGraph } = require("../src/render/timeline-filter.cjs");
 const { resolveFfmpeg, runProcess } = require("../src/render/tooling.cjs");
 
@@ -81,7 +85,7 @@ async function compileProductionResolutionGraph(tempDirectory, scale) {
   return compileTimelineFilterGraph(resolution.graph, productionExecution());
 }
 
-test("production timeline accepts the Resolution Field stage0 consumer at every supported scale and executes through real FFmpeg", async () => {
+test("production timeline accepts Resolution Field through temporal sampling at every supported scale and executes through real FFmpeg", async () => {
   for (const scale of [1, 0.5, 0.25]) {
     const tempDirectory = await fs.mkdtemp(
       path.join(os.tmpdir(), `toaster-resolution-timeline-${scale}-`),
@@ -91,12 +95,26 @@ test("production timeline accepts the Resolution Field stage0 consumer at every 
       assert.match(compiled.graph, /\[timelineFinal\]split=2\[atmosphereBase\]\[atmosphereCarrier\]/);
       assert.doesNotMatch(compiled.graph, /\[stage0\]split=2\[atmosphereBase\]\[atmosphereCarrier\]/);
 
+      const sampled = applyTemporalSamplingToGraph(
+        compiled.graph,
+        INNER_CADENCE_23976,
+        `${FPS}/1`,
+      );
+      assert.match(
+        sampled.graph,
+        /\[atmosphereStage\]fps=fps=24000\/1001:round=down,fps=fps=12\/1:round=down\[cadencedField\];\n\[cadencedField\]ass=filename='text-overlay\.ass':alpha=1/,
+      );
+      assert.doesNotMatch(
+        sampled.graph,
+        /\[timelineFinal\]fps=fps=24000\/1001:round=down/,
+      );
+
       await fs.copyFile(
         path.join(tempDirectory, "atmosphere.ass"),
         path.join(tempDirectory, "text-overlay.ass"),
       );
       const graphPath = path.join(tempDirectory, "resolution-timeline.ffgraph");
-      await fs.writeFile(graphPath, `${compiled.graph}\n`, "utf8");
+      await fs.writeFile(graphPath, `${sampled.graph}\n`, "utf8");
 
       await runProcess(
         resolveFfmpeg(),
