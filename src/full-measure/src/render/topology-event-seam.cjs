@@ -51,7 +51,7 @@ function ff(value) {
 }
 
 function scaleExpression(stretch, xGain, yGain) {
-  return `scale=w='max(2,trunc(iw*(1+${ff(xGain)}*abs(${stretch}))/2)*2)':h='max(2,trunc(ih*(1+${ff(yGain)}*abs(${stretch}))/2)*2)':eval=frame`;
+  return `scale=w='max(2,trunc(iw*(1+${ff(xGain)}*abs(${stretch}))/2)*2)':h='max(2,trunc(ih*(1+${ff(yGain)}*abs(${stretch}))/2)*2)':eval=frame,setsar=1`;
 }
 
 function compileGrabSeam(eventResponse, geometry) {
