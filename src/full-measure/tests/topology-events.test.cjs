@@ -82,29 +82,32 @@ test("GRAB attaches deterministic addressed evidence without changing score or b
   assert.equal(first.timelineHash, second.timelineHash);
   assert.equal(first.topologyEvents.planSha256, second.topologyEvents.planSha256);
   assert.match(first.canonicalJson, /topologyEvents/);
+  assert.equal(Object.isFrozen(first), true);
+  assert.equal(Object.isFrozen(first.topologyEvents), true);
 });
 
-test("stale CandidateFamily address fails before forged locks can be trusted", () => {
-  const parent = generation.createVisualScore({
-    seed: "topology-events-locked-parent",
-    constraints,
-    overrides: { topology: "circle" },
-  });
-  const { family, candidate } = fixture({ parentScore: parent, locks: ["topology"] });
-  const forged = structuredClone(family);
-  forged.locks = [];
-
-  assert.throws(
-    () => generation.resolveTopologyEvents(candidate.timeline, {
-      family: forged,
-      candidateIndex: candidate.index,
-      events: [grabRequest],
-    }),
-    /CandidateFamily.*address|familyHash|canonical/i,
-  );
+test("stale CandidateFamily address fails before forged authority fields can be trusted", () => {
+  const { family, candidate } = fixture();
+  for (const mutate of [
+    (clone) => { clone.locks = ["topology"]; },
+    (clone) => { clone.roles[0] = "forged-role"; },
+    (clone) => { clone.scoreAddresses[0] = `ht1_${"0".repeat(64)}`; },
+    (clone) => { clone.timelineHashes[0] = "0".repeat(64); },
+  ]) {
+    const forged = structuredClone(family);
+    mutate(forged);
+    assert.throws(
+      () => generation.resolveTopologyEvents(candidate.timeline, {
+        family: forged,
+        candidateIndex: candidate.index,
+        events: [grabRequest],
+      }),
+      /CandidateFamily.*address|familyHash|canonical/i,
+    );
+  }
 });
 
-test("a canonically accepted topology lock refuses topology events", () => {
+test("a canonically accepted topology lock attaches an addressed zero-event refusal", () => {
   const parent = generation.createVisualScore({
     seed: "topology-events-refusal-parent",
     constraints,
@@ -117,8 +120,76 @@ test("a canonically accepted topology lock refuses topology events", () => {
     events: [grabRequest],
   });
 
-  assert.equal(after.timelineHash, candidate.timeline.timelineHash);
-  assert.equal(after.topologyEvents, undefined);
-  assert.equal(after.topologyEventRefusal.reason, "topology-lock-prohibits-topology-events");
-  assert.deepEqual(after.topologyEventRefusal.lockedAxes, family.locks);
+  assert.notEqual(after.timelineHash, candidate.timeline.timelineHash);
+  assert.equal(after.topologyEvents.eventCount, 0);
+  assert.equal(after.topologyEvents.refusal.reason, "topology-lock-prohibits-topology-events");
+  assert.deepEqual(after.topologyEvents.lockedAxes, family.locks);
+  assert.equal(after.topologyEvents.sourceTimelineHash, candidate.timeline.timelineHash);
+});
+
+test("caller cannot smuggle locks or source topology into the resolver", () => {
+  const { family, candidate } = fixture();
+  assert.throws(
+    () => generation.resolveTopologyEvents(candidate.timeline, {
+      family,
+      candidateIndex: candidate.index,
+      events: [grabRequest],
+      locks: [],
+    }),
+    /unknown or missing fields/i,
+  );
+  assert.throws(
+    () => generation.resolveTopologyEvents(candidate.timeline, {
+      family,
+      candidateIndex: candidate.index,
+      events: [grabRequest],
+      sourceTopology: "spiral",
+    }),
+    /unknown or missing fields/i,
+  );
+});
+
+test("selected candidate and accepted timeline must remain the same addressed specimen", () => {
+  const { family, candidate } = fixture();
+  const other = family.candidates[1];
+  assert.throws(
+    () => generation.resolveTopologyEvents(other.timeline, {
+      family,
+      candidateIndex: candidate.index,
+      events: [grabRequest],
+    }),
+    /scoreAddress.*selected candidate/i,
+  );
+
+  const foreignTopology = structuredClone(candidate.timeline);
+  foreignTopology.baseState.topology = candidate.timeline.baseState.topology === "linear" ? "circle" : "linear";
+  assert.throws(
+    () => generation.resolveTopologyEvents(foreignTopology, {
+      family,
+      candidateIndex: candidate.index,
+      events: [grabRequest],
+    }),
+    /base topology.*selected candidate/i,
+  );
+});
+
+test("event order and evidence refs normalize deterministically", () => {
+  const { family, candidate } = fixture();
+  const later = structuredClone(grabRequest);
+  later.id = "grab-z";
+  later.prepareTick = 8000;
+  later.strikeTick = 9000;
+  later.releaseTick = 9500;
+  later.residueUntilTick = 11000;
+  const earlier = structuredClone(grabRequest);
+  earlier.id = "grab-a";
+  earlier.evidenceRefs = ["fixture:z", "fixture:a", "fixture:z"];
+
+  const timeline = generation.resolveTopologyEvents(candidate.timeline, {
+    family,
+    candidateIndex: candidate.index,
+    events: [later, earlier],
+  });
+  assert.deepEqual(timeline.topologyEvents.events.map((event) => event.id), ["grab-a", "grab-z"]);
+  assert.deepEqual(timeline.topologyEvents.events[0].evidenceRefs, ["fixture:a", "fixture:z"]);
 });
