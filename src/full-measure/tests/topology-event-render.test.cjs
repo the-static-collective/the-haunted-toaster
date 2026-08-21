@@ -4,6 +4,7 @@ const {
   compileTopologyEvents,
   sampleGrabEvent,
 } = require("../src/render/topology-events.cjs");
+const { applyTopologyEventSeam } = require("../src/render/topology-event-seam.cjs");
 
 const event = Object.freeze({
   id: "grab-1",
@@ -85,8 +86,44 @@ test("compiled event evidence exposes one local deformation recipe and no global
   assert.doesNotMatch(JSON.stringify(compiled.localDeformation.expressions), /random|rand\(/i);
 });
 
-test("no event plan compiles to null and foreign topology is refused", () => {
+test("shared seam deforms only bounded topology patches before the base composite", () => {
+  const source = [
+    "[waveAudio]showwaves=s=320x64:mode=cline:rate=12:colors=white[wave]",
+    "[wave]pad=320:180:0:105:color=black@0.0[waveFull]",
+    "[base][waveFull]overlay=0:0:shortest=1[stage0]",
+    "[stage0]null[vout]",
+  ].join(";\n");
+  const compiled = applyTopologyEventSeam(
+    {
+      graph: source,
+      geometry: { width: 320, height: 180, fps: 12 },
+      topology: "circle",
+      topologyCompiler: "circle-v1",
+    },
+    { timeline: timeline() },
+  );
+
+  assert.match(compiled.graph, /\[waveFull\]split=3\[grabTopologyBase\]/);
+  assert.match(compiled.graph, /\[grabOuterSource\]crop=/);
+  assert.match(compiled.graph, /\[grabInnerSource\]crop=/);
+  assert.match(compiled.graph, /scale=w='max\(2,trunc\(iw\*/);
+  assert.match(compiled.graph, /\[base\]\[grabTopologyFinal\]overlay=0:0:shortest=1\[stage0\]/);
+  assert.doesNotMatch(compiled.graph, /\[base\]scale=|\[base\]crop=/);
+  assert.equal(compiled.topology, "circle");
+  assert.equal(compiled.topologyEvents.planSha256, "e".repeat(64));
+});
+
+test("no event plan is byte-compatible and foreign topology is refused", () => {
   assert.equal(compileTopologyEvents({ baseState: { topology: "circle" } }), null);
+  const historical = {
+    graph: "[base][waveFull]overlay=0:0:shortest=1[stage0]",
+    geometry: { width: 320, height: 180, fps: 12 },
+  };
+  assert.equal(
+    applyTopologyEventSeam(historical, { timeline: { baseState: { topology: "circle" } } }),
+    historical,
+  );
+
   const foreign = timeline();
   foreign.topologyEvents = { ...foreign.topologyEvents, sourceTopology: "spiral" };
   assert.throws(() => compileTopologyEvents(foreign), /sourceTopology.*base topology/i);
