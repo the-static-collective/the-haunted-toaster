@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const { TextEncoder } = require("node:util");
 const { JSDOM } = require("jsdom");
 
 const root = path.resolve(__dirname, "..");
@@ -16,19 +17,20 @@ function tick() {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-function candidateFamily() {
+function candidateFamily(label = "initial") {
   return {
     schema: "haunted-toaster/candidate-family/v1",
-    familyHash: "beta-family-1",
+    familyHash: `beta-family-${label}`,
     producedCount: 6,
     requestedCount: 6,
     shortfall: false,
-    toastmoodField: { policy: "toastmood-field-v1" },
+    toastmoodField: label === "initial" ? { policy: "toastmood-field-v1" } : null,
+    cross: label === "cross" ? { policy: "two-parent-cross-v1" } : null,
     candidates: Array.from({ length: 6 }, (_, index) => ({
       index,
       role: index === 0 ? "toastmood:low-and-slow" : "coverage",
-      signature: `creature-${index + 1}`,
-      scoreAddress: `htvs1_beta_${index + 1}`,
+      signature: `${label}-creature-${index + 1}`,
+      scoreAddress: `htvs1_${label}_${index + 1}`,
       thumbnailDataUrl: "data:image/png;base64,",
       changedAxes: index ? ["topology"] : [],
       toastmoodLane: { id: `lane-${index + 1}`, name: `Lane ${index + 1}` },
@@ -43,6 +45,7 @@ function candidateHarness(capabilities = []) {
   });
   const { window } = dom;
   const { document } = window;
+  window.TextEncoder = TextEncoder;
   document.querySelector("#songFacts").classList.remove("is-hidden");
   document.querySelector("#audioDropTitle").textContent = "Specimen";
   window.toastFeel = {
@@ -50,16 +53,19 @@ function candidateHarness(capabilities = []) {
     getCandidateToastFeelId: () => null,
   };
   window.HTMLElement.prototype.scrollIntoView = () => {};
-  const calls = { generated: [] };
+  const calls = { generated: [], crossed: [] };
   window.fullMeasure = {
     getBuildInfo: async () => ({ capabilities }),
     generateCandidates: async (config) => {
       calls.generated.push(config);
-      return candidateFamily();
+      return candidateFamily("initial");
     },
-    mutateCandidates: async () => candidateFamily(),
-    crossCandidates: async () => candidateFamily(),
-    stompCandidates: async () => candidateFamily(),
+    mutateCandidates: async () => candidateFamily("mutate"),
+    crossCandidates: async (config) => {
+      calls.crossed.push(config);
+      return candidateFamily("cross");
+    },
+    stompCandidates: async () => candidateFamily("stomp"),
     selectCandidate: async () => ({}),
     clearCandidates: async () => {},
     clearCandidateImage: async () => {},
@@ -124,6 +130,41 @@ test("beta candidate ecology projects the same six-up family without changing ca
 
     view.document.querySelector("#betaSixUpGrid .beta-six-up-cell").click();
     assert.equal(view.document.querySelector(".candidate-modal").classList.contains("is-hidden"), false);
+  } finally {
+    view.dom.window.close();
+  }
+});
+
+test("enabled CROSS button invokes the two-parent bridge and replaces the current six-up", async () => {
+  const view = candidateHarness(["betaCandidateEcologyV1"]);
+  try {
+    await tick();
+    await tick();
+
+    view.document.querySelector(".candidate-launch").click();
+    await tick();
+    await tick();
+    assert.equal(view.document.querySelectorAll("#candidateGrid .candidate-card").length, 6);
+
+    view.document.querySelector("#candidateGrid .candidate-card").click();
+    const crossButton = [...view.document.querySelectorAll('#candidateMoveGrid [data-move-kind="cross"]')]
+      .find((button) => !button.disabled);
+    assert.ok(crossButton, "expected an enabled CROSS proposal");
+
+    crossButton.click();
+    await tick();
+    await tick();
+
+    assert.equal(view.calls.crossed.length, 1);
+    assert.equal(view.calls.crossed[0].familyHash, "beta-family-initial");
+    assert.equal(view.calls.crossed[0].parentIndexes.length, 2);
+    assert.notEqual(view.calls.crossed[0].parentIndexes[0], view.calls.crossed[0].parentIndexes[1]);
+    assert.deepEqual(view.calls.crossed[0].locks, []);
+    assert.equal(view.document.querySelectorAll("#candidateGrid .candidate-card").length, 6);
+    assert.equal(
+      view.document.querySelector("#candidateGrid .candidate-card strong")?.textContent,
+      "cross-creature-1",
+    );
   } finally {
     view.dom.window.close();
   }
