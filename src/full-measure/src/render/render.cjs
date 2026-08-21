@@ -158,6 +158,7 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       width,
       height,
       fps,
+      atmosphereResolutionScale: config.atmosphereResolutionScale ?? null,
       ...typographyContext,
     });
     const compiledTimeline = compileTimelineFilterGraph(baseFilter.graph, execution);
