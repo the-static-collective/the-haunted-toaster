@@ -159,7 +159,8 @@ test("enabled CROSS button invokes the two-parent bridge and replaces the curren
     assert.equal(view.calls.crossed[0].familyHash, "beta-family-initial");
     assert.equal(view.calls.crossed[0].parentIndexes.length, 2);
     assert.notEqual(view.calls.crossed[0].parentIndexes[0], view.calls.crossed[0].parentIndexes[1]);
-    assert.deepEqual(view.calls.crossed[0].locks, []);
+    assert.equal(Array.isArray(view.calls.crossed[0].locks), true);
+    assert.equal(view.calls.crossed[0].locks.length, 0);
     assert.equal(view.document.querySelectorAll("#candidateGrid .candidate-card").length, 6);
     assert.equal(
       view.document.querySelector("#candidateGrid .candidate-card strong")?.textContent,
