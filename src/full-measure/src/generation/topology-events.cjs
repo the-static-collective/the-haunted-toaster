@@ -135,6 +135,16 @@ function verifyCandidateFamilyAddress(family) {
     if (candidate.timelineHash !== family.timelineHashes[index]) {
       throw new TypeError("CandidateFamily timelineHashes are not aligned with candidates.");
     }
+    ownDataObject(candidate.timeline, `CandidateFamily.candidates[${index}].timeline`);
+    if (candidate.timeline.timelineHash !== candidate.timelineHash) {
+      throw new TypeError("CandidateFamily candidate timeline identity does not match timelineHashes.");
+    }
+    if (candidate.timeline.scoreAddress !== candidate.scoreAddress) {
+      throw new TypeError("CandidateFamily candidate timeline scoreAddress does not match candidate address.");
+    }
+    if (!candidate.timeline.baseState || typeof candidate.timeline.baseState.topology !== "string") {
+      throw new TypeError("CandidateFamily candidate timeline base topology is required.");
+    }
   }
   return family;
 }
