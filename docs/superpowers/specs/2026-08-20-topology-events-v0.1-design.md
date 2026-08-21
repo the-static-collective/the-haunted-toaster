@@ -35,7 +35,7 @@ APERTURE | SPEAK | GRAB | GROW
 
 Current `main` already contains the required floor:
 
-- `generation/candidate-family.cjs` — accepted candidate families carry authoritative `locks`, candidate score addresses, timeline hashes, and `familyHash`;
+- `generation/candidate-family.cjs` — accepted candidate families carry canonical `familyHash`, `locks`, candidate score addresses, timeline hashes, and candidate specimens;
 - `generation/resolver.cjs` — canonical ResolvedTimeline body, `timelineHash`, and `canonicalJson`;
 - `generation/native-color.cjs` — precedent for attaching accepted evidence to a timeline and then rebuilding `timelineHash` + `canonicalJson`;
 - `generation/topology-arc.cjs` — deterministic, time-addressed topology windows with entrance/peak/release, outcomes, scars, topology-lock refusal, and hashes;
@@ -44,7 +44,7 @@ Current `main` already contains the required floor:
 - `render/timeline-execution.cjs` — shared resolved execution boundary and optional-plan assertions;
 - dedicated topology response/compiler/smoke tests.
 
-Topology Events compose those seams. They must not create a second renderer timeline, permit the renderer to discover events privately, or trust caller-reported lock/topology state.
+Topology Events compose those seams. They must not create a second renderer timeline, permit the renderer to discover events privately, or trust caller-reported family/lock/topology state without canonical identity checks.
 
 ## Visual phrasing law
 
@@ -82,11 +82,53 @@ resolveTopologyEvents(timeline, {
 
 The caller does **not** supply `locks`, `sourceTopology`, `scoreAddress`, or a replacement timeline identity.
 
-The resolver derives and verifies them from accepted evidence:
+### Verify the CandidateFamily before trusting it
+
+`family` is an identity-bearing specimen, not a bag of fields.
+
+Before reading `family.locks` or selecting a candidate, reconstruct the exact `familyCore` used by `generateCandidateSet(...)`:
 
 ```text
-family.locks
-family.familyHash
+schema
+policy
+scoreSchema
+prng
+rootSeed
+parentScoreRef
+baselineScoreRef
+constraintPackId
+analysisHash
+constraintsHash
+rendererProfileHash
+locks
+requestedCount
+producedCount
+roles
+scoreAddresses
+timelineHashes
+shortfall
+```
+
+Then require:
+
+```js
+hashCanonical(familyCore, "HauntedToaster-CandidateFamily-v1")
+  === family.familyHash
+```
+
+Also require the candidate array to align with `producedCount`, `roles`, `scoreAddresses`, and `timelineHashes`.
+
+Only after those checks succeed may the resolver derive authority-relevant evidence from the family.
+
+The canonical hash is a **content address, not a signature**. It proves internal identity consistency and detects stale/tampered family representations such as “change `locks` but retain the old `familyHash`.” It does not make arbitrary externally supplied JSON an accepted family merely because its author can calculate a hash. The production call site must use the already retained CandidateFamily specimen produced/selected inside the Toaster workflow.
+
+### Derive the remaining evidence
+
+After family verification, derive and verify:
+
+```text
+verified family.locks
+verified family.familyHash
 family.candidates[candidateIndex].scoreAddress
 family.candidates[candidateIndex].timelineHash
 candidate.timeline.baseState.topology
@@ -97,19 +139,27 @@ current accepted timeline.timelineHash
 
 Before planning or attachment:
 
-1. `family` must be a valid CandidateFamily v1 specimen.
-2. `candidateIndex` must resolve to an existing candidate.
+1. `family` must pass canonical CandidateFamily address verification.
+2. `candidateIndex` must resolve to an existing aligned candidate.
 3. `timeline.scoreAddress` must equal the selected candidate's `scoreAddress`.
 4. `timeline.baseState.topology` must equal the selected candidate's frozen base topology.
-5. `family.locks` is the authoritative lock set; no caller lock override exists.
+5. verified `family.locks` is the authoritative lock set; no caller lock override exists.
 6. A `topology` lock produces an explicit refusal before any executable event is attached.
 
-This closes the dangerous compression:
+This closes both dangerous compressions:
 
 ```text
 caller says locks=[]
         ≠
 accepted candidate is unlocked
+```
+
+and:
+
+```text
+caller mutates family.locks but leaves familyHash stale
+        ≠
+valid accepted CandidateFamily
 ```
 
 ## Selected plan contract
@@ -155,6 +205,8 @@ Conceptual normalized plan:
 }
 ```
 
+`acceptedFamilyHash` comes only from the canonically verified family.
+
 `sourceTimelineHash` is the exact timeline identity **before** the topology-event plan is attached. It is provenance, not the final timeline identity.
 
 `BODY` is deliberately absent from the event-kind union. It is choreography that may schedule several primitive events; it is not a fifth renderer primitive.
@@ -188,25 +240,27 @@ The attachment helper must prove:
 plan.sourceTimelineHash == timeline.timelineHash before attachment
 plan.sourceTopology == timeline.baseState.topology
 plan.acceptedScoreAddress == timeline.scoreAddress
+plan.acceptedFamilyHash == verified family.familyHash
 ```
 
-Any mismatch refuses/throws before render.
+Any mismatch fails before render.
 
 ## Shared invariants
 
-1. `sourceTopology` is derived from the accepted candidate/timeline, never trusted from a request.
-2. `lockedAxes` is derived from `family.locks`, never trusted from a request.
-3. `topology` lock refuses all topology-event scheduling in v0.1. Start fail-closed.
-4. The selected timeline must belong to the selected candidate by `scoreAddress` and topology identity.
-5. Events are sorted by `prepareTick`, then stable `id`.
-6. All ticks are safe non-negative integers in the accepted timeline timebase.
-7. Every event has explicit evidence refs and a deterministic canonical hash.
-8. The attached plan is inside the canonical timeline body and changes `timelineHash` when `planSha256` changes.
-9. No event reads raw audio, models, sensors, filesystem state, wall clock, or ambient randomness during render.
-10. Preview and production consume the same accepted timeline and therefore the same accepted plan.
-11. An event may leave residue but may not silently rewrite the accepted base topology identity.
-12. Historical renderer policies and no-event artifacts remain unchanged.
-13. Existing Topology Arc remains a separate ghost-topology apparition mechanism; do not silently reinterpret its windows as topology events.
+1. CandidateFamily canonical core verifies against `familyHash` before any family field is trusted.
+2. `sourceTopology` is derived from the accepted candidate/timeline, never trusted from a request.
+3. `lockedAxes` is derived from the canonically verified `family.locks`, never trusted from a request.
+4. `topology` lock refuses all topology-event scheduling in v0.1. Start fail-closed.
+5. The selected timeline must belong to the selected candidate by score address and topology identity.
+6. Events are sorted by `prepareTick`, then stable `id`.
+7. All ticks are safe non-negative integers in the accepted timeline timebase.
+8. Every event has explicit evidence refs and a deterministic canonical hash.
+9. The attached plan is inside the canonical timeline body and changes `timelineHash` when `planSha256` changes.
+10. No event reads raw audio, models, sensors, filesystem state, wall clock, or ambient randomness during render.
+11. Preview and production consume the same accepted timeline and therefore the same accepted plan.
+12. An event may leave residue but may not silently rewrite the accepted base topology identity.
+13. Historical renderer policies and no-event artifacts remain unchanged.
+14. Existing Topology Arc remains a separate ghost-topology apparition mechanism; do not silently reinterpret its windows as topology events.
 
 ## APERTURE contract
 
@@ -383,6 +437,8 @@ src/full-measure/src/render/topology-events.cjs
 
 Generation module responsibilities:
 
+- verify the CandidateFamily canonical core against `familyHash` before use;
+- verify candidate arrays align with the addressed family core;
 - validate the candidate-family/candidate/timeline relationship;
 - derive authoritative locks and source topology from accepted evidence;
 - normalize bounded event requests;
@@ -409,21 +465,28 @@ Use one stable refusal envelope for lawful-but-impossible generation-side planni
 
 ```text
 topology-lock-prohibits-topology-events
-candidate-timeline-mismatch
 no-lawful-event-window
 unsupported-event-kind
 ```
 
-Invalid representation, mismatched identity, hostile structure, source-topology mismatch, bad hashes, and invalid event parameters fail closed with `TypeError` rather than becoming a renderer decision.
+Invalid CandidateFamily address, family/candidate array inconsistency, candidate/timeline mismatch, hostile structure, source-topology mismatch, bad hashes, and invalid event parameters fail closed with `TypeError` rather than becoming renderer decisions.
 
 ## Acceptance proof
 
+### Family integrity / lineage proof
+
+1. genuine CandidateFamily core recomputes exactly to `family.familyHash`;
+2. mutating `family.locks` while retaining the old `familyHash` fails before locks are used;
+3. mutating `scoreAddresses`, `timelineHashes`, or `roles` while retaining the old `familyHash` fails;
+4. candidate array count/parallel metadata mismatch fails;
+5. the design does not describe `familyHash` as an unforgeable signature or external authorization token.
+
 ### Contract and lineage proof
 
-1. identical accepted family/candidate/timeline/event input produces byte/hash-identical plan;
+1. identical verified family/candidate/timeline/event input produces byte/hash-identical plan;
 2. input ordering normalizes deterministically;
 3. no API accepts a caller-supplied lock override;
-4. authoritative `family.locks` containing `topology` produces explicit refusal;
+4. verified `family.locks` containing `topology` produces explicit refusal;
 5. candidate/timeline score-address mismatch fails closed;
 6. plan `sourceTopology` is derived from and equals the accepted frozen base topology;
 7. a plan addressed to another topology cannot attach or execute;
@@ -456,6 +519,8 @@ Invalid representation, mismatched identity, hostile structure, source-topology 
 ## Sequencing
 
 ```text
+CandidateFamily canonical address verification
+        ↓
 accepted lineage + lock/topology tests
         ↓
 canonical timeline attachment / re-address proof
@@ -487,7 +552,8 @@ Do not add all four visual mechanics before the first GRAB specimen earns the ab
 - no literal anatomical imagery requirement;
 - no Creative Verb Kernel changes;
 - no orphan renderer sidecar carrying execution-significant event state;
-- no caller-supplied lock/topology authority;
+- no caller-supplied family/lock/topology authority;
+- no claim that a hash is a signature;
 - no second timeline;
 - no generic whole-frame zoom/pan accepted as GRAB;
 - no physics engine;
@@ -500,6 +566,7 @@ Do not add all four visual mechanics before the first GRAB specimen earns the ab
 
 Stop v0.1 when one accepted candidate timeline can undergo a deterministic **local** GRAB with preparation, strike, recoil, and visible residue while:
 
+- CandidateFamily identity is canonically verified before its locks are used;
 - authoritative candidate-family locks remain binding;
 - the event plan is inside the canonical timeline identity;
 - plan topology and timeline topology cannot diverge;
@@ -510,4 +577,4 @@ Then add the other verbs one at a time through the same event-plan seam.
 
 ## Working compression
 
-> **The topology stays itself. Something local happens to it. The accepted world carries the consequence.**
+> **Verify the body, then trust its locks. The topology stays itself. Something local happens to it. The accepted world carries the consequence.**
