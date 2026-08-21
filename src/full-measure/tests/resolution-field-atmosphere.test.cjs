@@ -135,3 +135,27 @@ test("Atmosphere Resolution Field graph executes through real FFmpeg before nati
     await fsPromises.rm(tempDirectory, { recursive: true, force: true });
   }
 });
+
+test("production render forwards Resolution Field only from an explicit render option", async () => {
+  const renderSource = await fsPromises.readFile(
+    path.join(__dirname, "../src/render/render.cjs"),
+    "utf8",
+  );
+  const hauntedSource = await fsPromises.readFile(
+    path.join(__dirname, "../src/render/haunted-typography-render.cjs"),
+    "utf8",
+  );
+
+  assert.match(
+    renderSource,
+    /atmosphereResolutionScale:\s*config\.atmosphereResolutionScale\s*\?\?\s*null/,
+  );
+  assert.match(
+    hauntedSource,
+    /atmosphereResolutionScale\s*=\s*null/,
+  );
+  assert.match(
+    hauntedSource,
+    /atmosphereResolutionScale\s*==\s*null\s*\|\|\s*!atmosphere\.evidence\.fileName/,
+  );
+});
