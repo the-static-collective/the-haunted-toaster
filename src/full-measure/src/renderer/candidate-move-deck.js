@@ -7,7 +7,7 @@
     0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
     0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
     0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0cb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
     0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
   ]);
 
@@ -98,6 +98,15 @@
     return [...new Set(locks.map((lock) => assertNonEmptyString(lock, "Move-deck lock")))].sort();
   }
 
+  function normalizeCrossLockProjection(projection) {
+    if (!projection || typeof projection !== "object" || Array.isArray(projection)) return null;
+    const normalized = {};
+    for (const [axis, value] of Object.entries(projection)) {
+      if (typeof value === "string") normalized[axis] = value;
+    }
+    return Object.freeze(normalized);
+  }
+
   function normalizeCandidates(candidates) {
     if (!Array.isArray(candidates) || candidates.length < 2) {
       throw new TypeError("Move deck requires the current candidate family.");
@@ -118,6 +127,7 @@
         scoreAddress: assertNonEmptyString(candidate?.scoreAddress, "Candidate score address"),
         signature: String(candidate?.signature || `candidate-${index + 1}`),
         toastmoodLane: lane,
+        crossLockProjection: normalizeCrossLockProjection(candidate?.crossLockProjection),
       };
     }).sort((left, right) => left.index - right.index);
 
@@ -175,6 +185,7 @@
         index: candidate.index,
         scoreAddress: candidate.scoreAddress,
         toastmoodLaneId: candidate.toastmoodLane?.id || null,
+        crossLockProjection: candidate.crossLockProjection,
       })),
     });
   }
@@ -186,15 +197,32 @@
       slot,
       kind: proposal.kind,
       action: proposal.action,
+      available: proposal.available !== false,
+      refusalCode: proposal.refusalCode || null,
       parentIndex: proposal.parentIndex ?? null,
       parentIndexes: proposal.parentIndexes || null,
     }))}`;
+  }
+
+  function lockCompatible(context, candidate) {
+    if (!context.locks.length) return true;
+    const selectedProjection = context.selected.crossLockProjection;
+    const candidateProjection = candidate.crossLockProjection;
+    // Legacy/non-production callers without projection evidence keep the historical
+    // proposal behavior. Production previews always carry the projection.
+    if (!selectedProjection || !candidateProjection) return true;
+    return context.locks.every((lock) => (
+      Object.hasOwn(selectedProjection, lock) &&
+      Object.hasOwn(candidateProjection, lock) &&
+      selectedProjection[lock] === candidateProjection[lock]
+    ));
   }
 
   function partnerOrder(context) {
     const key = `${context.familyHash}|${context.selected.scoreAddress}|${context.locks.join(",")}`;
     return context.candidates
       .filter((candidate) => candidate.index !== context.selectedIndex)
+      .filter((candidate) => lockCompatible(context, candidate))
       .map((candidate) => ({
         candidate,
         rank: sha256(`${key}|cross-partner|${candidate.scoreAddress}`),
@@ -203,11 +231,23 @@
       .map((entry) => entry.candidate);
   }
 
-  function crossProposal(selected, partner) {
+  function crossProposal(selected, partner, locks) {
+    if (!partner) {
+      const lockSummary = locks.length ? locks.join(", ") : "the current family";
+      return {
+        kind: "cross",
+        action: "cross",
+        available: false,
+        refusalCode: "CROSS_LOCK_CONFLICT",
+        label: "CROSS · unavailable under locks",
+        detail: `No second current candidate agrees with ${lockSummary}. Unlock an axis or choose another creature.`,
+      };
+    }
     const partnerLane = partner.toastmoodLane?.name ? ` · ${partner.toastmoodLane.name}` : "";
     return {
       kind: "cross",
       action: "cross",
+      available: true,
       label: `CROSS · #${selected.index + 1} × #${partner.index + 1}`,
       detail: `${partner.signature}${partnerLane}`,
       parentIndexes: [selected.index, partner.index],
@@ -219,9 +259,11 @@
     const dealAddress = `candidate-move-deal:sha256:${sha256(contextJson(context))}`;
     const laneName = context.selected.toastmoodLane?.name || `Candidate ${context.selectedIndex + 1}`;
     const partners = partnerOrder(context);
-    const partnerOffset = (context.dealIndex * 2) % partners.length;
-    const firstPartner = partners[partnerOffset];
-    const secondPartner = partners[(partnerOffset + 1) % partners.length];
+    const partnerOffset = partners.length ? (context.dealIndex * 2) % partners.length : 0;
+    const firstPartner = partners[partnerOffset] || null;
+    const secondPartner = partners.length > 1
+      ? partners[(partnerOffset + 1) % partners.length]
+      : null;
 
     const proposals = [
       {
@@ -252,8 +294,8 @@
         detail: "Ride the existing rails farther from the parent.",
         parentIndex: context.selectedIndex,
       },
-      crossProposal(context.selected, firstPartner),
-      crossProposal(context.selected, secondPartner),
+      crossProposal(context.selected, firstPartner, context.locks),
+      crossProposal(context.selected, secondPartner, context.locks),
     ].map((proposal, slot) => ({
       ...proposal,
       address: proposalAddress(dealAddress, slot, proposal),
