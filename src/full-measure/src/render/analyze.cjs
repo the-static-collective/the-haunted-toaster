@@ -265,6 +265,7 @@ async function probeMedia(filePath) {
           width: finiteNumber(video.width),
           height: finiteNumber(video.height),
           pixelFormat: video.pix_fmt || null,
+          sampleAspectRatio: video.sample_aspect_ratio || null,
           duration: finiteNumber(video.duration, duration),
         }
       : null,

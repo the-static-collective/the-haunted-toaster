@@ -186,6 +186,7 @@
           scoreAddress: candidate.scoreAddress,
           signature: candidate.signature,
           toastmoodLane: candidate.toastmoodLane || null,
+          crossLockProjection: candidate.crossLockProjection || null,
         })),
       };
     }
@@ -204,7 +205,9 @@
       redeal.disabled = nextBusy || selectedIndex === null || !window.candidateMoveDeck?.dealCandidateMoves;
       use.disabled = nextBusy || selectedIndex === null;
       launch.disabled = nextBusy;
-      for (const button of moveGrid.querySelectorAll(".candidate-move-card")) button.disabled = nextBusy;
+      for (const button of moveGrid.querySelectorAll(".candidate-move-card")) {
+        button.disabled = nextBusy || button.dataset.contractUnavailable === "true";
+      }
       for (const input of lockList.querySelectorAll("input")) input.disabled = nextBusy;
       if (message) status.textContent = message;
       modal.classList.toggle("is-busy", nextBusy);
@@ -273,17 +276,21 @@
       moveGrid.replaceChildren();
       for (const proposal of deal.proposals) {
         const button = document.createElement("button");
+        const unavailable = proposal.available === false;
         button.type = "button";
         button.className = "candidate-move-card";
         button.dataset.moveKind = proposal.kind;
         button.dataset.moveAddress = proposal.address;
+        button.dataset.contractUnavailable = unavailable ? "true" : "false";
+        button.disabled = busy || unavailable;
+        if (unavailable) button.setAttribute("aria-disabled", "true");
         button.innerHTML = `
           <small>${proposal.kind.toUpperCase()}</small>
           <strong>${proposal.label}</strong>
           <span>${proposal.detail}</span>
           <code>${shortAddress(proposal.address)}</code>
         `;
-        button.addEventListener("click", () => executeMove(proposal));
+        if (!unavailable) button.addEventListener("click", () => executeMove(proposal));
         moveGrid.append(button);
       }
       redeal.disabled = busy;
@@ -305,7 +312,7 @@
       const candidate = family?.candidates?.find((item) => item.index === index);
       if (candidate) {
         status.textContent = window.candidateMoveDeck?.dealCandidateMoves
-          ? `Candidate ${index + 1} selected · six lawful moves dealt.`
+          ? `Candidate ${index + 1} selected · six bounded moves dealt.`
           : `Candidate ${index + 1} selected · move deck loading.`;
       }
       updateRenderLabel();
@@ -381,7 +388,7 @@
     }
 
     async function executeMove(proposal) {
-      if (busy || !family || selectedIndex === null || !proposal) return;
+      if (busy || !family || selectedIndex === null || !proposal || proposal.available === false) return;
       const locks = selectedLocks();
       setBusy(true, moveStatus(proposal.kind));
       try {
@@ -508,7 +515,7 @@
     loadMoveDeck(() => {
       if (family && selectedIndex !== null) {
         renderMoveDeck();
-        status.textContent = `Candidate ${selectedIndex + 1} selected · six lawful moves dealt.`;
+        status.textContent = `Candidate ${selectedIndex + 1} selected · six bounded moves dealt.`;
       }
     });
   }
