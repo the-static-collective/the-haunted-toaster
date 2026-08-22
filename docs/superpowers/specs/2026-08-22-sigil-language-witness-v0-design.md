@@ -150,6 +150,8 @@ Required fields:
 }
 ```
 
+The local opaque handle is not identity proof and must be at most 64 Unicode code points. Optional response notes must be at most 500 Unicode code points. Longer values fail closed rather than being silently truncated.
+
 The receipt records testimony about one study packet. It does not generalize one participant into population-level validation.
 
 ## Study packet invariants
@@ -238,10 +240,12 @@ The test then presents a new expression composed from familiar grammatical parts
 
 The preferred response order is:
 
-1. active reconstruction or free structural inference;
+1. active structured reconstruction of the primitive roots and ordered operator kinds;
 2. confidence commitment;
 3. optional multiple-choice fallback only after the active response is committed;
 4. answer reveal.
+
+For v0 scoring, the active structured reconstruction is correct only when both the normalized primitive-root sequence and normalized ordered operator-kind sequence exactly match the precommitted answer key. Partial matches remain visible in raw testimony but do not count as correct for the specimen threshold.
 
 The exact withheld expression must never appear in training.
 
@@ -262,16 +266,34 @@ Required controls:
 - raw response preservation alongside any summary score;
 - participant notes stored as testimony, never silently translated into stronger claims.
 
+## First specimen policy v0
+
+The first complete local human specimen is frozen at **18 scored trials**:
+
+- 6 recognition trials;
+- 6 composition trials;
+- 6 productive-novelty trials.
+
+Confidence is recorded but does not change correctness.
+
+Family thresholds are fixed before the first run:
+
+- recognition passes at **5/6 or better**;
+- composition passes at **5/6 or better**;
+- productive novelty passes at **4/6 or better** using the exact active-reconstruction rule above.
+
+The local specimen verdict is computed as follows:
+
+- `pass` — all three family thresholds are met and every integrity invariant holds;
+- `mixed` — the specimen is complete and valid, at least one family threshold is met, but not all three are met;
+- `fail` — the specimen is complete and valid and none of the three family thresholds are met;
+- `unresolved` — any trial is incomplete, any study/receipt integrity invariant fails, answer secrecy is broken, or contradictory evidence prevents lawful scoring.
+
+These are specimen thresholds, not population statistics. Passing one local specimen does not establish universal comprehension or general human learnability.
+
 ## Witness verdicts
 
-The harness may compute a local verdict for the completed specimen:
-
-- `pass` — declared v0 specimen thresholds are met;
-- `mixed` — some task families pass and others do not;
-- `fail` — declared thresholds are not met;
-- `unresolved` — incomplete, invalid, or contradictory evidence prevents a lawful verdict.
-
-The v0 implementation plan must define exact specimen thresholds before the first human run. Those thresholds belong to the study policy, not to post-hoc interpretation.
+The harness computes only the local specimen verdict defined above.
 
 A `pass` authorizes only the next design discussion about renderer coupling. It does not automatically change production behavior.
 
@@ -341,7 +363,7 @@ The implementation should proceed in this order:
 6. Run one blind local recognition specimen.
 7. Add composition trials.
 8. Add productive-novelty trials.
-9. Run one complete three-family human specimen.
+9. Run one complete three-family human specimen using the fixed 18-trial policy and thresholds above.
 10. Stop and review evidence before discussing production renderer coupling.
 
 ## Acceptance criteria for this design slice
@@ -352,6 +374,7 @@ This design is ready for implementation planning when:
 - PR #212 remains untouched;
 - the two contracts and their authority limits are explicit;
 - the three study task families are defined;
+- first-specimen trial counts and thresholds are fixed before implementation;
 - answer leakage controls are explicit;
 - replay and fail-closed rules are explicit;
 - production-renderer coupling remains forbidden;
