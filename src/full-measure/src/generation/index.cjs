@@ -29,4 +29,8 @@ module.exports = {
   ...require("./beta-candidate-ecology-compat.cjs"),
   ...require("./creative-context-table.cjs"),
   ...require("./influence-diet.cjs"),
+  ...require("./witness-sigil-projection.cjs"),
+  ...require("./sigil-topology-expression.cjs"),
+  ...require("./sigil-topology-compiler.cjs"),
+  ...require("./sigil-utterance-family.cjs"),
 };
