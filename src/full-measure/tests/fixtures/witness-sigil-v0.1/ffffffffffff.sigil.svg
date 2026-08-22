@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Witness Sigil ffffffffffff</title>
+  <desc id="desc">witness-sigil/v0.1 geometric recognition cue, not authentication; verify the full canonical digest separately.</desc>
+  <style>.line{fill:none;stroke:#111;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}.dot{fill:#111}.dash{stroke-dasharray:2 3}.label{fill:#111;font:6px ui-monospace,monospace}</style>
+  <g data-slot="0" data-primitive="PF" data-nibble="f" transform="translate(28 28) rotate(270)"><path class="line" d="M-12-12L0 1M12-12L0 1M0 1V14"/></g>
+  <g data-slot="1" data-primitive="PF" data-nibble="f" transform="translate(84 28) rotate(270)"><path class="line" d="M-12-12L0 1M12-12L0 1M0 1V14"/></g>
+  <g data-slot="2" data-primitive="PF" data-nibble="f" transform="translate(28 84) rotate(270)"><path class="line" d="M-12-12L0 1M12-12L0 1M0 1V14"/></g>
+  <g data-slot="3" data-primitive="PF" data-nibble="f" transform="translate(84 84) rotate(270)"><path class="line" d="M-12-12L0 1M12-12L0 1M0 1V14"/></g>
+  <g data-slot="4" data-primitive="PF" data-nibble="f" transform="translate(140 28) rotate(270)"><path class="line" d="M-12-12L0 1M12-12L0 1M0 1V14"/></g>
+  <g data-slot="5" data-primitive="PF" data-nibble="f" transform="translate(196 28) rotate(270)"><path class="line" d="M-12-12L0 1M12-12L0 1M0 1V14"/></g>
+  <g data-slot="6" data-primitive="PF" data-nibble="f" transform="translate(140 84) rotate(270)"><path class="line" d="M-12-12L0 1M12-12L0 1M0 1V14"/></g>
+  <g data-slot="7" data-primitive="PF" data-nibble="f" transform="translate(196 84) rotate(270)"><path class="line" d="M-12-12L0 1M12-12L0 1M0 1V14"/></g>
+  <g data-slot="8" data-primitive="PF" data-nibble="f" transform="translate(28 140) rotate(270)"><path class="line" d="M-12-12L0 1M12-12L0 1M0 1V14"/></g>
+  <g data-slot="9" data-primitive="PF" data-nibble="f" transform="translate(84 140) rotate(270)"><path class="line" d="M-12-12L0 1M12-12L0 1M0 1V14"/></g>
+  <g data-slot="10" data-primitive="PF" data-nibble="f" transform="translate(28 196) rotate(270)"><path class="line" d="M-12-12L0 1M12-12L0 1M0 1V14"/></g>
+  <g data-slot="11" data-primitive="PF" data-nibble="f" transform="translate(84 196) rotate(270)"><path class="line" d="M-12-12L0 1M12-12L0 1M0 1V14"/></g>
+  <g data-slot="12" data-primitive="PF" data-nibble="f" transform="translate(140 140) rotate(270)"><path class="line" d="M-12-12L0 1M12-12L0 1M0 1V14"/></g>
+  <g data-slot="13" data-primitive="PF" data-nibble="f" transform="translate(196 140) rotate(270)"><path class="line" d="M-12-12L0 1M12-12L0 1M0 1V14"/></g>
+  <g data-slot="14" data-primitive="PF" data-nibble="f" transform="translate(140 196) rotate(270)"><path class="line" d="M-12-12L0 1M12-12L0 1M0 1V14"/></g>
+  <g data-slot="15" data-primitive="PF" data-nibble="f" transform="translate(196 196) rotate(270)"><path class="line" d="M-12-12L0 1M12-12L0 1M0 1V14"/></g>
+  <text class="label" x="8" y="239">witness-sigil/v0.1</text>
+  <text class="label" x="8" y="250">ffffffffffff</text>
+</svg>
