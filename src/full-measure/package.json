@@ -23,6 +23,7 @@
     "witness:serve": "node scripts/serve-ui-witness.cjs",
     "witness:test": "playwright test --config=tests/ui-witness.playwright.config.cjs",
     "smoke": "node scripts/smoke-render.cjs && node scripts/smoke-candidates.cjs",
+    "sigil:smoke": "node scripts/smoke-sigil-grammar.cjs",
     "prepare-build-info": "node scripts/prepare-build-info.cjs",
     "pack": "npm run prepare-build-info && electron-builder --dir",
     "dist": "npm run prepare-build-info && electron-builder"

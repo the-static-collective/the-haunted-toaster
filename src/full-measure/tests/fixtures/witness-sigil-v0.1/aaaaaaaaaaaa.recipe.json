@@ -1,0 +1,139 @@
+{
+  "schema": "witness-sigil.recipe/v0.1",
+  "projection": "witness-sigil/v0.1",
+  "digestAlgorithm": "sha256",
+  "digest": "aaaaaaaaaaaaaaaa0123456789abcdef55555555555555555555555555555555",
+  "digestPrefix": "aaaaaaaaaaaa",
+  "payload": "aaaaaaaaaaaaaaaa",
+  "rotationPayload": "0123456789abcdef",
+  "slots": [
+    {
+      "index": 0,
+      "quadrant": "NW",
+      "localSlot": "NW",
+      "nibble": "a",
+      "primitive": "PA",
+      "rotationDegrees": 0
+    },
+    {
+      "index": 1,
+      "quadrant": "NW",
+      "localSlot": "NE",
+      "nibble": "a",
+      "primitive": "PA",
+      "rotationDegrees": 90
+    },
+    {
+      "index": 2,
+      "quadrant": "NW",
+      "localSlot": "SW",
+      "nibble": "a",
+      "primitive": "PA",
+      "rotationDegrees": 180
+    },
+    {
+      "index": 3,
+      "quadrant": "NW",
+      "localSlot": "SE",
+      "nibble": "a",
+      "primitive": "PA",
+      "rotationDegrees": 270
+    },
+    {
+      "index": 4,
+      "quadrant": "NE",
+      "localSlot": "NW",
+      "nibble": "a",
+      "primitive": "PA",
+      "rotationDegrees": 0
+    },
+    {
+      "index": 5,
+      "quadrant": "NE",
+      "localSlot": "NE",
+      "nibble": "a",
+      "primitive": "PA",
+      "rotationDegrees": 90
+    },
+    {
+      "index": 6,
+      "quadrant": "NE",
+      "localSlot": "SW",
+      "nibble": "a",
+      "primitive": "PA",
+      "rotationDegrees": 180
+    },
+    {
+      "index": 7,
+      "quadrant": "NE",
+      "localSlot": "SE",
+      "nibble": "a",
+      "primitive": "PA",
+      "rotationDegrees": 270
+    },
+    {
+      "index": 8,
+      "quadrant": "SW",
+      "localSlot": "NW",
+      "nibble": "a",
+      "primitive": "PA",
+      "rotationDegrees": 0
+    },
+    {
+      "index": 9,
+      "quadrant": "SW",
+      "localSlot": "NE",
+      "nibble": "a",
+      "primitive": "PA",
+      "rotationDegrees": 90
+    },
+    {
+      "index": 10,
+      "quadrant": "SW",
+      "localSlot": "SW",
+      "nibble": "a",
+      "primitive": "PA",
+      "rotationDegrees": 180
+    },
+    {
+      "index": 11,
+      "quadrant": "SW",
+      "localSlot": "SE",
+      "nibble": "a",
+      "primitive": "PA",
+      "rotationDegrees": 270
+    },
+    {
+      "index": 12,
+      "quadrant": "SE",
+      "localSlot": "NW",
+      "nibble": "a",
+      "primitive": "PA",
+      "rotationDegrees": 0
+    },
+    {
+      "index": 13,
+      "quadrant": "SE",
+      "localSlot": "NE",
+      "nibble": "a",
+      "primitive": "PA",
+      "rotationDegrees": 90
+    },
+    {
+      "index": 14,
+      "quadrant": "SE",
+      "localSlot": "SW",
+      "nibble": "a",
+      "primitive": "PA",
+      "rotationDegrees": 180
+    },
+    {
+      "index": 15,
+      "quadrant": "SE",
+      "localSlot": "SE",
+      "nibble": "a",
+      "primitive": "PA",
+      "rotationDegrees": 270
+    }
+  ]
+}
