@@ -68,3 +68,21 @@ test("selected TEST 6 execution carries fixture provenance and bounded render ov
   assert.match(session, /resolvedTimeline:\s*selection\.timeline/);
   assert.match(session, /visualScore:\s*selection\.scoreArtifact\.score/);
 });
+
+test("forced witness identity crosses the preview surface and the final video receipt", () => {
+  const preview = readSource("src/render/candidate-preview.cjs");
+  const render = readSource("src/render/render.cjs");
+
+  assert.match(preview, /fixtureLabel:\s*candidate\.fixtureLabel/);
+  assert.match(preview, /fixtureSlot:\s*candidate\.fixtureSlot/);
+  assert.match(preview, /forcedCondition:\s*candidate\.forcedCondition/);
+  assert.match(preview, /forcedWitness:\s*candidate\.forcedWitness\s*===\s*true/);
+  assert.match(render, /forcedWitness:\s*compactForcedWitnessEvidence\(config\.forcedWitnessEvidence\)/);
+});
+
+test("ordinary six-up applies the mild deterministic GRAB session projection without turning it into a forced witness", () => {
+  const session = readSource("src/candidate-session.cjs");
+
+  assert.match(session, /projectOrdinaryGrabView/);
+  assert.match(session, /forcedWitness:\s*false/);
+});
