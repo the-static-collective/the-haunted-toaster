@@ -114,3 +114,18 @@ test("replay detects modified role and hash metadata", () => {
   changedHash.expressionHashes[0] = "0".repeat(64);
   assert.equal(replaySigilUtteranceFamily(changedHash, { parentExpression: parent }).ok, false);
 });
+
+test("generation package exports the complete Sigil Grammar v0 surface", () => {
+  const generation = require("../src/generation/index.cjs");
+  const names = [
+    "renderWitnessSigilV01",
+    "createFreeSigilExpression",
+    "createWitnessLockedSigilExpression",
+    "normalizeSigilTopologyExpression",
+    "appendSigilOperation",
+    "compileSigilTopologyExpression",
+    "generateSigilUtteranceFamily",
+    "replaySigilUtteranceFamily",
+  ];
+  for (const name of names) assert.equal(typeof generation[name], "function", `${name} must be exported`);
+});
