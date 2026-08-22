@@ -222,6 +222,22 @@ function sourceFamilyFor(options, rootSeed) {
   });
 }
 
+function sourceCandidatesForFixtures(sourceFamily) {
+  const candidates = [...sourceFamily.candidates];
+  const kitchenSinkIndex = FIXTURES.findIndex((fixture) => fixture.slot === "kitchen-sink");
+  const atmosphereIndex = candidates.findIndex((candidate) => candidate.timeline?.atmosphere);
+  if (kitchenSinkIndex < 0 || atmosphereIndex < 0) {
+    throw new TypeError("TEST 6 KITCHEN SINK requires existing Atmosphere evidence.");
+  }
+  if (atmosphereIndex !== kitchenSinkIndex) {
+    [candidates[atmosphereIndex], candidates[kitchenSinkIndex]] = [
+      candidates[kitchenSinkIndex],
+      candidates[atmosphereIndex],
+    ];
+  }
+  return candidates;
+}
+
 function canonicalAuthorityForCandidate(sourceFamily, sourceCandidate, options) {
   const lane = sourceCandidate?.toastmoodLane;
   if (!lane?.sourceRootSeed || !lane?.id) {
@@ -252,7 +268,7 @@ function canonicalAuthorityForCandidate(sourceFamily, sourceCandidate, options) 
   };
 }
 
-function applyFixture(sourceFamily, sourceCandidate, fixture, options) {
+function applyFixture(sourceFamily, sourceCandidate, fixture, options, fixtureIndex) {
   let timeline = sourceCandidate.timeline;
   if (fixture.topologyArcOutcome) {
     timeline = forceExistingTopologyArcOutcome(timeline, fixture.topologyArcOutcome);
@@ -282,6 +298,7 @@ function applyFixture(sourceFamily, sourceCandidate, fixture, options) {
   const receipt = fixtureReceipt(fixture);
   return deepFreeze({
     ...sourceCandidate,
+    index: fixtureIndex,
     role: `test-6:${fixture.slot}`,
     timeline,
     timelineHash: timeline.timelineHash,
@@ -312,8 +329,9 @@ function generateTestSixWitnessFamily(options = {}) {
     throw new TypeError("TEST 6 source family must produce exactly six candidates.");
   }
 
+  const sourceCandidates = sourceCandidatesForFixtures(sourceFamily);
   const candidates = FIXTURES.map((fixture, index) =>
-    applyFixture(sourceFamily, sourceFamily.candidates[index], fixture, options),
+    applyFixture(sourceFamily, sourceCandidates[index], fixture, options, index),
   );
   const core = {
     schema: TEST_SIX_SCHEMA,
@@ -349,4 +367,5 @@ module.exports = {
   fixtureReceipt,
   forceExistingTopologyArcOutcome,
   generateTestSixWitnessFamily,
+  sourceCandidatesForFixtures,
 };
