@@ -60,7 +60,7 @@ test("Resolution Field renders Atmosphere at half scale, returns it to native ge
     assert.match(result.graph, /\[stage0\]split=2\[atmosphereBase\]\[atmosphereCarrier\]/);
     assert.match(
       result.graph,
-      /\[atmosphereCarrier\]format=rgba,colorchannelmixer=aa=0\[atmosphereResolutionSource\]/,
+      /\[atmosphereCarrier\]format=rgba,colorchannelmixer=rr=0:gg=0:bb=0:aa=0\[atmosphereResolutionSource\]/,
     );
     assert.match(
       result.graph,
@@ -76,7 +76,7 @@ test("Resolution Field renders Atmosphere at half scale, returns it to native ge
     );
     assert.match(
       result.graph,
-      /\[atmosphereBase\]\[atmosphereResolutionOut\]overlay=[^;]*setsar=1\[atmosphereStage\]/,
+      /\[atmosphereBase\]\[atmosphereResolutionOut\]overlay=shortest=1:format=auto:alpha=premultiplied,setsar=1\[atmosphereStage\]/,
     );
     assert.match(
       result.graph,

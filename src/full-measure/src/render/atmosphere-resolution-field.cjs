@@ -39,9 +39,9 @@ function applyResolutionFieldToAtmosphereGraph({
 
   const replacement = [
     "[stage0]split=2[atmosphereBase][atmosphereCarrier]",
-    "[atmosphereCarrier]format=rgba,colorchannelmixer=aa=0[atmosphereResolutionSource]",
+    "[atmosphereCarrier]format=rgba,colorchannelmixer=rr=0:gg=0:bb=0:aa=0[atmosphereResolutionSource]",
     resolutionField.graph,
-    "[atmosphereBase][atmosphereResolutionOut]overlay=shortest=1:format=auto,setsar=1[atmosphereStage]",
+    "[atmosphereBase][atmosphereResolutionOut]overlay=shortest=1:format=auto:alpha=premultiplied,setsar=1[atmosphereStage]",
     TEXT_OVERLAY_SEAM.replace("[stage0]", "[atmosphereStage]"),
   ].join(";\n");
 
