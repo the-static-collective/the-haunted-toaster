@@ -153,6 +153,8 @@ test("production compiler executes the arc as section-local categorical programs
   assert.match(compiled.graph, /setpts=PTS-STARTPTS/);
   assert.match(compiled.graph, /concat=n=/);
   assert.match(compiled.graph, /\[timelineFinal\]ass=/);
+  const squarePixelSegments = compiled.graph.match(/setsar=1\[arcSegment\d+\]/g) || [];
+  assert.equal(squarePixelSegments.length, compiled.segments.length);
 
   const categoricalSignatures = compiled.segments.map((segment) => [
     segment.semanticGrammar.motion,
