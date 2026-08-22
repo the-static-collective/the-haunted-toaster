@@ -6,6 +6,7 @@ const {
 const {
   generateCandidateSet,
 } = require("./beta-candidate-ecology-compat.cjs");
+const base = require("./nested-response-generation.cjs");
 const {
   buildGrabRequest,
 } = require("./topology-event-generation.cjs");
@@ -190,6 +191,17 @@ function forceExistingTopologyArcOutcome(timeline, outcome) {
   });
 }
 
+function generationOptions(options) {
+  return {
+    analysis: options.analysis,
+    responseWitness: options.responseWitness,
+    garmentConstraints: options.garmentConstraints,
+    rendererProfile: options.rendererProfile,
+    lyricTrack: options.lyricTrack,
+    nativeChromaticProfile: options.nativeChromaticProfile || null,
+  };
+}
+
 function sourceFamilyFor(options, rootSeed) {
   const sourceRootSeed = hashCanonical(
     {
@@ -199,36 +211,55 @@ function sourceFamilyFor(options, rootSeed) {
     TEST_SIX_SOURCE_DOMAIN,
   );
   return generateCandidateSet({
-    analysis: options.analysis,
-    responseWitness: options.responseWitness,
-    garmentConstraints: options.garmentConstraints,
-    rendererProfile: options.rendererProfile,
+    ...generationOptions(options),
     rootSeed: sourceRootSeed,
     count: 6,
     phase: "initial",
-    lyricTrack: options.lyricTrack,
     toastFeelId: options.toastFeelId || null,
-    nativeChromaticProfile: options.nativeChromaticProfile || null,
   });
 }
 
-function applyFixture(sourceFamily, sourceCandidate, fixture) {
+function canonicalAuthorityForCandidate(sourceFamily, sourceCandidate, options) {
+  const lane = sourceCandidate?.toastmoodLane;
+  if (!lane?.sourceRootSeed || !lane?.id) {
+    return { family: sourceFamily, candidateIndex: sourceCandidate.index };
+  }
+
+  const authorityFamily = base.generateCandidateSet({
+    ...generationOptions(options),
+    rootSeed: lane.sourceRootSeed,
+    count: 6,
+    phase: "initial",
+    toastFeelId: lane.id,
+  });
+  const candidateIndex = authorityFamily.candidates.findIndex(
+    (candidate) => candidate.timelineHash === sourceCandidate.timelineHash,
+  );
+  if (candidateIndex < 0) {
+    throw new TypeError("TEST 6 could not recover canonical source-family authority for the selected beta candidate.");
+  }
+  return { family: authorityFamily, candidateIndex };
+}
+
+function applyFixture(sourceFamily, sourceCandidate, fixture, options) {
   let timeline = sourceCandidate.timeline;
   if (fixture.topologyArcOutcome) {
     timeline = forceExistingTopologyArcOutcome(timeline, fixture.topologyArcOutcome);
   }
   if (fixture.grab) {
+    const authority = canonicalAuthorityForCandidate(sourceFamily, sourceCandidate, options);
     timeline = resolveTopologyEvents(timeline, {
-      family: sourceFamily,
-      candidateIndex: sourceCandidate.index,
+      family: authority.family,
+      candidateIndex: authority.candidateIndex,
       events: [
         buildGrabRequest(timeline, {
           id: `test-6-${fixture.slot}`,
           parameters: fixture.grab,
           evidenceRefs: [
-            `fixture-family:test-6`,
+            "fixture-family:test-6",
             `fixture-slot:${fixture.slot}`,
-            `source-family:${sourceFamily.familyHash}`,
+            `source-family:${authority.family.familyHash}`,
+            `field-family:${sourceFamily.familyHash}`,
           ],
           salt: `test-6:${fixture.slot}`,
         }),
@@ -270,7 +301,7 @@ function generateTestSixWitnessFamily(options = {}) {
   }
 
   const candidates = FIXTURES.map((fixture, index) =>
-    applyFixture(sourceFamily, sourceFamily.candidates[index], fixture),
+    applyFixture(sourceFamily, sourceFamily.candidates[index], fixture, options),
   );
   const core = {
     schema: TEST_SIX_SCHEMA,
@@ -302,6 +333,7 @@ module.exports = {
   FIXTURES,
   TEST_SIX_POLICY,
   TEST_SIX_SCHEMA,
+  canonicalAuthorityForCandidate,
   fixtureReceipt,
   forceExistingTopologyArcOutcome,
   generateTestSixWitnessFamily,
