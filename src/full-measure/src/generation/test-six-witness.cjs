@@ -11,6 +11,9 @@ const {
   buildGrabRequest,
 } = require("./topology-event-generation.cjs");
 const {
+  projectTopologyEventAuthority,
+} = require("./topology-event-authority.cjs");
+const {
   resolveTopologyEvents,
 } = require("./topology-events.cjs");
 
@@ -222,23 +225,31 @@ function sourceFamilyFor(options, rootSeed) {
 function canonicalAuthorityForCandidate(sourceFamily, sourceCandidate, options) {
   const lane = sourceCandidate?.toastmoodLane;
   if (!lane?.sourceRootSeed || !lane?.id) {
-    return { family: sourceFamily, candidateIndex: sourceCandidate.index };
+    return {
+      family: projectTopologyEventAuthority(sourceFamily),
+      candidateIndex: sourceCandidate.index,
+      sourceFamilyHash: sourceFamily.familyHash,
+    };
   }
 
-  const authorityFamily = base.generateCandidateSet({
+  const sourceAuthorityFamily = base.generateCandidateSet({
     ...generationOptions(options),
     rootSeed: lane.sourceRootSeed,
     count: 6,
     phase: "initial",
     toastFeelId: lane.id,
   });
-  const candidateIndex = authorityFamily.candidates.findIndex(
+  const candidateIndex = sourceAuthorityFamily.candidates.findIndex(
     (candidate) => candidate.timelineHash === sourceCandidate.timelineHash,
   );
   if (candidateIndex < 0) {
-    throw new TypeError("TEST 6 could not recover canonical source-family authority for the selected beta candidate.");
+    throw new TypeError("TEST 6 could not recover source-family authority for the selected beta candidate.");
   }
-  return { family: authorityFamily, candidateIndex };
+  return {
+    family: projectTopologyEventAuthority(sourceAuthorityFamily),
+    candidateIndex,
+    sourceFamilyHash: sourceAuthorityFamily.familyHash,
+  };
 }
 
 function applyFixture(sourceFamily, sourceCandidate, fixture, options) {
@@ -258,7 +269,8 @@ function applyFixture(sourceFamily, sourceCandidate, fixture, options) {
           evidenceRefs: [
             "fixture-family:test-6",
             `fixture-slot:${fixture.slot}`,
-            `source-family:${authority.family.familyHash}`,
+            `event-authority:${authority.family.familyHash}`,
+            `source-family:${authority.sourceFamilyHash}`,
             `field-family:${sourceFamily.familyHash}`,
           ],
           salt: `test-6:${fixture.slot}`,
