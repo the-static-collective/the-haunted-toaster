@@ -101,23 +101,33 @@ function buildGrabRequest(timeline, {
   });
 }
 
-function projectOrdinaryGrabView(family) {
-  verifyCandidateFamilyAddress(family);
+function projectOrdinaryGrabView(family, { authorityForCandidate } = {}) {
+  if (typeof authorityForCandidate !== "function") {
+    verifyCandidateFamilyAddress(family);
+  }
   const candidates = family.candidates.map((candidate) => {
     if (!shouldPreferOrdinaryGrab({ rootSeed: family.rootSeed, slotIndex: candidate.index })) {
       return candidate;
     }
+    const authority = typeof authorityForCandidate === "function"
+      ? authorityForCandidate(candidate)
+      : { family, candidateIndex: candidate.index, sourceFamilyHash: family.familyHash };
+    if (!authority?.family || !Number.isSafeInteger(authority.candidateIndex)) {
+      throw new TypeError("Ordinary GRAB authority resolver returned invalid authority.");
+    }
     const request = buildGrabRequest(candidate.timeline, {
       id: `ordinary-grab-${candidate.index}`,
       evidenceRefs: [
-        `candidate-family:${family.familyHash}`,
+        `event-authority:${authority.family.familyHash}`,
+        `source-family:${authority.sourceFamilyHash || family.familyHash}`,
+        `field-family:${family.familyHash}`,
         `policy:${ORDINARY_GRAB_PREFERENCE.policyVersion}`,
       ],
       salt: `${family.rootSeed}:${candidate.index}`,
     });
     const timeline = resolveTopologyEvents(candidate.timeline, {
-      family,
-      candidateIndex: candidate.index,
+      family: authority.family,
+      candidateIndex: authority.candidateIndex,
       events: [request],
     });
     return deepFreeze({
