@@ -9,8 +9,8 @@ const root = path.resolve(__dirname, "..");
 const readJson = (relativePath) =>
   JSON.parse(fs.readFileSync(path.join(root, relativePath), "utf8"));
 
-const constraints = readJson("constraints/wire-orchard.v1.json");
-const profile = readJson("profiles/toaster-raster-1.json");
+const constraints = readJson("constraints/wire-orchard.v3.json");
+const profile = readJson("profiles/toaster-raster-4.json");
 const analysis = readJson("fixtures/analysis/sectional.v1.json");
 
 const EXPECTED_SLOTS = [
