@@ -99,6 +99,11 @@ function candidatePreviewPlan(candidate, typography = null) {
   return Object.freeze({
     index: candidate.index,
     role: candidate.role,
+    fixtureLabel: candidate.fixtureLabel,
+    fixtureSlot: candidate.fixtureSlot,
+    forcedCondition: candidate.forcedCondition,
+    forcedWitness: candidate.forcedWitness === true,
+    fixturePolicyVersion: candidate.fixtureReceipt?.policyVersion || null,
     scoreAddress: candidate.scoreAddress,
     timelineHash: candidate.timelineHash,
     changedAxes: Object.freeze([...(candidate.changedAxes || [])]),
@@ -156,6 +161,8 @@ async function renderCandidateFamilyPreviews(config, family, hooks = {}) {
         width,
         height,
         fps,
+        atmosphereResolutionScale:
+          candidate.forcedRenderConfig?.atmosphereResolutionScale ?? null,
         ...typographyContext,
       });
       const plan = candidatePreviewPlan(
