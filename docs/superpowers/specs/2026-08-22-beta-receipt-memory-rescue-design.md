@@ -198,7 +198,7 @@ Rules:
 7. If target equals current value, no mutation occurs and the no-op reason is receipted.
 8. If target is illegal or locked, no mutation occurs and the refusal reason is receipted.
 9. If applied, the changed score is re-addressed through current canonical score machinery.
-10. Any affected current timeline layers are recomputed through current current-spine resolvers, not copied from alpha.9.
+10. Any affected current timeline layers are recomputed through current-spine resolvers, not copied from alpha.9.
 11. The candidate family is re-addressed through the current BETA family contract.
 12. Memory influence metadata is evidence/provenance and must not masquerade as an ordinary source-family hash.
 
