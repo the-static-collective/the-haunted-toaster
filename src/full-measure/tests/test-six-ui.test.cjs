@@ -56,7 +56,7 @@ test("forced witness receipt evidence is compact, typed, and refuses arbitrary p
       forcedCondition: "guaranteed-grab",
       policyVersion: "forced-witness-test-6-v0",
     }),
-    /test-6/i,
+    /TEST[ -]6/i,
   );
 });
 
