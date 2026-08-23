@@ -75,10 +75,7 @@
         </header>
         <div class="candidate-toolbar">
           <div class="candidate-status" id="candidateStatus">Generate six to begin.</div>
-          <div class="candidate-toolbar-actions">
-            <button class="candidate-regenerate candidate-test-six" id="candidateTestSix" type="button" title="Generate six deterministic forced witness fixtures">TEST 6</button>
-            <button class="candidate-regenerate" id="candidateRegenerate" type="button">Generate six</button>
-          </div>
+          <button class="candidate-regenerate" id="candidateRegenerate" type="button">Generate six</button>
         </div>
         <div class="candidate-grid" id="candidateGrid"></div>
         <section class="candidate-move-panel" aria-labelledby="candidateMoveTitle">
@@ -110,7 +107,6 @@
     const moveGrid = modal.querySelector("#candidateMoveGrid");
     const status = modal.querySelector("#candidateStatus");
     const regenerate = modal.querySelector("#candidateRegenerate");
-    const testSix = modal.querySelector("#candidateTestSix");
     const redeal = modal.querySelector("#candidateMoveRedeal");
     const use = modal.querySelector("#candidateUse");
     const lockList = modal.querySelector(".candidate-lock-list");
@@ -166,18 +162,6 @@
       };
     }
 
-    function testSixConfig() {
-      const song = audioTitle.textContent.trim().replace(/\s+/g, "-").slice(0, 80) || "song";
-      return {
-        rootSeed: `test-6:openField:${currentCandidateToastFeelId() || "unselected"}:${song}`,
-        presetId: "openField",
-        toastFeelId: currentCandidateToastFeelId(),
-        title: document.querySelector("#titleInput")?.value || "",
-        artist: document.querySelector("#artistInput")?.value || "",
-        lyrics: document.querySelector("#lyricsInput")?.value || "",
-      };
-    }
-
     function selectedLocks() {
       return [...lockList.querySelectorAll("input:checked")].map((input) => input.value);
     }
@@ -218,16 +202,13 @@
     function setBusy(nextBusy, message) {
       busy = nextBusy;
       regenerate.disabled = nextBusy;
-      testSix.disabled = nextBusy;
-      redeal.disabled = nextBusy || selectedIndex === null || family?.forcedWitness === true || !window.candidateMoveDeck?.dealCandidateMoves;
+      redeal.disabled = nextBusy || selectedIndex === null || !window.candidateMoveDeck?.dealCandidateMoves;
       use.disabled = nextBusy || selectedIndex === null;
       launch.disabled = nextBusy;
       for (const button of moveGrid.querySelectorAll(".candidate-move-card")) {
         button.disabled = nextBusy || button.dataset.contractUnavailable === "true";
       }
-      for (const input of lockList.querySelectorAll("input")) {
-        input.disabled = nextBusy || family?.forcedWitness === true;
-      }
+      for (const input of lockList.querySelectorAll("input")) input.disabled = nextBusy;
       if (message) status.textContent = message;
       modal.classList.toggle("is-busy", nextBusy);
     }
@@ -264,11 +245,7 @@
       status.textContent = "Generate six to begin.";
       use.disabled = true;
       launch.querySelector("strong").textContent = "Generate six visions";
-      modal.classList.remove("is-test-six");
-      for (const input of lockList.querySelectorAll("input")) {
-        input.checked = false;
-        input.disabled = false;
-      }
+      for (const input of lockList.querySelectorAll("input")) input.checked = false;
       updateRenderLabel();
       if (notifyMain) api.clearCandidates().catch(() => {});
     }
@@ -286,10 +263,6 @@
     }
 
     function renderMoveDeck() {
-      if (family?.forcedWitness === true) {
-        renderMoveEmpty("TEST 6 is witness-only · mutation ecology disabled.");
-        return;
-      }
       if (!family || selectedIndex === null) {
         renderMoveEmpty();
         return;
@@ -338,11 +311,9 @@
       renderMoveDeck();
       const candidate = family?.candidates?.find((item) => item.index === index);
       if (candidate) {
-        status.textContent = family?.forcedWitness === true
-          ? `TEST 6 · ${candidate.fixtureLabel || candidate.fixtureSlot} selected · forced witness only.`
-          : window.candidateMoveDeck?.dealCandidateMoves
-            ? `Candidate ${index + 1} selected · six bounded moves dealt.`
-            : `Candidate ${index + 1} selected · move deck loading.`;
+        status.textContent = window.candidateMoveDeck?.dealCandidateMoves
+          ? `Candidate ${index + 1} selected · six bounded moves dealt.`
+          : `Candidate ${index + 1} selected · move deck loading.`;
       }
       updateRenderLabel();
     }
@@ -353,50 +324,31 @@
       acceptedSelection = null;
       moveDealIndex = 0;
       grid.replaceChildren();
-      renderMoveEmpty(
-        view.forcedWitness === true
-          ? "TEST 6 is witness-only · mutation ecology disabled."
-          : "Choose a creature above to deal moves.",
-      );
-      modal.classList.toggle("is-test-six", view.forcedWitness === true);
-      for (const input of lockList.querySelectorAll("input")) {
-        input.checked = false;
-        input.disabled = view.forcedWitness === true;
-      }
+      renderMoveEmpty();
       updateRenderLabel();
 
       for (const candidate of view.candidates || []) {
         const card = document.createElement("button");
         card.type = "button";
         card.className = "candidate-card";
-        if (candidate.forcedWitness) card.classList.add("is-forced-witness");
         card.dataset.index = String(candidate.index);
         card.setAttribute("aria-pressed", "false");
         const changed = candidate.changedAxes?.length ? candidate.changedAxes.join(" · ") : "baseline";
         const lane = candidate.toastmoodLane?.name ? ` · ${candidate.toastmoodLane.name}` : "";
-        const fixtureMeta = candidate.forcedWitness
-          ? `${candidate.fixtureSlot} · ${candidate.forcedCondition}${candidate.fixturePolicyVersion ? ` · ${candidate.fixturePolicyVersion}` : ""}`
-          : changed;
         card.innerHTML = `
           <span class="candidate-image-wrap">
             <img src="${candidate.thumbnailDataUrl}" alt="Candidate ${candidate.index + 1} exact timeline preview" />
             <b>${candidate.index + 1}</b>
           </span>
           <span class="candidate-copy">
-            <small>${candidate.forcedWitness ? "TEST 6 · FORCED WITNESS" : `${roleLabel(candidate.role)}${lane}`}</small>
-            <strong>${candidate.forcedWitness ? candidate.fixtureLabel : candidate.signature}</strong>
-            <em>${fixtureMeta}</em>
+            <small>${roleLabel(candidate.role)}${lane}</small>
+            <strong>${candidate.signature}</strong>
+            <em>${changed}</em>
             <code>${shortAddress(candidate.scoreAddress)}</code>
           </span>
         `;
         card.addEventListener("click", () => chooseCard(candidate.index));
         grid.append(card);
-      }
-
-      if (view.forcedWitness === true) {
-        status.textContent = `TEST 6 · ${view.producedCount} deterministic forced witness fixtures ready · test-only.`;
-        use.disabled = true;
-        return;
       }
 
       const shortfall = view.shortfall ? ` · ${view.producedCount}/${view.requestedCount} materially distinct` : "";
@@ -435,26 +387,8 @@
       }
     }
 
-    async function generateTestSix() {
-      if (busy) return;
-      if (!songIsReady()) {
-        openModal();
-        status.textContent = "Choose and inspect a song before running TEST 6.";
-        return;
-      }
-      openModal();
-      setBusy(true, "TEST 6 · compiling six deterministic forced witness fixtures…");
-      try {
-        renderFamily(await api.generateTestCandidates(testSixConfig()));
-      } catch (error) {
-        status.textContent = error?.message || String(error);
-      } finally {
-        setBusy(false);
-      }
-    }
-
     async function executeMove(proposal) {
-      if (busy || !family || family.forcedWitness === true || selectedIndex === null || !proposal || proposal.available === false) return;
+      if (busy || !family || selectedIndex === null || !proposal || proposal.available === false) return;
       const locks = selectedLocks();
       setBusy(true, moveStatus(proposal.kind));
       try {
@@ -494,7 +428,7 @@
     }
 
     function redealMoves() {
-      if (busy || !family || family.forcedWitness === true || selectedIndex === null) return;
+      if (busy || !family || selectedIndex === null) return;
       moveDealIndex += 1;
       renderMoveDeck();
       status.textContent = `Move deal ${moveDealIndex + 1} · candidate family unchanged.`;
@@ -517,20 +451,14 @@
 
     async function useSelected() {
       if (busy || !family || selectedIndex === null) return;
-      setBusy(true, family.forcedWitness === true
-        ? "Binding the forced witness timeline to production render…"
-        : "Binding the exact winner to production render…");
+      setBusy(true, "Binding the exact winner to production render…");
       try {
         acceptedSelection = await api.selectCandidate({ familyHash: family.familyHash, index: selectedIndex });
         const candidate = family.candidates.find((item) => item.index === selectedIndex);
-        launch.querySelector("strong").textContent = family.forcedWitness === true
-          ? `TEST 6 · ${candidate?.fixtureLabel || candidate?.fixtureSlot}`
-          : `Chosen · ${shortAddress(candidate?.scoreAddress)}`;
+        launch.querySelector("strong").textContent = `Chosen · ${shortAddress(candidate?.scoreAddress)}`;
         bindElectedFieldFeel(acceptedSelection);
         updateRenderLabel();
-        status.textContent = family.forcedWitness === true
-          ? "Forced witness bound. Production render will receipt TEST 6 provenance explicitly."
-          : "Exact winner bound. Production render will consume this accepted timeline.";
+        status.textContent = "Exact winner bound. Production render will consume this accepted timeline.";
         closeModal(true);
         document.querySelector(".render-panel")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       } catch (error) {
@@ -545,12 +473,11 @@
       if (!family && songIsReady()) generateSix();
     });
     regenerate.addEventListener("click", generateSix);
-    testSix.addEventListener("click", generateTestSix);
     redeal.addEventListener("click", redealMoves);
     use.addEventListener("click", useSelected);
     for (const input of lockList.querySelectorAll("input")) {
       input.addEventListener("change", () => {
-        if (!family || family.forcedWitness === true || selectedIndex === null || busy) return;
+        if (!family || selectedIndex === null || busy) return;
         moveDealIndex = 0;
         renderMoveDeck();
         status.textContent = "Locks changed · move deck re-addressed. Candidate family unchanged.";
@@ -588,9 +515,7 @@
     loadMoveDeck(() => {
       if (family && selectedIndex !== null) {
         renderMoveDeck();
-        status.textContent = family.forcedWitness === true
-          ? `TEST 6 · fixture ${selectedIndex + 1} selected · forced witness only.`
-          : `Candidate ${selectedIndex + 1} selected · six bounded moves dealt.`;
+        status.textContent = `Candidate ${selectedIndex + 1} selected · six bounded moves dealt.`;
       }
     });
   }

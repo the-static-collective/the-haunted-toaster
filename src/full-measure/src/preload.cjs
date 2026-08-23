@@ -324,7 +324,6 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   },
   cancelLyricSync: () => ipcRenderer.invoke("lyrics:cancel-sync"),
   generateCandidates: (config) => ipcRenderer.invoke("candidate:generate", config),
-  generateTestCandidates: (config) => ipcRenderer.invoke("candidate:test-6", config),
   stageLabProposal: (transfer) => ipcRenderer.invoke("candidate:stage-lab-proposal", transfer),
   importLabProposal: (config) => ipcRenderer.invoke("candidate:import-lab-proposal", config),
   mutateCandidates: (config) => ipcRenderer.invoke("candidate:mutate", config),
