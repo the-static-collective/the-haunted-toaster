@@ -80,8 +80,8 @@ test("TEST 6 packaged Open Field path renders all six real previews without hidd
       title: "TEST 6",
       artist: "field witness",
       lyrics: "",
-      width: 320,
-      height: 180,
+      width: 640,
+      height: 360,
       fps: 12,
     }, testSixFamily());
 
