@@ -56,6 +56,30 @@ test("createForeignMaterialPlan derives deterministic evidence from an admitted 
   assert.equal(first.clipAnalysisHash, second.clipAnalysisHash);
 });
 
+test("plan identity is stable when admitted clip bytes move to another local path", () => {
+  const firstBinding = sampleVideoBinding();
+  const movedBinding = {
+    ...sampleVideoBinding(),
+    path: "/another/machine/cache/renamed-source.webm",
+    filename: "renamed-source.webm",
+  };
+  const first = createForeignMaterialPlan({
+    videoBinding: firstBinding,
+    timeline: sampleTimeline(),
+    analysisDurationSeconds: 6,
+  });
+  const moved = createForeignMaterialPlan({
+    videoBinding: movedBinding,
+    timeline: sampleTimeline(),
+    analysisDurationSeconds: 6,
+  });
+
+  assert.equal(first.planHash, moved.planHash);
+  assert.equal(first.clipAnalysisHash, moved.clipAnalysisHash);
+  assert.notEqual(first.sourcePath, moved.sourcePath);
+  assert.notEqual(first.sourceFilename, moved.sourceFilename);
+});
+
 test("ffmpegInputArgsForForeignMaterial wires a looped clip input", () => {
   const plan = createForeignMaterialPlan({
     videoBinding: sampleVideoBinding(),
@@ -68,6 +92,23 @@ test("ffmpegInputArgsForForeignMaterial wires a looped clip input", () => {
     "-i",
     "/tmp/pantry/specimen.mp4",
   ]);
+});
+
+test("no foreign material preserves the established graph and input path exactly", () => {
+  const graph = "color=c=black:s=320x180,format=rgba[vout]";
+  const applied = applyForeignMaterialToGraph({
+    graph,
+    foreignMaterialPlan: null,
+    foreignMaterialInputIndex: null,
+    width: 320,
+    height: 180,
+    fps: 30,
+  });
+
+  assert.equal(createForeignMaterialPlan({ videoBinding: null }), null);
+  assert.deepEqual(ffmpegInputArgsForForeignMaterial(null), []);
+  assert.equal(applied.graph, graph);
+  assert.equal(applied.evidence, null);
 });
 
 test("applyForeignMaterialToGraph appends one shared assimilation operator", () => {
@@ -86,10 +127,11 @@ test("applyForeignMaterialToGraph appends one shared assimilation operator", () 
   });
 
   assert.match(applied.graph, /\[2:v\]fps=30,scale=320:180/);
-  assert.match(applied.graph, /blend=all_mode=softlight/);
+  assert.match(applied.graph, /blend=all_mode=softlight:all_opacity=0\.28/);
   assert.match(applied.graph, /\[vout\]$/);
   assert.equal(applied.evidence.planHash, plan.planHash);
   assert.equal(applied.evidence.sourceSpecimenId, plan.sourceSpecimenId);
   assert.equal(applied.evidence.operatorId, FOREIGN_MATERIAL_OPERATOR_ID);
+  assert.equal(applied.evidence.opacity, 0.28);
   assert.equal(applied.evidence.inputIndex, 2);
 });
