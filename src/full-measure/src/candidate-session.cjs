@@ -563,13 +563,6 @@ function createCandidateSession({
     if (config.presetId !== familyBinding.presetId) {
       throw mismatch("garment changed");
     }
-    const forcedWitness = family?.forcedWitness === true || selection.forcedWitness === true;
-    if (
-      !forcedWitness &&
-      (config.toastFeelId || null) !== (familyBinding.toastFeelId || null)
-    ) {
-      throw mismatch("Toast Feel changed");
-    }
     if (!sameOptionalPath(config.imagePath, familyBinding.imagePath)) {
       throw mismatch("image changed");
     }
