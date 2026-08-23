@@ -27,7 +27,7 @@ A closed PR may still carry one of the latter three statuses. **Closed is transp
 | Receipt-memory foundation | `765cc5e1c89b52783bd89f462334a4e1f4daa16e` / #164 | immutable receipt archive, human verdicts, deterministic memory projection/capsules/traces | On `main`; foundation for #217/#218 rescue |
 | **BETA spine splice** | `e56281c26279c5277a6d0e5ad7959c0241630d34` / #175 | alpha.9 semantic core, receipt evidence, CONVERGE, range calibration, elastic topology response, Track 0 renderer/Listener trust repairs, frame reservoir, Creative Context contracts | **Canonical successor for the stranded alpha.9 stack** |
 | Candidate ecology / CROSS | `e8901fa7f52741e9e19a131ca6a9ed59eea841ac` / #179 | candidate ecology and exact two-parent CROSS | On `main` → #182 |
-| BETA Home Bench | `fb1f8661ce595b189a8c4bedd04858575bd0561` / #182 | presentation-only Home projection, BETA integration, Video/VSPantry, bounded recent history | On `main` → #189 |
+| BETA Home Bench | `fb1f8661ce595b189f38fee4a5e4e9e3df2a7f56` / #182 | presentation-only Home projection, BETA integration, Video/VSPantry, bounded recent history | On `main` → #189 |
 | Contextual second six-up | `c5c90b39c973df2986048828098c5c73bc5d0a52` / #189 | deterministic second six-up move deck; proposal-only contextual moves | On `main` → #192 |
 | BETA field package | `133e514c48d1f1ff041b5e0af21dcc14e6ed56f8` / #192 | current-main Listener hardening + live VSPantry progress | On `main` → #193 |
 | BETA field witness closure | `cf56d71883ff3e61bd54239e16c330df1ac734dd` / #193 | packaged human witness passed; VSPantry live counts preserved; Listener findings continue separately | On `main` |
