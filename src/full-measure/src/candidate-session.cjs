@@ -294,7 +294,7 @@ function createCandidateSession({
 
   async function generateTestSix(config = {}, signal) {
     assertReady();
-    const feel = currentToastFeel(config.toastFeelId, { optional: true });
+    currentToastFeel(config.toastFeelId, { optional: true });
     busy = true;
     try {
       const constraints = currentConstraints(config.presetId);
@@ -309,12 +309,12 @@ function createCandidateSession({
         rendererProfile,
         rootSeed: config.rootSeed,
         lyricTrack,
-        toastFeelId: feel?.id || null,
+        toastFeelId: null,
         nativeChromaticProfile: profile,
       });
       return await materialize(
         nextFamily,
-        config,
+        { ...config, toastFeelId: null },
         signal,
         { enabled: false, forcedWitness: true },
       );
@@ -548,11 +548,31 @@ function createCandidateSession({
   }
 
   function executionForRender(config = {}) {
-    if (!selection || !familyBinding) return null;
-    if (path.resolve(config.audioPath) !== familyBinding.audioPath) return null;
-    if (config.presetId !== familyBinding.presetId) return null;
-    if ((config.toastFeelId || null) !== (familyBinding.toastFeelId || null)) return null;
-    if (!sameOptionalPath(config.imagePath, familyBinding.imagePath)) return null;
+    if (!selection) return null;
+    if (!familyBinding) {
+      throw new Error("Selected candidate has no accepted render binding.");
+    }
+    const mismatch = (detail) => {
+      const error = new Error(`Selected candidate no longer matches the current render inputs: ${detail}.`);
+      error.code = "CANDIDATE_RENDER_INPUT_MISMATCH";
+      return error;
+    };
+    if (path.resolve(config.audioPath) !== familyBinding.audioPath) {
+      throw mismatch("song changed");
+    }
+    if (config.presetId !== familyBinding.presetId) {
+      throw mismatch("garment changed");
+    }
+    const forcedWitness = family?.forcedWitness === true || selection.forcedWitness === true;
+    if (
+      !forcedWitness &&
+      (config.toastFeelId || null) !== (familyBinding.toastFeelId || null)
+    ) {
+      throw mismatch("Toast Feel changed");
+    }
+    if (!sameOptionalPath(config.imagePath, familyBinding.imagePath)) {
+      throw mismatch("image changed");
+    }
     const forcedRenderConfig = selection.forcedRenderConfig
       ? structuredClone(selection.forcedRenderConfig)
       : null;
