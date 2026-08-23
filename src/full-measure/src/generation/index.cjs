@@ -9,6 +9,7 @@ module.exports = {
   ...require("./topology-events.cjs"),
   ...require("./topology-event-generation.cjs"),
   ...require("./test-six-witness.cjs"),
+  ...require("./test-six-witness-neutral.cjs"),
   ...require("./converge-frontier.cjs"),
   ...require("./diversity-engine.cjs"),
   ...require("./visible-distance.cjs"),
