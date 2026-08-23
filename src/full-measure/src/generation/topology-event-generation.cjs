@@ -142,17 +142,19 @@ function projectOrdinaryGrabView(family, { authorityForCandidate } = {}) {
     });
   });
 
+  const {
+    schema: _schema,
+    policy: _policy,
+    candidates: _candidates,
+    timelineHashes: _timelineHashes,
+    ...familyEvidence
+  } = family;
   return deepFreeze({
+    ...structuredClone(familyEvidence),
     schema: ORDINARY_GRAB_VIEW_SCHEMA,
     policy: ORDINARY_GRAB_VIEW_POLICY,
-    familyHash: family.familyHash,
     sourceFamilyHash: family.familyHash,
-    rootSeed: family.rootSeed,
-    parentScoreRef: family.parentScoreRef,
-    locks: family.locks,
-    requestedCount: family.requestedCount,
-    producedCount: family.producedCount,
-    shortfall: family.shortfall,
+    timelineHashes: candidates.map((candidate) => candidate.timelineHash),
     candidates,
   });
 }
