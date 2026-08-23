@@ -68,6 +68,26 @@ function compactNativeColorEvidence(profile, timeline) {
   };
 }
 
+function compactForcedWitnessEvidence(evidence) {
+  if (!evidence) return null;
+  if (evidence.forcedWitness !== true || evidence.fixtureFamily !== "test-6") {
+    throw new TypeError("Forced witness evidence must be TEST 6 evidence.");
+  }
+  const fixtureSlot = String(evidence.fixtureSlot || "");
+  const forcedCondition = String(evidence.forcedCondition || "");
+  const policyVersion = String(evidence.policyVersion || "");
+  if (!fixtureSlot || !forcedCondition || !policyVersion) {
+    throw new TypeError("TEST 6 forced witness evidence is incomplete.");
+  }
+  return {
+    forcedWitness: true,
+    fixtureFamily: "test-6",
+    fixtureSlot,
+    forcedCondition,
+    policyVersion,
+  };
+}
+
 async function safeUnlink(filePath) {
   try {
     await fs.unlink(filePath);
@@ -331,6 +351,7 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       product: "Full Measure",
       artifact: "Video Receipt",
       createdAt: finishedAt.toISOString(),
+      forcedWitness: compactForcedWitnessEvidence(config.forcedWitnessEvidence),
       source: {
         filename: analysis.filename,
         sha256: sourceHash,
@@ -522,6 +543,7 @@ async function renderVideo(config, hooks = {}) {
 module.exports = {
   ...legacy,
   applyWitnessWindowToGraph,
+  compactForcedWitnessEvidence,
   compactNativeColorEvidence,
   compactToastFeelEvidence,
   renderVideo,

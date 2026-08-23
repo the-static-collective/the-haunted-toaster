@@ -28,7 +28,7 @@ function sessionFixture(dependencies = {}) {
   return { session, previewFamilies };
 }
 
-test("candidate session binds exact Toast Feel identity through accepted execution", async () => {
+test("candidate session binds exact accepted Toast Feel identity through execution despite later caller drift", async () => {
   const { session } = sessionFixture();
   const view = await session.generate({
     presetId: "openField",
@@ -44,7 +44,7 @@ test("candidate session binds exact Toast Feel identity through accepted executi
     presetId: "openField",
     toastFeelId: "wire-heat",
   });
-  const mismatch = session.executionForRender({
+  const callerDrift = session.executionForRender({
     audioPath: "/tmp/toast-song.wav",
     imagePath: null,
     presetId: "openField",
@@ -53,7 +53,8 @@ test("candidate session binds exact Toast Feel identity through accepted executi
 
   assert.equal(matching.toastFeel.id, "wire-heat");
   assert.equal(matching.toastFeel.contractVersion, "toast-feel-v2");
-  assert.equal(mismatch, null);
+  assert.equal(callerDrift.toastFeel.id, "wire-heat");
+  assert.equal(callerDrift.toastFeel.contractVersion, "toast-feel-v2");
   matching.toastFeel.name = "Nope";
   assert.equal(session.executionForRender({
     audioPath: "/tmp/toast-song.wav",
