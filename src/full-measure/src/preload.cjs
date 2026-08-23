@@ -81,6 +81,39 @@ function normalizeStagedListenerEvidence(evidence = {}) {
   return { anchors, previousEvidence };
 }
 
+function assertReturnedListenerAnchorsHeld(result, anchors = []) {
+  if (!anchors.length) return result;
+
+  const cuesByLineId = new Map(
+    (Array.isArray(result?.cues) ? result.cues : [])
+      .filter((cue) => cue?.lineId)
+      .map((cue) => [String(cue.lineId), cue]),
+  );
+
+  for (const anchor of anchors) {
+    const cue = cuesByLineId.get(anchor.lineId);
+    const expectedStartMs = Math.round(anchor.mediaTimeMs);
+    const actualStartMs = Number.isFinite(Number(cue?.start))
+      ? Math.round(Number(cue.start) * 1000)
+      : null;
+
+    if (
+      !cue ||
+      cue.status !== "human" ||
+      cue.humanCorrected !== true ||
+      actualStartMs !== expectedStartMs
+    ) {
+      const error = new Error(
+        `Listener Re-listen refused: human anchor ${anchor.lineId} was not held at ${expectedStartMs} ms.`,
+      );
+      error.code = "LISTENER_ANCHOR_VIOLATION";
+      throw error;
+    }
+  }
+
+  return result;
+}
+
 async function withLyricFoundry(config = {}) {
   const lyrics = String(config.lyrics || "");
   const foundryEvidence = foundryEvidenceFromDom();
@@ -139,13 +172,14 @@ contextBridge.exposeInMainWorld("fullMeasure", {
       previousEvidenceCount: pendingListenerEvidence.previousEvidence.length,
     };
   },
-  autoSyncLyrics: (config) => {
+  autoSyncLyrics: async (config) => {
     const evidence = pendingListenerEvidence;
     pendingListenerEvidence = null;
-    return ipcRenderer.invoke("lyrics:auto-sync", {
+    const result = await ipcRenderer.invoke("lyrics:auto-sync", {
       ...config,
       ...(evidence || {}),
     });
+    return assertReturnedListenerAnchorsHeld(result, evidence?.anchors || []);
   },
   cancelLyricSync: () => ipcRenderer.invoke("lyrics:cancel-sync"),
   generateCandidates: (config) => ipcRenderer.invoke("candidate:generate", config),

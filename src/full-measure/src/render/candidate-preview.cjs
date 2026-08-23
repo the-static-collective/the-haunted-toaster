@@ -4,6 +4,7 @@ const path = require("node:path");
 const legacy = require("./render-legacy.cjs");
 const { createProceduralPpm } = require("./artwork.cjs");
 const { getPreset } = require("./presets.cjs");
+const { canonicalStringify } = require("../generation/canonical.cjs");
 const {
   buildHauntedFilterGraph,
   typographyContextForTimeline,
@@ -72,17 +73,43 @@ function previewSignature(score) {
   ].join(" · ");
 }
 
+function crossLockProjectionForScore(score = {}) {
+  const primitiveField = score.primitiveField || {};
+  return Object.freeze({
+    topology: canonicalStringify({
+      value: score.topology ?? null,
+      primitiveStructure: primitiveField.structure ?? null,
+    }),
+    motion: canonicalStringify({
+      value: score.motion ?? null,
+      primitiveDynamics: primitiveField.dynamics ?? null,
+    }),
+    palette: canonicalStringify(score.palette ?? null),
+    material: canonicalStringify(score.material ?? null),
+    lyric: canonicalStringify(score.lyric ?? null),
+    camera: canonicalStringify(score.camera ?? null),
+    temporalDensity: canonicalStringify(score.temporalDensity ?? null),
+    atmosphere: canonicalStringify(score.atmosphere ?? null),
+  });
+}
+
 function candidatePreviewPlan(candidate, typography = null) {
   const sample = previewSampleFor(candidate);
   const score = candidate.scoreArtifact.score;
   return Object.freeze({
     index: candidate.index,
     role: candidate.role,
+    fixtureLabel: candidate.fixtureLabel,
+    fixtureSlot: candidate.fixtureSlot,
+    forcedCondition: candidate.forcedCondition,
+    forcedWitness: candidate.forcedWitness === true,
+    fixturePolicyVersion: candidate.fixtureReceipt?.policyVersion || null,
     scoreAddress: candidate.scoreAddress,
     timelineHash: candidate.timelineHash,
     changedAxes: Object.freeze([...(candidate.changedAxes || [])]),
     signature: previewSignature(score),
     baseIdentity: baseIdentityForScore(score),
+    crossLockProjection: crossLockProjectionForScore(score),
     sample,
     typography,
   });
@@ -134,6 +161,8 @@ async function renderCandidateFamilyPreviews(config, family, hooks = {}) {
         width,
         height,
         fps,
+        atmosphereResolutionScale:
+          candidate.forcedRenderConfig?.atmosphereResolutionScale ?? null,
         ...typographyContext,
       });
       const plan = candidatePreviewPlan(
@@ -223,6 +252,7 @@ module.exports = {
   PREVIEW_WIDTH,
   baseIdentityForScore,
   candidatePreviewPlan,
+  crossLockProjectionForScore,
   previewSampleFor,
   previewSignature,
   renderCandidateFamilyPreviews,

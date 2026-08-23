@@ -7,6 +7,9 @@ const {
   NATIVE_INFLUENCE,
   RELATIONSHIPS,
   TIMELINE_SCHEMA,
+  TOPOLOGY_EVENT_KINDS,
+  TOPOLOGY_EVENT_PLAN_SCHEMA,
+  TOPOLOGY_EVENT_POLICY,
   stateAtTick,
 } = require("../generation/index.cjs");
 
@@ -160,6 +163,82 @@ function assertLyricResonance(timeline) {
   }
 }
 
+function assertTopologyEvents(timeline) {
+  const plan = timeline.topologyEvents;
+  if (plan === undefined) return;
+  if (!plan || typeof plan !== "object") {
+    throw new TypeError("ResolvedTimeline.topologyEvents must be an object when present.");
+  }
+  if (plan.schema !== TOPOLOGY_EVENT_PLAN_SCHEMA) {
+    throw new TypeError(`Topology Events schema must be ${TOPOLOGY_EVENT_PLAN_SCHEMA}.`);
+  }
+  if (plan.policyVersion !== TOPOLOGY_EVENT_POLICY) {
+    throw new TypeError(`Topology Events policy must be ${TOPOLOGY_EVENT_POLICY}.`);
+  }
+  for (const [label, value] of [
+    ["acceptedFamilyHash", plan.acceptedFamilyHash],
+    ["sourceTimelineHash", plan.sourceTimelineHash],
+    ["planSha256", plan.planSha256],
+  ]) {
+    if (!SHA256_PATTERN.test(String(value || ""))) {
+      throw new TypeError(`Topology Events ${label} must be lowercase SHA-256.`);
+    }
+  }
+  if (plan.acceptedScoreAddress !== timeline.scoreAddress) {
+    throw new TypeError("Topology Events acceptedScoreAddress must match timeline.scoreAddress.");
+  }
+  if (plan.sourceTopology !== timeline.baseState.topology) {
+    throw new TypeError("Topology Events sourceTopology must match frozen base topology.");
+  }
+  if (!Array.isArray(plan.lockedAxes) || !Array.isArray(plan.events) || plan.eventCount !== plan.events.length) {
+    throw new TypeError("Topology Events counted arrays are invalid.");
+  }
+  if (plan.refusal !== null) {
+    if (!plan.refusal || typeof plan.refusal !== "object" || typeof plan.refusal.reason !== "string") {
+      throw new TypeError("Topology Events refusal envelope is invalid.");
+    }
+    if (plan.events.length !== 0) {
+      throw new TypeError("Topology Events refusal cannot carry executable events.");
+    }
+    return;
+  }
+
+  let previousPrepareTick = -1;
+  let previousId = "";
+  for (const event of plan.events) {
+    if (!event || typeof event !== "object" || !TOPOLOGY_EVENT_KINDS.includes(event.kind)) {
+      throw new TypeError("Topology Events contains an unsupported primitive kind.");
+    }
+    if (typeof event.id !== "string" || !event.id.length || !SHA256_PATTERN.test(String(event.eventSha256 || ""))) {
+      throw new TypeError("Topology Events event identity is invalid.");
+    }
+    const ticks = [event.prepareTick, event.strikeTick, event.releaseTick, event.residueUntilTick];
+    if (ticks.some((tick) => !Number.isSafeInteger(tick) || tick < 0)) {
+      throw new TypeError("Topology Events ticks must be non-negative safe integers.");
+    }
+    if (!(event.prepareTick < event.strikeTick && event.strikeTick <= event.releaseTick && event.releaseTick <= event.residueUntilTick)) {
+      throw new TypeError("Topology Events envelope ordering is invalid.");
+    }
+    if (event.kind === "grab" && event.releaseTick >= event.residueUntilTick) {
+      throw new TypeError("GRAB requires non-zero residual duration.");
+    }
+    if (event.residueUntilTick > timeline.durationTicks) {
+      throw new TypeError("Topology Events envelope exceeds durationTicks.");
+    }
+    if (!Array.isArray(event.evidenceRefs) || !event.evidenceRefs.length) {
+      throw new TypeError("Topology Events evidenceRefs must be non-empty.");
+    }
+    if (
+      event.prepareTick < previousPrepareTick ||
+      (event.prepareTick === previousPrepareTick && event.id.localeCompare(previousId) < 0)
+    ) {
+      throw new TypeError("Topology Events must be ordered by prepareTick then id.");
+    }
+    previousPrepareTick = event.prepareTick;
+    previousId = event.id;
+  }
+}
+
 function assertResolvedTimeline(timeline) {
   if (!timeline || typeof timeline !== "object") {
     throw new TypeError("ResolvedTimeline is required.");
@@ -220,6 +299,7 @@ function assertResolvedTimeline(timeline) {
 
   assertNativeColor(timeline);
   assertLyricResonance(timeline);
+  assertTopologyEvents(timeline);
   return timeline;
 }
 
@@ -310,6 +390,7 @@ module.exports = {
   assertNativeColor,
   assertResolvedTimeline,
   assertTimelineDuration,
+  assertTopologyEvents,
   createTimelineExecution,
   executionSegments,
   secondsToTick,
