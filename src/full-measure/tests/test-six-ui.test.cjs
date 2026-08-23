@@ -7,26 +7,13 @@ const root = path.resolve(__dirname, "..");
 const readSource = (relativePath) =>
   fs.readFileSync(path.join(root, relativePath), "utf8");
 
-test("packaged renderer exposes a visible TEST 6 action through a dedicated bridge", () => {
+test("packaged renderer retires the operator-facing TEST 6 action and preload bridge", () => {
   const ui = readSource("src/renderer/candidate-ui.js");
   const preload = readSource("src/preload.cjs");
-  const session = readSource("src/candidate-session.cjs");
 
-  assert.match(ui, /TEST 6/);
-  assert.match(ui, /generateTestCandidates/);
-  assert.match(preload, /generateTestCandidates:\s*\(config\)\s*=>\s*ipcRenderer\.invoke\("candidate:test-6", config\)/);
-  assert.match(session, /ipcMain\.handle\("candidate:test-6"/);
-  assert.match(session, /generateTestSixWitnessFamily/);
-});
-
-test("TEST 6 does not reuse ordinary click-sequence entropy or ordinary generate IPC", () => {
-  const ui = readSource("src/renderer/candidate-ui.js");
-  const testFunction = ui.match(/async function generateTestSix[\s\S]*?\n  }/)?.[0] || "";
-
-  assert.ok(testFunction, "TEST 6 must have a dedicated renderer function");
-  assert.doesNotMatch(testFunction, /nextRootSeed/);
-  assert.doesNotMatch(testFunction, /generateCandidates/);
-  assert.match(testFunction, /generateTestCandidates/);
+  assert.doesNotMatch(ui, /\bTEST 6\b/);
+  assert.doesNotMatch(ui, /candidateTestSix|generateTestCandidates|generateTestSix/);
+  assert.doesNotMatch(preload, /generateTestCandidates|candidate:test-6/);
 });
 
 test("forced witness receipt evidence is compact, typed, and refuses arbitrary provenance", () => {
