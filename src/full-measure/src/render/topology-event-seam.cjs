@@ -1,6 +1,12 @@
 const { compileTopologyEvents } = require("./topology-events.cjs");
 
-const TOPOLOGY_COMPOSITE_SEAM = /\[base\]\[waveFull\]overlay=([^;\n]+)\[stage0\]/;
+const TOPOLOGY_COMPOSITE_SEAM = /\[(base|spectral)\]\[(waveFull|primitiveField)\]overlay=([^;\n]+)\[stage0\]/;
+const ALLOWED_TOPOLOGY_COMPOSITES = Object.freeze(new Set([
+  "base:waveFull",
+  "spectral:waveFull",
+  "spectral:primitiveField",
+]));
+const ALLOWED_GRAB_CARRIERS = Object.freeze(new Set(["waveFull", "primitiveField"]));
 
 function clamp(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, Number(value)));
@@ -54,7 +60,10 @@ function scaleExpression(stretch, xGain, yGain) {
   return `scale=w='max(2,trunc(iw*(1+${ff(xGain)}*abs(${stretch}))/2)*2)':h='max(2,trunc(ih*(1+${ff(yGain)}*abs(${stretch}))/2)*2)':eval=frame,setsar=1`;
 }
 
-function compileGrabSeam(eventResponse, geometry) {
+function compileGrabSeam(eventResponse, geometry, carrierLabel = "waveFull") {
+  if (!ALLOWED_GRAB_CARRIERS.has(carrierLabel)) {
+    throw new TypeError(`Unsupported GRAB topology carrier: ${String(carrierLabel)}.`);
+  }
   const local = eventResponse.localDeformation;
   if (!local || local.kind !== "grab") {
     throw new TypeError("Topology event seam requires a compiled GRAB local deformation.");
@@ -67,7 +76,7 @@ function compileGrabSeam(eventResponse, geometry) {
   const outerTravel = ff(0.48 + falloff * 0.16);
 
   return [
-    "[waveFull]split=3[grabTopologyBase][grabOuterSource][grabInnerSource]",
+    `[${carrierLabel}]split=3[grabTopologyBase][grabOuterSource][grabInnerSource]`,
     `[grabOuterSource]crop=${g.outerWidth}:${g.outerHeight}:${g.outerX}:${g.outerY},${scaleExpression(stretch, 0.22, 0.12)},colorchannelmixer=aa=${outerAlpha}[grabOuterPatch]`,
     `[grabInnerSource]crop=${g.innerWidth}:${g.innerHeight}:${g.innerX}:${g.innerY},${scaleExpression(stretch, 0.46, 0.24)},colorchannelmixer=aa=${innerAlpha}[grabInnerPatch]`,
     `[grabTopologyBase][grabOuterPatch]overlay=x='${g.outerX}+(${vectorX})*main_w*${outerTravel}-(overlay_w-${g.outerWidth})/2':y='${g.outerY}+(${vectorY})*main_h*${outerTravel}-(overlay_h-${g.outerHeight})/2':enable='${enable}':format=auto:eof_action=pass[grabOuterComposite]`,
@@ -85,8 +94,12 @@ function applyTopologyEventSeam(compiled, execution) {
   if (!seam) {
     throw new Error("Production filter graph is missing the post-topology composite seam.");
   }
-  const localFilters = compileGrabSeam(eventResponse, compiled.geometry);
-  const replacement = `${localFilters};\n[base][grabTopologyFinal]overlay=${seam[1]}[stage0]`;
+  const [, outerLabel, carrierLabel, overlayArgs] = seam;
+  if (!ALLOWED_TOPOLOGY_COMPOSITES.has(`${outerLabel}:${carrierLabel}`)) {
+    throw new Error("Production filter graph exposes an unsupported topology composite seam.");
+  }
+  const localFilters = compileGrabSeam(eventResponse, compiled.geometry, carrierLabel);
+  const replacement = `${localFilters};\n[${outerLabel}][grabTopologyFinal]overlay=${overlayArgs}[stage0]`;
 
   return Object.freeze({
     ...compiled,
@@ -97,6 +110,8 @@ function applyTopologyEventSeam(compiled, execution) {
 }
 
 module.exports = {
+  ALLOWED_GRAB_CARRIERS,
+  ALLOWED_TOPOLOGY_COMPOSITES,
   TOPOLOGY_COMPOSITE_SEAM,
   applyTopologyEventSeam,
   compileGrabSeam,
