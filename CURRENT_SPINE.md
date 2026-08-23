@@ -2,7 +2,7 @@
 
 > Repository-owned reconciliation ledger. This file records which lineage is current, which pull requests are historical shells, and where still-valid work must be rescued instead of merged from stale ancestry.
 >
-> Last reconciled: 2026-08-22
+> Last reconciled: 2026-08-23
 
 ## Law of use
 
@@ -27,13 +27,14 @@ A closed PR may still carry one of the latter three statuses. **Closed is transp
 | Receipt-memory foundation | `765cc5e1c89b52783bd89f462334a4e1f4daa16e` / #164 | immutable receipt archive, human verdicts, deterministic memory projection/capsules/traces | On `main`; foundation for #217/#218 rescue |
 | **BETA spine splice** | `e56281c26279c5277a6d0e5ad7959c0241630d34` / #175 | alpha.9 semantic core, receipt evidence, CONVERGE, range calibration, elastic topology response, Track 0 renderer/Listener trust repairs, frame reservoir, Creative Context contracts | **Canonical successor for the stranded alpha.9 stack** |
 | Candidate ecology / CROSS | `e8901fa7f52741e9e19a131ca6a9ed59eea841ac` / #179 | candidate ecology and exact two-parent CROSS | On `main` → #182 |
-| BETA Home Bench | `fb1f8661ce595b189f38fee4a5e4e9e3df2a7f56` / #182 | presentation-only Home projection, BETA integration, Video/VSPantry, bounded recent history | On `main` → #189 |
+| BETA Home Bench | `fb1f8661ce595b189a8c4bedd04858575bd0561` / #182 | presentation-only Home projection, BETA integration, Video/VSPantry, bounded recent history | On `main` → #189 |
 | Contextual second six-up | `c5c90b39c973df2986048828098c5c73bc5d0a52` / #189 | deterministic second six-up move deck; proposal-only contextual moves | On `main` → #192 |
 | BETA field package | `133e514c48d1f1ff041b5e0af21dcc14e6ed56f8` / #192 | current-main Listener hardening + live VSPantry progress | On `main` → #193 |
 | BETA field witness closure | `cf56d71883ff3e61bd54239e16c330df1ac734dd` / #193 | packaged human witness passed; VSPantry live counts preserved; Listener findings continue separately | On `main` |
 | Topology Events design | `d9a668db48131e86969acc49223e25ca5d026fe9` / #196 | accepted topology-event authority/integrity design | On `main`; implementation field spine began at #200 |
 | Resolution Field design | `7d0d7560b224684d0e4a46b6499dce21e3770d5f` / #198 | bounded internal-resolution primitive and human-gated experiment | On `main`; implementation field spine began at #201 |
-| Sigil Grammar v0 | `899a920b17019a54dadfb0c6bb321cc6e4cf860b` / #211 | generation-only Witness Sigil compatibility, topology expressions/plans, deterministic six-utterance families, replay | **Current `main` head at reconciliation cut** |
+| Sigil Grammar v0 | `899a920b17019a54dadfb0c6bb321cc6e4cf860b` / #211 | generation-only Witness Sigil compatibility, topology expressions/plans, deterministic six-utterance families, replay | On `main`; language/algebra study lanes remain non-renderer |
+| Sigil Algebra v0 implementation plan | `3d0615ced52313db3232f79501b59357bdd211d8` / #221 | docs-only exact integer/rational Transform2 equivalence proof plan for #220; no renderer/UI/authority behavior | **Current `main` head at reconciliation cut** |
 
 ## Active field / design / rescue lanes — not yet `main`
 
@@ -53,33 +54,49 @@ These are active successors and witnesses, not permission to pretend their ances
    #214 TEST 6 forced witness harness
 ```
 
-- **#212 ACTIVE** — current composed human-test specimen for GRAB + Resolution/Atmosphere + Listener anchor integrity.
-- **#214 ACTIVE** — separate TEST 6 feature branch. Reconciliation commits do not belong there.
+- **#212 ACTIVE** — composed human-test specimen for GRAB + Resolution/Atmosphere + Listener anchor integrity.
+- **#214 ACTIVE** — deterministic TEST 6 feature/witness branch; exact-head machine proof is green, but packaged human witness remains required. Reconciliation commits do not belong there.
 
-### Main-based design lanes
+### Sigil study lanes
 
-- **#215 ACTIVE** — Sigil Language Witness v0 design, based on current `main` after #211.
+- **#215 ACTIVE** — Sigil Language Witness v0 design ancestor; #219 records that the design received human review.
+- **#219 ACTIVE** — planning-only standalone Language Witness + separately gated disposable Field Lab convergence plan. It must not merge TEST 6 and Language Lab authority merely because they share a package.
+- **#221 LANDED ON MAIN** — Sigil Algebra v0 implementation plan only; production implementation remains future work under #220.
+
+### Foreign-material lane
+
+- **#222 ACTIVE** — first renderer-facing foreign-material crossing for #44.
+- Exact head recorded by the PR: `f4a575db65d1bdb9cc5e7b462c30226660d4b804`.
+- Machine workflow `32615247440` is green for application proof, runtime audit, smoke, renderer witness build, and canonical witness-state comparison.
+- **Human field gate remains mandatory:** one real admitted 5–10 second clip against a longer song must prove preview/final parity, receipt-bound source/plan evidence, contribution beyond literal clip duration, exact replay, Toaster assimilation rather than stock-video cutaway behavior, and clean return to the no-video path.
+- Video remains foreign material; it does not gain an independent timeline or placement authority.
+
+### Main-based design / reconciliation lanes
+
 - **#216 ACTIVE** — this reconciliation ledger only; no runtime behavior.
-- **#217 ACTIVE** — BETA Receipt Memory + Witness Loop rescue v2 design, based on current `main`; #166 is ancestry only.
+- **#217 ACTIVE** — BETA Receipt Memory + Witness Loop rescue v2 design, based on current-spine law; #166 is ancestry only.
 
 ### Rescue implementation lane
 
 - **#218 ACTIVE** — first executable current-spine rescue implementation for #166 concepts.
-- Base: current `main` @ `899a920b17019a54dadfb0c6bb321cc6e4cf860b`.
-- Fresh RED recorded before production code: **443 tests / 441 pass / exactly 2 fail**, both missing `memory-service.cjs` and `witness-encounter.cjs`.
-- First backend re-port then added file-by-file: bounded Memory Service + append-only Witness Encounter.
-- Exact-head GREEN is a required gate before widening into projection/capsule influence, session Re-toast arming, Past Toasts UI, or Thoughtline.
+- Implementation ancestry began from `main` @ `899a920b17019a54dadfb0c6bb321cc6e4cf860b`; do not reinterpret that historical base as the current `main` cut.
+- Fresh RED: **443 tests / 441 pass / exactly 2 fail**, both missing `memory-service.cjs` and `witness-encounter.cjs`.
+- Exact GREEN head: `0f967b8f7f0544bf94160611a60fa3c9232504e9`.
+- Workflow `32606946521`: renderer verify, consolidated application proof, runtime audit, smoke, renderer witness, and canonical witness-state comparison all PASS; package/release intentionally skipped for the draft rescue slice.
+- Still downstream under #217: deterministic projection/capsule coordination, one-seat ordinary memory influence, replay, explicit Re-toast arming, narrow IPC, Past Toasts, Thoughtline, and packaged human witness.
 
 ## Reconciliation ledger
 
 | PR | Reconciliation status | Repository disposition / successor |
 | --- | --- | --- |
-| #218 current-spine receipt-memory implementation | **ACTIVE** | Rescue implementation 001 under #217; fresh current-main RED recorded; no wholesale #166 merge. |
+| #222 foreign-material Slice D | **ACTIVE** | Renderer-facing #44 crossing is machine-green but human field-gated; do not treat Video as timeline authority. |
+| #219 Sigil Language Witness implementation plans | **ACTIVE** | Planning-only successor to reviewed #215; standalone language proof precedes any disposable Field Lab convergence. |
+| #218 current-spine receipt-memory implementation | **ACTIVE** | Rescue implementation 001 under #217; first backend RED→GREEN complete, wider memory proof ladder remains. |
 | #217 BETA receipt-memory rescue v2 design | **ACTIVE** | Current-spine design successor for #166. |
 | #216 CURRENT_SPINE ledger | **ACTIVE** | Reconciliation-only artifact; runtime untouched. |
-| #215 Sigil Language Witness design | **ACTIVE** | Separate `main`-based design lane. |
-| #214 TEST 6 witness harness | **ACTIVE** | Separate feature lane. #171 donates only typed receipt/build-provenance mechanics; old alpha.9 questionnaire/operator path rejected. |
-| #212 fresh Resolution + Listener witness | **ACTIVE** | Current composed field witness for #200/#201/#204/#205. |
+| #215 Sigil Language Witness design | **ACTIVE** | Reviewed design ancestor for #219; keep disposition explicit until the design PR itself is closed/landed. |
+| #214 TEST 6 witness harness | **ACTIVE** | Machine-green field harness; packaged human witness remains. #171 donates only typed receipt/build-provenance mechanics; old alpha.9 questionnaire/operator path rejected. |
+| #212 fresh Resolution + Listener witness | **ACTIVE** | Composed field witness for #200/#201/#204/#205; do not confuse its field ancestry with `main`. |
 | #205 Atmosphere alpha preservation | **LANDED-SUPERSEDED** | **Closed unmerged.** Valid behavior survives in #212. |
 | #204 Listener anchor bridge repair | **LANDED-SUPERSEDED** | **Closed unmerged.** Valid repair survives in #212. |
 | #201 Resolution Field v0.1 | **LANDED-SUPERSEDED** | **Closed unmerged.** Value survives through #205 into #212. |
@@ -101,7 +118,7 @@ The receipt-memory **foundation is already on `main` via #164**. The rescue ther
 Current authority:
 
 - **#217** defines the BETA-native rescue contract and `toaster-memory-seat-v2` boundary.
-- **#218** is the executable implementation expedition from current `main`.
+- **#218** is the executable implementation expedition from a fresh current-spine branch at expedition start.
 - **#166** remains historical design/implementation evidence only.
 
 Rescue target, in proof order:
@@ -136,7 +153,7 @@ Rejected donor baggage:
 - Toast Feel-specific witness semantics;
 - any assumption that a witness receipt changes candidate/render authority.
 
-#171 is now closed unmerged. Its history remains provenance.
+#171 is closed unmerged. Its history remains provenance.
 
 ## Dormant publishing boundary — #161
 
@@ -146,10 +163,11 @@ YouTube transport is intentionally outside the current release spine. The PR is 
 
 Update this ledger whenever any of these occurs:
 
-1. a new canonical runtime splice lands on `main`;
+1. a new canonical runtime or repository-owned design/plan splice materially changes the current cut on `main`;
 2. an ACTIVE field witness is adopted, replaced, or abandoned;
 3. a RESCUE-PARTS expedition gains or changes its current-spine successor;
 4. an archived feature is deliberately revived;
-5. package/release identity changes.
+5. package/release identity changes;
+6. a new live PR introduces a materially distinct authority or field-test lane.
 
 A PR may close. Its evidence does not vanish. **History is preserved; authority stays local to the current spine.**
