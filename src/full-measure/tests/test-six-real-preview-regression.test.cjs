@@ -15,26 +15,13 @@ const readJson = (relativePath) =>
 
 const constraints = readJson("constraints/open-field.v3.json");
 const profile = readJson("profiles/toaster-raster-4.json");
-
-const analysis = Object.freeze({
-  schema: generation.ANALYSIS_SCHEMA,
-  durationSeconds: 1,
-  sections: Object.freeze([
-    Object.freeze({
-      startSeconds: 0,
-      endSeconds: 1,
-      energy: 0.5,
-      label: "whole-song",
-    }),
-  ]),
-  phrases: Object.freeze([]),
-  transients: Object.freeze([]),
-});
+const analysis = readJson("fixtures/analysis/sectional.v1.json");
+const duration = Number(analysis.durationSeconds);
 
 const responseWitness = generation.deriveResponseWitness({
   energySamples: [],
   sections: analysis.sections,
-  durationSeconds: analysis.durationSeconds,
+  durationSeconds: duration,
 });
 
 function testSixFamily() {
@@ -60,7 +47,7 @@ test("TEST 6 packaged Open Field path renders all six real previews without hidd
       "-f",
       "lavfi",
       "-i",
-      "sine=frequency=220:duration=1:sample_rate=48000",
+      `sine=frequency=220:duration=${duration}:sample_rate=48000`,
       "-c:a",
       "pcm_s16le",
       audioPath,
@@ -69,7 +56,7 @@ test("TEST 6 packaged Open Field path renders all six real previews without hidd
     const mediaAnalysis = {
       filename: path.basename(audioPath),
       sizeBytes: (await fsPromises.stat(audioPath)).size,
-      duration: 1,
+      duration,
       formatName: "wav",
       audio: {
         codec: "pcm_s16le",
@@ -77,15 +64,13 @@ test("TEST 6 packaged Open Field path renders all six real previews without hidd
         channels: 1,
       },
       energySamples: [],
-      sections: [
-        {
-          index: 0,
-          label: "whole-song",
-          start: 0,
-          end: 1,
-          energy: 0.5,
-        },
-      ],
+      sections: analysis.sections.map((section, index) => ({
+        index,
+        label: section.label,
+        start: section.startSeconds,
+        end: section.endSeconds,
+        energy: section.energy,
+      })),
     };
 
     const preview = await renderCandidateFamilyPreviews({
