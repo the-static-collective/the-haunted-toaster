@@ -8,6 +8,9 @@ const {
 } = require("./beta-candidate-ecology-compat.cjs");
 const base = require("./nested-response-generation.cjs");
 const {
+  ATMOSPHERE_POLICY,
+} = require("./atmosphere-generation.cjs");
+const {
   buildGrabRequest,
 } = require("./topology-event-generation.cjs");
 const {
@@ -194,6 +197,39 @@ function forceExistingTopologyArcOutcome(timeline, outcome) {
   });
 }
 
+function projectExistingAtmosphereEvidence(timeline, sourceCandidate) {
+  const scoreAtmosphere = sourceCandidate?.scoreArtifact?.score?.atmosphere;
+  const acceptedAtmosphere = timeline?.baseState?.atmosphere;
+  if (
+    typeof scoreAtmosphere !== "string" ||
+    typeof acceptedAtmosphere !== "string" ||
+    scoreAtmosphere !== acceptedAtmosphere
+  ) {
+    throw new TypeError("TEST 6 KITCHEN SINK requires existing accepted Atmosphere authority.");
+  }
+
+  const {
+    timelineHash: _timelineHash,
+    canonicalJson: _canonicalJson,
+    atmosphere: _priorAtmosphere,
+    ...stableTimeline
+  } = timeline;
+  const body = {
+    ...structuredClone(stableTimeline),
+    atmosphere: deepFreeze({
+      policyVersion: ATMOSPHERE_POLICY,
+      kind: acceptedAtmosphere,
+      source: "accepted-timeline-base-state",
+      witnessOnly: true,
+    }),
+  };
+  return deepFreeze({
+    ...body,
+    timelineHash: hashCanonical(body, TIMELINE_DOMAIN),
+    canonicalJson: canonicalStringify(body),
+  });
+}
+
 function generationOptions(options) {
   return {
     analysis: options.analysis,
@@ -220,22 +256,6 @@ function sourceFamilyFor(options, rootSeed) {
     phase: "initial",
     toastFeelId: options.toastFeelId || null,
   });
-}
-
-function sourceCandidatesForFixtures(sourceFamily) {
-  const candidates = [...sourceFamily.candidates];
-  const kitchenSinkIndex = FIXTURES.findIndex((fixture) => fixture.slot === "kitchen-sink");
-  const atmosphereIndex = candidates.findIndex((candidate) => candidate.timeline?.atmosphere);
-  if (kitchenSinkIndex < 0 || atmosphereIndex < 0) {
-    throw new TypeError("TEST 6 KITCHEN SINK requires existing Atmosphere evidence.");
-  }
-  if (atmosphereIndex !== kitchenSinkIndex) {
-    [candidates[atmosphereIndex], candidates[kitchenSinkIndex]] = [
-      candidates[kitchenSinkIndex],
-      candidates[atmosphereIndex],
-    ];
-  }
-  return candidates;
 }
 
 function canonicalAuthorityForCandidate(sourceFamily, sourceCandidate, options) {
@@ -294,6 +314,9 @@ function applyFixture(sourceFamily, sourceCandidate, fixture, options, fixtureIn
       ],
     });
   }
+  if (fixture.slot === "kitchen-sink") {
+    timeline = projectExistingAtmosphereEvidence(timeline, sourceCandidate);
+  }
 
   const receipt = fixtureReceipt(fixture);
   return deepFreeze({
@@ -329,9 +352,8 @@ function generateTestSixWitnessFamily(options = {}) {
     throw new TypeError("TEST 6 source family must produce exactly six candidates.");
   }
 
-  const sourceCandidates = sourceCandidatesForFixtures(sourceFamily);
   const candidates = FIXTURES.map((fixture, index) =>
-    applyFixture(sourceFamily, sourceCandidates[index], fixture, options, index),
+    applyFixture(sourceFamily, sourceFamily.candidates[index], fixture, options, index),
   );
   const core = {
     schema: TEST_SIX_SCHEMA,
@@ -367,5 +389,5 @@ module.exports = {
   fixtureReceipt,
   forceExistingTopologyArcOutcome,
   generateTestSixWitnessFamily,
-  sourceCandidatesForFixtures,
+  projectExistingAtmosphereEvidence,
 };
