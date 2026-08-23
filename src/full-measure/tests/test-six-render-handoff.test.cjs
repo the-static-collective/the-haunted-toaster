@@ -90,8 +90,8 @@ test("a stale ordinary selected candidate refuses instead of silently falling ba
       value.executionForRender({
         audioPath,
         imagePath: null,
-        presetId: "openField",
-        toastFeelId: "porch-ghost",
+        presetId: "porchlight",
+        toastFeelId: "low-and-slow",
       }),
     /selected candidate.*render inputs|render inputs.*selected candidate/i,
   );
