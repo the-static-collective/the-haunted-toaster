@@ -61,14 +61,12 @@ function createForeignMaterialPlan({ videoBinding, timeline, analysisDurationSec
     frameCount: reservoir.frameCount,
   });
   const analysisHash = hashJson(analysis);
-  const plan = {
+  const canonicalPlan = {
     schema: FOREIGN_MATERIAL_SCHEMA,
     policyVersion: FOREIGN_MATERIAL_POLICY_VERSION,
     sourceSpecimenId: reservoir.specimenId,
     sourceSha256: reservoir.sourceSha256,
     sourceByteLength: Number(videoBinding.byteLength),
-    sourceFilename: String(videoBinding.filename || path.basename(videoBinding.path || "")).trim() || null,
-    sourcePath: String(videoBinding.path || "").trim() || null,
     sourceProbe: structuredClone(videoBinding.probe),
     clipAnalysisHash: analysisHash,
     clipAnalysis: analysis,
@@ -98,8 +96,10 @@ function createForeignMaterialPlan({ videoBinding, timeline, analysisDurationSec
     },
   };
   return Object.freeze({
-    ...plan,
-    planHash: hashJson(plan),
+    ...canonicalPlan,
+    sourceFilename: String(videoBinding.filename || path.basename(videoBinding.path || "")).trim() || null,
+    sourcePath: String(videoBinding.path || "").trim() || null,
+    planHash: hashJson(canonicalPlan),
   });
 }
 
@@ -151,10 +151,8 @@ function applyForeignMaterialToGraph({
   );
 
   const filters = [
-    `[${foreignMaterialInputIndex}:v]fps=${fps},scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},trim=duration=${clipDuration},setpts=PTS-STARTPTS,format=gray,eq=contrast=1.18:brightness=0.015,boxblur=2:1,format=rgba,colorchannelmixer=aa=${opacity.toFixed(
-      2,
-    )}[${textureLabel}]`,
-    `[${baseLabel}][${textureLabel}]blend=all_mode=${blendMode}:all_opacity=1:shortest=1[vout]`,
+    `[${foreignMaterialInputIndex}:v]fps=${fps},scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},trim=duration=${clipDuration},setpts=PTS-STARTPTS,format=gray,eq=contrast=1.18:brightness=0.015,boxblur=2:1,format=rgba[${textureLabel}]`,
+    `[${baseLabel}][${textureLabel}]blend=all_mode=${blendMode}:all_opacity=${opacity.toFixed(2)}:shortest=1[vout]`,
   ];
 
   return {
