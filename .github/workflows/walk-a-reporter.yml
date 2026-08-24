@@ -27,7 +27,6 @@ jobs:
           BASE=899a920b17019a54dadfb0c6bb321cc6e4cf860b
           DONOR=f4a575db65d1bdb9cc5e7b462c30226660d4b804
 
-          # candidate-session has already proved to be a clean three-way behavioral merge.
           current=/tmp/candidate-session.current
           base=/tmp/candidate-session.base
           donor=/tmp/candidate-session.donor
@@ -41,352 +40,195 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          def patch(path, replacements):
+          def load(path):
               p = Path(path)
-              text = p.read_text()
-              for label, old, new in replacements:
-                  count = text.count(old)
-                  if count != 1:
-                      raise SystemExit(f"{path}: {label}: expected exactly one match, found {count}")
-                  text = text.replace(old, new, 1)
-              p.write_text(text)
+              return p, p.read_text()
 
-          patch("src/full-measure/src/render/candidate-preview.cjs", [
-              (
-                  "foreign material imports",
-                  '''const {
-            buildHauntedFilterGraph,
-            typographyContextForTimeline,
-          } = require("./haunted-typography-render.cjs");
-          const {
-            assertTimelineDuration,
-            createTimelineExecution,
-          } = require("./timeline-execution.cjs");''',
-                  '''const {
-            buildHauntedFilterGraph,
-            typographyContextForTimeline,
-          } = require("./haunted-typography-render.cjs");
-          const {
-            createForeignMaterialPlan,
-            ffmpegInputArgsForForeignMaterial,
-          } = require("./foreign-material.cjs");
-          const {
-            assertTimelineDuration,
-            createTimelineExecution,
-          } = require("./timeline-execution.cjs");''',
-              ),
-              (
-                  "preview plan signature",
-                  'function candidatePreviewPlan(candidate, typography = null) {',
-                  'function candidatePreviewPlan(candidate, typography = null, foreignMaterial = null) {',
-              ),
-              (
-                  "preview plan evidence",
-                  '''    sample,
-              typography,
-            });''',
-                  '''    sample,
-              typography,
-              foreignMaterial,
-            });''',
-              ),
-              (
-                  "per-candidate material plan",
-                  '''      const typographyContext = typographyContextForTimeline(
-                candidate.scoreAddress,
-                candidate.timeline,
-              );
-              const baseFilter = await buildHauntedFilterGraph({''',
-                  '''      const typographyContext = typographyContextForTimeline(
-                candidate.scoreAddress,
-                candidate.timeline,
-              );
-              const foreignMaterialPlan = createForeignMaterialPlan({
-                videoBinding: config.video || null,
-                timeline: candidate.timeline,
-                analysisDurationSeconds: Number(analysis.duration),
-              });
-              const foreignMaterialInputIndex = foreignMaterialPlan
-                ? imagePath
-                  ? 3
-                  : 2
-                : null;
-              const baseFilter = await buildHauntedFilterGraph({''',
-              ),
-              (
-                  "preview graph inputs",
-                  '''        atmosphereResolutionScale:
-                  candidate.timeline?.renderConfig?.atmosphereResolutionScale ?? null,
-                ...typographyContext,''',
-                  '''        atmosphereResolutionScale:
-                  candidate.timeline?.renderConfig?.atmosphereResolutionScale ?? null,
-                foreignMaterialPlan,
-                foreignMaterialInputIndex,
-                ...typographyContext,''',
-              ),
-              (
-                  "preview evidence handoff",
-                  '''      const plan = candidatePreviewPlan(
-                candidate,
-                baseFilter.typographyEvidence,
-              );''',
-                  '''      const plan = candidatePreviewPlan(
-                candidate,
-                baseFilter.typographyEvidence,
-                baseFilter.foreignMaterialEvidence,
-              );''',
-              ),
-              (
-                  "preview ffmpeg input",
-                  '''      }
-              args.push(
-                "-filter_complex_script",''',
-                  '''      }
-              args.push(...ffmpegInputArgsForForeignMaterial(foreignMaterialPlan));
-              args.push(
-                "-filter_complex_script",''',
-              ),
-          ])
+          def write(path, text):
+              Path(path).write_text(text)
 
-          patch("src/full-measure/src/render/haunted-typography-render.cjs", [
-              (
-                  "foreign material graph compiler import",
-                  '''const {
-            applyResolutionFieldToAtmosphereGraph,
-          } = require("./atmosphere-resolution-field.cjs");''',
-                  '''const {
-            applyResolutionFieldToAtmosphereGraph,
-          } = require("./atmosphere-resolution-field.cjs");
-          const { applyForeignMaterialToGraph } = require("./foreign-material.cjs");''',
-              ),
-              (
-                  "graph compiler inputs",
-                  '''  atmosphereTimeline = null,
-            atmosphereResolutionScale = null,
-            ...legacyConfig''',
-                  '''  atmosphereTimeline = null,
-            atmosphereResolutionScale = null,
-            foreignMaterialPlan = null,
-            foreignMaterialInputIndex = null,
-            ...legacyConfig''',
-              ),
-              (
-                  "resolution then foreign material",
-                  '''  const atmosphereEvidence = atmosphereResolution
-            ? Object.freeze({
-                ...atmosphere.evidence,
-                resolutionField: atmosphereResolution.evidence,
-              })
-            : atmosphere.evidence;
-          return {
-            ...baseFilter,
-            graph: atmosphereResolution?.graph || atmosphere.graph,
-            primitiveFieldEvidence: primitiveField.evidence,
-            atmosphereEvidence,
-            typographyPlan,''',
-                  '''  const atmosphereEvidence = atmosphereResolution
-            ? Object.freeze({
-                ...atmosphere.evidence,
-                resolutionField: atmosphereResolution.evidence,
-              })
-            : atmosphere.evidence;
-          const foreignMaterial = applyForeignMaterialToGraph({
-            graph: atmosphereResolution?.graph || atmosphere.graph,
-            foreignMaterialPlan,
-            foreignMaterialInputIndex,
-            width: legacyConfig.width,
-            height: legacyConfig.height,
-            fps: legacyConfig.fps,
-          });
-          return {
-            ...baseFilter,
-            graph: foreignMaterial.graph,
-            primitiveFieldEvidence: primitiveField.evidence,
-            atmosphereEvidence,
-            foreignMaterialEvidence: foreignMaterial.evidence,
-            typographyPlan,''',
-              ),
-          ])
+          def replace_once(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one match, found {count}")
+              return text.replace(old, new, 1)
 
-          patch("src/full-measure/src/render/render.cjs", [
-              (
-                  "foreign material imports",
-                  '''const {
-            buildHauntedFilterGraph,
-            typographyContextForTimeline,
-          } = require("./haunted-typography-render.cjs");
-          const {
-            getOutputProfile,''',
-                  '''const {
-            buildHauntedFilterGraph,
-            typographyContextForTimeline,
-          } = require("./haunted-typography-render.cjs");
-          const {
-            createForeignMaterialPlan,
-            ffmpegInputArgsForForeignMaterial,
-          } = require("./foreign-material.cjs");
-          const {
-            getOutputProfile,''',
-              ),
-              (
-                  "foreign material receipt helper",
-                  '''function compactForcedWitnessEvidence(evidence) {
-            if (!evidence) return null;
-            if (evidence.forcedWitness !== true || evidence.fixtureFamily !== "test-6") {
-              throw new TypeError("Forced witness evidence must be TEST 6 evidence.");
-            }
-            const fixtureSlot = String(evidence.fixtureSlot || "");
-            const forcedCondition = String(evidence.forcedCondition || "");
-            const policyVersion = String(evidence.policyVersion || "");
-            if (!fixtureSlot || !forcedCondition || !policyVersion) {
-              throw new TypeError("TEST 6 forced witness evidence is incomplete.");
-            }
-            return {
-              forcedWitness: true,
-              fixtureFamily: "test-6",
-              fixtureSlot,
-              forcedCondition,
-              policyVersion,
-            };
-          }''',
-                  '''function compactForcedWitnessEvidence(evidence) {
-            if (!evidence) return null;
-            if (evidence.forcedWitness !== true || evidence.fixtureFamily !== "test-6") {
-              throw new TypeError("Forced witness evidence must be TEST 6 evidence.");
-            }
-            const fixtureSlot = String(evidence.fixtureSlot || "");
-            const forcedCondition = String(evidence.forcedCondition || "");
-            const policyVersion = String(evidence.policyVersion || "");
-            if (!fixtureSlot || !forcedCondition || !policyVersion) {
-              throw new TypeError("TEST 6 forced witness evidence is incomplete.");
-            }
-            return {
-              forcedWitness: true,
-              fixtureFamily: "test-6",
-              fixtureSlot,
-              forcedCondition,
-              policyVersion,
-            };
-          }
+          def insert_after(text, anchor, addition, label):
+              return replace_once(text, anchor, anchor + addition, label)
 
-          function compactForeignMaterialEvidence(plan, compilerEvidence) {
-            if (!plan) return null;
-            return {
-              sourceSpecimenId: plan.sourceSpecimenId,
-              sourceSha256: plan.sourceSha256,
-              clipAnalysisHash: plan.clipAnalysisHash,
-              assimilationPolicy: structuredClone(plan.assimilationPolicy),
-              placement: structuredClone(plan.placement),
-              sampling: structuredClone(plan.sampling),
-              compiledOperator: compilerEvidence ? structuredClone(compilerEvidence) : null,
-            };
-          }''',
-              ),
-              (
-                  "accepted-plan material derivation",
-                  '''    const typographyContext = typographyContextForTimeline(
-              scoreAddress,
-              execution.timeline,
-            );
+          def insert_before(text, anchor, addition, label):
+              return replace_once(text, anchor, addition + anchor, label)
 
-            const sourceHash = await hashFile(audioPath);''',
-                  '''    const typographyContext = typographyContextForTimeline(
-              scoreAddress,
-              execution.timeline,
-            );
-            const foreignMaterialPlan =
-              config.foreignVisualMaterial
-              || createForeignMaterialPlan({
-                videoBinding: config.video || null,
-                timeline: execution.timeline,
-                analysisDurationSeconds: Number(analysis.duration),
-              });
-            const foreignMaterialInputIndex = foreignMaterialPlan
-              ? imagePath
-                ? 3
-                : 2
-              : null;
+          # candidate-preview: preserve cross-lock + Resolution, add material beside them.
+          path = "src/full-measure/src/render/candidate-preview.cjs"
+          _, text = load(path)
+          text = insert_after(
+              text,
+              '} = require("./haunted-typography-render.cjs");\n',
+              'const {\n  createForeignMaterialPlan,\n  ffmpegInputArgsForForeignMaterial,\n} = require("./foreign-material.cjs");\n',
+              "preview foreign import",
+          )
+          text = replace_once(
+              text,
+              'function candidatePreviewPlan(candidate, typography = null) {',
+              'function candidatePreviewPlan(candidate, typography = null, foreignMaterial = null) {',
+              "preview plan signature",
+          )
+          text = insert_after(text, '    typography,\n', '    foreignMaterial,\n', "preview plan material evidence")
+          text = insert_before(
+              text,
+              '      const baseFilter = await buildHauntedFilterGraph({',
+              '      const foreignMaterialPlan = createForeignMaterialPlan({\n'
+              '        videoBinding: config.video || null,\n'
+              '        timeline: candidate.timeline,\n'
+              '        analysisDurationSeconds: Number(analysis.duration),\n'
+              '      });\n'
+              '      const foreignMaterialInputIndex = foreignMaterialPlan\n'
+              '        ? imagePath\n'
+              '          ? 3\n'
+              '          : 2\n'
+              '        : null;\n',
+              "preview material plan",
+          )
+          text = insert_after(
+              text,
+              '        candidate.timeline?.renderConfig?.atmosphereResolutionScale ?? null,\n',
+              '      foreignMaterialPlan,\n      foreignMaterialInputIndex,\n',
+              "preview material graph inputs",
+          )
+          text = insert_after(
+              text,
+              '      baseFilter.typographyEvidence,\n',
+              '      baseFilter.foreignMaterialEvidence,\n',
+              "preview material evidence handoff",
+          )
+          text = insert_before(
+              text,
+              '      args.push(\n        "-filter_complex_script",',
+              '      args.push(...ffmpegInputArgsForForeignMaterial(foreignMaterialPlan));\n',
+              "preview material ffmpeg input",
+          )
+          write(path, text)
 
-            const sourceHash = await hashFile(audioPath);''',
-              ),
-              (
-                  "final graph inputs",
-                  '''      fps,
-              atmosphereResolutionScale: config.atmosphereResolutionScale ?? null,
-              ...typographyContext,''',
-                  '''      fps,
-              atmosphereResolutionScale: config.atmosphereResolutionScale ?? null,
-              foreignMaterialPlan,
-              foreignMaterialInputIndex,
-              ...typographyContext,''',
-              ),
-              (
-                  "compiler foreign evidence",
-                  '''      atmosphere: baseFilter.atmosphereEvidence,
-              temporalSampling: temporalSampling.policy,''',
-                  '''      atmosphere: baseFilter.atmosphereEvidence,
-              foreignMaterial: baseFilter.foreignMaterialEvidence,
-              temporalSampling: temporalSampling.policy,''',
-              ),
-              (
-                  "final ffmpeg input",
-                  '''    if (imagePath) {
-              ffmpegArgs.push("-loop", "1", "-framerate", String(fps), "-i", imagePath);
-            }
+          # shared graph: Primitive Field -> Atmosphere -> Atmosphere Resolution -> foreign material.
+          path = "src/full-measure/src/render/haunted-typography-render.cjs"
+          _, text = load(path)
+          text = insert_after(
+              text,
+              '} = require("./atmosphere-resolution-field.cjs");\n',
+              'const { applyForeignMaterialToGraph } = require("./foreign-material.cjs");\n',
+              "graph foreign import",
+          )
+          text = insert_after(
+              text,
+              '  atmosphereResolutionScale = null,\n',
+              '  foreignMaterialPlan = null,\n  foreignMaterialInputIndex = null,\n',
+              "graph material inputs",
+          )
+          text = insert_after(
+              text,
+              '    : atmosphere.evidence;\n',
+              '  const foreignMaterial = applyForeignMaterialToGraph({\n'
+              '    graph: atmosphereResolution?.graph || atmosphere.graph,\n'
+              '    foreignMaterialPlan,\n'
+              '    foreignMaterialInputIndex,\n'
+              '    width: legacyConfig.width,\n'
+              '    height: legacyConfig.height,\n'
+              '    fps: legacyConfig.fps,\n'
+              '  });\n',
+              "graph material compiler",
+          )
+          text = replace_once(
+              text,
+              '    graph: atmosphereResolution?.graph || atmosphere.graph,\n',
+              '    graph: foreignMaterial.graph,\n',
+              "graph terminal material result",
+          )
+          text = insert_after(text, '    atmosphereEvidence,\n', '    foreignMaterialEvidence: foreignMaterial.evidence,\n', "graph material evidence")
+          write(path, text)
 
-            ffmpegArgs.push(
-              "-filter_complex_script", filterPath,''',
-                  '''    if (imagePath) {
-              ffmpegArgs.push("-loop", "1", "-framerate", String(fps), "-i", imagePath);
-            }
-            ffmpegArgs.push(...ffmpegInputArgsForForeignMaterial(foreignMaterialPlan));
-
-            ffmpegArgs.push(
-              "-filter_complex_script", filterPath,''',
-              ),
-              (
-                  "failure evidence",
-                  '''      sourceImage: imagePath
-                ? { path: imagePath, filename: path.basename(imagePath) }
-                : null,
-              visualCompiler: filter.visualCompiler,''',
-                  '''      sourceImage: imagePath
-                ? { path: imagePath, filename: path.basename(imagePath) }
-                : null,
-              foreignMaterial: foreignMaterialPlan
-                ? {
-                    sourcePath: foreignMaterialPlan.sourcePath,
-                    sourceFilename: foreignMaterialPlan.sourceFilename,
-                    sourceSpecimenId: foreignMaterialPlan.sourceSpecimenId,
-                    sourceSha256: foreignMaterialPlan.sourceSha256,
-                    planHash: foreignMaterialPlan.planHash,
-                    clipAnalysisHash: foreignMaterialPlan.clipAnalysisHash,
-                  }
-                : null,
-              visualCompiler: filter.visualCompiler,''',
-              ),
-              (
-                  "receipt evidence",
-                  '''        typography: filter.typographyEvidence,
-                userImage: imagePath ? path.basename(imagePath) : null,''',
-                  '''        typography: filter.typographyEvidence,
-                foreignVisualMaterial: compactForeignMaterialEvidence(
-                  foreignMaterialPlan,
-                  filter.foreignMaterialEvidence,
-                ),
-                userImage: imagePath ? path.basename(imagePath) : null,''',
-              ),
-              (
-                  "receipt helper export",
-                  '''  applyWitnessWindowToGraph,
-            compactForcedWitnessEvidence,
-            compactNativeColorEvidence,''',
-                  '''  applyWitnessWindowToGraph,
-            compactForcedWitnessEvidence,
-            compactForeignMaterialEvidence,
-            compactNativeColorEvidence,''',
-              ),
-          ])
+          # final render: keep TEST 6 + Witness Window evidence and add the accepted material plan.
+          path = "src/full-measure/src/render/render.cjs"
+          _, text = load(path)
+          text = insert_after(
+              text,
+              '} = require("./haunted-typography-render.cjs");\n',
+              'const {\n  createForeignMaterialPlan,\n  ffmpegInputArgsForForeignMaterial,\n} = require("./foreign-material.cjs");\n',
+              "render foreign import",
+          )
+          text = insert_before(
+              text,
+              'async function safeUnlink(filePath) {',
+              'function compactForeignMaterialEvidence(plan, compilerEvidence) {\n'
+              '  if (!plan) return null;\n'
+              '  return {\n'
+              '    sourceSpecimenId: plan.sourceSpecimenId,\n'
+              '    sourceSha256: plan.sourceSha256,\n'
+              '    clipAnalysisHash: plan.clipAnalysisHash,\n'
+              '    assimilationPolicy: structuredClone(plan.assimilationPolicy),\n'
+              '    placement: structuredClone(plan.placement),\n'
+              '    sampling: structuredClone(plan.sampling),\n'
+              '    compiledOperator: compilerEvidence ? structuredClone(compilerEvidence) : null,\n'
+              '  };\n'
+              '}\n\n',
+              "render material receipt helper",
+          )
+          text = insert_before(
+              text,
+              '    const sourceHash = await hashFile(audioPath);',
+              '    const foreignMaterialPlan =\n'
+              '      config.foreignVisualMaterial\n'
+              '      || createForeignMaterialPlan({\n'
+              '        videoBinding: config.video || null,\n'
+              '        timeline: execution.timeline,\n'
+              '        analysisDurationSeconds: Number(analysis.duration),\n'
+              '      });\n'
+              '    const foreignMaterialInputIndex = foreignMaterialPlan\n'
+              '      ? imagePath\n'
+              '        ? 3\n'
+              '        : 2\n'
+              '      : null;\n\n',
+              "render accepted material plan",
+          )
+          text = insert_after(
+              text,
+              '      atmosphereResolutionScale: config.atmosphereResolutionScale ?? null,\n',
+              '      foreignMaterialPlan,\n      foreignMaterialInputIndex,\n',
+              "render material graph inputs",
+          )
+          text = insert_after(text, '      atmosphere: baseFilter.atmosphereEvidence,\n', '      foreignMaterial: baseFilter.foreignMaterialEvidence,\n', "render material compiler evidence")
+          text = insert_before(
+              text,
+              '    ffmpegArgs.push(\n      "-filter_complex_script", filterPath,',
+              '    ffmpegArgs.push(...ffmpegInputArgsForForeignMaterial(foreignMaterialPlan));\n\n',
+              "render material ffmpeg input",
+          )
+          text = insert_before(
+              text,
+              '      visualCompiler: filter.visualCompiler,\n',
+              '      foreignMaterial: foreignMaterialPlan\n'
+              '        ? {\n'
+              '            sourcePath: foreignMaterialPlan.sourcePath,\n'
+              '            sourceFilename: foreignMaterialPlan.sourceFilename,\n'
+              '            sourceSpecimenId: foreignMaterialPlan.sourceSpecimenId,\n'
+              '            sourceSha256: foreignMaterialPlan.sourceSha256,\n'
+              '            planHash: foreignMaterialPlan.planHash,\n'
+              '            clipAnalysisHash: foreignMaterialPlan.clipAnalysisHash,\n'
+              '          }\n'
+              '        : null,\n',
+              "render material failure evidence",
+          )
+          text = insert_after(
+              text,
+              '        typography: filter.typographyEvidence,\n',
+              '        foreignVisualMaterial: compactForeignMaterialEvidence(\n'
+              '          foreignMaterialPlan,\n'
+              '          filter.foreignMaterialEvidence,\n'
+              '        ),\n',
+              "render material receipt evidence",
+          )
+          text = insert_after(text, '  compactForcedWitnessEvidence,\n', '  compactForeignMaterialEvidence,\n', "render material helper export")
+          write(path, text)
           PY
 
           node --check src/full-measure/src/candidate-session.cjs
@@ -396,7 +238,6 @@ jobs:
           node --check src/full-measure/src/render/foreign-material.cjs
           git diff --check
 
-          # Guard newer spine laws while proving the donor behavior was added beside them.
           grep -q 'crossLockProjectionForScore' src/full-measure/src/render/candidate-preview.cjs
           grep -q 'atmosphereResolutionScale' src/full-measure/src/render/candidate-preview.cjs
           grep -q 'foreignMaterialEvidence' src/full-measure/src/render/candidate-preview.cjs
