@@ -140,8 +140,8 @@ jobs:
           )
           text = replace_once(
               text,
-              '    graph: atmosphereResolution?.graph || atmosphere.graph,\n',
-              '    graph: foreignMaterial.graph,\n',
+              '  return {\n    ...baseFilter,\n    graph: atmosphereResolution?.graph || atmosphere.graph,\n',
+              '  return {\n    ...baseFilter,\n    graph: foreignMaterial.graph,\n',
               "graph terminal material result",
           )
           text = insert_after(text, '    atmosphereEvidence,\n', '    foreignMaterialEvidence: foreignMaterial.evidence,\n', "graph material evidence")
