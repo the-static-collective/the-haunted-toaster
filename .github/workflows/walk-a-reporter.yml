@@ -20,49 +20,374 @@ jobs:
           ref: walk/a-foreign-material-current-spine
           fetch-depth: 0
 
-      - name: Three-way re-port four production seams
+      - name: Re-port foreign material without ancestry promotion
         shell: bash
         run: |
           set -euo pipefail
           BASE=899a920b17019a54dadfb0c6bb321cc6e4cf860b
           DONOR=f4a575db65d1bdb9cc5e7b462c30226660d4b804
-          files=(
-            src/full-measure/src/candidate-session.cjs
-            src/full-measure/src/render/candidate-preview.cjs
-            src/full-measure/src/render/haunted-typography-render.cjs
-            src/full-measure/src/render/render.cjs
-          )
 
-          git cat-file -e "${BASE}^{commit}"
-          git cat-file -e "${DONOR}^{commit}"
-          mkdir -p /tmp/walk-a-port
-          conflicts=0
+          # candidate-session has already proved to be a clean three-way behavioral merge.
+          current=/tmp/candidate-session.current
+          base=/tmp/candidate-session.base
+          donor=/tmp/candidate-session.donor
+          merged=/tmp/candidate-session.merged
+          cp src/full-measure/src/candidate-session.cjs "$current"
+          git show "${BASE}:src/full-measure/src/candidate-session.cjs" > "$base"
+          git show "${DONOR}:src/full-measure/src/candidate-session.cjs" > "$donor"
+          git merge-file -p "$current" "$base" "$donor" > "$merged"
+          mv "$merged" src/full-measure/src/candidate-session.cjs
 
-          for file in "${files[@]}"; do
-            key="$(printf '%s' "$file" | tr '/.' '__')"
-            current="/tmp/walk-a-port/${key}.current"
-            base="/tmp/walk-a-port/${key}.base"
-            donor="/tmp/walk-a-port/${key}.donor"
-            merged="/tmp/walk-a-port/${key}.merged"
+          python3 - <<'PY'
+          from pathlib import Path
 
-            cp "$file" "$current"
-            git show "${BASE}:${file}" > "$base"
-            git show "${DONOR}:${file}" > "$donor"
+          def patch(path, replacements):
+              p = Path(path)
+              text = p.read_text()
+              for label, old, new in replacements:
+                  count = text.count(old)
+                  if count != 1:
+                      raise SystemExit(f"{path}: {label}: expected exactly one match, found {count}")
+                  text = text.replace(old, new, 1)
+              p.write_text(text)
 
-            if git merge-file -p "$current" "$base" "$donor" > "$merged"; then
-              mv "$merged" "$file"
-              echo "CLEAN: $file"
-            else
-              echo "CONFLICT: $file"
-              cat "$merged"
-              conflicts=1
-            fi
-          done
+          patch("src/full-measure/src/render/candidate-preview.cjs", [
+              (
+                  "foreign material imports",
+                  '''const {
+            buildHauntedFilterGraph,
+            typographyContextForTimeline,
+          } = require("./haunted-typography-render.cjs");
+          const {
+            assertTimelineDuration,
+            createTimelineExecution,
+          } = require("./timeline-execution.cjs");''',
+                  '''const {
+            buildHauntedFilterGraph,
+            typographyContextForTimeline,
+          } = require("./haunted-typography-render.cjs");
+          const {
+            createForeignMaterialPlan,
+            ffmpegInputArgsForForeignMaterial,
+          } = require("./foreign-material.cjs");
+          const {
+            assertTimelineDuration,
+            createTimelineExecution,
+          } = require("./timeline-execution.cjs");''',
+              ),
+              (
+                  "preview plan signature",
+                  'function candidatePreviewPlan(candidate, typography = null) {',
+                  'function candidatePreviewPlan(candidate, typography = null, foreignMaterial = null) {',
+              ),
+              (
+                  "preview plan evidence",
+                  '''    sample,
+              typography,
+            });''',
+                  '''    sample,
+              typography,
+              foreignMaterial,
+            });''',
+              ),
+              (
+                  "per-candidate material plan",
+                  '''      const typographyContext = typographyContextForTimeline(
+                candidate.scoreAddress,
+                candidate.timeline,
+              );
+              const baseFilter = await buildHauntedFilterGraph({''',
+                  '''      const typographyContext = typographyContextForTimeline(
+                candidate.scoreAddress,
+                candidate.timeline,
+              );
+              const foreignMaterialPlan = createForeignMaterialPlan({
+                videoBinding: config.video || null,
+                timeline: candidate.timeline,
+                analysisDurationSeconds: Number(analysis.duration),
+              });
+              const foreignMaterialInputIndex = foreignMaterialPlan
+                ? imagePath
+                  ? 3
+                  : 2
+                : null;
+              const baseFilter = await buildHauntedFilterGraph({''',
+              ),
+              (
+                  "preview graph inputs",
+                  '''        atmosphereResolutionScale:
+                  candidate.timeline?.renderConfig?.atmosphereResolutionScale ?? null,
+                ...typographyContext,''',
+                  '''        atmosphereResolutionScale:
+                  candidate.timeline?.renderConfig?.atmosphereResolutionScale ?? null,
+                foreignMaterialPlan,
+                foreignMaterialInputIndex,
+                ...typographyContext,''',
+              ),
+              (
+                  "preview evidence handoff",
+                  '''      const plan = candidatePreviewPlan(
+                candidate,
+                baseFilter.typographyEvidence,
+              );''',
+                  '''      const plan = candidatePreviewPlan(
+                candidate,
+                baseFilter.typographyEvidence,
+                baseFilter.foreignMaterialEvidence,
+              );''',
+              ),
+              (
+                  "preview ffmpeg input",
+                  '''      }
+              args.push(
+                "-filter_complex_script",''',
+                  '''      }
+              args.push(...ffmpegInputArgsForForeignMaterial(foreignMaterialPlan));
+              args.push(
+                "-filter_complex_script",''',
+              ),
+          ])
 
-          if [ "$conflicts" -ne 0 ]; then
-            echo "WALK A re-port refused: at least one current-spine seam needs an explicit human-readable resolution."
-            exit 1
-          fi
+          patch("src/full-measure/src/render/haunted-typography-render.cjs", [
+              (
+                  "foreign material graph compiler import",
+                  '''const {
+            applyResolutionFieldToAtmosphereGraph,
+          } = require("./atmosphere-resolution-field.cjs");''',
+                  '''const {
+            applyResolutionFieldToAtmosphereGraph,
+          } = require("./atmosphere-resolution-field.cjs");
+          const { applyForeignMaterialToGraph } = require("./foreign-material.cjs");''',
+              ),
+              (
+                  "graph compiler inputs",
+                  '''  atmosphereTimeline = null,
+            atmosphereResolutionScale = null,
+            ...legacyConfig''',
+                  '''  atmosphereTimeline = null,
+            atmosphereResolutionScale = null,
+            foreignMaterialPlan = null,
+            foreignMaterialInputIndex = null,
+            ...legacyConfig''',
+              ),
+              (
+                  "resolution then foreign material",
+                  '''  const atmosphereEvidence = atmosphereResolution
+            ? Object.freeze({
+                ...atmosphere.evidence,
+                resolutionField: atmosphereResolution.evidence,
+              })
+            : atmosphere.evidence;
+          return {
+            ...baseFilter,
+            graph: atmosphereResolution?.graph || atmosphere.graph,
+            primitiveFieldEvidence: primitiveField.evidence,
+            atmosphereEvidence,
+            typographyPlan,''',
+                  '''  const atmosphereEvidence = atmosphereResolution
+            ? Object.freeze({
+                ...atmosphere.evidence,
+                resolutionField: atmosphereResolution.evidence,
+              })
+            : atmosphere.evidence;
+          const foreignMaterial = applyForeignMaterialToGraph({
+            graph: atmosphereResolution?.graph || atmosphere.graph,
+            foreignMaterialPlan,
+            foreignMaterialInputIndex,
+            width: legacyConfig.width,
+            height: legacyConfig.height,
+            fps: legacyConfig.fps,
+          });
+          return {
+            ...baseFilter,
+            graph: foreignMaterial.graph,
+            primitiveFieldEvidence: primitiveField.evidence,
+            atmosphereEvidence,
+            foreignMaterialEvidence: foreignMaterial.evidence,
+            typographyPlan,''',
+              ),
+          ])
+
+          patch("src/full-measure/src/render/render.cjs", [
+              (
+                  "foreign material imports",
+                  '''const {
+            buildHauntedFilterGraph,
+            typographyContextForTimeline,
+          } = require("./haunted-typography-render.cjs");
+          const {
+            getOutputProfile,''',
+                  '''const {
+            buildHauntedFilterGraph,
+            typographyContextForTimeline,
+          } = require("./haunted-typography-render.cjs");
+          const {
+            createForeignMaterialPlan,
+            ffmpegInputArgsForForeignMaterial,
+          } = require("./foreign-material.cjs");
+          const {
+            getOutputProfile,''',
+              ),
+              (
+                  "foreign material receipt helper",
+                  '''function compactForcedWitnessEvidence(evidence) {
+            if (!evidence) return null;
+            if (evidence.forcedWitness !== true || evidence.fixtureFamily !== "test-6") {
+              throw new TypeError("Forced witness evidence must be TEST 6 evidence.");
+            }
+            const fixtureSlot = String(evidence.fixtureSlot || "");
+            const forcedCondition = String(evidence.forcedCondition || "");
+            const policyVersion = String(evidence.policyVersion || "");
+            if (!fixtureSlot || !forcedCondition || !policyVersion) {
+              throw new TypeError("TEST 6 forced witness evidence is incomplete.");
+            }
+            return {
+              forcedWitness: true,
+              fixtureFamily: "test-6",
+              fixtureSlot,
+              forcedCondition,
+              policyVersion,
+            };
+          }''',
+                  '''function compactForcedWitnessEvidence(evidence) {
+            if (!evidence) return null;
+            if (evidence.forcedWitness !== true || evidence.fixtureFamily !== "test-6") {
+              throw new TypeError("Forced witness evidence must be TEST 6 evidence.");
+            }
+            const fixtureSlot = String(evidence.fixtureSlot || "");
+            const forcedCondition = String(evidence.forcedCondition || "");
+            const policyVersion = String(evidence.policyVersion || "");
+            if (!fixtureSlot || !forcedCondition || !policyVersion) {
+              throw new TypeError("TEST 6 forced witness evidence is incomplete.");
+            }
+            return {
+              forcedWitness: true,
+              fixtureFamily: "test-6",
+              fixtureSlot,
+              forcedCondition,
+              policyVersion,
+            };
+          }
+
+          function compactForeignMaterialEvidence(plan, compilerEvidence) {
+            if (!plan) return null;
+            return {
+              sourceSpecimenId: plan.sourceSpecimenId,
+              sourceSha256: plan.sourceSha256,
+              clipAnalysisHash: plan.clipAnalysisHash,
+              assimilationPolicy: structuredClone(plan.assimilationPolicy),
+              placement: structuredClone(plan.placement),
+              sampling: structuredClone(plan.sampling),
+              compiledOperator: compilerEvidence ? structuredClone(compilerEvidence) : null,
+            };
+          }''',
+              ),
+              (
+                  "accepted-plan material derivation",
+                  '''    const typographyContext = typographyContextForTimeline(
+              scoreAddress,
+              execution.timeline,
+            );
+
+            const sourceHash = await hashFile(audioPath);''',
+                  '''    const typographyContext = typographyContextForTimeline(
+              scoreAddress,
+              execution.timeline,
+            );
+            const foreignMaterialPlan =
+              config.foreignVisualMaterial
+              || createForeignMaterialPlan({
+                videoBinding: config.video || null,
+                timeline: execution.timeline,
+                analysisDurationSeconds: Number(analysis.duration),
+              });
+            const foreignMaterialInputIndex = foreignMaterialPlan
+              ? imagePath
+                ? 3
+                : 2
+              : null;
+
+            const sourceHash = await hashFile(audioPath);''',
+              ),
+              (
+                  "final graph inputs",
+                  '''      fps,
+              atmosphereResolutionScale: config.atmosphereResolutionScale ?? null,
+              ...typographyContext,''',
+                  '''      fps,
+              atmosphereResolutionScale: config.atmosphereResolutionScale ?? null,
+              foreignMaterialPlan,
+              foreignMaterialInputIndex,
+              ...typographyContext,''',
+              ),
+              (
+                  "compiler foreign evidence",
+                  '''      atmosphere: baseFilter.atmosphereEvidence,
+              temporalSampling: temporalSampling.policy,''',
+                  '''      atmosphere: baseFilter.atmosphereEvidence,
+              foreignMaterial: baseFilter.foreignMaterialEvidence,
+              temporalSampling: temporalSampling.policy,''',
+              ),
+              (
+                  "final ffmpeg input",
+                  '''    if (imagePath) {
+              ffmpegArgs.push("-loop", "1", "-framerate", String(fps), "-i", imagePath);
+            }
+
+            ffmpegArgs.push(
+              "-filter_complex_script", filterPath,''',
+                  '''    if (imagePath) {
+              ffmpegArgs.push("-loop", "1", "-framerate", String(fps), "-i", imagePath);
+            }
+            ffmpegArgs.push(...ffmpegInputArgsForForeignMaterial(foreignMaterialPlan));
+
+            ffmpegArgs.push(
+              "-filter_complex_script", filterPath,''',
+              ),
+              (
+                  "failure evidence",
+                  '''      sourceImage: imagePath
+                ? { path: imagePath, filename: path.basename(imagePath) }
+                : null,
+              visualCompiler: filter.visualCompiler,''',
+                  '''      sourceImage: imagePath
+                ? { path: imagePath, filename: path.basename(imagePath) }
+                : null,
+              foreignMaterial: foreignMaterialPlan
+                ? {
+                    sourcePath: foreignMaterialPlan.sourcePath,
+                    sourceFilename: foreignMaterialPlan.sourceFilename,
+                    sourceSpecimenId: foreignMaterialPlan.sourceSpecimenId,
+                    sourceSha256: foreignMaterialPlan.sourceSha256,
+                    planHash: foreignMaterialPlan.planHash,
+                    clipAnalysisHash: foreignMaterialPlan.clipAnalysisHash,
+                  }
+                : null,
+              visualCompiler: filter.visualCompiler,''',
+              ),
+              (
+                  "receipt evidence",
+                  '''        typography: filter.typographyEvidence,
+                userImage: imagePath ? path.basename(imagePath) : null,''',
+                  '''        typography: filter.typographyEvidence,
+                foreignVisualMaterial: compactForeignMaterialEvidence(
+                  foreignMaterialPlan,
+                  filter.foreignMaterialEvidence,
+                ),
+                userImage: imagePath ? path.basename(imagePath) : null,''',
+              ),
+              (
+                  "receipt helper export",
+                  '''  applyWitnessWindowToGraph,
+            compactForcedWitnessEvidence,
+            compactNativeColorEvidence,''',
+                  '''  applyWitnessWindowToGraph,
+            compactForcedWitnessEvidence,
+            compactForeignMaterialEvidence,
+            compactNativeColorEvidence,''',
+              ),
+          ])
+          PY
 
           node --check src/full-measure/src/candidate-session.cjs
           node --check src/full-measure/src/render/candidate-preview.cjs
@@ -71,14 +396,27 @@ jobs:
           node --check src/full-measure/src/render/foreign-material.cjs
           git diff --check
 
-          grep -q 'foreignVisualMaterial' src/full-measure/src/candidate-session.cjs
-          grep -q 'forcedWitnessEvidence' src/full-measure/src/candidate-session.cjs
+          # Guard newer spine laws while proving the donor behavior was added beside them.
+          grep -q 'crossLockProjectionForScore' src/full-measure/src/render/candidate-preview.cjs
+          grep -q 'atmosphereResolutionScale' src/full-measure/src/render/candidate-preview.cjs
           grep -q 'foreignMaterialEvidence' src/full-measure/src/render/candidate-preview.cjs
-          grep -q 'atmosphereResolution' src/full-measure/src/render/haunted-typography-render.cjs
-          grep -q 'foreignMaterial' src/full-measure/src/render/render.cjs
+          grep -q 'applyResolutionFieldToAtmosphereGraph' src/full-measure/src/render/haunted-typography-render.cjs
+          grep -q 'graph: atmosphereResolution?.graph || atmosphere.graph' src/full-measure/src/render/haunted-typography-render.cjs
+          grep -q 'compactForcedWitnessEvidence' src/full-measure/src/render/render.cjs
+          grep -q 'compactForeignMaterialEvidence' src/full-measure/src/render/render.cjs
           grep -q 'witnessWindow' src/full-measure/src/render/render.cjs
+          grep -q 'foreignVisualMaterial' src/full-measure/src/candidate-session.cjs
 
-      - name: Commit clean behavioral re-port
+      - name: Prove WALK A focused contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm --prefix src/full-measure ci
+          node --test \
+            src/full-measure/tests/foreign-material.test.cjs \
+            src/full-measure/tests/video-session.test.cjs
+
+      - name: Commit explicit behavioral re-port
         shell: bash
         run: |
           set -euo pipefail
@@ -89,6 +427,7 @@ jobs:
             src/full-measure/src/render/candidate-preview.cjs \
             src/full-measure/src/render/haunted-typography-render.cjs \
             src/full-measure/src/render/render.cjs
+          git diff --cached --check
           if git diff --cached --quiet; then
             echo "No production changes were required."
             exit 0
