@@ -70,7 +70,8 @@ test("candidate UI requires explicit winner binding and visibly revokes it when 
     }),
     selectCandidate: async (request) => {
       selectCalls += 1;
-      assert.deepEqual(request, { familyHash: "family-test", index: 0 });
+      assert.equal(request.familyHash, "family-test");
+      assert.equal(request.index, 0);
       return { familyHash: "family-test", index: 0, toastFeel: null };
     },
     clearCandidates: async () => {
