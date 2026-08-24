@@ -37,4 +37,5 @@ module.exports = {
   ...require("./sigil-topology-expression.cjs"),
   ...require("./sigil-topology-compiler.cjs"),
   ...require("./sigil-utterance-family.cjs"),
+  ...require("./l-branch.cjs"),
 };

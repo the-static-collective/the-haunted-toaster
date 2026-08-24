@@ -319,8 +319,12 @@ function createCandidateSession({
           });
         },
       });
+      const lBranchFamily = generation.attachLBranchToFamily(projected, {
+        responseWitness,
+        lyricTrack,
+      });
       const nextFamily = Object.freeze({
-        ...projected,
+        ...lBranchFamily,
         forcedWitness: false,
         fixtureFamily: null,
         toastFeel: sourceFamily.toastFeel || null,
