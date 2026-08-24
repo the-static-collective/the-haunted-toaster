@@ -11,9 +11,6 @@ const {
   ATMOSPHERE_POLICY,
 } = require("./atmosphere-generation.cjs");
 const {
-  buildGrabRequest,
-} = require("./topology-event-generation.cjs");
-const {
   projectTopologyEventAuthority,
 } = require("./topology-event-authority.cjs");
 const {
@@ -28,94 +25,103 @@ const TIMELINE_DOMAIN = "HauntedToaster-ResolvedTimeline-v1";
 const TOPOLOGY_ARC_DOMAIN = "HauntedToaster-TopologyArc-v1";
 const TOPOLOGY_ARC_WINDOW_DOMAIN = "HauntedToaster-TopologyArcWindow-v1";
 
+const APERTURE_EVENT = deepFreeze({
+  kind: "aperture",
+  parameters: {
+    anchorX: 0.48,
+    anchorY: 0.42,
+    radiusX: 0.24,
+    radiusY: 0.22,
+    focus: 0.82,
+    peripheralCompression: 0.34,
+    orbit: 0.18,
+  },
+});
+const SPEAK_EVENT = deepFreeze({
+  kind: "speak",
+  parameters: {
+    anchorX: 0.52,
+    anchorY: 0.54,
+    radiusX: 0.28,
+    radiusY: 0.14,
+    seamWidth: 0.18,
+    emission: 0.72,
+    residue: 0.31,
+  },
+});
+const GRAB_EVENT = deepFreeze({
+  kind: "grab",
+  parameters: {
+    anchorX: 0.28,
+    anchorY: 0.54,
+    targetX: 0.74,
+    targetY: 0.43,
+    radiusX: 0.3,
+    radiusY: 0.25,
+    pull: 0.92,
+    recoil: 0.68,
+    falloff: 0.72,
+    residualVectorX: 0.12,
+    residualVectorY: -0.05,
+    residualStretch: 0.09,
+  },
+});
+const GROW_EVENT = deepFreeze({
+  kind: "grow",
+  parameters: {
+    anchorX: 0.58,
+    anchorY: 0.46,
+    radiusX: 0.18,
+    radiusY: 0.2,
+    branchCount: 3,
+    growth: 0.76,
+    persistence: 0.68,
+    ageBias: 0.42,
+  },
+});
+const BODY_EVENTS = deepFreeze([
+  APERTURE_EVENT,
+  SPEAK_EVENT,
+  GRAB_EVENT,
+  GROW_EVENT,
+]);
+
 const FIXTURES = deepFreeze([
   {
-    slot: "big-grab",
-    label: "BIG GRAB",
+    slot: "aperture",
+    label: "APERTURE",
+    forcedCondition: "guaranteed-aperture",
+    events: [APERTURE_EVENT],
+  },
+  {
+    slot: "speak",
+    label: "SPEAK",
+    forcedCondition: "guaranteed-speak",
+    events: [SPEAK_EVENT],
+  },
+  {
+    slot: "grab",
+    label: "GRAB",
     forcedCondition: "guaranteed-grab",
-    grab: {
-      anchorX: 0.28,
-      anchorY: 0.54,
-      targetX: 0.74,
-      targetY: 0.43,
-      radiusX: 0.3,
-      radiusY: 0.25,
-      pull: 0.92,
-      recoil: 0.68,
-      falloff: 0.72,
-      residualVectorX: 0.12,
-      residualVectorY: -0.05,
-      residualStretch: 0.09,
-    },
+    events: [GRAB_EVENT],
   },
   {
-    slot: "tight-grab",
-    label: "TIGHT GRAB",
-    forcedCondition: "guaranteed-grab",
-    grab: {
-      anchorX: 0.45,
-      anchorY: 0.46,
-      targetX: 0.62,
-      targetY: 0.42,
-      radiusX: 0.1,
-      radiusY: 0.08,
-      pull: 0.58,
-      recoil: 0.44,
-      falloff: 0.9,
-      residualVectorX: 0.04,
-      residualVectorY: -0.02,
-      residualStretch: 0.03,
-    },
+    slot: "grow",
+    label: "GROW",
+    forcedCondition: "guaranteed-grow",
+    events: [GROW_EVENT],
   },
   {
-    slot: "wide-grab",
-    label: "WIDE GRAB",
-    forcedCondition: "guaranteed-grab",
-    grab: {
-      anchorX: 0.24,
-      anchorY: 0.5,
-      targetX: 0.69,
-      targetY: 0.53,
-      radiusX: 0.48,
-      radiusY: 0.36,
-      pull: 0.72,
-      recoil: 0.5,
-      falloff: 0.56,
-      residualVectorX: 0.1,
-      residualVectorY: 0.02,
-      residualStretch: 0.07,
-    },
-  },
-  {
-    slot: "scar",
-    label: "SCAR",
-    forcedCondition: "guaranteed-scar",
-    topologyArcOutcome: "scar",
-  },
-  {
-    slot: "succession",
-    label: "SUCCESSION",
-    forcedCondition: "guaranteed-succession",
-    topologyArcOutcome: "succession",
+    slot: "body",
+    label: "BODY",
+    forcedCondition: "guaranteed-body-choreography",
+    events: BODY_EVENTS,
   },
   {
     slot: "kitchen-sink",
     label: "KITCHEN SINK",
     forcedCondition: "guaranteed-integration-stress",
-    grab: {
-      anchorX: 0.31,
-      anchorY: 0.57,
-      targetX: 0.71,
-      targetY: 0.45,
-      radiusX: 0.27,
-      radiusY: 0.22,
-      pull: 0.78,
-      recoil: 0.58,
-      falloff: 0.68,
-      residualVectorX: 0.085,
-      residualVectorY: -0.035,
-      residualStretch: 0.065,
-    },
+    events: BODY_EVENTS,
     forcedRenderConfig: { atmosphereResolutionScale: 0.5 },
   },
 ]);
@@ -311,30 +317,67 @@ function canonicalAuthorityForCandidate(sourceFamily, sourceCandidate, options) 
   };
 }
 
+function fixtureEventEnvelope(timeline, eventIndex, eventCount) {
+  const durationTicks = Number(timeline?.durationTicks);
+  if (!Number.isSafeInteger(durationTicks) || durationTicks < 32) {
+    throw new TypeError("TEST 6 topology fixtures require a timeline with at least 32 ticks.");
+  }
+  if (
+    !Number.isSafeInteger(eventIndex) ||
+    !Number.isSafeInteger(eventCount) ||
+    eventIndex < 0 ||
+    eventCount < 1 ||
+    eventIndex >= eventCount
+  ) {
+    throw new TypeError("TEST 6 topology fixture event index is invalid.");
+  }
+
+  const gap = Math.max(4, Math.floor(durationTicks / (eventCount + 1)));
+  const wing = Math.max(1, Math.floor(gap / 8));
+  const strikeTick = gap * (eventIndex + 1);
+  const prepareTick = Math.max(0, strikeTick - wing);
+  const releaseTick = Math.min(durationTicks - 2, strikeTick + wing);
+  const residueUntilTick = Math.min(durationTicks, releaseTick + wing);
+
+  if (!(prepareTick < strikeTick && strikeTick <= releaseTick && releaseTick < residueUntilTick)) {
+    throw new TypeError("TEST 6 topology fixture could not fit an ordered event envelope.");
+  }
+  return { prepareTick, strikeTick, releaseTick, residueUntilTick };
+}
+
+function buildFixtureEventRequests(timeline, fixture, authority, sourceFamily) {
+  if (!Array.isArray(fixture.events) || fixture.events.length === 0) {
+    return [];
+  }
+
+  const evidenceRefs = [
+    "fixture-family:test-6",
+    `fixture-slot:${fixture.slot}`,
+    `event-authority:${authority.family.familyHash}`,
+    `source-family:${authority.sourceFamilyHash}`,
+    `field-family:${sourceFamily.familyHash}`,
+  ];
+
+  return fixture.events.map((event, index) => ({
+    id: `test-6-${fixture.slot}-${event.kind}-${index + 1}`,
+    kind: event.kind,
+    ...fixtureEventEnvelope(timeline, index, fixture.events.length),
+    parameters: structuredClone(event.parameters),
+    evidenceRefs: [...evidenceRefs],
+  }));
+}
+
 function applyFixture(sourceFamily, sourceCandidate, fixture, options, fixtureIndex) {
   let timeline = sourceCandidate.timeline;
   if (fixture.topologyArcOutcome) {
     timeline = forceExistingTopologyArcOutcome(timeline, fixture.topologyArcOutcome);
   }
-  if (fixture.grab) {
+  if (Array.isArray(fixture.events) && fixture.events.length > 0) {
     const authority = canonicalAuthorityForCandidate(sourceFamily, sourceCandidate, options);
     timeline = resolveTopologyEvents(timeline, {
       family: authority.family,
       candidateIndex: authority.candidateIndex,
-      events: [
-        buildGrabRequest(timeline, {
-          id: `test-6-${fixture.slot}`,
-          parameters: fixture.grab,
-          evidenceRefs: [
-            "fixture-family:test-6",
-            `fixture-slot:${fixture.slot}`,
-            `event-authority:${authority.family.familyHash}`,
-            `source-family:${authority.sourceFamilyHash}`,
-            `field-family:${sourceFamily.familyHash}`,
-          ],
-          salt: `test-6:${fixture.slot}`,
-        }),
-      ],
+      events: buildFixtureEventRequests(timeline, fixture, authority, sourceFamily),
     });
   }
   if (fixture.slot === "kitchen-sink") {
@@ -411,7 +454,9 @@ module.exports = {
   FIXTURES,
   TEST_SIX_POLICY,
   TEST_SIX_SCHEMA,
+  buildFixtureEventRequests,
   canonicalAuthorityForCandidate,
+  fixtureEventEnvelope,
   fixtureReceipt,
   forceExistingTopologyArcOutcome,
   generateTestSixWitnessFamily,
