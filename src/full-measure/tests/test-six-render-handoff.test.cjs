@@ -11,6 +11,8 @@ const fixture = JSON.parse(
 );
 
 const audioPath = path.resolve("/tmp/Breathing House.wav");
+const inspectedAudioSha256 = "1".repeat(64);
+const replacedAudioSha256 = "2".repeat(64);
 const mediaAnalysis = Object.freeze({
   filename: "Breathing House.wav",
   sizeBytes: 35_067_052,
@@ -72,7 +74,10 @@ test("selected TEST 6 KITCHEN SINK reaches final render despite unrelated front-
   assert.equal(execution.forcedWitnessEvidence?.fixtureFamily, "test-6");
   assert.equal(execution.forcedWitnessEvidence?.fixtureSlot, "kitchen-sink");
   assert.equal(execution.atmosphereResolutionScale, 0.5);
-  assert.deepEqual(execution.forcedRenderConfig, { atmosphereResolutionScale: 0.5 });
+  assert.deepEqual(execution.resolvedTimeline.renderConfig, {
+    atmosphereResolutionScale: 0.5,
+  });
+  assert.deepEqual(execution.forcedRenderConfig, execution.resolvedTimeline.renderConfig);
 });
 
 test("a stale ordinary selected candidate refuses instead of silently falling back to legacy render", async () => {
@@ -91,6 +96,33 @@ test("a stale ordinary selected candidate refuses instead of silently falling ba
         audioPath,
         imagePath: null,
         presetId: "porchlight",
+        toastFeelId: "low-and-slow",
+      }),
+    /selected candidate.*render inputs|render inputs.*selected candidate/i,
+  );
+});
+
+test("selected candidate refuses when source audio bytes change at the same path", async () => {
+  const value = createCandidateSession({ renderCandidateFamilyPreviews: previewView });
+  value.noteAudio(audioPath, {
+    ...mediaAnalysis,
+    sourceSha256: inspectedAudioSha256,
+  });
+  const family = await value.generate({
+    presetId: "openField",
+    toastFeelId: "low-and-slow",
+    rootSeed: "content-bound-render-handoff",
+    lyrics: "",
+  });
+  value.select({ familyHash: family.familyHash, index: 0 });
+
+  assert.throws(
+    () =>
+      value.executionForRender({
+        audioPath,
+        audioSourceSha256: replacedAudioSha256,
+        imagePath: null,
+        presetId: "openField",
         toastFeelId: "low-and-slow",
       }),
     /selected candidate.*render inputs|render inputs.*selected candidate/i,
