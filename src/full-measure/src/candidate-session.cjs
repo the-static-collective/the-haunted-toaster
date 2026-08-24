@@ -1,3 +1,5 @@
+const crypto = require("node:crypto");
+const fs = require("node:fs");
 const path = require("node:path");
 const generation = require("./generation/index.cjs");
 const { admitLabProposal, parseLabProposalTransfer } = require("./lab-proposal.cjs");
@@ -20,6 +22,39 @@ const CONSTRAINTS_BY_PRESET = Object.freeze({
   wireOrchard,
   absoluteResidual,
 });
+const SHA256_PATTERN = /^[0-9a-f]{64}$/;
+const HASH_CHUNK_BYTES = 1024 * 1024;
+
+function normalizeSourceSha256(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return SHA256_PATTERN.test(normalized) ? normalized : null;
+}
+
+function hashFileSha256Sync(filePath) {
+  const hash = crypto.createHash("sha256");
+  const descriptor = fs.openSync(path.resolve(filePath), "r");
+  const buffer = Buffer.allocUnsafe(HASH_CHUNK_BYTES);
+  try {
+    let bytesRead = 0;
+    do {
+      bytesRead = fs.readSync(descriptor, buffer, 0, buffer.length, null);
+      if (bytesRead > 0) hash.update(buffer.subarray(0, bytesRead));
+    } while (bytesRead > 0);
+  } finally {
+    fs.closeSync(descriptor);
+  }
+  return hash.digest("hex");
+}
+
+function sourceSha256ForAudio(filePath, analysis = null) {
+  const declared = normalizeSourceSha256(analysis?.sourceSha256);
+  if (declared) return declared;
+  try {
+    return hashFileSha256Sync(filePath);
+  } catch {
+    return null;
+  }
+}
 
 function toGenerationAnalysis(mediaAnalysis) {
   if (!mediaAnalysis || !Number.isFinite(Number(mediaAnalysis.duration))) {
@@ -100,12 +135,19 @@ function createCandidateSession({
 
   function noteAudio(nextAudioPath, nextMediaAnalysis) {
     const resolved = path.resolve(nextAudioPath);
-    if (audioPath !== resolved) {
+    const priorSourceSha256 = normalizeSourceSha256(mediaAnalysis?.sourceSha256);
+    const nextSourceSha256 = sourceSha256ForAudio(resolved, nextMediaAnalysis);
+    if (
+      audioPath !== resolved ||
+      (priorSourceSha256 && nextSourceSha256 && priorSourceSha256 !== nextSourceSha256)
+    ) {
       clearCandidates();
       acceptedHistory = [];
     }
     audioPath = resolved;
-    mediaAnalysis = nextMediaAnalysis;
+    mediaAnalysis = nextMediaAnalysis && nextSourceSha256
+      ? { ...nextMediaAnalysis, sourceSha256: nextSourceSha256 }
+      : nextMediaAnalysis;
   }
 
   function noteImage(nextImagePath) {
@@ -201,6 +243,7 @@ function createCandidateSession({
     family = nextFamily;
     familyBinding = {
       audioPath,
+      audioSourceSha256: normalizeSourceSha256(mediaAnalysis?.sourceSha256),
       imagePath,
       presetId: config.presetId,
       toastFeelId: feel?.id || null,
@@ -560,14 +603,22 @@ function createCandidateSession({
     if (path.resolve(config.audioPath) !== familyBinding.audioPath) {
       throw mismatch("song changed");
     }
+    if (familyBinding.audioSourceSha256) {
+      const currentAudioSourceSha256 =
+        normalizeSourceSha256(config.audioSourceSha256) ||
+        sourceSha256ForAudio(config.audioPath);
+      if (currentAudioSourceSha256 !== familyBinding.audioSourceSha256) {
+        throw mismatch("song content changed");
+      }
+    }
     if (config.presetId !== familyBinding.presetId) {
       throw mismatch("garment changed");
     }
     if (!sameOptionalPath(config.imagePath, familyBinding.imagePath)) {
       throw mismatch("image changed");
     }
-    const forcedRenderConfig = selection.forcedRenderConfig
-      ? structuredClone(selection.forcedRenderConfig)
+    const forcedRenderConfig = selection.timeline?.renderConfig
+      ? structuredClone(selection.timeline.renderConfig)
       : null;
     return {
       ...(forcedRenderConfig || {}),
