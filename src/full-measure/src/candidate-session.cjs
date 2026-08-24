@@ -1,3 +1,5 @@
+const crypto = require("node:crypto");
+const fs = require("node:fs");
 const path = require("node:path");
 const generation = require("./generation/index.cjs");
 const { admitLabProposal, parseLabProposalTransfer } = require("./lab-proposal.cjs");
@@ -20,6 +22,39 @@ const CONSTRAINTS_BY_PRESET = Object.freeze({
   wireOrchard,
   absoluteResidual,
 });
+const SHA256_PATTERN = /^[0-9a-f]{64}$/;
+const HASH_CHUNK_BYTES = 1024 * 1024;
+
+function normalizeSourceSha256(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return SHA256_PATTERN.test(normalized) ? normalized : null;
+}
+
+function hashFileSha256Sync(filePath) {
+  const hash = crypto.createHash("sha256");
+  const descriptor = fs.openSync(path.resolve(filePath), "r");
+  const buffer = Buffer.allocUnsafe(HASH_CHUNK_BYTES);
+  try {
+    let bytesRead = 0;
+    do {
+      bytesRead = fs.readSync(descriptor, buffer, 0, buffer.length, null);
+      if (bytesRead > 0) hash.update(buffer.subarray(0, bytesRead));
+    } while (bytesRead > 0);
+  } finally {
+    fs.closeSync(descriptor);
+  }
+  return hash.digest("hex");
+}
+
+function sourceSha256ForAudio(filePath, analysis = null) {
+  const declared = normalizeSourceSha256(analysis?.sourceSha256);
+  if (declared) return declared;
+  try {
+    return hashFileSha256Sync(filePath);
+  } catch {
+    return null;
+  }
+}
 
 function toGenerationAnalysis(mediaAnalysis) {
   if (!mediaAnalysis || !Number.isFinite(Number(mediaAnalysis.duration))) {
@@ -88,24 +123,33 @@ function createCandidateSession({
   let family = null;
   let familyBinding = null;
   let selection = null;
+  let candidateEcologyEntered = false;
   let stagedLabProposal = null;
   let acceptedHistory = [];
   let busy = false;
 
-  function clearCandidates() {
+  function clearCandidates({ resetEcology = false } = {}) {
     family = null;
     familyBinding = null;
     selection = null;
+    if (resetEcology) candidateEcologyEntered = false;
   }
 
   function noteAudio(nextAudioPath, nextMediaAnalysis) {
     const resolved = path.resolve(nextAudioPath);
-    if (audioPath !== resolved) {
-      clearCandidates();
+    const priorSourceSha256 = normalizeSourceSha256(mediaAnalysis?.sourceSha256);
+    const nextSourceSha256 = sourceSha256ForAudio(resolved, nextMediaAnalysis);
+    if (
+      audioPath !== resolved ||
+      (priorSourceSha256 && nextSourceSha256 && priorSourceSha256 !== nextSourceSha256)
+    ) {
+      clearCandidates({ resetEcology: true });
       acceptedHistory = [];
     }
     audioPath = resolved;
-    mediaAnalysis = nextMediaAnalysis;
+    mediaAnalysis = nextMediaAnalysis && nextSourceSha256
+      ? { ...nextMediaAnalysis, sourceSha256: nextSourceSha256 }
+      : nextMediaAnalysis;
   }
 
   function noteImage(nextImagePath) {
@@ -198,9 +242,11 @@ function createCandidateSession({
       nextFamily,
       { signal },
     );
+    candidateEcologyEntered = true;
     family = nextFamily;
     familyBinding = {
       audioPath,
+      audioSourceSha256: normalizeSourceSha256(mediaAnalysis?.sourceSha256),
       imagePath,
       presetId: config.presetId,
       toastFeelId: feel?.id || null,
@@ -212,6 +258,10 @@ function createCandidateSession({
     selection = null;
     return {
       ...previewView,
+      schema: nextFamily.schema,
+      policy: nextFamily.policy,
+      forcedWitness: nextFamily.forcedWitness === true,
+      fixtureFamily: nextFamily.fixtureFamily || null,
       toastFeel: feel ? structuredClone(nextFamily.toastFeel || feel) : null,
       toastmoodField: nextFamily.toastmoodField ? structuredClone(nextFamily.toastmoodField) : null,
       cross: nextFamily.cross ? structuredClone(nextFamily.cross) : null,
@@ -244,7 +294,7 @@ function createCandidateSession({
             admittedScoreAddress: admitted.scoreArtifact.address,
           }
         : { enabled: false };
-      const nextFamily = generation.generateCandidateSet({
+      const sourceFamily = generation.generateCandidateSet({
         analysis,
         responseWitness,
         garmentConstraints: constraints,
@@ -257,7 +307,67 @@ function createCandidateSession({
         toastFeelId: feel?.id || null,
         nativeChromaticProfile: profile,
       });
-      return await materialize(nextFamily, config, signal, influence);
+      const projected = generation.projectOrdinaryGrabView(sourceFamily, {
+        authorityForCandidate(candidate) {
+          return generation.canonicalAuthorityForCandidate(sourceFamily, candidate, {
+            analysis,
+            responseWitness,
+            garmentConstraints: constraints,
+            rendererProfile,
+            lyricTrack,
+            nativeChromaticProfile: profile,
+          });
+        },
+      });
+      const lBranchFamily = generation.attachLBranchToFamily(projected, {
+        responseWitness,
+        lyricTrack,
+      });
+      const nextFamily = Object.freeze({
+        ...lBranchFamily,
+        forcedWitness: false,
+        fixtureFamily: null,
+        toastFeel: sourceFamily.toastFeel || null,
+        toastmoodField: sourceFamily.toastmoodField || null,
+        cross: sourceFamily.cross || null,
+      });
+      return await materialize(
+        nextFamily,
+        config,
+        signal,
+        { ...influence, forcedWitness: false },
+      );
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function generateTestSix(config = {}, signal) {
+    assertReady();
+    currentToastFeel(config.toastFeelId, { optional: true });
+    busy = true;
+    try {
+      const constraints = currentConstraints(config.presetId);
+      const profile = await ensureNativeChromaticProfile();
+      const lyricTrack = lyricTrackFor(config);
+      const analysis = toGenerationAnalysis(mediaAnalysis);
+      const responseWitness = responseWitnessFor(mediaAnalysis, analysis);
+      const nextFamily = generation.generateTestSixWitnessFamily({
+        analysis,
+        responseWitness,
+        garmentConstraints: constraints,
+        rendererProfile,
+        rootSeed: config.rootSeed,
+        lyricTrack,
+        toastFeelId: null,
+        nativeChromaticProfile: profile,
+      });
+      return await materialize(
+        nextFamily,
+        { ...config, toastFeelId: null },
+        signal,
+        { enabled: false, forcedWitness: true },
+      );
     } finally {
       busy = false;
     }
@@ -274,6 +384,12 @@ function createCandidateSession({
     }
   }
 
+  function assertOrdinaryEcology() {
+    if (family?.forcedWitness === true || family?.fixtureFamily === "test-6") {
+      throw new Error("TEST 6 is a forced witness and cannot enter mutation ecology.");
+    }
+  }
+
   function feelForParent(config, parent) {
     const explicit = currentToastFeel(config.toastFeelId, { optional: true });
     if (explicit) return explicit;
@@ -285,6 +401,7 @@ function createCandidateSession({
   async function mutate(config = {}, signal) {
     assertReady();
     assertCurrentFamily(config);
+    assertOrdinaryEcology();
     const parent = family.candidates[Number(config.parentIndex)];
     if (!parent) throw new TypeError("Choose a current candidate before mutating.");
     const feel = feelForParent(config, parent);
@@ -363,6 +480,7 @@ function createCandidateSession({
   async function cross(config = {}, signal) {
     assertReady();
     assertCurrentFamily(config);
+    assertOrdinaryEcology();
     if (!Array.isArray(config.parentIndexes) || config.parentIndexes.length !== 2) {
       throw new TypeError("CROSS requires exactly two current parent candidates.");
     }
@@ -406,6 +524,7 @@ function createCandidateSession({
   async function stomp(config = {}, signal) {
     assertReady();
     assertCurrentFamily(config);
+    assertOrdinaryEcology();
     const parent = family.candidates[Number(config.parentIndex)];
     if (!parent) throw new TypeError("Choose a current candidate before stomping.");
     const feel = feelForParent(config, parent);
@@ -446,10 +565,17 @@ function createCandidateSession({
     const candidate = family.candidates[Number(config.index)];
     if (!candidate) throw new TypeError("Choose a current candidate.");
     selection = candidate;
-    if (!acceptedHistory.some((score) => generation.addressVisualScore(score) === candidate.scoreAddress)) {
+    if (
+      candidate.forcedWitness !== true &&
+      !acceptedHistory.some((score) => generation.addressVisualScore(score) === candidate.scoreAddress)
+    ) {
       acceptedHistory.push(candidate.scoreArtifact.score);
     }
-    if (!familyBinding.toastFeelId && candidate.toastmoodLane?.id) {
+    if (
+      candidate.forcedWitness !== true &&
+      !familyBinding.toastFeelId &&
+      candidate.toastmoodLane?.id
+    ) {
       const inheritedFeel = currentToastFeel(candidate.toastmoodLane.id);
       familyBinding.toastFeelId = inheritedFeel.id;
       familyBinding.toastFeel = structuredClone(inheritedFeel);
@@ -463,20 +589,61 @@ function createCandidateSession({
       crossLineage: candidate.crossLineage || null,
       toastmoodLane: candidate.toastmoodLane || null,
       toastFeel: familyBinding.toastFeel ? structuredClone(familyBinding.toastFeel) : null,
+      forcedWitnessEvidence: candidate.forcedWitnessEvidence
+        ? structuredClone(candidate.forcedWitnessEvidence)
+        : null,
       acceptedHistoryCount: acceptedHistory.length,
       labInfluence: familyBinding?.labInfluence || { enabled: false },
     };
   }
 
   function executionForRender(config = {}) {
-    if (!selection || !familyBinding) return null;
-    if (path.resolve(config.audioPath) !== familyBinding.audioPath) return null;
-    if (config.presetId !== familyBinding.presetId) return null;
-    if ((config.toastFeelId || null) !== (familyBinding.toastFeelId || null)) return null;
-    if (!sameOptionalPath(config.imagePath, familyBinding.imagePath)) return null;
+    if (!selection) {
+      if (candidateEcologyEntered) {
+        const error = new Error(
+          "Candidate selection required: choose a candidate and use the selected timeline before rendering.",
+        );
+        error.code = "CANDIDATE_RENDER_SELECTION_REQUIRED";
+        throw error;
+      }
+      return null;
+    }
+    if (!familyBinding) {
+      throw new Error("Selected candidate has no accepted render binding.");
+    }
+    const mismatch = (detail) => {
+      const error = new Error(`Selected candidate no longer matches the current render inputs: ${detail}.`);
+      error.code = "CANDIDATE_RENDER_INPUT_MISMATCH";
+      return error;
+    };
+    if (path.resolve(config.audioPath) !== familyBinding.audioPath) {
+      throw mismatch("song changed");
+    }
+    if (familyBinding.audioSourceSha256) {
+      const currentAudioSourceSha256 =
+        normalizeSourceSha256(config.audioSourceSha256) ||
+        sourceSha256ForAudio(config.audioPath);
+      if (currentAudioSourceSha256 !== familyBinding.audioSourceSha256) {
+        throw mismatch("song content changed");
+      }
+    }
+    if (config.presetId !== familyBinding.presetId) {
+      throw mismatch("garment changed");
+    }
+    if (!sameOptionalPath(config.imagePath, familyBinding.imagePath)) {
+      throw mismatch("image changed");
+    }
+    const forcedRenderConfig = selection.timeline?.renderConfig
+      ? structuredClone(selection.timeline.renderConfig)
+      : null;
     return {
+      ...(forcedRenderConfig || {}),
       visualScore: selection.scoreArtifact.score,
       resolvedTimeline: selection.timeline,
+      forcedWitnessEvidence: selection.forcedWitnessEvidence
+        ? structuredClone(selection.forcedWitnessEvidence)
+        : null,
+      forcedRenderConfig,
       analysis: mediaAnalysis,
       labInfluence: familyBinding.labInfluence || { enabled: false },
       toastFeel: familyBinding.toastFeel ? structuredClone(familyBinding.toastFeel) : null,
@@ -490,6 +657,10 @@ function createCandidateSession({
     ipcMain.handle("candidate:generate", (_event, config) => {
       assertAvailable();
       return generate(config);
+    });
+    ipcMain.handle("candidate:test-6", (_event, config) => {
+      assertAvailable();
+      return generateTestSix(config);
     });
     ipcMain.handle("candidate:stage-lab-proposal", (_event, transfer) => {
       assertAvailable();
@@ -541,6 +712,7 @@ function createCandidateSession({
     cross,
     executionForRender,
     generate,
+    generateTestSix,
     importLabProposal,
     mutate,
     noteAudio,

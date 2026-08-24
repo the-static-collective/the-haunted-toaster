@@ -6,6 +6,10 @@ module.exports = {
   ...require("./resolver.cjs"),
   ...require("./operations.cjs"),
   ...require("./candidate-family.cjs"),
+  ...require("./topology-events.cjs"),
+  ...require("./topology-event-generation.cjs"),
+  ...require("./test-six-witness.cjs"),
+  ...require("./test-six-witness-neutral.cjs"),
   ...require("./converge-frontier.cjs"),
   ...require("./diversity-engine.cjs"),
   ...require("./visible-distance.cjs"),
@@ -33,4 +37,5 @@ module.exports = {
   ...require("./sigil-topology-expression.cjs"),
   ...require("./sigil-topology-compiler.cjs"),
   ...require("./sigil-utterance-family.cjs"),
+  ...require("./l-branch.cjs"),
 };
