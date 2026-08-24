@@ -123,14 +123,16 @@ function createCandidateSession({
   let family = null;
   let familyBinding = null;
   let selection = null;
+  let candidateEcologyEntered = false;
   let stagedLabProposal = null;
   let acceptedHistory = [];
   let busy = false;
 
-  function clearCandidates() {
+  function clearCandidates({ resetEcology = false } = {}) {
     family = null;
     familyBinding = null;
     selection = null;
+    if (resetEcology) candidateEcologyEntered = false;
   }
 
   function noteAudio(nextAudioPath, nextMediaAnalysis) {
@@ -141,7 +143,7 @@ function createCandidateSession({
       audioPath !== resolved ||
       (priorSourceSha256 && nextSourceSha256 && priorSourceSha256 !== nextSourceSha256)
     ) {
-      clearCandidates();
+      clearCandidates({ resetEcology: true });
       acceptedHistory = [];
     }
     audioPath = resolved;
@@ -240,6 +242,7 @@ function createCandidateSession({
       nextFamily,
       { signal },
     );
+    candidateEcologyEntered = true;
     family = nextFamily;
     familyBinding = {
       audioPath,
@@ -591,7 +594,16 @@ function createCandidateSession({
   }
 
   function executionForRender(config = {}) {
-    if (!selection) return null;
+    if (!selection) {
+      if (candidateEcologyEntered) {
+        const error = new Error(
+          "Candidate selection required: choose a candidate and use the selected timeline before rendering.",
+        );
+        error.code = "CANDIDATE_RENDER_SELECTION_REQUIRED";
+        throw error;
+      }
+      return null;
+    }
     if (!familyBinding) {
       throw new Error("Selected candidate has no accepted render binding.");
     }
