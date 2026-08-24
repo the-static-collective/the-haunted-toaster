@@ -162,7 +162,7 @@ async function renderCandidateFamilyPreviews(config, family, hooks = {}) {
         height,
         fps,
         atmosphereResolutionScale:
-          candidate.forcedRenderConfig?.atmosphereResolutionScale ?? null,
+          candidate.timeline?.renderConfig?.atmosphereResolutionScale ?? null,
         ...typographyContext,
       });
       const plan = candidatePreviewPlan(
