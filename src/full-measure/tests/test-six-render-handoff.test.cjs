@@ -80,6 +80,27 @@ test("selected TEST 6 KITCHEN SINK reaches final render despite unrelated front-
   assert.deepEqual(execution.forcedRenderConfig, execution.resolvedTimeline.renderConfig);
 });
 
+test("candidate ecology without an accepted winner refuses instead of silently falling back to legacy render", async () => {
+  const value = session();
+  await value.generate({
+    presetId: "openField",
+    toastFeelId: "low-and-slow",
+    rootSeed: "candidate-intent-without-selection",
+    lyrics: "",
+  });
+
+  assert.throws(
+    () =>
+      value.executionForRender({
+        audioPath,
+        imagePath: null,
+        presetId: "openField",
+        toastFeelId: "low-and-slow",
+      }),
+    /candidate.*selection.*required|accepted.*candidate.*required|choose.*candidate/i,
+  );
+});
+
 test("a stale ordinary selected candidate refuses instead of silently falling back to legacy render", async () => {
   const value = session();
   const family = await value.generate({
