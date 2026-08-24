@@ -1,9 +1,9 @@
 name: WALK A re-port crucible
 
 on:
-  push:
+  pull_request:
     branches:
-      - walk/a-foreign-material-current-spine
+      - promote/field-spine-from-212
     paths:
       - .github/workflows/walk-a-reporter.yml
 
