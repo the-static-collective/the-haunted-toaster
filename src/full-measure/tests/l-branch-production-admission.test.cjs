@@ -78,7 +78,7 @@ test("ordinary GRAB admission binds one L BRANCH bank and one Mix Plan per accep
   }
 
   const selectedCandidate = admittedFamily.candidates[0];
-  const receipt = value.select({ familyHash: view.familyHash, index: selectedCandidate.index });
+  const selectionAck = value.select({ familyHash: view.familyHash, index: selectedCandidate.index });
   const execution = value.executionForRender({
     audioPath,
     imagePath: null,
@@ -86,9 +86,14 @@ test("ordinary GRAB admission binds one L BRANCH bank and one Mix Plan per accep
     toastFeelId: "low-and-slow",
   });
 
-  assert.equal(receipt.laneBankHash, selectedCandidate.laneBankHash);
-  assert.equal(receipt.mixPlanHash, selectedCandidate.mixPlanHash);
-  assert.equal(execution.resolvedTimeline.timelineHash, receipt.timelineHash);
-  assert.equal(execution.resolvedTimeline.lBranch?.laneBankHash, receipt.laneBankHash);
-  assert.equal(execution.resolvedTimeline.lBranch?.mixPlan?.planHash, receipt.mixPlanHash);
+  assert.equal(selectionAck.timelineHash, selectedCandidate.timelineHash);
+  assert.equal(execution.resolvedTimeline.timelineHash, selectedCandidate.timelineHash);
+  assert.equal(
+    execution.resolvedTimeline.lBranch?.laneBankHash,
+    selectedCandidate.laneBankHash,
+  );
+  assert.equal(
+    execution.resolvedTimeline.lBranch?.mixPlan?.planHash,
+    selectedCandidate.mixPlanHash,
+  );
 });
