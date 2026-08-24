@@ -1,0 +1,97 @@
+name: WALK A re-port crucible
+
+on:
+  push:
+    branches:
+      - walk/a-foreign-material-current-spine
+    paths:
+      - .github/workflows/walk-a-reporter.yml
+
+permissions:
+  contents: write
+
+jobs:
+  re-port:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out WALK A
+        uses: actions/checkout@v7
+        with:
+          ref: walk/a-foreign-material-current-spine
+          fetch-depth: 0
+
+      - name: Three-way re-port four production seams
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE=899a920b17019a54dadfb0c6bb321cc6e4cf860b
+          DONOR=f4a575db65d1bdb9cc5e7b462c30226660d4b804
+          files=(
+            src/full-measure/src/candidate-session.cjs
+            src/full-measure/src/render/candidate-preview.cjs
+            src/full-measure/src/render/haunted-typography-render.cjs
+            src/full-measure/src/render/render.cjs
+          )
+
+          git cat-file -e "${BASE}^{commit}"
+          git cat-file -e "${DONOR}^{commit}"
+          mkdir -p /tmp/walk-a-port
+          conflicts=0
+
+          for file in "${files[@]}"; do
+            key="$(printf '%s' "$file" | tr '/.' '__')"
+            current="/tmp/walk-a-port/${key}.current"
+            base="/tmp/walk-a-port/${key}.base"
+            donor="/tmp/walk-a-port/${key}.donor"
+            merged="/tmp/walk-a-port/${key}.merged"
+
+            cp "$file" "$current"
+            git show "${BASE}:${file}" > "$base"
+            git show "${DONOR}:${file}" > "$donor"
+
+            if git merge-file -p "$current" "$base" "$donor" > "$merged"; then
+              mv "$merged" "$file"
+              echo "CLEAN: $file"
+            else
+              echo "CONFLICT: $file"
+              cat "$merged"
+              conflicts=1
+            fi
+          done
+
+          if [ "$conflicts" -ne 0 ]; then
+            echo "WALK A re-port refused: at least one current-spine seam needs an explicit human-readable resolution."
+            exit 1
+          fi
+
+          node --check src/full-measure/src/candidate-session.cjs
+          node --check src/full-measure/src/render/candidate-preview.cjs
+          node --check src/full-measure/src/render/haunted-typography-render.cjs
+          node --check src/full-measure/src/render/render.cjs
+          node --check src/full-measure/src/render/foreign-material.cjs
+          git diff --check
+
+          grep -q 'foreignVisualMaterial' src/full-measure/src/candidate-session.cjs
+          grep -q 'forcedWitnessEvidence' src/full-measure/src/candidate-session.cjs
+          grep -q 'foreignMaterialEvidence' src/full-measure/src/render/candidate-preview.cjs
+          grep -q 'atmosphereResolution' src/full-measure/src/render/haunted-typography-render.cjs
+          grep -q 'foreignMaterial' src/full-measure/src/render/render.cjs
+          grep -q 'witnessWindow' src/full-measure/src/render/render.cjs
+
+      - name: Commit clean behavioral re-port
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add \
+            src/full-measure/src/candidate-session.cjs \
+            src/full-measure/src/render/candidate-preview.cjs \
+            src/full-measure/src/render/haunted-typography-render.cjs \
+            src/full-measure/src/render/render.cjs
+          if git diff --cached --quiet; then
+            echo "No production changes were required."
+            exit 0
+          fi
+          git commit -m 'feat: re-port foreign material onto current field spine'
+          git push origin HEAD:walk/a-foreign-material-current-spine
