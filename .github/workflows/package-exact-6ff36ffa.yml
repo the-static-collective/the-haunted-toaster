@@ -1,0 +1,79 @@
+name: Package exact promoted WALK D
+
+on:
+  push:
+    branches:
+      - ops/package-exact-6ff36ffa
+
+permissions:
+  contents: read
+
+env:
+  TARGET_SHA: 6ff36ffa4e30bb8d097fe62a3d9a5409e0061a1d
+
+jobs:
+  verify-exact:
+    name: Verify exact promoted commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out exact promoted commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TARGET_SHA }}
+      - name: Prove checkout identity
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/full-measure/package-lock.json
+      - name: Install locked dependencies
+        run: npm --prefix src/full-measure ci
+      - name: Run consolidated application proof
+        run: npm run verify
+      - name: Audit runtime dependencies
+        run: npm --prefix src/full-measure audit --omit=dev --audit-level=high
+
+  package-windows:
+    name: Build Windows package from exact promoted commit
+    needs: verify-exact
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out exact promoted commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.TARGET_SHA }}
+      - name: Prove checkout identity
+        shell: pwsh
+        run: |
+          $actual = git rev-parse HEAD
+          if ($actual -ne $env:TARGET_SHA) { throw "checkout mismatch: $actual" }
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/full-measure/package-lock.json
+      - name: Install locked dependencies
+        run: npm --prefix src/full-measure ci
+      - name: Build unsigned Windows installer and portable app
+        run: npm run dist:win
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - name: Prove Build Info identity
+        shell: pwsh
+        run: |
+          if (-not (Select-String -Path src/full-measure/build-info.json -Pattern $env:TARGET_SHA -Quiet)) { throw "Build Info does not contain exact promoted SHA" }
+      - name: Upload exact Windows package
+        uses: actions/upload-artifact@v7
+        with:
+          name: Haunted-Toaster-Windows-exact-6ff36ffa
+          path: |
+            src/full-measure/release/*.exe
+            src/full-measure/release/*.yml
+            src/full-measure/build-info.json
+          if-no-files-found: error
