@@ -6,6 +6,7 @@ const path = require("node:path");
 
 const { attachLBranchToFamily } = require("../src/generation/l-branch.cjs");
 const { receiptPathFor, writeReceipt } = require("../src/render/receipt.cjs");
+const { createTimelineExecution } = require("../src/render/timeline-execution.cjs");
 
 const SHA = "a".repeat(64);
 
@@ -111,4 +112,35 @@ test("video receipt refuses a canonical timeline sidecar whose identity disagree
       /canonical timeline sidecar identity mismatch/i,
     );
   });
+});
+
+test("render entry refuses a tampered L BRANCH Mix Plan before execution", () => {
+  const timeline = structuredClone(admittedTimeline());
+  timeline.lBranch.mixPlan.strategyId = "tampered-strategy";
+
+  assert.throws(
+    () => createTimelineExecution(timeline),
+    /L BRANCH Mix Plan identity mismatch/i,
+  );
+});
+
+test("render entry refuses tampered L BRANCH execution before execution", () => {
+  const timeline = structuredClone(admittedTimeline());
+  timeline.lBranch.execution.sends[0].gain =
+    timeline.lBranch.execution.sends[0].gain === 0.5 ? 0.6 : 0.5;
+
+  assert.throws(
+    () => createTimelineExecution(timeline),
+    /L BRANCH execution identity mismatch/i,
+  );
+});
+
+test("render entry refuses a tampered bound ResolvedTimeline identity", () => {
+  const timeline = structuredClone(admittedTimeline());
+  timeline.baseState.tampered = true;
+
+  assert.throws(
+    () => createTimelineExecution(timeline),
+    /ResolvedTimeline L BRANCH timeline identity mismatch/i,
+  );
 });
