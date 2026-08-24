@@ -64,10 +64,11 @@ jobs:
         run: npm run dist:win
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          GITHUB_SHA: ${{ env.TARGET_SHA }}
       - name: Prove Build Info identity
         shell: pwsh
         run: |
-          if (-not (Select-String -Path src/full-measure/build-info.json -Pattern $env:TARGET_SHA -Quiet)) { throw "Build Info does not contain exact promoted SHA" }
+          if (-not (Select-String -Path src/full-measure/src/build-info.cjs -Pattern $env:TARGET_SHA -Quiet)) { throw "Build Info does not contain exact promoted SHA" }
       - name: Upload exact Windows package
         uses: actions/upload-artifact@v7
         with:
@@ -75,5 +76,5 @@ jobs:
           path: |
             src/full-measure/release/*.exe
             src/full-measure/release/*.yml
-            src/full-measure/build-info.json
+            src/full-measure/src/build-info.cjs
           if-no-files-found: error
