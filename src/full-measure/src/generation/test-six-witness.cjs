@@ -230,6 +230,29 @@ function projectExistingAtmosphereEvidence(timeline, sourceCandidate) {
   });
 }
 
+function projectRenderConfigIntoTimeline(timeline, config) {
+  const atmosphereResolutionScale = Number(config?.atmosphereResolutionScale);
+  if (![1, 0.5, 0.25].includes(atmosphereResolutionScale)) {
+    throw new TypeError("TEST 6 Resolution Field scale must be 1, 0.5, or 0.25.");
+  }
+  const {
+    timelineHash: _timelineHash,
+    canonicalJson: _canonicalJson,
+    renderConfig: _priorRenderConfig,
+    ...stableTimeline
+  } = timeline;
+  const renderConfig = deepFreeze({ atmosphereResolutionScale });
+  const body = {
+    ...structuredClone(stableTimeline),
+    renderConfig,
+  };
+  return deepFreeze({
+    ...body,
+    timelineHash: hashCanonical(body, TIMELINE_DOMAIN),
+    canonicalJson: canonicalStringify(body),
+  });
+}
+
 function generationOptions(options) {
   return {
     analysis: options.analysis,
@@ -317,6 +340,9 @@ function applyFixture(sourceFamily, sourceCandidate, fixture, options, fixtureIn
   if (fixture.slot === "kitchen-sink") {
     timeline = projectExistingAtmosphereEvidence(timeline, sourceCandidate);
   }
+  if (fixture.forcedRenderConfig) {
+    timeline = projectRenderConfigIntoTimeline(timeline, fixture.forcedRenderConfig);
+  }
 
   const receipt = fixtureReceipt(fixture);
   return deepFreeze({
@@ -332,8 +358,8 @@ function applyFixture(sourceFamily, sourceCandidate, fixture, options, fixtureIn
     forcedCondition: fixture.forcedCondition,
     fixtureReceipt: receipt,
     forcedWitnessEvidence: receipt,
-    forcedRenderConfig: fixture.forcedRenderConfig
-      ? deepFreeze(structuredClone(fixture.forcedRenderConfig))
+    forcedRenderConfig: timeline.renderConfig
+      ? deepFreeze(structuredClone(timeline.renderConfig))
       : null,
   });
 }
@@ -390,4 +416,5 @@ module.exports = {
   forceExistingTopologyArcOutcome,
   generateTestSixWitnessFamily,
   projectExistingAtmosphereEvidence,
+  projectRenderConfigIntoTimeline,
 };
