@@ -68,20 +68,29 @@ function eventEnable(effect, timebase, startKey = "prepareTick", endKey = "resid
   return `between(t,${ff(effect[startKey] / timebase)},${ff(effect[endKey] / timebase)})`;
 }
 
-function compileGrabLocalStep(local, geometry, inputLabel, prefix, outputLabel) {
+function compileGrabLocalStep(local, geometry, inputLabel, prefix, outputLabel, labelOverrides = {}) {
   const g = patchGeometry(local, geometry);
   const { vectorX, vectorY, stretch, enable } = local.expressions;
   const falloff = clamp(local.falloff, 0, 1);
   const outerAlpha = ff(0.18 + falloff * 0.28);
   const innerAlpha = ff(0.62 + falloff * 0.25);
   const outerTravel = ff(0.48 + falloff * 0.16);
+  const labels = {
+    base: `${prefix}Base`,
+    outerSource: `${prefix}OuterSource`,
+    innerSource: `${prefix}InnerSource`,
+    outerPatch: `${prefix}OuterPatch`,
+    innerPatch: `${prefix}InnerPatch`,
+    outerComposite: `${prefix}OuterComposite`,
+    ...labelOverrides,
+  };
 
   return [
-    `[${inputLabel}]split=3[${prefix}Base][${prefix}OuterSource][${prefix}InnerSource]`,
-    `[${prefix}OuterSource]crop=${g.outerWidth}:${g.outerHeight}:${g.outerX}:${g.outerY},${scaleExpression(stretch, 0.22, 0.12)},colorchannelmixer=aa=${outerAlpha}[${prefix}OuterPatch]`,
-    `[${prefix}InnerSource]crop=${g.innerWidth}:${g.innerHeight}:${g.innerX}:${g.innerY},${scaleExpression(stretch, 0.46, 0.24)},colorchannelmixer=aa=${innerAlpha}[${prefix}InnerPatch]`,
-    `[${prefix}Base][${prefix}OuterPatch]overlay=x='${g.outerX}+(${vectorX})*main_w*${outerTravel}-(overlay_w-${g.outerWidth})/2':y='${g.outerY}+(${vectorY})*main_h*${outerTravel}-(overlay_h-${g.outerHeight})/2':enable='${enable}':format=auto:eof_action=pass[${prefix}OuterComposite]`,
-    `[${prefix}OuterComposite][${prefix}InnerPatch]overlay=x='${g.innerX}+(${vectorX})*main_w-(overlay_w-${g.innerWidth})/2':y='${g.innerY}+(${vectorY})*main_h-(overlay_h-${g.innerHeight})/2':enable='${enable}':format=auto:eof_action=pass[${outputLabel}]`,
+    `[${inputLabel}]split=3[${labels.base}][${labels.outerSource}][${labels.innerSource}]`,
+    `[${labels.outerSource}]crop=${g.outerWidth}:${g.outerHeight}:${g.outerX}:${g.outerY},${scaleExpression(stretch, 0.22, 0.12)},colorchannelmixer=aa=${outerAlpha}[${labels.outerPatch}]`,
+    `[${labels.innerSource}]crop=${g.innerWidth}:${g.innerHeight}:${g.innerX}:${g.innerY},${scaleExpression(stretch, 0.46, 0.24)},colorchannelmixer=aa=${innerAlpha}[${labels.innerPatch}]`,
+    `[${labels.base}][${labels.outerPatch}]overlay=x='${g.outerX}+(${vectorX})*main_w*${outerTravel}-(overlay_w-${g.outerWidth})/2':y='${g.outerY}+(${vectorY})*main_h*${outerTravel}-(overlay_h-${g.outerHeight})/2':enable='${enable}':format=auto:eof_action=pass[${labels.outerComposite}]`,
+    `[${labels.outerComposite}][${labels.innerPatch}]overlay=x='${g.innerX}+(${vectorX})*main_w-(overlay_w-${g.innerWidth})/2':y='${g.innerY}+(${vectorY})*main_h-(overlay_h-${g.innerHeight})/2':enable='${enable}':format=auto:eof_action=pass[${outputLabel}]`,
   ].join(";\n");
 }
 
@@ -93,7 +102,21 @@ function compileGrabSeam(eventResponse, geometry, carrierLabel = "waveFull") {
   if (!local || local.kind !== "grab") {
     throw new TypeError("Topology event seam requires a compiled GRAB local deformation.");
   }
-  return compileGrabLocalStep(local, geometry, carrierLabel, "grabTopology", "grabTopologyFinal");
+  return compileGrabLocalStep(
+    local,
+    geometry,
+    carrierLabel,
+    "grabTopology",
+    "grabTopologyFinal",
+    {
+      base: "grabTopologyBase",
+      outerSource: "grabOuterSource",
+      innerSource: "grabInnerSource",
+      outerPatch: "grabOuterPatch",
+      innerPatch: "grabInnerPatch",
+      outerComposite: "grabOuterComposite",
+    },
+  );
 }
 
 function compileApertureStep(effect, geometry, inputLabel, prefix, outputLabel, timebase) {
