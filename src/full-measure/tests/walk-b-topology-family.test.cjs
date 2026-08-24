@@ -10,15 +10,17 @@ const root = path.resolve(__dirname, "..");
 const readJson = (relativePath) =>
   JSON.parse(fs.readFileSync(path.join(root, relativePath), "utf8"));
 
-const constraints = readJson("constraints/wire-orchard.v3.json");
-const profile = readJson("profiles/toaster-raster-4.json");
+const canonicalConstraints = readJson("constraints/wire-orchard.v1.json");
+const canonicalProfile = readJson("profiles/toaster-raster-1.json");
+const testSixConstraints = readJson("constraints/wire-orchard.v3.json");
+const testSixProfile = readJson("profiles/toaster-raster-4.json");
 const analysis = readJson("fixtures/analysis/sectional.v1.json");
 
 function fixture(rootSeed = "walk-b-topology-family") {
   const family = generation.generateCandidateSet({
     analysis,
-    garmentConstraints: constraints,
-    rendererProfile: profile,
+    garmentConstraints: canonicalConstraints,
+    rendererProfile: canonicalProfile,
     rootSeed,
     count: 2,
   });
@@ -156,8 +158,8 @@ test("GROW makes surviving ancestry and age ordering mechanically inspectable", 
 test("walking TEST 6 summons exactly APERTURE, SPEAK, GRAB, GROW, BODY, KITCHEN SINK", () => {
   const family = generation.generateTestSixWitnessFamily({
     analysis,
-    garmentConstraints: constraints,
-    rendererProfile: profile,
+    garmentConstraints: testSixConstraints,
+    rendererProfile: testSixProfile,
     rootSeed: "walk-b-test-six",
   });
 
@@ -179,8 +181,8 @@ test("walking TEST 6 summons exactly APERTURE, SPEAK, GRAB, GROW, BODY, KITCHEN 
 
   const ordinary = generation.generateCandidateSet({
     analysis,
-    garmentConstraints: constraints,
-    rendererProfile: profile,
+    garmentConstraints: testSixConstraints,
+    rendererProfile: testSixProfile,
     rootSeed: "walk-b-test-six-ordinary-control",
     count: 6,
   });
