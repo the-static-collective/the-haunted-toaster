@@ -203,9 +203,17 @@ jobs:
               '    ffmpegArgs.push(...ffmpegInputArgsForForeignMaterial(foreignMaterialPlan));\n\n',
               "render material ffmpeg input",
           )
-          text = insert_before(
-              text,
-              '      visualCompiler: filter.visualCompiler,\n',
+          failure_tail = (
+              '      sourceImage: imagePath\n'
+              '        ? { path: imagePath, filename: path.basename(imagePath) }\n'
+              '        : null,\n'
+              '      visualCompiler: filter.visualCompiler,\n'
+              '    };\n'
+          )
+          failure_tail_with_material = (
+              '      sourceImage: imagePath\n'
+              '        ? { path: imagePath, filename: path.basename(imagePath) }\n'
+              '        : null,\n'
               '      foreignMaterial: foreignMaterialPlan\n'
               '        ? {\n'
               '            sourcePath: foreignMaterialPlan.sourcePath,\n'
@@ -215,7 +223,14 @@ jobs:
               '            planHash: foreignMaterialPlan.planHash,\n'
               '            clipAnalysisHash: foreignMaterialPlan.clipAnalysisHash,\n'
               '          }\n'
-              '        : null,\n',
+              '        : null,\n'
+              '      visualCompiler: filter.visualCompiler,\n'
+              '    };\n'
+          )
+          text = replace_once(
+              text,
+              failure_tail,
+              failure_tail_with_material,
               "render material failure evidence",
           )
           text = insert_after(
