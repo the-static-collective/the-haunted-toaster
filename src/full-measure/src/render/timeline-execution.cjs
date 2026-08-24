@@ -12,6 +12,7 @@ const {
   TOPOLOGY_EVENT_POLICY,
   stateAtTick,
 } = require("../generation/index.cjs");
+const { assertLBranchIntegrity } = require("./l-branch-integrity.cjs");
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 
@@ -300,6 +301,7 @@ function assertResolvedTimeline(timeline) {
   assertNativeColor(timeline);
   assertLyricResonance(timeline);
   assertTopologyEvents(timeline);
+  assertLBranchIntegrity(timeline);
   return timeline;
 }
 
