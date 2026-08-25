@@ -5,7 +5,10 @@ const path = require("node:path");
 
 const { createCandidateSession } = require("../src/candidate-session.cjs");
 const { buildPostWalkAxisRecipe } = require("../src/generation/post-walk-axis-grammar.cjs");
-const { candidatePreviewPlan } = require("../src/render/candidate-preview.cjs");
+const {
+  candidatePreviewPlan,
+  postWalkAxisRecipeForCandidate,
+} = require("../src/render/candidate-preview.cjs");
 
 const root = path.resolve(__dirname, "..");
 const fixture = JSON.parse(
@@ -99,8 +102,28 @@ test("ordinary candidate view stays ordinary when Stage A was not admitted", asy
   );
 });
 
+test("Stage A preview witness refuses partial or mismatched carriers", () => {
+  const recipe = buildPostWalkAxisRecipe(0);
+  assert.throws(
+    () => postWalkAxisRecipeForCandidate({
+      postWalkAxisRecipeHash: recipe.recipeHash,
+      postWalkAxisRecipe: recipe,
+    }),
+    /does not match its accepted candidate timeline/,
+  );
+  assert.throws(
+    () => postWalkAxisRecipeForCandidate({
+      timeline: { postWalkAxis: { recipeHash: recipe.recipeHash } },
+      postWalkAxisRecipeHash: recipe.recipeHash,
+      postWalkAxisRecipe: { ...recipe, recipeHash: "foreign-recipe" },
+    }),
+    /does not match its accepted candidate timeline/,
+  );
+});
+
 test("existing six-up owns one explicit Stage A opt-in and never reconstructs recipe meaning in the renderer", () => {
   const ui = source("src/renderer/candidate-ui.js");
+  const preview = source("src/render/candidate-preview.cjs");
 
   assert.match(ui, /id="candidateStageA"/);
   assert.match(ui, /postWalkAxisGrammar:\s*stageAOptIn\.checked\s*===\s*true/);
@@ -110,6 +133,7 @@ test("existing six-up owns one explicit Stage A opt-in and never reconstructs re
   assert.match(ui, /recipe\.consequence/);
   assert.match(ui, /Stage A changed · generate six again/);
   assert.doesNotMatch(ui, /buildPostWalkAxisRecipe|POST_WALK_AXIS_RECIPES/);
+  assert.doesNotMatch(preview, /buildPostWalkAxisRecipe|POST_WALK_AXIS_RECIPES/);
 });
 
 test("Stage A witness furniture is bounded to the existing candidate toolbar and cards", () => {
