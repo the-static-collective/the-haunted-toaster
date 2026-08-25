@@ -294,6 +294,7 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       ffmpegArgs,
       visualScore: config.visualScore,
       resolvedTimeline: execution.timeline,
+      candidateGenealogy: config.candidateGenealogy || null,
       sourceAudio: {
         path: audioPath,
         filename: analysis.filename,
@@ -517,7 +518,9 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       },
     };
 
-    const receiptPath = await writeReceipt(receipt, outputPath);
+    const receiptPath = await writeReceipt(receipt, outputPath, {
+      candidateGenealogy: config.candidateGenealogy || null,
+    });
     hooks.onProgress?.({ ratio: 1, renderedSeconds: analysis.duration, duration: analysis.duration });
 
     return {
