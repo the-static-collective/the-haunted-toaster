@@ -5,6 +5,8 @@ const path = require("node:path");
 const { assertResolvedTimeline } = require("./timeline-execution.cjs");
 const { promoteTopologyResponseEvidence } = require("./visual-compiler-evidence.cjs");
 
+const CANDIDATE_GENEALOGY_SCHEMA = "haunted-toaster/candidate-genealogy/v1";
+
 async function hashFile(filePath) {
   return new Promise((resolve, reject) => {
     const hash = crypto.createHash("sha256");
@@ -53,6 +55,32 @@ async function readCanonicalTimelineSidecar(receipt, outputPath) {
   }
   assertResolvedTimeline(timeline);
   return timeline;
+}
+
+function compactCandidateGenealogyEvidence(candidateGenealogy, timeline) {
+  if (!candidateGenealogy) return null;
+  if (!candidateGenealogy || typeof candidateGenealogy !== "object" || Array.isArray(candidateGenealogy)) {
+    throw new TypeError("Candidate genealogy must be an object.");
+  }
+  if (candidateGenealogy.schema !== CANDIDATE_GENEALOGY_SCHEMA) {
+    throw new TypeError(`Candidate genealogy must use ${CANDIDATE_GENEALOGY_SCHEMA}.`);
+  }
+  if (!timeline || typeof timeline !== "object") {
+    throw new TypeError("Candidate genealogy requires an accepted timeline.");
+  }
+  if (candidateGenealogy.scoreAddress !== timeline.scoreAddress) {
+    throw new TypeError("Candidate genealogy scoreAddress does not match accepted timeline.");
+  }
+  if (candidateGenealogy.timelineHash !== timeline.timelineHash) {
+    throw new TypeError("Candidate genealogy timelineHash does not match accepted timeline.");
+  }
+  if (
+    Object.hasOwn(candidateGenealogy, "topologyEventAuthority") ||
+    Object.hasOwn(candidateGenealogy, "authoritySha256")
+  ) {
+    throw new TypeError("Candidate genealogy must remain separate from topology-event authority.");
+  }
+  return structuredClone(candidateGenealogy);
 }
 
 function compactTopologyEventEvidence(timeline) {
@@ -108,6 +136,12 @@ function promoteTimelineEvidenceInReceipt(receipt, timeline) {
   return receipt;
 }
 
+function promoteCandidateGenealogyInReceipt(receipt, timeline, candidateGenealogy) {
+  const evidence = compactCandidateGenealogyEvidence(candidateGenealogy, timeline);
+  if (evidence) receipt.candidateGenealogy = evidence;
+  return receipt;
+}
+
 async function promoteLBranchInReceipt(receipt, outputPath) {
   const timeline = await readCanonicalTimelineSidecar(receipt, outputPath);
   if (!timeline?.lBranch) return receipt;
@@ -121,14 +155,20 @@ async function promoteLBranchInReceipt(receipt, outputPath) {
   return receipt;
 }
 
-async function promoteCanonicalTimelineEvidenceInReceipt(receipt, outputPath) {
+async function promoteCanonicalTimelineEvidenceInReceipt(
+  receipt,
+  outputPath,
+  { candidateGenealogy = null } = {},
+) {
   const timeline = await readCanonicalTimelineSidecar(receipt, outputPath);
-  return promoteTimelineEvidenceInReceipt(receipt, timeline);
+  promoteTimelineEvidenceInReceipt(receipt, timeline);
+  promoteCandidateGenealogyInReceipt(receipt, timeline, candidateGenealogy);
+  return receipt;
 }
 
-async function writeReceipt(receipt, outputPath) {
+async function writeReceipt(receipt, outputPath, options = {}) {
   promoteVisualCompilerInReceipt(receipt);
-  await promoteCanonicalTimelineEvidenceInReceipt(receipt, outputPath);
+  await promoteCanonicalTimelineEvidenceInReceipt(receipt, outputPath, options);
   receipt.build = buildProvenance();
   const receiptPath = receiptPathFor(outputPath);
   await fsPromises.writeFile(
@@ -141,8 +181,10 @@ async function writeReceipt(receipt, outputPath) {
 
 module.exports = {
   buildProvenance,
+  compactCandidateGenealogyEvidence,
   compactTopologyEventEvidence,
   hashFile,
+  promoteCandidateGenealogyInReceipt,
   promoteCanonicalTimelineEvidenceInReceipt,
   promoteLBranchInReceipt,
   promoteVisualCompilerInReceipt,
