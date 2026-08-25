@@ -1,18 +1,30 @@
 const {
+  canonicalStringify,
   deepFreeze,
   hashCanonical,
 } = require("./canonical.cjs");
+const {
+  MIX_PLAN_POLICY_V2,
+  bindMixPlanToTimeline,
+  buildMixPlanFromRequests,
+} = require("./l-branch.cjs");
 const {
   ORDINARY_TOPOLOGY_PARAMETERS,
   boundedOpportunityWindow,
   opportunityCount,
 } = require("./ordinary-topology-activity.cjs");
+const {
+  resolveTopologyEvents,
+} = require("./topology-events.cjs");
 
 const POST_WALK_AXIS_GRAMMAR_SCHEMA = "haunted-toaster/post-walk-axis-grammar/v1";
 const POST_WALK_AXIS_GRAMMAR_POLICY = "post-walk-axis-grammar-v1";
 const POST_WALK_AXIS_RECIPE_SCHEMA = "haunted-toaster/post-walk-axis-recipe/v1";
 const POST_WALK_AXIS_RECIPE_POLICY = "post-walk-axis-recipe-v1";
 const POST_WALK_AXIS_RECIPE_HASH_DOMAIN = "HauntedToaster-PostWalkAxisRecipe-v1";
+const POST_WALK_AXIS_TIMELINE_SCHEMA = "haunted-toaster/post-walk-axis-timeline/v1";
+const POST_WALK_AXIS_TIMELINE_POLICY = "post-walk-axis-timeline-v1";
+const RESOLVED_TIMELINE_HASH_DOMAIN = "HauntedToaster-ResolvedTimeline-v1";
 
 const FOUNDING_SEND = deepFreeze({
   lane: "raw-energy-envelope",
@@ -145,6 +157,118 @@ function buildAxisGrabRequest({ timeline, rootSeed, slotIndex, recipe } = {}) {
   });
 }
 
+function bindPostWalkAxisToTimeline(timeline, recipe, acceptedTopologyTimeline) {
+  const {
+    timelineHash: _timelineHash,
+    canonicalJson: _canonicalJson,
+    postWalkAxis: _postWalkAxis,
+    ...baseBody
+  } = timeline;
+  const postWalkAxis = {
+    schema: POST_WALK_AXIS_TIMELINE_SCHEMA,
+    policyVersion: POST_WALK_AXIS_TIMELINE_POLICY,
+    recipeHash: recipe.recipeHash,
+    candidateIndex: recipe.candidateIndex,
+    topologyPlanSha256: acceptedTopologyTimeline.topologyEvents.planSha256,
+    mixPlanHash: timeline.lBranch.mixPlan.planHash,
+    mixExecutionHash: timeline.lBranch.execution.executionHash,
+  };
+  const body = {
+    ...structuredClone(baseBody),
+    postWalkAxis,
+  };
+  return deepFreeze({
+    ...body,
+    timelineHash: hashCanonical(body, RESOLVED_TIMELINE_HASH_DOMAIN),
+    canonicalJson: canonicalStringify(body),
+  });
+}
+
+function composePostWalkAxisRecipe({
+  family,
+  candidate,
+  authority,
+  laneBank,
+  recipe,
+  rootSeed,
+  slotIndex,
+} = {}) {
+  if (!family?.candidates?.length) {
+    throw new TypeError("Post-WALK axis composition requires a CandidateFamily.");
+  }
+  if (!candidate?.timeline || typeof candidate.timelineHash !== "string") {
+    throw new TypeError("Post-WALK axis composition requires an accepted candidate timeline.");
+  }
+  if (family.candidates[candidate.index]?.timelineHash !== candidate.timelineHash) {
+    throw new TypeError("Post-WALK axis candidate does not belong to the supplied family.");
+  }
+  const addressedRecipe = assertAddressedRecipe(recipe);
+  const grab = buildAxisGrabRequest({
+    timeline: candidate.timeline,
+    rootSeed,
+    slotIndex,
+    recipe: addressedRecipe,
+  });
+  if (!grab.ok) return grab;
+
+  const acceptedTopologyTimeline = resolveTopologyEvents(candidate.timeline, {
+    authority,
+    events: [grab.request],
+  });
+  if (
+    acceptedTopologyTimeline.topologyEvents?.refusal ||
+    acceptedTopologyTimeline.topologyEvents?.eventCount !== 1 ||
+    acceptedTopologyTimeline.topologyEvents?.events?.[0]?.kind !== "grab"
+  ) {
+    return deepFreeze({
+      ok: false,
+      refusal: {
+        reason:
+          acceptedTopologyTimeline.topologyEvents?.refusal?.reason ||
+          "axis-topology-event-not-accepted",
+        recipeHash: addressedRecipe.recipeHash,
+      },
+    });
+  }
+
+  const topologyCandidate = {
+    ...candidate,
+    timeline: acceptedTopologyTimeline,
+    timelineHash: acceptedTopologyTimeline.timelineHash,
+  };
+  const mixPlan = buildMixPlanFromRequests({
+    laneBank,
+    candidate: topologyCandidate,
+    strategyId: `post-walk-axis:${addressedRecipe.recipeHash}`,
+    requests: [{
+      ...structuredClone(addressedRecipe.send),
+      response: addressedRecipe.response,
+      scope: addressedRecipe.scope,
+    }],
+    policyVersion: MIX_PLAN_POLICY_V2,
+  });
+  const lBranchTimeline = bindMixPlanToTimeline(
+    acceptedTopologyTimeline,
+    laneBank,
+    mixPlan,
+  );
+  const timeline = bindPostWalkAxisToTimeline(
+    lBranchTimeline,
+    addressedRecipe,
+    acceptedTopologyTimeline,
+  );
+
+  return deepFreeze({
+    ok: true,
+    recipe: addressedRecipe,
+    request: grab.request,
+    acceptedTopologyTimeline,
+    mixPlan,
+    mixExecution: timeline.lBranch.execution,
+    timeline,
+  });
+}
+
 module.exports = {
   FOUNDING_SEND,
   POST_WALK_AXIS_GRAMMAR_POLICY,
@@ -152,6 +276,9 @@ module.exports = {
   POST_WALK_AXIS_RECIPES,
   POST_WALK_AXIS_RECIPE_POLICY,
   POST_WALK_AXIS_RECIPE_SCHEMA,
+  POST_WALK_AXIS_TIMELINE_POLICY,
+  POST_WALK_AXIS_TIMELINE_SCHEMA,
   buildAxisGrabRequest,
   buildPostWalkAxisRecipe,
+  composePostWalkAxisRecipe,
 };
