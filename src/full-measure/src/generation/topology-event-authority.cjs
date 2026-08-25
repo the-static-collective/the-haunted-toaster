@@ -10,7 +10,7 @@ const TOPOLOGY_EVENT_AUTHORITY_SCHEMA = "haunted-toaster/topology-event-authorit
 const TOPOLOGY_EVENT_AUTHORITY_POLICY = "candidate-birth-topology-authority-v1";
 const TOPOLOGY_EVENT_AUTHORITY_DOMAIN = "HauntedToaster-TopologyEventAuthority-v1";
 const SHA256_RE = /^[0-9a-f]{64}$/;
-const SCORE_ADDRESS_RE = /^ht1_[0-9a-f]{64}$/;
+const SCORE_ADDRESS_RE = /^htvs1_[0-9a-f]{64}$/;
 const AUTHORITY_KEYS = Object.freeze([
   "schema",
   "policyVersion",
