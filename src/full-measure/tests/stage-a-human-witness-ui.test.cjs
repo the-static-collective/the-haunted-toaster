@@ -5,6 +5,7 @@ const path = require("node:path");
 
 const { createCandidateSession } = require("../src/candidate-session.cjs");
 const { buildPostWalkAxisRecipe } = require("../src/generation/post-walk-axis-grammar.cjs");
+const { candidatePreviewPlan } = require("../src/render/candidate-preview.cjs");
 
 const root = path.resolve(__dirname, "..");
 const fixture = JSON.parse(
@@ -44,12 +45,7 @@ function sessionHarness() {
         producedCount: family.candidates.length,
         requestedCount: 6,
         candidates: family.candidates.map((candidate) => ({
-          index: candidate.index,
-          role: candidate.role,
-          scoreAddress: candidate.scoreAddress,
-          timelineHash: candidate.timelineHash,
-          signature: `candidate-${candidate.index + 1}`,
-          changedAxes: [],
+          ...candidatePreviewPlan(candidate),
           thumbnailDataUrl: "data:image/png;base64,",
         })),
       };
