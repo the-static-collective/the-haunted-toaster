@@ -2,6 +2,7 @@ const crypto = require("node:crypto");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const { canonicalStringify } = require("../generation/index.cjs");
+const { compactTopologyEventEvidence } = require("./receipt.cjs");
 const { promoteTopologyResponseEvidence } = require("./visual-compiler-evidence.cjs");
 
 const RENDER_FAILURE_EVIDENCE_SCHEMA = "full-measure.render-failure.v1";
@@ -76,6 +77,7 @@ async function writeRenderFailureBundle({
   const graphSha256 = crypto.createHash("sha256").update(graph, "utf8").digest("hex");
   const processFailure = error.processFailure;
   const timeline = resolvedTimeline || {};
+  const topologyEvents = compactTopologyEventEvidence(timeline);
 
   const failure = {
     schema: RENDER_FAILURE_EVIDENCE_SCHEMA,
@@ -100,6 +102,7 @@ async function writeRenderFailureBundle({
       constraintsHash: timeline.constraintsHash || null,
       rendererProfileHash: timeline.rendererProfileHash || null,
       rendererPolicy: timeline.rendererPolicy || null,
+      ...(topologyEvents ? { topologyEvents } : {}),
     },
     render: {
       graphSha256,
