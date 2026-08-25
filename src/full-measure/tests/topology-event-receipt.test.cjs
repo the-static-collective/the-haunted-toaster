@@ -6,6 +6,9 @@ const path = require("node:path");
 
 const generation = require("../src/generation/index.cjs");
 const { createCandidateSession } = require("../src/candidate-session.cjs");
+const {
+  writeRenderFailureBundle,
+} = require("../src/render/render-failure-evidence.cjs");
 const { receiptPathFor, writeReceipt } = require("../src/render/receipt.cjs");
 
 const root = path.resolve(__dirname, "..");
@@ -214,4 +217,53 @@ test("video receipt distinguishes an explicit no-event topology refusal from mis
       reason: "no-lawful-event-window",
     });
   });
+});
+
+test("render failure evidence preserves scheduled topology proof without manufacturing a success receipt", async () => {
+  const timeline = await naturalGrabTimeline();
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "topology-render-failure-"));
+  const outputPath = path.join(directory, "artifact.mp4");
+  const filterPath = path.join(directory, "render.ffgraph");
+  const graph = "[0:v]null[vout]";
+  const error = new Error("ffmpeg.exe exited with code 7");
+  error.processFailure = Object.freeze({
+    binary: "ffmpeg.exe",
+    code: 7,
+    signal: null,
+    stdout: "",
+    stderr: "topology render failed\n",
+  });
+
+  try {
+    await fs.writeFile(filterPath, `${graph}\n`, "utf8");
+    const bundle = await writeRenderFailureBundle({
+      outputPath,
+      error,
+      filterPath,
+      ffmpegArgs: ["-filter_complex_script", filterPath, outputPath],
+      visualScore: { schema: "full-measure.visual-score.v0.5", seed: "topology-failure" },
+      resolvedTimeline: timeline,
+      buildInfo: {
+        version: "0.5.0-alpha.8",
+        commit: "receipt-test",
+        dirty: false,
+        sourceMode: true,
+      },
+      sourceAudio: null,
+      sourceImage: null,
+      visualCompiler: null,
+      jobId: "topology-failure-receipt",
+      startedAt: new Date("2026-08-25T00:00:00.000Z"),
+      lastProgress: { renderedSeconds: 4.2, frame: 126, duration: 100 },
+    });
+
+    const failure = JSON.parse(await fs.readFile(bundle.failurePath, "utf8"));
+    assert.deepEqual(
+      failure.canonicalExecution.topologyEvents,
+      expectedTopologyEvidence(timeline),
+    );
+    await assert.rejects(fs.stat(receiptPathFor(outputPath)), { code: "ENOENT" });
+  } finally {
+    await fs.rm(directory, { recursive: true, force: true });
+  }
 });
