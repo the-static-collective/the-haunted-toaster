@@ -2,7 +2,10 @@ const crypto = require("node:crypto");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const { canonicalStringify } = require("../generation/index.cjs");
-const { compactTopologyEventEvidence } = require("./receipt.cjs");
+const {
+  compactCandidateGenealogyEvidence,
+  compactTopologyEventEvidence,
+} = require("./receipt.cjs");
 const { promoteTopologyResponseEvidence } = require("./visual-compiler-evidence.cjs");
 
 const RENDER_FAILURE_EVIDENCE_SCHEMA = "full-measure.render-failure.v1";
@@ -57,6 +60,7 @@ async function writeRenderFailureBundle({
   ffmpegArgs,
   visualScore,
   resolvedTimeline,
+  candidateGenealogy,
   buildInfo,
   sourceAudio,
   sourceImage,
@@ -78,6 +82,7 @@ async function writeRenderFailureBundle({
   const processFailure = error.processFailure;
   const timeline = resolvedTimeline || {};
   const topologyEvents = compactTopologyEventEvidence(timeline);
+  const genealogy = compactCandidateGenealogyEvidence(candidateGenealogy, timeline);
 
   const failure = {
     schema: RENDER_FAILURE_EVIDENCE_SCHEMA,
@@ -85,6 +90,7 @@ async function writeRenderFailureBundle({
     createdAt: new Date().toISOString(),
     startedAt: startedAt instanceof Date ? startedAt.toISOString() : startedAt || null,
     build: compactBuildInfo(buildInfo),
+    ...(genealogy ? { candidateGenealogy: genealogy } : {}),
     process: {
       binary: portableBasename(processFailure.binary),
       code: processFailure.code ?? null,
