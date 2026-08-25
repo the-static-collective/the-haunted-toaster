@@ -15,6 +15,7 @@ const {
   buildAxisGrabRequest,
   buildPostWalkAxisRecipe,
   composePostWalkAxisRecipe,
+  replayPostWalkAxisRecipe,
 } = require('../src/generation/post-walk-axis-grammar.cjs');
 const {
   issueTopologyEventAuthority,
@@ -202,6 +203,62 @@ test('Stage A composes an addressed recipe through accepted topology into an L B
     result.acceptedTopologyTimeline.timelineHash,
   );
   assert.notEqual(result.timeline.timelineHash, result.acceptedTopologyTimeline.timelineHash);
+});
+
+test('Stage A replay reconstructs recipe, topology, L BRANCH v2, and final timeline identity exactly', () => {
+  const specimen = familyWithTimeline();
+  const recipe = buildPostWalkAxisRecipe(4);
+  const authority = issueTopologyEventAuthority(specimen.family, 0);
+  const laneBank = buildLaneBank({ responseWitness: responseWitness() });
+  const inputs = {
+    family: specimen.family,
+    candidate: specimen.candidate,
+    authority,
+    laneBank,
+    recipe,
+    rootSeed: 'axis-replay-fixture',
+    slotIndex: 0,
+  };
+  const admitted = composePostWalkAxisRecipe(inputs);
+  const replay = replayPostWalkAxisRecipe(admitted, inputs);
+
+  assert.equal(replay.ok, true);
+  assert.equal(replay.recipeHashMatches, true);
+  assert.equal(replay.topologyAuthorityHashMatches, true);
+  assert.equal(replay.topologyEventHashesMatch, true);
+  assert.equal(replay.mixPlanHashMatches, true);
+  assert.equal(replay.mixExecutionHashMatches, true);
+  assert.equal(replay.timelineHashMatches, true);
+  assert.equal(replay.replayed.timeline.timelineHash, admitted.timeline.timelineHash);
+});
+
+test('Stage A replay detects serialized identity drift instead of trusting admitted output', () => {
+  const specimen = familyWithTimeline();
+  const recipe = buildPostWalkAxisRecipe(1);
+  const authority = issueTopologyEventAuthority(specimen.family, 0);
+  const laneBank = buildLaneBank({ responseWitness: responseWitness() });
+  const inputs = {
+    family: specimen.family,
+    candidate: specimen.candidate,
+    authority,
+    laneBank,
+    recipe,
+    rootSeed: 'axis-replay-drift-fixture',
+    slotIndex: 0,
+  };
+  const admitted = composePostWalkAxisRecipe(inputs);
+  const drifted = structuredClone(admitted);
+  drifted.timeline.postWalkAxis.recipeHash = 'f'.repeat(64);
+
+  const replay = replayPostWalkAxisRecipe(drifted, inputs);
+
+  assert.equal(replay.ok, false);
+  assert.equal(replay.recipeHashMatches, false);
+  assert.equal(replay.topologyAuthorityHashMatches, true);
+  assert.equal(replay.topologyEventHashesMatch, true);
+  assert.equal(replay.mixPlanHashMatches, true);
+  assert.equal(replay.mixExecutionHashMatches, true);
+  assert.equal(replay.timelineHashMatches, true);
 });
 
 test('axis kernel refuses explicitly when no lawful event window exists', () => {
