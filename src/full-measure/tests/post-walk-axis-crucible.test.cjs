@@ -137,18 +137,19 @@ test("Stage A refuses foreign topology authority without appending to the source
   const recipe = buildPostWalkAxisRecipe(0);
   const before = structuredClone(specimen.candidate.timeline);
 
-  assert.throws(
-    () => composePostWalkAxisRecipe({
-      family: specimen.family,
-      candidate: specimen.candidate,
-      authority,
-      laneBank,
-      recipe,
-      rootSeed: "axis-right-family",
-      slotIndex: 0,
-    }),
-    /authority|family|birth/i,
-  );
+  const result = composePostWalkAxisRecipe({
+    family: specimen.family,
+    candidate: specimen.candidate,
+    authority,
+    laneBank,
+    recipe,
+    rootSeed: "axis-right-family",
+    slotIndex: 0,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(typeof result.refusal?.reason, "string");
+  assert.ok(result.refusal.reason.length > 0);
   assert.deepEqual(specimen.candidate.timeline, before);
 });
 
