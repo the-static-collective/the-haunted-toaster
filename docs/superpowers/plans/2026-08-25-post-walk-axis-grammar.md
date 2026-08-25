@@ -4,7 +4,7 @@
 
 **Goal:** Prove `RESPONSE STANCE × SCOPE × CONSEQUENCE` as a deterministic six-up grammar using existing L BRANCH and topology-event organs, with versioned relational response semantics, exact replay, fail-closed refusal, receipt parity, and no new renderer subsystem.
 
-**Architecture:** Add a versioned L BRANCH v2 execution policy only for the Stage A path so historical v1 semantics remain unchanged. Add one focused `post-walk-axis-grammar.cjs` layer that addresses six balanced recipes, requests an existing GRAB event as the consequence carrier, binds a v2 L BRANCH send as response/scope, and records the recipe identity on the accepted timeline. Candidate-session exposes this only through an explicit internal policy; ordinary six-up generation remains byte-for-byte governed by the existing path when the policy is absent.
+**Architecture:** Add a versioned L BRANCH v2 execution policy only for the Stage A path so historical v1 semantics remain unchanged. Add one focused `post-walk-axis-grammar.cjs` layer that addresses six balanced recipes, requests an existing GRAB event as the consequence carrier, binds a v2 L BRANCH send as response/scope, and records the recipe identity on the accepted timeline. Candidate-session exposes this only through an explicit internal policy; ordinary six-up generation remains governed by the existing path when the policy is absent.
 
 **Tech Stack:** Node.js CommonJS, deterministic canonical hashing, `node:test`, existing Full Measure candidate/session/topology/L BRANCH/receipt modules, existing FFmpeg render seam.
 
@@ -23,6 +23,7 @@
 - Illegal or unavailable combinations refuse explicitly; no silent coercion to whole-frame, `follow`, or clean-return.
 - The same frozen inputs, seed, locks, policy, and evidence must reproduce the same recipes, timelines, plans, executions, and receipt identities.
 - Preview and final render must consume the same accepted timeline semantics.
+- Stage A v1 owns only `whole | grab` scope. It does not encode aperture geometry; that preserves the clean descendant seam for #223 Aperture Shape.
 - Machine proof and human witness remain separate receipts.
 
 ---
@@ -43,7 +44,7 @@
 - Add: `MIX_EXECUTION_POLICY_V2 = "l-branch-mix-execution-v2"`.
 - Add: `buildMixPlanFromRequests({ laneBank, candidate, strategyId, requests, policyVersion })`.
 - Add: `bindMixPlanToTimeline(timeline, laneBank, mixPlan)` as the public name for the current binding operation.
-- `compileMixPlan(...)` must dispatch response semantics from the mix-plan policy. v1 remains exactly current behavior; v2 uses relational temporal counter-motion for `oppose`.
+- `compileMixPlan(...)` dispatches response semantics from the mix-plan policy. v1 remains exactly current behavior; v2 uses relational temporal counter-motion for `oppose`.
 
 - [ ] **Step 1: Write failing tests for v2 plan identity and historical v1 stability**
 
@@ -71,7 +72,7 @@ assert.equal(v2Plan.policyVersion, MIX_PLAN_POLICY_V2);
 assert.equal(v2Plan.sends[0].response, "oppose");
 ```
 
-Also keep the existing v1 fixture/hash assertions unchanged. Do not update historical expected hashes to make the new code pass.
+Keep existing v1 fixture/hash assertions unchanged. Do not update historical expected hashes to make the new code pass.
 
 - [ ] **Step 2: Write a failing relational-oppose test**
 
@@ -87,11 +88,9 @@ assert.notEqual(relationalOppose(0.60, 0.20), 1 - 0.60);
 assert.notEqual(relationalOppose(0.60, 0.80), relationalOppose(0.60, 0.20));
 ```
 
-Test this through `compileMixPlan`, not by exporting the helper solely for tests. The proof must show that equal current amplitude under different local history produces different v2 `oppose` output.
+Test this through `compileMixPlan`, not by exporting the helper solely for tests. Equal current amplitude under different local history must produce different v2 `oppose` output.
 
 - [ ] **Step 3: Run the focused L BRANCH tests and verify RED**
-
-Run:
 
 ```text
 npm --prefix src/full-measure test -- --test-name-pattern="L BRANCH|relational oppose|mix plan v2"
@@ -101,14 +100,14 @@ Expected: FAIL because v2 schemas/building and relational response semantics do 
 
 - [ ] **Step 4: Refactor plan construction without changing v1 output**
 
-Move the current `buildMixPlan` core into `buildMixPlanFromRequests`. `buildMixPlan` must continue selecting the current `STRATEGIES[index % STRATEGIES.length]` and call the new helper with the v1 policy.
-
-The helper must normalize sends through the existing lane/destination/response/scope validation and hash with a policy-specific domain:
+Move the current `buildMixPlan` core into `buildMixPlanFromRequests`. `buildMixPlan` continues selecting `STRATEGIES[index % STRATEGIES.length]` and calls the helper with the v1 policy.
 
 ```js
 const MIX_PLAN_HASH_DOMAIN_V1 = "HauntedToaster-LBranchMixPlan-v1";
 const MIX_PLAN_HASH_DOMAIN_V2 = "HauntedToaster-LBranchMixPlan-v2";
 ```
+
+The helper reuses existing lane/destination/response/scope validation.
 
 - [ ] **Step 5: Add policy-specific execution semantics**
 
@@ -119,7 +118,7 @@ if (send.response === "oppose") responseValue = 1 - value;
 else if (send.response === "accent") responseValue = Math.abs(value - previous);
 ```
 
-For v2 use local temporal relation:
+For v2:
 
 ```js
 if (send.response === "oppose") {
@@ -133,11 +132,9 @@ Use v2 execution schema/policy and hash domain `HauntedToaster-LBranchMixExecuti
 
 - [ ] **Step 6: Teach `assertLBranchIntegrity` to verify either admitted version**
 
-Select the expected schema, policy, and hash domain from the mix-plan/execution version. Reject mixed v1/v2 pairs. Existing v1 timelines must continue to verify unchanged.
+Select expected schema, policy, and hash domain from the mix-plan/execution version. Reject mixed v1/v2 pairs. Existing v1 timelines must continue to verify unchanged.
 
 - [ ] **Step 7: Run focused tests GREEN**
-
-Run:
 
 ```text
 npm --prefix src/full-measure test -- --test-name-pattern="L BRANCH|relational oppose|mix plan v2"
@@ -193,7 +190,7 @@ Every recipe uses the same evidence/send constants in the founding proof so inte
 }
 ```
 
-- [ ] **Step 1: Write failing recipe-address tests**
+- [ ] **Step 1: Write failing recipe-address and descendant-seam tests**
 
 Prove exactly six recipes, all hashes unique, each response appears twice, each scope appears three times, and each consequence appears three times.
 
@@ -209,11 +206,14 @@ assert.deepEqual(
     { response: "accent", scope: "whole", consequence: "residue" },
   ],
 );
+assert.equal(POST_WALK_AXIS_RECIPES.some((recipe) => Object.hasOwn(recipe, "shape")), false);
 ```
+
+The absence of a `shape` field is intentional: #223 may later refine GRAB region geometry without changing the founding Stage A recipe contract.
 
 - [ ] **Step 2: Write failing consequence tests using the existing GRAB organ**
 
-Use `ORDINARY_TOPOLOGY_PARAMETERS.grab` as the base parameters. The Stage A consequence mapper must produce:
+Use `ORDINARY_TOPOLOGY_PARAMETERS.grab` as the base parameters. The Stage A consequence mapper produces:
 
 ```js
 cleanReturn = {
@@ -237,7 +237,7 @@ Assert both satisfy existing GRAB validation, have different canonical event has
 
 - [ ] **Step 3: Write failing lawful-window/refusal tests**
 
-`buildAxisGrabRequest` must scan deterministic existing opportunity windows in ascending order using `opportunityCount(...)` + `boundedOpportunityWindow(...)`. It must choose the first lawful window and include `axis-recipe:<recipeHash>` in `evidenceRefs`.
+`buildAxisGrabRequest` scans deterministic existing opportunity windows in ascending order using `opportunityCount(...)` + `boundedOpportunityWindow(...)`, chooses the first lawful window, and includes `axis-recipe:<recipeHash>` in `evidenceRefs`.
 
 For a timeline too short to furnish a lawful window, return:
 
@@ -255,8 +255,6 @@ There is no whole-frame or no-event fallback.
 
 - [ ] **Step 4: Run focused test and verify RED**
 
-Run:
-
 ```text
 npm --prefix src/full-measure test -- --test-name-pattern="post-walk axis grammar"
 ```
@@ -271,17 +269,17 @@ Hash recipe cores with domain:
 HauntedToaster-PostWalkAxisRecipe-v1
 ```
 
-Keep the recipe object limited to addressed semantics and the fixed founding send constants. Do not put renderer commands in the recipe.
+Keep the recipe object limited to addressed semantics and fixed founding send constants. Do not put renderer commands or aperture geometry in the recipe.
 
 - [ ] **Step 6: Implement deterministic GRAB request construction**
 
-Use the existing `grab` kind and existing topology timing validation. Event ids must be deterministic:
+Use existing `grab` kind and topology timing validation. Event ids are deterministic:
 
 ```text
 axis-grab-<slotIndex>-<recipeHash first 12 hex chars>
 ```
 
-Evidence refs must include grammar policy, recipe hash, and selected opportunity index.
+Evidence refs include grammar policy, recipe hash, and selected opportunity index.
 
 - [ ] **Step 7: Export through `generation/index.cjs` and run GREEN**
 
@@ -352,23 +350,25 @@ Prove the six-up contains:
 
 - [ ] **Step 3: Write failing lock/refusal tests**
 
-With a topology lock, the topology resolver must refuse. The axis grammar must surface that refusal and must not bind an executable v2 L BRANCH plan as if the consequence existed.
+With a topology lock, the topology resolver refuses and the axis grammar must not bind an executable v2 L BRANCH plan as if the consequence existed.
 
-With a missing raw-energy lane, return an explicit grammar refusal:
+With a missing raw-energy lane, return:
 
 ```text
 required-axis-evidence-unavailable
 ```
 
-With no lawful event window, preserve `no-lawful-axis-event-window`.
+With no lawful event window, preserve:
+
+```text
+no-lawful-axis-event-window
+```
 
 - [ ] **Step 4: Run focused tests and verify RED**
 
 Run the Stage A test file. Expected: FAIL on the missing family compositor/replay.
 
 - [ ] **Step 5: Implement family composition in this exact order**
-
-For a six-candidate base family:
 
 ```text
 base birth family
@@ -384,11 +384,11 @@ base birth family
   → re-hash family identity
 ```
 
-Do not route this through ordinary random topology activity; Stage A's point is deliberate orthogonal coverage before randomness.
+Do not route this through ordinary random topology activity; Stage A requires deliberate orthogonal coverage before randomness.
 
 - [ ] **Step 6: Implement replay**
 
-Replay must call the same compositor from the untouched base family and compare:
+Replay calls the same compositor from the untouched base family and compares:
 
 ```js
 recipeHashesMatch
@@ -427,8 +427,6 @@ git commit -m "feat: compose post-walk axis family"
 
 - [ ] **Step 1: Write a failing initial-generation session test**
 
-Use the same inspected media, constraints, and root seed twice:
-
 ```js
 const ordinary = await session.generate({ ...config, rootSeed: "axis-session-v1" }, signal);
 const axis = await session.generate({
@@ -445,7 +443,7 @@ Existing ordinary fixture expectations remain unchanged.
 
 - [ ] **Step 2: Write failing transition-invariance tests**
 
-For GENERATE, MUTATE, CROSS, STOMP, and CONVERGE under Stage A policy, each newly born family must contain six addressed recipes and verified topology authority. For each accepted candidate:
+For GENERATE, MUTATE, CROSS, STOMP, and CONVERGE under Stage A policy, each newly born family contains six addressed recipes and verified topology authority. For each accepted candidate:
 
 ```js
 assert.equal(
@@ -455,11 +453,9 @@ assert.equal(
 assert.equal(candidate.timeline.axisGrammar.recipeHash, candidate.axisRecipeHash);
 ```
 
-Do not require CROSS to become a human product/UI lane; this remains a machine seam specimen.
+CROSS remains a machine seam specimen, not a human product/UI lane.
 
 - [ ] **Step 3: Verify RED**
-
-Run:
 
 ```text
 npm --prefix src/full-measure test -- --test-name-pattern="post-walk axis candidate session|ordinary transition wiring"
@@ -469,7 +465,7 @@ Expected: FAIL because candidate-session does not route the policy yet.
 
 - [ ] **Step 4: Route the policy through the existing shared enrichment seam**
 
-At the top of `enrichOrdinaryFamily(sourceFamily, context)`, add only the explicit branch:
+Add the explicit branch to `enrichOrdinaryFamily`:
 
 ```js
 if (context.axisGrammarPolicy === generation.POST_WALK_AXIS_GRAMMAR_POLICY) {
@@ -480,11 +476,11 @@ if (context.axisGrammarPolicy === generation.POST_WALK_AXIS_GRAMMAR_POLICY) {
 }
 ```
 
-Then preserve the current ordinary topology + L BRANCH body verbatim for the absent-policy path.
+Preserve the current ordinary topology + L BRANCH body for the absent-policy path.
 
 - [ ] **Step 5: Pass the policy consistently at each genuine birth call site**
 
-Use one context field; do not add operation-specific grammar implementations. GENERATE/MUTATE/CROSS/STOMP/CONVERGE must all enter through the same enrichment function when they create a new family.
+Use one context field; do not add operation-specific grammar implementations. GENERATE/MUTATE/CROSS/STOMP/CONVERGE all enter through the same enrichment function when they create a new family.
 
 - [ ] **Step 6: Run focused tests GREEN**
 
@@ -523,11 +519,9 @@ git commit -m "feat: route axis grammar through candidate births"
 }
 ```
 
-- Candidate genealogy remains a separate evidence object and must not absorb axis/topology authority.
+- Candidate genealogy remains a separate evidence object and does not absorb axis/topology authority.
 
 - [ ] **Step 1: Write a failing canonical receipt test**
-
-Render/fixture an accepted Stage A candidate and assert:
 
 ```js
 assert.equal(receipt.canonicalExecution.axisGrammar.recipeHash, timeline.axisGrammar.recipeHash);
@@ -539,11 +533,9 @@ Also assert response/scope/consequence equal the addressed recipe.
 
 - [ ] **Step 2: Write tamper tests**
 
-A mismatched `recipeHash`, `topologyPlanSha256`, or `mixPlanHash` in timeline binding must fail before receipt promotion. A non-Stage-A historical timeline must not acquire `canonicalExecution.axisGrammar`.
+A mismatched `recipeHash`, `topologyPlanSha256`, or `mixPlanHash` in timeline binding fails before receipt promotion. A non-Stage-A historical timeline does not acquire `canonicalExecution.axisGrammar`.
 
 - [ ] **Step 3: Verify RED**
-
-Run:
 
 ```text
 npm --prefix src/full-measure test -- --test-name-pattern="post-walk axis receipt|topology event receipt|candidate genealogy receipt"
@@ -553,7 +545,7 @@ Expected: FAIL only on the new axis receipt obligations.
 
 - [ ] **Step 4: Implement compact promotion**
 
-Validate the axis binding against the accepted timeline before cloning fields into the receipt. Do not duplicate renderer commands, lane knots, or topology parameters in this new receipt block; those remain under their existing evidence surfaces.
+Validate the axis binding against the accepted timeline before cloning fields into the receipt. Do not duplicate renderer commands, lane knots, or topology parameters in this new block; those remain under existing evidence surfaces.
 
 - [ ] **Step 5: Run receipt tests GREEN**
 
@@ -566,30 +558,32 @@ git add src/full-measure/src/render/receipt.cjs src/full-measure/tests/post-walk
 git commit -m "feat: retain axis grammar receipt identity"
 ```
 
-### Task 6: Add the Stage A negative-control crucible and one production render witness harness
+### Task 6: Add the Stage A negative-control crucible and one exact production render witness harness
 
 **Files:**
 - Create test: `src/full-measure/tests/post-walk-axis-grammar-crucible.test.cjs`
 - Create: `src/full-measure/scripts/smoke-axis-grammar.cjs`
-- Modify: `src/full-measure/package.json` only if the repository convention requires a named script; if added, use exactly `smoke:axis-grammar`.
+- Do not modify `src/full-measure/package.json`; invoke the smoke script directly with Node.
 
 **Interfaces:**
 - Crucible consumes one frozen evidence fixture and one root seed.
-- `smoke-axis-grammar.cjs` invokes the real candidate-session/render path with `axisGrammarPolicy: "post-walk-axis-grammar-v1"`; it must not contain a private renderer or duplicate event compiler.
-- Smoke output prints recipe hash, response, scope, consequence, topology plan hash, L BRANCH mix-plan hash, final timeline hash, and output path for each rendered specimen.
+- `smoke-axis-grammar.cjs` uses the same production components as `scripts/smoke-candidates.cjs`: `createCandidateSession`, `inspectAudio`, `renderVideo`, `resolveFfmpeg`, and `runProcess`.
+- The smoke creates `test-artifacts/post-walk-axis-smoke.wav` from a 6-second 173 Hz PCM sine, generates one Stage A six-up with root seed `post-walk-axis-smoke-root`, selects candidate index `3`, and renders `test-artifacts/post-walk-axis-winner.mp4` at 640×360, 24 fps, `ultrafast`, CRF 28.
+- The only new generation policy injected by the harness is `axisGrammarPolicy: "post-walk-axis-grammar-v1"`.
 
 - [ ] **Step 1: Write the independence crucible**
 
-Machine assertions must prove:
+Machine assertions prove:
 
 1. six recipes are deterministic under the same seed;
 2. v2 `oppose` is not equal to `1 - value` for at least one non-boundary knot;
 3. the same consequence occurs under both whole and GRAB-local scope;
 4. the same scope occurs with both clean-return and residue;
-5. GRAB-local sends cite the exact accepted GRAB `regionRef` and accepted event window;
+5. GRAB-local sends cite the exact accepted GRAB `regionRef` and event window;
 6. clean-return has zero residual vector/stretch while residue has non-zero residual evidence;
 7. no recipe silently changes response/scope/consequence after acceptance;
-8. replay returns `ok: true` and exact family/timeline/plan hashes.
+8. replay returns `ok: true` with exact family/timeline/plan hashes;
+9. Stage A recipes contain no aperture-shape field, preserving #223 as a descendant rather than a hidden dependency.
 
 - [ ] **Step 2: Write refusal crucible cases**
 
@@ -601,48 +595,66 @@ required-axis-evidence-unavailable
 no-lawful-axis-event-window
 ```
 
-Assert no refused case silently returns a whole-layer `follow` send.
+No refused case may silently return a whole-layer `follow` send.
 
 - [ ] **Step 3: Run crucible RED/GREEN discipline**
-
-Before any crucible-only production adjustment, run:
 
 ```text
 npm --prefix src/full-measure test -- --test-name-pattern="post-walk axis grammar crucible"
 ```
 
-If RED exposes a real seam, fix only that seam test-first. Do not weaken the negative control.
+Any RED must be repaired at the exposed seam; do not weaken the negative control.
 
-- [ ] **Step 4: Implement the real smoke harness**
+- [ ] **Step 4: Implement the exact production smoke harness**
 
-The script must use repository-owned media analysis, candidate-session, preview/final render, timeline sidecar, and receipt writer. It accepts normal CLI paths plus an optional seed; it does not synthesize evidence that the normal app path would not have.
-
-The only policy injected by the harness is:
+Build the fixture exactly as the existing candidate smoke does, changing only frequency/duration/output names and Stage A policy:
 
 ```js
-axisGrammarPolicy: "post-walk-axis-grammar-v1"
+await runProcess(resolveFfmpeg(), [
+  "-y", "-hide_banner", "-loglevel", "error",
+  "-f", "lavfi", "-i", "sine=frequency=173:duration=6:sample_rate=48000",
+  "-c:a", "pcm_s16le", audioPath,
+]);
 ```
 
-- [ ] **Step 5: Run one real production render witness**
+Generate with:
 
-Use a repository-owned smoke specimen first. Expected: at least one final render completes through the production renderer, its canonical timeline contains axis grammar + topology + L BRANCH bindings, and its video receipt preserves the same recipe/topology/mix identities.
+```js
+const family = await session.generate({
+  rootSeed: "post-walk-axis-smoke-root",
+  presetId: "wireOrchard",
+  title: "POST WALK AXIS SMOKE",
+  artist: "The Static Collective",
+  lyrics: "",
+  toastFeelId: "wire-heat",
+  axisGrammarPolicy: "post-walk-axis-grammar-v1",
+});
+```
 
-If the repository already has a suitable real-song fixture, use it. Do not package Windows merely to satisfy this machine witness.
+Require six PNG previews, select index `3`, then require the selected preview candidate, `session.select(...)`, `executionForRender(...)`, final canonical timeline, and retained receipt to agree on `timelineHash`, `recipeHash`, topology `planSha256`, and L BRANCH `mixPlanHash`.
+
+This is the explicit preview/final semantic-parity proof: the candidate shown in the six-up is the exact accepted semantic object executed by final render.
+
+- [ ] **Step 5: Run the exact production smoke**
+
+```text
+node src/full-measure/scripts/smoke-axis-grammar.cjs
+```
+
+Expected: six previews are produced; candidate `3` renders through the production renderer; the receipt is accepted; preview/selection/execution/final receipt identities all match exactly.
 
 - [ ] **Step 6: Commit**
 
 ```text
-git add src/full-measure/tests/post-walk-axis-grammar-crucible.test.cjs src/full-measure/scripts/smoke-axis-grammar.cjs src/full-measure/package.json
+git add src/full-measure/tests/post-walk-axis-grammar-crucible.test.cjs src/full-measure/scripts/smoke-axis-grammar.cjs
 git commit -m "test: add post-walk axis crucible"
 ```
-
-If `package.json` did not need modification, omit it from `git add`.
 
 ### Task 7: Run the complete machine gate and preserve exact proof before human witness
 
 **Files:**
 - No product-code changes expected.
-- Update the Stage A PR/issue evidence only after the exact head is green.
+- Update Stage A PR/issue evidence only after the exact head is green.
 
 **Interfaces:**
 - The exact Stage A head is the unit of machine testimony.
@@ -664,18 +676,19 @@ npm run verify
 
 Expected: repository-owned check + test + smoke gate passes.
 
-- [ ] **Step 3: Run focused production smoke and runtime audit**
+- [ ] **Step 3: Run standard and Stage A production smoke plus runtime audit**
 
 ```text
 npm --prefix src/full-measure run smoke
+node src/full-measure/scripts/smoke-axis-grammar.cjs
 npm --prefix src/full-measure audit --omit=dev --audit-level=high
 ```
 
-Expected: smoke passes and production audit reports no vulnerability at or above the repository gate.
+Expected: both smoke paths pass and production audit reports no vulnerability at or above the repository gate.
 
 - [ ] **Step 4: Run canonical renderer witness comparison through the repository-owned workflow**
 
-Use the same workflow/gate already used by WALK. Do not invent a local substitute for canonical renderer witness evidence.
+Use the same canonical renderer workflow/gate already used by WALK. Do not invent a local substitute.
 
 - [ ] **Step 5: Record exact machine testimony**
 
@@ -687,10 +700,14 @@ exact tree SHA
 workflow/run id
 Full Measure test count
 crucible result
-production smoke result
+standard smoke result
+Stage A smoke result
 runtime audit result
 canonical renderer witness result
-one axis production-render receipt identity
+axis production-render recipeHash
+topology planSha256
+L BRANCH mixPlanHash
+final timelineHash
 ```
 
 Do not claim human distinguishability from these machine results.
@@ -724,11 +741,11 @@ route one internal Stage A policy through all genuine births
   ↓
 retain exact recipe identity in receipts
   ↓
-negative-control crucible + real renderer smoke
+negative-control crucible + exact preview/final production smoke
   ↓
 full machine gate
   ↓
 STOP for human Stage A witness
 ```
 
-The implementation is successful only if the Toaster gains combinatorial gait from organs it already possessed. If passing the proof requires a new effect family, renderer-local choice, silent fallback, or rewriting historical v1 behavior, the implementation has violated the design and must refuse or be redesigned.
+The implementation is successful only if the Toaster gains combinatorial gait from organs it already possessed. If passing the proof requires a new effect family, renderer-local choice, silent fallback, aperture-shape dependency, or rewriting historical v1 behavior, the implementation has violated the design and must refuse or be redesigned.
