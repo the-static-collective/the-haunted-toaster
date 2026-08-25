@@ -41,4 +41,5 @@ module.exports = {
   ...require("./sigil-topology-compiler.cjs"),
   ...require("./sigil-utterance-family.cjs"),
   ...require("./l-branch.cjs"),
+  ...require("./post-walk-axis-grammar.cjs"),
 };
