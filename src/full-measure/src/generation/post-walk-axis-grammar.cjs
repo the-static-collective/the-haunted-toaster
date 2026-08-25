@@ -73,6 +73,9 @@ function assertAddressedRecipe(recipe) {
   if (!recipe || typeof recipe !== "object" || Array.isArray(recipe)) {
     throw new TypeError("Post-WALK axis recipe must be an addressed recipe object.");
   }
+  if (Object.hasOwn(recipe, "shape")) {
+    throw new TypeError("Post-WALK axis recipe cannot carry shape; shape remains outside Stage A.");
+  }
   if (
     recipe.schema !== POST_WALK_AXIS_RECIPE_SCHEMA ||
     recipe.policyVersion !== POST_WALK_AXIS_RECIPE_POLICY ||
