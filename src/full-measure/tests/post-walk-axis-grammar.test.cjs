@@ -2,6 +2,9 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const {
+  hashCanonical,
+} = require('../src/generation/canonical.cjs');
+const {
   ORDINARY_TOPOLOGY_PARAMETERS,
 } = require('../src/generation/ordinary-topology-activity.cjs');
 const {
@@ -40,7 +43,7 @@ function familyWithTimeline(sourceTimeline = timeline()) {
     timelineHash: sourceTimeline.timelineHash,
     timeline: sourceTimeline,
   };
-  const family = {
+  const familyCore = {
     schema: 'haunted-toaster/candidate-family/v1',
     policy: 'candidate-family-v1',
     scoreSchema: 'haunted-toaster/visual-score/v1',
@@ -59,7 +62,10 @@ function familyWithTimeline(sourceTimeline = timeline()) {
     scoreAddresses: [candidate.scoreAddress],
     timelineHashes: [candidate.timelineHash],
     shortfall: null,
-    familyHash: '5'.repeat(64),
+  };
+  const family = {
+    ...familyCore,
+    familyHash: hashCanonical(familyCore, 'HauntedToaster-CandidateFamily-v1'),
     candidates: [candidate],
   };
   return { family, candidate };
