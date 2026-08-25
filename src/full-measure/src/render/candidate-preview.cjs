@@ -5,7 +5,6 @@ const legacy = require("./render-legacy.cjs");
 const { createProceduralPpm } = require("./artwork.cjs");
 const { getPreset } = require("./presets.cjs");
 const { canonicalStringify } = require("../generation/canonical.cjs");
-const { buildPostWalkAxisRecipe } = require("../generation/post-walk-axis-grammar.cjs");
 const {
   buildHauntedFilterGraph,
   typographyContextForTimeline,
@@ -99,11 +98,15 @@ function crossLockProjectionForScore(score = {}) {
 }
 
 function postWalkAxisRecipeForCandidate(candidate) {
-  const admittedRecipeHash = candidate?.timeline?.postWalkAxis?.recipeHash;
-  if (!admittedRecipeHash) return null;
-  const recipe = buildPostWalkAxisRecipe(candidate.index);
+  const admittedRecipeHash = candidate?.timeline?.postWalkAxis?.recipeHash || null;
+  const declaredRecipeHash = candidate?.postWalkAxisRecipeHash || null;
+  const recipe = candidate?.postWalkAxisRecipe || null;
+  if (!admittedRecipeHash && !declaredRecipeHash && !recipe) return null;
   if (
-    candidate.postWalkAxisRecipeHash !== admittedRecipeHash ||
+    !admittedRecipeHash ||
+    !declaredRecipeHash ||
+    !recipe ||
+    declaredRecipeHash !== admittedRecipeHash ||
     recipe.recipeHash !== admittedRecipeHash
   ) {
     throw new Error("Stage A recipe witness does not match its accepted candidate timeline.");
