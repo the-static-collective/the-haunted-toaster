@@ -112,6 +112,59 @@ function sameVideoBinding(left, right) {
   return false;
 }
 
+function candidateGenealogyEvidence(family, candidate) {
+  if (!family || !candidate) return null;
+  const stompPolicy = candidate.scoreArtifact?.derivation?.policy || null;
+  const stomp = family.phase === "stomp" && stompPolicy?.candidatePolicy === "visible-outcome-stomp-v1"
+    ? {
+        policy: stompPolicy.candidatePolicy,
+        sourceCandidatePolicy: stompPolicy.sourceCandidatePolicy || null,
+        role: stompPolicy.stompRole || candidate.role || null,
+        parentScoreRef: stompPolicy.parentScoreRef || null,
+        locks: Array.isArray(stompPolicy.locks) ? [...stompPolicy.locks] : [],
+        samplingSeed: stompPolicy.samplingSeed || null,
+        poolAttempt: Number.isInteger(stompPolicy.poolAttempt) ? stompPolicy.poolAttempt : null,
+        categoricalBreaks: Array.isArray(stompPolicy.categoricalBreaks)
+          ? [...stompPolicy.categoricalBreaks]
+          : [],
+        primitiveBreaks: Array.isArray(stompPolicy.primitiveBreaks)
+          ? [...stompPolicy.primitiveBreaks]
+          : [],
+        visibleDistanceFromParent: Number.isFinite(stompPolicy.visibleDistanceFromParent)
+          ? stompPolicy.visibleDistanceFromParent
+          : null,
+        minimumSiblingDistance: Number.isFinite(stompPolicy.minimumSiblingDistance)
+          ? stompPolicy.minimumSiblingDistance
+          : null,
+        thresholdRelaxation: stompPolicy.thresholdRelaxation
+          ? structuredClone(stompPolicy.thresholdRelaxation)
+          : null,
+        stompIntensity: stompPolicy.stompIntensity
+          ? structuredClone(stompPolicy.stompIntensity)
+          : null,
+      }
+    : null;
+  return {
+    schema: "haunted-toaster/candidate-genealogy/v1",
+    familyHash: family.familyHash,
+    familyPolicy: family.policy || null,
+    phase: family.phase || null,
+    rootSeed: family.rootSeed || null,
+    parentScoreRef: family.parentScoreRef || null,
+    baselineScoreRef: family.baselineScoreRef || null,
+    candidateIndex: candidate.index,
+    slotIndex: Number.isInteger(candidate.slotIndex) ? candidate.slotIndex : null,
+    role: candidate.role || null,
+    scoreAddress: candidate.scoreAddress,
+    timelineHash: candidate.timelineHash,
+    changedAxes: Array.isArray(candidate.changedAxes) ? [...candidate.changedAxes] : [],
+    toastmoodLane: candidate.toastmoodLane ? structuredClone(candidate.toastmoodLane) : null,
+    crossLineage: candidate.crossLineage ? structuredClone(candidate.crossLineage) : null,
+    frontierEvidence: candidate.frontierEvidence ? structuredClone(candidate.frontierEvidence) : null,
+    stomp,
+  };
+}
+
 function createCandidateSession({
   renderCandidateFamilyPreviews: renderPreviews = renderCandidateFamilyPreviews,
   analyzeNativeChromaticProfile: analyzeProfile = defaultAnalyzeNativeChromaticProfile,
@@ -681,6 +734,7 @@ function createCandidateSession({
       ...(forcedRenderConfig || {}),
       visualScore: selection.scoreArtifact.score,
       resolvedTimeline: selection.timeline,
+      candidateGenealogy: candidateGenealogyEvidence(family, selection),
       forcedWitnessEvidence: selection.forcedWitnessEvidence
         ? structuredClone(selection.forcedWitnessEvidence)
         : null,
