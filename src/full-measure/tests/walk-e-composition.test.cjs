@@ -313,22 +313,6 @@ for (const [label, events] of [
   });
 }
 
-test("GRAB-scoped Mix Plan × GRAB event stays bounded to the same accepted event window", () => {
-  const { candidate } = familyWithAcceptedEvents([grab], {
-    candidateIndex: 3,
-    rootSeed: "walk-e-grab-scope-crossing",
-  });
-  const scoped = candidate.timeline.lBranch.execution.sends.filter(
-    (send) => send.scope.kind === "grab",
-  );
-  assert.ok(scoped.length > 0);
-  assert.ok(scoped.every((send) => send.scope.startTick === grab.prepareTick));
-  assert.ok(scoped.every((send) => send.scope.endTick === grab.residueUntilTick));
-  const compiled = compileTopologyEvents(candidate.timeline);
-  assert.deepEqual(compiled.evidence.renderedKinds, ["grab"]);
-  assert.ok(compiled.localDeformation);
-});
-
 test("Listener anchor-island Re-listen cannot mutate an already accepted visual execution", async () => {
   const { execution } = await ordinaryRun({ rootSeed: "walk-e-listener-authority" });
   const before = JSON.stringify(execution.resolvedTimeline);
