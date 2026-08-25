@@ -10,6 +10,10 @@ const {
   typographyContextForTimeline,
 } = require("./haunted-typography-render.cjs");
 const {
+  createForeignMaterialPlan,
+  ffmpegInputArgsForForeignMaterial,
+} = require("./foreign-material.cjs");
+const {
   assertTimelineDuration,
   createTimelineExecution,
 } = require("./timeline-execution.cjs");
@@ -93,7 +97,7 @@ function crossLockProjectionForScore(score = {}) {
   });
 }
 
-function candidatePreviewPlan(candidate, typography = null) {
+function candidatePreviewPlan(candidate, typography = null, foreignMaterial = null) {
   const sample = previewSampleFor(candidate);
   const score = candidate.scoreArtifact.score;
   return Object.freeze({
@@ -112,6 +116,7 @@ function candidatePreviewPlan(candidate, typography = null) {
     crossLockProjection: crossLockProjectionForScore(score),
     sample,
     typography,
+    foreignMaterial,
   });
 }
 
@@ -150,6 +155,16 @@ async function renderCandidateFamilyPreviews(config, family, hooks = {}) {
         candidate.scoreAddress,
         candidate.timeline,
       );
+      const foreignMaterialPlan = createForeignMaterialPlan({
+        videoBinding: config.video || null,
+        timeline: candidate.timeline,
+        analysisDurationSeconds: Number(analysis.duration),
+      });
+      const foreignMaterialInputIndex = foreignMaterialPlan
+        ? imagePath
+          ? 3
+          : 2
+        : null;
       const baseFilter = await buildHauntedFilterGraph({
         tempDirectory,
         analysis,
@@ -163,11 +178,14 @@ async function renderCandidateFamilyPreviews(config, family, hooks = {}) {
         fps,
         atmosphereResolutionScale:
           candidate.timeline?.renderConfig?.atmosphereResolutionScale ?? null,
+      foreignMaterialPlan,
+      foreignMaterialInputIndex,
         ...typographyContext,
       });
       const plan = candidatePreviewPlan(
         candidate,
         baseFilter.typographyEvidence,
+      baseFilter.foreignMaterialEvidence,
       );
       const execution = createTimelineExecution(candidate.timeline);
       assertTimelineDuration(execution.timeline, analysis.duration);
@@ -204,6 +222,7 @@ async function renderCandidateFamilyPreviews(config, family, hooks = {}) {
           imagePath,
         );
       }
+      args.push(...ffmpegInputArgsForForeignMaterial(foreignMaterialPlan));
       args.push(
         "-filter_complex_script",
         filterPath,
