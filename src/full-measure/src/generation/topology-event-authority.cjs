@@ -239,6 +239,18 @@ function issueTopologyEventAuthority(family, candidateIndex) {
   });
 }
 
+function attachTopologyEventAuthorities(family) {
+  verifyAddressedBirthFamily(family);
+  const candidates = family.candidates.map((candidate, index) => deepFreeze({
+    ...candidate,
+    topologyEventAuthority: issueTopologyEventAuthority(family, index),
+  }));
+  return deepFreeze({
+    ...family,
+    candidates,
+  });
+}
+
 function verifyTopologyEventAuthority(input) {
   const authority = exactKeys(input, AUTHORITY_KEYS, "Topology event authority");
   if (authority.schema !== TOPOLOGY_EVENT_AUTHORITY_SCHEMA) {
@@ -291,6 +303,7 @@ function verifyTopologyEventAuthority(input) {
 module.exports = {
   TOPOLOGY_EVENT_AUTHORITY_POLICY,
   TOPOLOGY_EVENT_AUTHORITY_SCHEMA,
+  attachTopologyEventAuthorities,
   issueTopologyEventAuthority,
   projectTopologyEventAuthority,
   verifyTopologyEventAuthority,
