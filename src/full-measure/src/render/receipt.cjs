@@ -2,6 +2,11 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const fsPromises = require("node:fs/promises");
 const path = require("node:path");
+const {
+  POST_WALK_AXIS_TIMELINE_POLICY,
+  POST_WALK_AXIS_TIMELINE_SCHEMA,
+  buildPostWalkAxisRecipe,
+} = require("../generation/post-walk-axis-grammar.cjs");
 const { assertResolvedTimeline } = require("./timeline-execution.cjs");
 const { promoteTopologyResponseEvidence } = require("./visual-compiler-evidence.cjs");
 
@@ -120,6 +125,84 @@ function compactTopologyEventEvidence(timeline) {
   };
 }
 
+function compactPostWalkAxisEvidence(timeline) {
+  const binding = timeline?.postWalkAxis;
+  if (!binding) return null;
+  if (
+    !binding ||
+    typeof binding !== "object" ||
+    Array.isArray(binding) ||
+    binding.schema !== POST_WALK_AXIS_TIMELINE_SCHEMA ||
+    binding.policyVersion !== POST_WALK_AXIS_TIMELINE_POLICY
+  ) {
+    throw new TypeError("Post-WALK axis timeline identity mismatch.");
+  }
+
+  let recipe;
+  try {
+    recipe = buildPostWalkAxisRecipe(binding.candidateIndex);
+  } catch {
+    throw new TypeError("Post-WALK axis recipe identity mismatch.");
+  }
+  if (binding.recipeHash !== recipe.recipeHash) {
+    throw new TypeError("Post-WALK axis recipe identity mismatch.");
+  }
+
+  const topology = timeline.topologyEvents;
+  const event = topology?.events?.[0];
+  if (
+    !topology ||
+    topology.refusal ||
+    topology.eventCount !== 1 ||
+    topology.events?.length !== 1 ||
+    event?.kind !== "grab" ||
+    !topology.acceptedAuthoritySha256 ||
+    !event.evidenceRefs?.includes(`axis-recipe:${binding.recipeHash}`)
+  ) {
+    throw new TypeError("Post-WALK axis topology evidence identity mismatch.");
+  }
+  if (binding.topologyPlanSha256 !== topology.planSha256) {
+    throw new TypeError("Post-WALK axis topology plan identity mismatch.");
+  }
+
+  const mixPlan = timeline.lBranch?.mixPlan;
+  const execution = timeline.lBranch?.execution;
+  const send = mixPlan?.sends?.[0];
+  if (
+    !mixPlan ||
+    !execution ||
+    binding.mixPlanHash !== mixPlan.planHash ||
+    mixPlan.strategyId !== `post-walk-axis:${binding.recipeHash}` ||
+    mixPlan.sends?.length !== 1 ||
+    send?.response !== recipe.response ||
+    send?.scope?.kind !== recipe.scope
+  ) {
+    throw new TypeError("Post-WALK axis mix plan identity mismatch.");
+  }
+  if (recipe.scope === "grab" && send.scope.regionRef !== event.id) {
+    throw new TypeError("Post-WALK axis GRAB scope identity mismatch.");
+  }
+  if (binding.mixExecutionHash !== execution.executionHash) {
+    throw new TypeError("Post-WALK axis mix execution identity mismatch.");
+  }
+
+  return {
+    policyVersion: binding.policyVersion,
+    recipeHash: binding.recipeHash,
+    candidateIndex: binding.candidateIndex,
+    acceptedFamilyHash: topology.acceptedFamilyHash,
+    acceptedAuthoritySha256: topology.acceptedAuthoritySha256,
+    topologyPlanSha256: topology.planSha256,
+    eventRefs: topology.events.map((acceptedEvent) => ({
+      id: acceptedEvent.id,
+      eventSha256: acceptedEvent.eventSha256,
+    })),
+    mixPlanHash: mixPlan.planHash,
+    mixExecutionHash: execution.executionHash,
+    finalTimelineHash: timeline.timelineHash,
+  };
+}
+
 function promoteTimelineEvidenceInReceipt(receipt, timeline) {
   if (!timeline) return receipt;
   const canonicalExecution = receipt.canonicalExecution;
@@ -133,6 +216,8 @@ function promoteTimelineEvidenceInReceipt(receipt, timeline) {
       sourceTimelineHash: timeline.lBranch.mixPlan.sourceTimelineHash,
     };
   }
+  const postWalkAxis = compactPostWalkAxisEvidence(timeline);
+  if (postWalkAxis) canonicalExecution.postWalkAxis = postWalkAxis;
   return receipt;
 }
 
@@ -182,6 +267,7 @@ async function writeReceipt(receipt, outputPath, options = {}) {
 module.exports = {
   buildProvenance,
   compactCandidateGenealogyEvidence,
+  compactPostWalkAxisEvidence,
   compactTopologyEventEvidence,
   hashFile,
   promoteCandidateGenealogyInReceipt,
