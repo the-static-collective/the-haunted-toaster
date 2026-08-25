@@ -115,15 +115,33 @@ function assertWalkEEnrichment(candidate) {
 }
 
 function expectedCandidateGenealogy(family, candidate) {
-  const stomp = family.policy === "visible-outcome-stomp-v1"
+  const stompPolicy = candidate.scoreArtifact?.derivation?.policy || null;
+  const stomp = family.phase === "stomp" && stompPolicy?.candidatePolicy === "visible-outcome-stomp-v1"
     ? {
-        policy: family.policy,
-        role: candidate.role || null,
-        thresholdRelaxation: candidate.thresholdRelaxation
-          ? structuredClone(candidate.thresholdRelaxation)
+        policy: stompPolicy.candidatePolicy,
+        sourceCandidatePolicy: stompPolicy.sourceCandidatePolicy || null,
+        role: stompPolicy.stompRole || candidate.role || null,
+        parentScoreRef: stompPolicy.parentScoreRef || null,
+        locks: Array.isArray(stompPolicy.locks) ? [...stompPolicy.locks] : [],
+        samplingSeed: stompPolicy.samplingSeed || null,
+        poolAttempt: Number.isInteger(stompPolicy.poolAttempt) ? stompPolicy.poolAttempt : null,
+        categoricalBreaks: Array.isArray(stompPolicy.categoricalBreaks)
+          ? [...stompPolicy.categoricalBreaks]
+          : [],
+        primitiveBreaks: Array.isArray(stompPolicy.primitiveBreaks)
+          ? [...stompPolicy.primitiveBreaks]
+          : [],
+        visibleDistanceFromParent: Number.isFinite(stompPolicy.visibleDistanceFromParent)
+          ? stompPolicy.visibleDistanceFromParent
           : null,
-        visibleDistanceFromParent: Number.isFinite(candidate.visibleDistanceFromParent)
-          ? candidate.visibleDistanceFromParent
+        minimumSiblingDistance: Number.isFinite(stompPolicy.minimumSiblingDistance)
+          ? stompPolicy.minimumSiblingDistance
+          : null,
+        thresholdRelaxation: stompPolicy.thresholdRelaxation
+          ? structuredClone(stompPolicy.thresholdRelaxation)
+          : null,
+        stompIntensity: stompPolicy.stompIntensity
+          ? structuredClone(stompPolicy.stompIntensity)
           : null,
       }
     : null;
