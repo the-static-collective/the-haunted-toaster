@@ -24,6 +24,7 @@ const POST_WALK_AXIS_RECIPE_POLICY = "post-walk-axis-recipe-v1";
 const POST_WALK_AXIS_RECIPE_HASH_DOMAIN = "HauntedToaster-PostWalkAxisRecipe-v1";
 const POST_WALK_AXIS_TIMELINE_SCHEMA = "haunted-toaster/post-walk-axis-timeline/v1";
 const POST_WALK_AXIS_TIMELINE_POLICY = "post-walk-axis-timeline-v1";
+const POST_WALK_AXIS_REPLAY_SCHEMA = "haunted-toaster/post-walk-axis-replay/v1";
 const RESOLVED_TIMELINE_HASH_DOMAIN = "HauntedToaster-ResolvedTimeline-v1";
 
 const FOUNDING_SEND = deepFreeze({
@@ -269,6 +270,65 @@ function composePostWalkAxisRecipe({
   });
 }
 
+function topologyEventHashes(timeline) {
+  return (timeline?.topologyEvents?.events || []).map((event) => event.eventSha256);
+}
+
+function replayPostWalkAxisRecipe(admitted, inputs = {}) {
+  if (!admitted?.ok || !admitted.timeline?.postWalkAxis) {
+    throw new TypeError("Post-WALK axis replay requires an admitted Stage A composition.");
+  }
+
+  const replayed = composePostWalkAxisRecipe(inputs);
+  if (!replayed?.ok) {
+    return deepFreeze({
+      schema: POST_WALK_AXIS_REPLAY_SCHEMA,
+      ok: false,
+      recipeHashMatches: false,
+      topologyAuthorityHashMatches: false,
+      topologyEventHashesMatch: false,
+      mixPlanHashMatches: false,
+      mixExecutionHashMatches: false,
+      timelineHashMatches: false,
+      replayed,
+    });
+  }
+
+  const recipeHashMatches =
+    replayed.timeline.postWalkAxis.recipeHash === admitted.timeline.postWalkAxis.recipeHash;
+  const topologyAuthorityHashMatches =
+    replayed.timeline.topologyEvents.acceptedAuthoritySha256 ===
+    admitted.timeline.topologyEvents?.acceptedAuthoritySha256;
+  const topologyEventHashesMatch =
+    canonicalStringify(topologyEventHashes(replayed.timeline)) ===
+    canonicalStringify(topologyEventHashes(admitted.timeline));
+  const mixPlanHashMatches =
+    replayed.timeline.lBranch.mixPlan.planHash === admitted.timeline.lBranch?.mixPlan?.planHash;
+  const mixExecutionHashMatches =
+    replayed.timeline.lBranch.execution.executionHash ===
+    admitted.timeline.lBranch?.execution?.executionHash;
+  const timelineHashMatches =
+    replayed.timeline.timelineHash === admitted.timeline.timelineHash;
+
+  return deepFreeze({
+    schema: POST_WALK_AXIS_REPLAY_SCHEMA,
+    ok:
+      recipeHashMatches &&
+      topologyAuthorityHashMatches &&
+      topologyEventHashesMatch &&
+      mixPlanHashMatches &&
+      mixExecutionHashMatches &&
+      timelineHashMatches,
+    recipeHashMatches,
+    topologyAuthorityHashMatches,
+    topologyEventHashesMatch,
+    mixPlanHashMatches,
+    mixExecutionHashMatches,
+    timelineHashMatches,
+    replayed,
+  });
+}
+
 module.exports = {
   FOUNDING_SEND,
   POST_WALK_AXIS_GRAMMAR_POLICY,
@@ -276,9 +336,11 @@ module.exports = {
   POST_WALK_AXIS_RECIPES,
   POST_WALK_AXIS_RECIPE_POLICY,
   POST_WALK_AXIS_RECIPE_SCHEMA,
+  POST_WALK_AXIS_REPLAY_SCHEMA,
   POST_WALK_AXIS_TIMELINE_POLICY,
   POST_WALK_AXIS_TIMELINE_SCHEMA,
   buildAxisGrabRequest,
   buildPostWalkAxisRecipe,
   composePostWalkAxisRecipe,
+  replayPostWalkAxisRecipe,
 };
