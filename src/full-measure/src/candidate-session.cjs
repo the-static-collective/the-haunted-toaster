@@ -221,6 +221,39 @@ function createCandidateSession({
     return timedLyricTrack(config.lyrics, Number(mediaAnalysis.duration));
   }
 
+  function enrichOrdinaryFamily(sourceFamily, {
+    analysis,
+    responseWitness,
+    constraints,
+    lyricTrack,
+    profile,
+  }) {
+    const projected = generation.projectOrdinaryGrabView(sourceFamily, {
+      authorityForCandidate(candidate) {
+        return generation.canonicalAuthorityForCandidate(sourceFamily, candidate, {
+          analysis,
+          responseWitness,
+          garmentConstraints: constraints,
+          rendererProfile,
+          lyricTrack,
+          nativeChromaticProfile: profile,
+        });
+      },
+    });
+    const lBranchFamily = generation.attachLBranchToFamily(projected, {
+      responseWitness,
+      lyricTrack,
+    });
+    return Object.freeze({
+      ...lBranchFamily,
+      forcedWitness: false,
+      fixtureFamily: null,
+      toastFeel: sourceFamily.toastFeel || null,
+      toastmoodField: sourceFamily.toastmoodField || null,
+      cross: sourceFamily.cross || null,
+    });
+  }
+
   async function materialize(nextFamily, config, signal, influence = null) {
     const requestedFeel = currentToastFeel(config.toastFeelId, { optional: true });
     const familyFeel = nextFamily.toastFeel?.id
@@ -309,29 +342,12 @@ function createCandidateSession({
         toastFeelId: feel?.id || null,
         nativeChromaticProfile: profile,
       });
-      const projected = generation.projectOrdinaryGrabView(sourceFamily, {
-        authorityForCandidate(candidate) {
-          return generation.canonicalAuthorityForCandidate(sourceFamily, candidate, {
-            analysis,
-            responseWitness,
-            garmentConstraints: constraints,
-            rendererProfile,
-            lyricTrack,
-            nativeChromaticProfile: profile,
-          });
-        },
-      });
-      const lBranchFamily = generation.attachLBranchToFamily(projected, {
+      const nextFamily = enrichOrdinaryFamily(sourceFamily, {
+        analysis,
         responseWitness,
+        constraints,
         lyricTrack,
-      });
-      const nextFamily = Object.freeze({
-        ...lBranchFamily,
-        forcedWitness: false,
-        fixtureFamily: null,
-        toastFeel: sourceFamily.toastFeel || null,
-        toastmoodField: sourceFamily.toastmoodField || null,
-        cross: sourceFamily.cross || null,
+        profile,
       });
       return await materialize(
         nextFamily,
@@ -468,6 +484,13 @@ function createCandidateSession({
           throw refusal;
         }
       }
+      nextFamily = enrichOrdinaryFamily(nextFamily, {
+        analysis,
+        responseWitness,
+        constraints,
+        lyricTrack,
+        profile,
+      });
       return await materialize(
         nextFamily,
         { ...config, toastFeelId: feel?.id || null },
@@ -497,7 +520,8 @@ function createCandidateSession({
       const profile = await ensureNativeChromaticProfile();
       const analysis = toGenerationAnalysis(mediaAnalysis);
       const responseWitness = responseWitnessFor(mediaAnalysis, analysis);
-      const nextFamily = generation.generateCrossCandidateSet({
+      const lyricTrack = lyricTrackFor(config);
+      const sourceFamily = generation.generateCrossCandidateSet({
         analysis,
         responseWitness,
         garmentConstraints: constraints,
@@ -508,9 +532,16 @@ function createCandidateSession({
         rootSeed: config.rootSeed,
         count: 6,
         phase: "cross",
-        lyricTrack: lyricTrackFor(config),
+        lyricTrack,
         toastFeelId: feel?.id || null,
         nativeChromaticProfile: profile,
+      });
+      const nextFamily = enrichOrdinaryFamily(sourceFamily, {
+        analysis,
+        responseWitness,
+        constraints,
+        lyricTrack,
+        profile,
       });
       return await materialize(
         nextFamily,
@@ -537,7 +568,8 @@ function createCandidateSession({
       const profile = await ensureNativeChromaticProfile();
       const analysis = toGenerationAnalysis(mediaAnalysis);
       const responseWitness = responseWitnessFor(mediaAnalysis, analysis);
-      const nextFamily = generation.generateStompCandidateSet({
+      const lyricTrack = lyricTrackFor(config);
+      const sourceFamily = generation.generateStompCandidateSet({
         analysis,
         responseWitness,
         garmentConstraints: constraints,
@@ -546,10 +578,17 @@ function createCandidateSession({
         locks: config.locks || [],
         rootSeed: config.rootSeed,
         count: 6,
-        lyricTrack: lyricTrackFor(config),
+        lyricTrack,
         toastFeelId: feel.id,
         nativeChromaticProfile: profile,
         parentNativeColorPlan: parent.timeline?.nativeColor || null,
+      });
+      const nextFamily = enrichOrdinaryFamily(sourceFamily, {
+        analysis,
+        responseWitness,
+        constraints,
+        lyricTrack,
+        profile,
       });
       return await materialize(
         nextFamily,
