@@ -301,6 +301,14 @@ function createCandidateSession({
         timeline: admitted.timeline,
         timelineHash: admitted.timeline.timelineHash,
         postWalkAxisRecipeHash: recipe.recipeHash,
+        postWalkAxisRecipe: Object.freeze({
+          schema: recipe.schema,
+          policyVersion: recipe.policyVersion,
+          recipeHash: recipe.recipeHash,
+          response: recipe.response,
+          scope: recipe.scope,
+          consequence: recipe.consequence,
+        }),
         laneBankHash: laneBank.laneBankHash,
         mixPlanHash: admitted.mixPlan.planHash,
       });
