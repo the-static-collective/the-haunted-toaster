@@ -23,7 +23,6 @@ const audioPath = path.resolve("/tmp/WALK E Breathing House.wav");
 
 const mediaAnalysis = Object.freeze({
   filename: "WALK E Breathing House.wav",
-  sourceSha256: "e".repeat(64),
   sizeBytes: 35_067_052,
   duration: analysis.durationSeconds,
   formatName: "wav",
