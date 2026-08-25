@@ -5,6 +5,7 @@ const legacy = require("./render-legacy.cjs");
 const { createProceduralPpm } = require("./artwork.cjs");
 const { getPreset } = require("./presets.cjs");
 const { canonicalStringify } = require("../generation/canonical.cjs");
+const { buildPostWalkAxisRecipe } = require("../generation/post-walk-axis-grammar.cjs");
 const {
   buildHauntedFilterGraph,
   typographyContextForTimeline,
@@ -97,9 +98,30 @@ function crossLockProjectionForScore(score = {}) {
   });
 }
 
+function postWalkAxisRecipeForCandidate(candidate) {
+  const admittedRecipeHash = candidate?.timeline?.postWalkAxis?.recipeHash;
+  if (!admittedRecipeHash) return null;
+  const recipe = buildPostWalkAxisRecipe(candidate.index);
+  if (
+    candidate.postWalkAxisRecipeHash !== admittedRecipeHash ||
+    recipe.recipeHash !== admittedRecipeHash
+  ) {
+    throw new Error("Stage A recipe witness does not match its accepted candidate timeline.");
+  }
+  return Object.freeze({
+    schema: recipe.schema,
+    policyVersion: recipe.policyVersion,
+    recipeHash: recipe.recipeHash,
+    response: recipe.response,
+    scope: recipe.scope,
+    consequence: recipe.consequence,
+  });
+}
+
 function candidatePreviewPlan(candidate, typography = null, foreignMaterial = null) {
   const sample = previewSampleFor(candidate);
   const score = candidate.scoreArtifact.score;
+  const postWalkAxisRecipe = postWalkAxisRecipeForCandidate(candidate);
   return Object.freeze({
     index: candidate.index,
     role: candidate.role,
@@ -114,6 +136,7 @@ function candidatePreviewPlan(candidate, typography = null, foreignMaterial = nu
     signature: previewSignature(score),
     baseIdentity: baseIdentityForScore(score),
     crossLockProjection: crossLockProjectionForScore(score),
+    ...(postWalkAxisRecipe ? { postWalkAxisRecipe } : {}),
     sample,
     typography,
     foreignMaterial,
@@ -272,6 +295,7 @@ module.exports = {
   baseIdentityForScore,
   candidatePreviewPlan,
   crossLockProjectionForScore,
+  postWalkAxisRecipeForCandidate,
   previewSampleFor,
   previewSignature,
   renderCandidateFamilyPreviews,
