@@ -5,12 +5,16 @@ const {
   hashCanonical,
 } = require('../src/generation/canonical.cjs');
 const {
+  buildLaneBank,
+} = require('../src/generation/l-branch.cjs');
+const {
   ORDINARY_TOPOLOGY_PARAMETERS,
 } = require('../src/generation/ordinary-topology-activity.cjs');
 const {
   POST_WALK_AXIS_RECIPES,
   buildAxisGrabRequest,
   buildPostWalkAxisRecipe,
+  composePostWalkAxisRecipe,
 } = require('../src/generation/post-walk-axis-grammar.cjs');
 const {
   issueTopologyEventAuthority,
@@ -69,6 +73,19 @@ function familyWithTimeline(sourceTimeline = timeline()) {
     candidates: [candidate],
   };
   return { family, candidate };
+}
+
+function responseWitness() {
+  return {
+    policyVersion: 'response-witness-v1',
+    witnessSha256: '5'.repeat(64),
+    durationSeconds: 12,
+    knots: [
+      { atSeconds: 0, localEnergy: 0.2, slope: 0, excursion: 0 },
+      { atSeconds: 6, localEnergy: 0.8, slope: 0.3, excursion: 0.2 },
+      { atSeconds: 12, localEnergy: 0.4, slope: -0.1, excursion: 0.1 },
+    ],
+  };
 }
 
 test('post-walk axis grammar defines exactly six balanced addressed recipes and leaves shape for #223', () => {
@@ -147,6 +164,44 @@ test('clean-return and residue use the existing GRAB organ and produce distinct 
     cleanTimeline.topologyEvents.events[0].eventSha256,
     residueTimeline.topologyEvents.events[0].eventSha256,
   );
+});
+
+test('Stage A composes an addressed recipe through accepted topology into an L BRANCH v2 timeline', () => {
+  const specimen = familyWithTimeline();
+  const recipe = buildPostWalkAxisRecipe(2);
+  const authority = issueTopologyEventAuthority(specimen.family, 0);
+  const laneBank = buildLaneBank({ responseWitness: responseWitness() });
+
+  const result = composePostWalkAxisRecipe({
+    family: specimen.family,
+    candidate: specimen.candidate,
+    authority,
+    laneBank,
+    recipe,
+    rootSeed: 'axis-compose-fixture',
+    slotIndex: 0,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.recipe.recipeHash, recipe.recipeHash);
+  assert.equal(result.timeline.postWalkAxis.recipeHash, recipe.recipeHash);
+  assert.equal(result.timeline.topologyEvents.events.length, 1);
+  assert.equal(result.timeline.topologyEvents.events[0].kind, 'grab');
+  assert.equal(result.timeline.lBranch.mixPlan.policyVersion, 'l-branch-mix-plan-v2');
+  assert.equal(result.timeline.lBranch.mixPlan.strategyId, `post-walk-axis:${recipe.recipeHash}`);
+  assert.equal(result.timeline.lBranch.mixPlan.sends.length, 1);
+  assert.equal(result.timeline.lBranch.mixPlan.sends[0].response, recipe.response);
+  assert.equal(result.timeline.lBranch.mixPlan.sends[0].scope.kind, 'grab');
+  assert.equal(
+    result.timeline.lBranch.mixPlan.sends[0].scope.regionRef,
+    result.timeline.topologyEvents.events[0].id,
+  );
+  assert.equal(result.timeline.lBranch.execution.policyVersion, 'l-branch-mix-execution-v2');
+  assert.equal(
+    result.timeline.lBranch.mixPlan.sourceTimelineHash,
+    result.acceptedTopologyTimeline.timelineHash,
+  );
+  assert.notEqual(result.timeline.timelineHash, result.acceptedTopologyTimeline.timelineHash);
 });
 
 test('axis kernel refuses explicitly when no lawful event window exists', () => {
