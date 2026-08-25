@@ -168,6 +168,7 @@ function compactPostWalkAxisEvidence(timeline) {
   const mixPlan = timeline.lBranch?.mixPlan;
   const execution = timeline.lBranch?.execution;
   const send = mixPlan?.sends?.[0];
+  const expectedScopeKind = recipe.scope === "whole" ? "whole-layer" : recipe.scope;
   if (
     !mixPlan ||
     !execution ||
@@ -175,7 +176,7 @@ function compactPostWalkAxisEvidence(timeline) {
     mixPlan.strategyId !== `post-walk-axis:${binding.recipeHash}` ||
     mixPlan.sends?.length !== 1 ||
     send?.response !== recipe.response ||
-    send?.scope?.kind !== recipe.scope
+    send?.scope?.kind !== expectedScopeKind
   ) {
     throw new TypeError("Post-WALK axis mix plan identity mismatch.");
   }
