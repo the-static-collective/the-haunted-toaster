@@ -8,6 +8,7 @@ module.exports = {
   ...require("./candidate-family.cjs"),
   ...require("./topology-events.cjs"),
   ...require("./topology-event-generation.cjs"),
+  ...require("./ordinary-topology-activity.cjs"),
   ...require("./test-six-witness.cjs"),
   ...require("./test-six-witness-neutral.cjs"),
   ...require("./converge-frontier.cjs"),
