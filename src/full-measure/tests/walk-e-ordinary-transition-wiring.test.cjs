@@ -114,8 +114,44 @@ function assertWalkEEnrichment(candidate) {
   assert.match(candidate.timeline.lBranch.execution?.executionHash || "", /^[0-9a-f]{64}$/);
 }
 
-async function selectAndAssertRenderable(session, family) {
-  const candidate = family.candidates.find(
+function expectedCandidateGenealogy(family, candidate) {
+  const stomp = family.policy === "visible-outcome-stomp-v1"
+    ? {
+        policy: family.policy,
+        role: candidate.role || null,
+        thresholdRelaxation: candidate.thresholdRelaxation
+          ? structuredClone(candidate.thresholdRelaxation)
+          : null,
+        visibleDistanceFromParent: Number.isFinite(candidate.visibleDistanceFromParent)
+          ? candidate.visibleDistanceFromParent
+          : null,
+      }
+    : null;
+  return {
+    schema: "haunted-toaster/candidate-genealogy/v1",
+    familyHash: family.familyHash,
+    familyPolicy: family.policy || null,
+    phase: family.phase || null,
+    rootSeed: family.rootSeed || null,
+    parentScoreRef: family.parentScoreRef || null,
+    baselineScoreRef: family.baselineScoreRef || null,
+    candidateIndex: candidate.index,
+    slotIndex: Number.isInteger(candidate.slotIndex) ? candidate.slotIndex : null,
+    role: candidate.role || null,
+    scoreAddress: candidate.scoreAddress,
+    timelineHash: candidate.timelineHash,
+    changedAxes: Array.isArray(candidate.changedAxes) ? [...candidate.changedAxes] : [],
+    toastmoodLane: candidate.toastmoodLane ? structuredClone(candidate.toastmoodLane) : null,
+    crossLineage: candidate.crossLineage ? structuredClone(candidate.crossLineage) : null,
+    frontierEvidence: candidate.frontierEvidence ? structuredClone(candidate.frontierEvidence) : null,
+    stomp,
+  };
+}
+
+async function selectAndAssertRenderable(session, family, preferredRole = null) {
+  const candidate = (preferredRole
+    ? family.candidates.find((entry) => entry.role === preferredRole)
+    : null) || family.candidates.find(
     (entry) => entry.timeline?.topologyEvents?.eventCount > 0,
   ) || family.candidates[0];
   session.select({ familyHash: family.familyHash, index: candidate.index });
@@ -130,6 +166,21 @@ async function selectAndAssertRenderable(session, family) {
     ...candidate,
     timeline: execution.resolvedTimeline,
   });
+  assert.deepEqual(
+    execution.candidateGenealogy,
+    expectedCandidateGenealogy(family, candidate),
+    "render handoff must retain current candidate genealogy separately from authority",
+  );
+  assert.equal(
+    Object.hasOwn(execution.candidateGenealogy, "topologyEventAuthority"),
+    false,
+    "genealogy must never substitute for topology-event authority",
+  );
+  assert.equal(
+    Object.hasOwn(execution.candidateGenealogy, "authoritySha256"),
+    false,
+    "genealogy must not smuggle the topology authority hash",
+  );
 }
 
 test("ordinary GENERATE constitutes topology authority before activity and L BRANCH", async () => {
@@ -211,5 +262,5 @@ test("ordinary CONVERGE gets fresh topology authority at the replacement birth b
   );
   assert.ok(convergeCandidate, "CONVERGE should replace one ordinary birth slot");
   assertWalkEEnrichment(convergeCandidate);
-  await selectAndAssertRenderable(session, family);
+  await selectAndAssertRenderable(session, family, "converge-frontier");
 });
