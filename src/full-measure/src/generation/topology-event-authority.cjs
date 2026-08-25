@@ -134,6 +134,60 @@ function projectTopologyEventAuthority(family) {
   });
 }
 
+function verifyAddressedBirthFamily(family) {
+  ownDataObject(family, "Topology event birth family");
+  requireNonEmptyString(family.schema, "Topology event birth family schema");
+  requireNonEmptyString(family.policy, "Topology event birth family policy");
+  requireSha256(family.familyHash, "Topology event birth family familyHash");
+  requireNonEmptyString(String(family.rootSeed ?? ""), "Topology event birth family rootSeed");
+  normalizeLockedAxes(family.locks || []);
+  if (!Array.isArray(family.candidates) || family.candidates.length < 1) {
+    throw new TypeError("Topology event birth family requires candidates.");
+  }
+  if (!Number.isSafeInteger(family.producedCount) || family.producedCount !== family.candidates.length) {
+    throw new TypeError("Topology event birth family producedCount does not align with candidates.");
+  }
+  for (const key of ["scoreAddresses", "timelineHashes"]) {
+    if (!Array.isArray(family[key]) || family[key].length !== family.candidates.length) {
+      throw new TypeError(`Topology event birth family ${key} does not align with candidates.`);
+    }
+  }
+
+  const {
+    familyHash: _familyHash,
+    candidates: _candidates,
+    ...familyCore
+  } = family;
+  const actualHash = hashCanonical(familyCore, FAMILY_HASH_DOMAIN);
+  if (actualHash !== family.familyHash) {
+    throw new TypeError("Topology event birth family canonical address does not match familyHash.");
+  }
+
+  for (let index = 0; index < family.candidates.length; index += 1) {
+    const candidate = ownDataObject(family.candidates[index], `Topology event birth candidate ${index}`);
+    if (candidate.index !== index) {
+      throw new TypeError("Topology event birth candidate indices are not aligned.");
+    }
+    if (candidate.scoreAddress !== family.scoreAddresses[index]) {
+      throw new TypeError("Topology event birth candidate score address is not aligned with family evidence.");
+    }
+    if (candidate.timelineHash !== family.timelineHashes[index]) {
+      throw new TypeError("Topology event birth candidate timeline hash is not aligned with family evidence.");
+    }
+    const timeline = ownDataObject(candidate.timeline, `Topology event birth candidate ${index} timeline`);
+    if (timeline.scoreAddress !== candidate.scoreAddress) {
+      throw new TypeError("Topology event birth timeline score address does not match candidate.");
+    }
+    if (timeline.timelineHash !== candidate.timelineHash) {
+      throw new TypeError("Topology event birth timeline hash does not match candidate.");
+    }
+    if (!timeline.baseState || typeof timeline.baseState.topology !== "string") {
+      throw new TypeError("Topology event birth timeline requires source topology.");
+    }
+  }
+  return family;
+}
+
 function authorityCoreFromCandidate(family, candidate, candidateIndex) {
   const timeline = ownDataObject(candidate.timeline, "Topology event authority candidate timeline");
   if (candidate.index !== candidateIndex) {
@@ -173,10 +227,7 @@ function authorityCoreFromCandidate(family, candidate, candidateIndex) {
 
 function issueTopologyEventAuthority(family, candidateIndex) {
   requireIndex(candidateIndex, "Topology event authority candidateIndex");
-  const projected = projectTopologyEventAuthority(family);
-  if (projected.familyHash !== family.familyHash) {
-    throw new TypeError("Topology event authority birth family canonical address does not match familyHash.");
-  }
+  verifyAddressedBirthFamily(family);
   const candidate = family.candidates[candidateIndex];
   if (!candidate) {
     throw new TypeError("Topology event authority candidateIndex does not exist in birth family.");
