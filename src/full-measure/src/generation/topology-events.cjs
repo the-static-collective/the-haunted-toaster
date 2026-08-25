@@ -62,6 +62,13 @@ function boundedNumber(value, min, max, label, { exclusiveMin = false } = {}) {
   return normalized;
 }
 
+function boundedInteger(value, min, max, label) {
+  if (!Number.isSafeInteger(value) || value < min || value > max) {
+    throw new TypeError(`${label} is out of bounds.`);
+  }
+  return value;
+}
+
 function normalizeEvidenceRefs(value) {
   if (!Array.isArray(value) || value.length === 0) {
     throw new TypeError("Topology event evidenceRefs must be a non-empty array.");
@@ -149,6 +156,61 @@ function verifyCandidateFamilyAddress(family) {
   return family;
 }
 
+function normalizeApertureParameters(parameters) {
+  exactKeys(
+    parameters,
+    [
+      "anchorX",
+      "anchorY",
+      "radiusX",
+      "radiusY",
+      "focus",
+      "peripheralCompression",
+      "orbit",
+    ],
+    "APERTURE parameters",
+  );
+  return {
+    anchorX: boundedNumber(parameters.anchorX, 0, 1, "APERTURE anchorX"),
+    anchorY: boundedNumber(parameters.anchorY, 0, 1, "APERTURE anchorY"),
+    radiusX: boundedNumber(parameters.radiusX, 0, 1, "APERTURE radiusX", { exclusiveMin: true }),
+    radiusY: boundedNumber(parameters.radiusY, 0, 1, "APERTURE radiusY", { exclusiveMin: true }),
+    focus: boundedNumber(parameters.focus, 0, 1, "APERTURE focus"),
+    peripheralCompression: boundedNumber(
+      parameters.peripheralCompression,
+      0,
+      1,
+      "APERTURE peripheralCompression",
+    ),
+    orbit: boundedNumber(parameters.orbit, 0, 1, "APERTURE orbit"),
+  };
+}
+
+function normalizeSpeakParameters(parameters) {
+  exactKeys(
+    parameters,
+    [
+      "anchorX",
+      "anchorY",
+      "radiusX",
+      "radiusY",
+      "seamWidth",
+      "emission",
+      "residue",
+    ],
+    "SPEAK parameters",
+  );
+  return {
+    anchorX: boundedNumber(parameters.anchorX, 0, 1, "SPEAK anchorX"),
+    anchorY: boundedNumber(parameters.anchorY, 0, 1, "SPEAK anchorY"),
+    radiusX: boundedNumber(parameters.radiusX, 0, 1, "SPEAK radiusX", { exclusiveMin: true }),
+    radiusY: boundedNumber(parameters.radiusY, 0, 1, "SPEAK radiusY", { exclusiveMin: true }),
+    seamWidth: boundedNumber(parameters.seamWidth, 0, 1, "SPEAK seamWidth", { exclusiveMin: true }),
+    emission: boundedNumber(parameters.emission, 0, 1, "SPEAK emission"),
+    residue: boundedNumber(parameters.residue, 0, 1, "SPEAK residue"),
+  };
+}
+
 function normalizeGrabParameters(parameters) {
   exactKeys(
     parameters,
@@ -184,6 +246,48 @@ function normalizeGrabParameters(parameters) {
   };
 }
 
+function normalizeGrowParameters(parameters) {
+  exactKeys(
+    parameters,
+    [
+      "anchorX",
+      "anchorY",
+      "radiusX",
+      "radiusY",
+      "branchCount",
+      "growth",
+      "persistence",
+      "ageBias",
+    ],
+    "GROW parameters",
+  );
+  return {
+    anchorX: boundedNumber(parameters.anchorX, 0, 1, "GROW anchorX"),
+    anchorY: boundedNumber(parameters.anchorY, 0, 1, "GROW anchorY"),
+    radiusX: boundedNumber(parameters.radiusX, 0, 1, "GROW radiusX", { exclusiveMin: true }),
+    radiusY: boundedNumber(parameters.radiusY, 0, 1, "GROW radiusY", { exclusiveMin: true }),
+    branchCount: boundedInteger(parameters.branchCount, 1, 16, "GROW branchCount"),
+    growth: boundedNumber(parameters.growth, 0, 1, "GROW growth"),
+    persistence: boundedNumber(parameters.persistence, 0, 1, "GROW persistence", { exclusiveMin: true }),
+    ageBias: boundedNumber(parameters.ageBias, 0, 1, "GROW ageBias"),
+  };
+}
+
+function normalizeEventParameters(kind, parameters) {
+  switch (kind) {
+    case "aperture":
+      return normalizeApertureParameters(parameters);
+    case "speak":
+      return normalizeSpeakParameters(parameters);
+    case "grab":
+      return normalizeGrabParameters(parameters);
+    case "grow":
+      return normalizeGrowParameters(parameters);
+    default:
+      return null;
+  }
+}
+
 function normalizeEvent(request, durationTicks) {
   exactKeys(
     request,
@@ -196,16 +300,15 @@ function normalizeEvent(request, durationTicks) {
   if (!TOPOLOGY_EVENT_KINDS.includes(request.kind)) {
     return { refusalReason: "unsupported-event-kind" };
   }
-  if (request.kind !== "grab") {
-    return { refusalReason: "unsupported-event-kind" };
-  }
 
   const prepareTick = safeTick(request.prepareTick, "prepareTick");
   const strikeTick = safeTick(request.strikeTick, "strikeTick");
   const releaseTick = safeTick(request.releaseTick, "releaseTick");
   const residueUntilTick = safeTick(request.residueUntilTick, "residueUntilTick");
   if (!(prepareTick < strikeTick && strikeTick <= releaseTick && releaseTick < residueUntilTick)) {
-    throw new TypeError("GRAB requires prepareTick < strikeTick <= releaseTick < residueUntilTick.");
+    throw new TypeError(
+      "Topology event requires prepareTick < strikeTick <= releaseTick < residueUntilTick.",
+    );
   }
   if (residueUntilTick > durationTicks) {
     throw new TypeError("Topology event envelope exceeds timeline durationTicks.");
@@ -218,7 +321,7 @@ function normalizeEvent(request, durationTicks) {
     strikeTick,
     releaseTick,
     residueUntilTick,
-    parameters: normalizeGrabParameters(request.parameters),
+    parameters: normalizeEventParameters(request.kind, request.parameters),
     evidenceRefs: normalizeEvidenceRefs(request.evidenceRefs),
   };
   return {
