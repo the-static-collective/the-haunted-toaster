@@ -16,6 +16,9 @@ const {
 const {
   resolveTopologyEvents,
 } = require("./topology-events.cjs");
+const {
+  issueTopologyEventAuthority,
+} = require("./topology-event-authority.cjs");
 
 const POST_WALK_AXIS_GRAMMAR_SCHEMA = "haunted-toaster/post-walk-axis-grammar/v1";
 const POST_WALK_AXIS_GRAMMAR_POLICY = "post-walk-axis-grammar-v1";
@@ -207,6 +210,16 @@ function composePostWalkAxisRecipe({
     throw new TypeError("Post-WALK axis candidate does not belong to the supplied family.");
   }
   const addressedRecipe = assertAddressedRecipe(recipe);
+  const expectedAuthority = issueTopologyEventAuthority(family, candidate.index);
+  if (authority?.authoritySha256 !== expectedAuthority.authoritySha256) {
+    return deepFreeze({
+      ok: false,
+      refusal: {
+        reason: "axis-topology-authority-does-not-match-family",
+        recipeHash: addressedRecipe.recipeHash,
+      },
+    });
+  }
   const grab = buildAxisGrabRequest({
     timeline: candidate.timeline,
     rootSeed,
