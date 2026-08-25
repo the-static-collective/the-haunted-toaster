@@ -67,9 +67,9 @@ function generateCrossCandidateSet(options = {}) {
   return attachCrossFeel(ecology.generateCrossCandidateSet(options), options.toastFeelId);
 }
 
-function replayResult(family, replayed) {
+function replayResult(family, replayed, expectedTimelineHashes = family.timelineHashes) {
   const addressesMatch = canonicalStringify(replayed.scoreAddresses) === canonicalStringify(family.scoreAddresses);
-  const timelinesMatch = canonicalStringify(replayed.timelineHashes) === canonicalStringify(family.timelineHashes);
+  const timelinesMatch = canonicalStringify(replayed.timelineHashes) === canonicalStringify(expectedTimelineHashes);
   const familyHashMatches = replayed.familyHash === family.familyHash;
   return deepFreeze({
     schema: "haunted-toaster/candidate-family-replay/v1",
@@ -81,14 +81,36 @@ function replayResult(family, replayed) {
     actualFamilyHash: replayed.familyHash,
     expectedScoreAddresses: family.scoreAddresses,
     actualScoreAddresses: replayed.scoreAddresses,
-    expectedTimelineHashes: family.timelineHashes,
+    expectedTimelineHashes,
     actualTimelineHashes: replayed.timelineHashes,
     replayed,
   });
 }
 
+function crossBirthTimelineHashes(family) {
+  if (!Array.isArray(family?.candidates) || family.candidates.length !== family.producedCount) {
+    throw new TypeError("CROSS replay requires aligned current candidates.");
+  }
+  return family.candidates.map((candidate, index) => {
+    const carried = candidate?.topologyEventAuthority?.sourceTimelineHash;
+    if (carried) return carried;
+    const current = family.timelineHashes?.[index];
+    if (typeof current !== "string" || current.length === 0) {
+      throw new TypeError("CROSS replay requires a source timeline identity for every candidate.");
+    }
+    return current;
+  });
+}
+
+function isCrossFamilyOrView(family) {
+  return Boolean(
+    family?.policy === ecology.CROSS_POLICY ||
+    family?.cross?.policy === ecology.CROSS_POLICY
+  );
+}
+
 function replayCandidateFamily(family, options = {}) {
-  if (family?.policy === ecology.CROSS_POLICY) {
+  if (isCrossFamilyOrView(family)) {
     if (!Array.isArray(options.parentCandidates) || options.parentCandidates.length !== 2) {
       throw new TypeError("CROSS replay requires exactly two parent candidates.");
     }
@@ -102,7 +124,7 @@ function replayCandidateFamily(family, options = {}) {
       count: family.requestedCount,
       phase: "cross",
     });
-    return replayResult(family, replayed);
+    return replayResult(family, replayed, crossBirthTimelineHashes(family));
   }
 
   const replay = ecology.replayCandidateFamily(family, options);
