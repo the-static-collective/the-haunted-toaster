@@ -67,17 +67,22 @@ function generateCrossCandidateSet(options = {}) {
   return attachCrossFeel(ecology.generateCrossCandidateSet(options), options.toastFeelId);
 }
 
-function replayResult(family, replayed, expectedTimelineHashes = family.timelineHashes) {
+function replayResult(
+  family,
+  replayed,
+  expectedTimelineHashes = family.timelineHashes,
+  expectedFamilyHash = family.familyHash,
+) {
   const addressesMatch = canonicalStringify(replayed.scoreAddresses) === canonicalStringify(family.scoreAddresses);
   const timelinesMatch = canonicalStringify(replayed.timelineHashes) === canonicalStringify(expectedTimelineHashes);
-  const familyHashMatches = replayed.familyHash === family.familyHash;
+  const familyHashMatches = replayed.familyHash === expectedFamilyHash;
   return deepFreeze({
     schema: "haunted-toaster/candidate-family-replay/v1",
     ok: addressesMatch && timelinesMatch && familyHashMatches,
     addressesMatch,
     timelinesMatch,
     familyHashMatches,
-    expectedFamilyHash: family.familyHash,
+    expectedFamilyHash,
     actualFamilyHash: replayed.familyHash,
     expectedScoreAddresses: family.scoreAddresses,
     actualScoreAddresses: replayed.scoreAddresses,
@@ -102,6 +107,20 @@ function crossBirthTimelineHashes(family) {
   });
 }
 
+function crossBirthFamilyHash(family) {
+  const carried = (family?.candidates || [])
+    .map((candidate) => candidate?.topologyEventAuthority?.birthFamilyHash)
+    .filter(Boolean);
+  if (carried.length) {
+    const unique = [...new Set(carried)];
+    if (unique.length !== 1) {
+      throw new TypeError("CROSS replay candidates disagree about their birth family identity.");
+    }
+    return unique[0];
+  }
+  return family?.lBranch?.sourceFamilyHash || family?.sourceFamilyHash || family?.familyHash;
+}
+
 function isCrossFamilyOrView(family) {
   return Boolean(
     family?.policy === ecology.CROSS_POLICY ||
@@ -124,7 +143,12 @@ function replayCandidateFamily(family, options = {}) {
       count: family.requestedCount,
       phase: "cross",
     });
-    return replayResult(family, replayed, crossBirthTimelineHashes(family));
+    return replayResult(
+      family,
+      replayed,
+      crossBirthTimelineHashes(family),
+      crossBirthFamilyHash(family),
+    );
   }
 
   const replay = ecology.replayCandidateFamily(family, options);
