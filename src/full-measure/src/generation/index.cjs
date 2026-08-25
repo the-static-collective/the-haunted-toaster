@@ -6,6 +6,7 @@ module.exports = {
   ...require("./resolver.cjs"),
   ...require("./operations.cjs"),
   ...require("./candidate-family.cjs"),
+  ...require("./topology-event-authority.cjs"),
   ...require("./topology-events.cjs"),
   ...require("./topology-event-generation.cjs"),
   ...require("./ordinary-topology-activity.cjs"),
