@@ -25,9 +25,10 @@ This cut records a new field-spine fact without pretending that field work is on
 
 ### `main`
 
-- Current `main` head: `b4ceaabc4a4d9334177180812acbf1e0e01ff69f` / merged PR #215.
+- Ledger parent before this docs-only reconciliation update: `a42aaab5fced936aed9e85156389cadcc2119c9f`.
 - PR #216, the first `CURRENT_SPINE.md` landing, merged earlier as `10f65ca1f6d721178355c5c67b933e0183753c45`.
-- #215 is therefore **landed on `main`**, not an open design target. #219 remains its planning successor.
+- PR #215 is landed on `main` as `b4ceaabc4a4d9334177180812acbf1e0e01ff69f`, not an open design target. #219 remains its planning successor.
+- This ledger update changes documentation only; it does not promote WALK E, Stage A, a package, tag, or release onto `main`.
 
 ### WALK E field spine
 
@@ -41,12 +42,14 @@ This cut records a new field-spine fact without pretending that field work is on
 
 ### Stage A queue after #249
 
-- **#251 ACTIVE** — Stage A `RESPONSE STANCE × SCOPE × CONSEQUENCE` machine/semantic witness branch. Exact witnessed head: `9d31eab1e4e695fb226031034203b0b50c72b411`.
-- **#254 ACTIVE** — narrow human-witness bridge stacked on #251. Exact witnessed head: `a27ccd1292f870063bceb3d60d64996a5cd70de2`; recorded machine evidence remains 587/587 tests, smoke green, production audit 0 vulnerabilities, and renderer witness green.
-- #254 remains the human doorway: `existing six-up → explicit Stage A opt-in → six addressed creatures → existing preview/render`.
-- Neither #251 nor #254 is landing-approved here. Human Stage A witness remains downstream.
+- **#251 ACTIVE WITNESS ANCESTRY** — original Stage A `RESPONSE STANCE × SCOPE × CONSEQUENCE` RED/GREEN machine/semantic witness. Exact witnessed head: `9d31eab1e4e695fb226031034203b0b50c72b411`; exact tree: `5a2a55f2d8d461bd182d0d267ecc1a1cc00c3be4`. Preserve; do not rewrite or use as the current landing carrier.
+- **#254 ACTIVE WITNESS ANCESTRY** — original narrow human-witness bridge stacked on #251. Exact witnessed head: `a27ccd1292f870063bceb3d60d64996a5cd70de2`; exact tree: `5fc954c01525a655a38c8e13c97e2ffbb6f6e2b7`. Preserve; do not use as the current human-test carrier.
+- **#256 ACTIVE CURRENT CARRIER** — fresh Stage A re-port directly parented by landed WALK E `dce000c8…`. Head `d408a58754f4a53d1ca2c60141b3086bae21a22e`; tree exactly equals #251's witnessed tree `5a2a55f2…`. Fresh workflow run 2143: 259-script check; 582/582 tests; both smokes green; production audit 0 vulnerabilities; renderer witness build and canonical comparison green. No Windows/package/release promotion.
+- **#257 ACTIVE HUMAN-TEST CARRIER** — fresh narrow bridge directly parented by #256 `d408a587…`. Head `5b693ca8760253a902920884ff33692ac30d5c03`; tree exactly equals #254's witnessed tree `5fc954c0…`. Fresh workflow run 2145: 260-script check; 587/587 tests; both smokes green; production audit 0 vulnerabilities; renderer witness build green; 12/12 browser witness states green. No Windows/package/release promotion.
+- #257 is now the human doorway: `existing six-up → explicit Stage A opt-in → six addressed creatures → existing preview/render`.
+- Human Stage A witness remains outstanding. Neither #256 nor #257 receives landing approval from this reconciliation entry.
 
-### Squash-ancestry rule discovered at this cut
+### Squash-ancestry rule discovered and fulfilled at this cut
 
 #251 was built directly on the original #249 feature-branch ancestry. #249 was then squash-landed into WALK E as `dce000c8…` with equivalent tested tree content but a different commit ancestry.
 
@@ -55,7 +58,10 @@ Therefore:
 - do **not** rewrite the witnessed #251/#254 branches merely to make ancestry look tidy;
 - do **not** infer that equivalent trees make different commit lineages interchangeable provenance;
 - do **not** directly retarget the witnessed #251 branch across the squash boundary and call that a normalized landing lineage;
-- instead, preserve #251/#254 as witness ancestry and make any future landing candidate a **fresh re-port from `walk/e-sequential-braid` @ `dce000c8…`**, with fresh machine proof and then the human Stage A witness.
+- preserve #251/#254 as witness ancestry;
+- constitute any landing/human-test successor from the current WALK E carrier with fresh proof.
+
+That re-port is now constituted as #256 → #257. #256 has landed WALK E as its sole parent while retaining #251's exact source tree; #257 has #256 as its sole parent while retaining #254's exact source tree. The old witness branches remain provenance.
 
 The fill is not the carrier: equivalent source trees preserve executable content, but the landing carrier must still be constituted on the current field spine.
 
@@ -76,7 +82,7 @@ The fill is not the carrier: equivalent source trees preserve executable content
 | Sigil Grammar v0 | `899a920b17019a54dadfb0c6bb321cc6e4cf860b` / #211 | generation-only Witness Sigil compatibility, topology expressions/plans, deterministic six-utterance families, replay | On `main`; language/algebra study lanes remain non-renderer |
 | Sigil Algebra v0 implementation plan | `3d0615ced52313db3232f79501b59357bdd211d8` / #221 | docs-only exact integer/rational Transform2 equivalence proof plan for #220; no renderer/UI/authority behavior | On `main`; no longer current HEAD |
 | CURRENT_SPINE ledger | `10f65ca1f6d721178355c5c67b933e0183753c45` / #216 | repository-owned reconciliation law and ledger | Landed on `main`; living artifact updated by later reconciliation commits |
-| Sigil Language Witness v0 design | `b4ceaabc4a4d9334177180812acbf1e0e01ff69f` / #215 | reviewed/frozen design-only language witness contract | **Current `main` head at this reconciliation cut**; planning successor #219 |
+| Sigil Language Witness v0 design | `b4ceaabc4a4d9334177180812acbf1e0e01ff69f` / #215 | reviewed/frozen design-only language witness contract | Landed on `main`; planning successor #219 |
 
 ## Active field / design / rescue lanes — not yet `main`
 
@@ -98,18 +104,21 @@ These are active successors and witnesses, not permission to pretend their ances
    #244 WALK E sequential braid
       ↓
    #249 topology-event authority carrier [landed into WALK E]
+      ├─ witness ancestry: #251 → #254
       ↓
-   #251 Stage A machine/semantic witness [witness ancestry]
+   #256 Stage A current-WALK-E carrier
       ↓
-   #254 Stage A human-witness bridge     [witness ancestry]
+   #257 Stage A human-test carrier
 ```
 
 - **#212 ACTIVE** — composed human-test specimen for GRAB + Resolution/Atmosphere + Listener anchor integrity.
 - **#214 ACTIVE** — deterministic TEST 6 feature/witness branch; exact-head machine proof is green, but packaged human witness remains required. Reconciliation commits do not belong there.
 - **#244 ACTIVE** — WALK E composition lane. Its branch now carries the landed #249 authority carrier at `dce000c8…`; broader #234 perceptual graduation remains open.
 - **#249 LANDED-SUPERSEDED** — closed/merged into `walk/e-sequential-braid`; no `main` promotion, tag, or release.
-- **#251 ACTIVE** — Stage A machine/semantic witness on preserved pre-squash #249 ancestry. Re-port required before any landing onto current WALK E ancestry.
-- **#254 ACTIVE** — human-witness bridge stacked on #251; remains draft and unlanded. Human Stage A test belongs here after a clean current-WALK-E re-port exists.
+- **#251 ACTIVE WITNESS ANCESTRY** — preserve original Stage A machine/semantic proof on pre-squash #249 ancestry; #256 is the current carrier.
+- **#254 ACTIVE WITNESS ANCESTRY** — preserve original human-bridge witness stacked on #251; #257 is the current human-test carrier.
+- **#256 ACTIVE** — one-commit Stage A re-port on current WALK E; exact #251 source tree; fresh machine + renderer-witness proof green.
+- **#257 ACTIVE** — one-commit bridge re-port on #256; exact #254 source tree; fresh machine + 12/12 browser-witness proof green. **Human Stage A evaluation belongs here next.**
 
 ### Sigil study lanes
 
@@ -143,8 +152,10 @@ These are active successors and witnesses, not permission to pretend their ances
 
 | PR | Reconciliation status | Repository disposition / successor |
 | --- | --- | --- |
-| #254 Stage A narrow human-witness bridge | **ACTIVE** | Stacked on witnessed #251; machine-green record retained; do not land independently. Fresh current-WALK-E re-port precedes human Stage A witness. |
-| #251 Stage A post-WALK axis grammar | **ACTIVE** | Preserve witnessed branch on original #249 ancestry. Future landing candidate must be freshly re-ported from `walk/e-sequential-braid` @ `dce000c8…`; no branch rewrite by default. |
+| #257 Stage A current human-test carrier | **ACTIVE** | Fresh one-commit re-port on #256; exact #254 tree; run 2145 green at 587/587 plus 12/12 browser witness. Human Stage A verdict is the next gate; no landing implied. |
+| #256 Stage A current-WALK-E carrier | **ACTIVE** | Fresh one-commit re-port on landed WALK E `dce000c8…`; exact #251 tree; run 2143 green at 582/582 plus renderer witness. Current semantic landing carrier; no landing implied. |
+| #254 Stage A narrow human-witness bridge | **ACTIVE** | Preserved witness ancestry only; exact behavior re-ported to #257. Do not test or land this stale-lineage branch as the current carrier. |
+| #251 Stage A post-WALK axis grammar | **ACTIVE** | Preserved RED/GREEN witness ancestry only; exact behavior re-ported to #256. Do not rewrite or land this stale-lineage branch as the current carrier. |
 | #249 topology-event authority carrier | **LANDED-SUPERSEDED** | Closed/merged into WALK E as `dce000c8…`; exact tested tree retained; no `main` promotion/tag/release. |
 | #244 WALK E sequential braid | **ACTIVE** | Current field-spine parent. Carries #249; broader #234 perceptual graduation remains open. |
 | #222 foreign-material Slice D | **ACTIVE** | Renderer-facing #44 crossing is machine-green but human field-gated; do not treat Video as timeline authority. |
