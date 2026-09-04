@@ -274,13 +274,76 @@ function createCandidateSession({
     return timedLyricTrack(config.lyrics, Number(mediaAnalysis.duration));
   }
 
+  function admitPostWalkAxisFamily(sourceFamily, { responseWitness, lyricTrack }) {
+    const birthFamily = generation.attachTopologyEventAuthorities(sourceFamily);
+    const laneBank = generation.buildLaneBank({ responseWitness, lyricTrack });
+    const candidates = birthFamily.candidates.map((candidate) => {
+      const authority = candidate.topologyEventAuthority;
+      const recipe = generation.buildPostWalkAxisRecipe(candidate.index);
+      const admitted = generation.composePostWalkAxisRecipe({
+        family: birthFamily,
+        candidate,
+        authority,
+        laneBank,
+        recipe,
+        rootSeed: authority.rootSeed,
+        slotIndex: authority.slotIndex,
+      });
+      if (!admitted.ok) {
+        const reason = admitted.refusal?.reason || "unknown-refusal";
+        const error = new Error(`POST_WALK_AXIS_REFUSED: ${reason}.`);
+        error.code = "POST_WALK_AXIS_REFUSED";
+        error.refusal = admitted.refusal ? structuredClone(admitted.refusal) : null;
+        throw error;
+      }
+      return Object.freeze({
+        ...candidate,
+        timeline: admitted.timeline,
+        timelineHash: admitted.timeline.timelineHash,
+        postWalkAxisRecipeHash: recipe.recipeHash,
+        laneBankHash: laneBank.laneBankHash,
+        mixPlanHash: admitted.mixPlan.planHash,
+      });
+    });
+    const {
+      familyHash: _familyHash,
+      candidates: _candidates,
+      timelineHashes: _timelineHashes,
+      ...stableCore
+    } = birthFamily;
+    const core = {
+      ...structuredClone(stableCore),
+      timelineHashes: candidates.map((candidate) => candidate.timelineHash),
+    };
+    return Object.freeze({
+      ...core,
+      familyHash: generation.hashCanonical(core, "HauntedToaster-CandidateFamily-v1"),
+      candidates,
+    });
+  }
+
   function enrichOrdinaryFamily(sourceFamily, {
     analysis,
     responseWitness,
     constraints,
     lyricTrack,
     profile,
+    postWalkAxisGrammar = false,
   }) {
+    if (postWalkAxisGrammar === true) {
+      const admittedFamily = admitPostWalkAxisFamily(sourceFamily, {
+        responseWitness,
+        lyricTrack,
+      });
+      return Object.freeze({
+        ...admittedFamily,
+        forcedWitness: false,
+        fixtureFamily: null,
+        toastFeel: sourceFamily.toastFeel || null,
+        toastmoodField: sourceFamily.toastmoodField || null,
+        cross: sourceFamily.cross || null,
+      });
+    }
     const projected = generation.projectOrdinaryGrabView(sourceFamily, {
       authorityForCandidate(candidate) {
         return generation.canonicalAuthorityForCandidate(sourceFamily, candidate, {
@@ -401,6 +464,7 @@ function createCandidateSession({
         constraints,
         lyricTrack,
         profile,
+        postWalkAxisGrammar: config.postWalkAxisGrammar === true,
       });
       return await materialize(
         nextFamily,
@@ -543,6 +607,7 @@ function createCandidateSession({
         constraints,
         lyricTrack,
         profile,
+        postWalkAxisGrammar: config.postWalkAxisGrammar === true,
       });
       return await materialize(
         nextFamily,
@@ -595,6 +660,7 @@ function createCandidateSession({
         constraints,
         lyricTrack,
         profile,
+        postWalkAxisGrammar: config.postWalkAxisGrammar === true,
       });
       return await materialize(
         nextFamily,
@@ -642,6 +708,7 @@ function createCandidateSession({
         constraints,
         lyricTrack,
         profile,
+        postWalkAxisGrammar: config.postWalkAxisGrammar === true,
       });
       return await materialize(
         nextFamily,
