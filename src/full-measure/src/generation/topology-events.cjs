@@ -8,6 +8,7 @@ const {
   CANDIDATE_FAMILY_POLICY,
   CANDIDATE_FAMILY_SCHEMA,
 } = require("./candidate-family.cjs");
+const { verifyTopologyEventAuthority } = require("./topology-event-authority.cjs");
 
 const TOPOLOGY_EVENT_POLICY = "topology-events-v0.1";
 const TOPOLOGY_EVENT_PLAN_SCHEMA = "haunted-toaster/topology-event-plan/v0.1";
@@ -332,15 +333,81 @@ function normalizeEvent(request, durationTicks) {
   };
 }
 
-function planFor({ family, candidate, timeline, events, refusalReason = null }) {
-  const core = {
-    schema: TOPOLOGY_EVENT_PLAN_SCHEMA,
-    policyVersion: TOPOLOGY_EVENT_POLICY,
+function legacyAuthorityFacts(timeline, options) {
+  const family = verifyCandidateFamilyAddress(options.family);
+  if (!Number.isSafeInteger(options.candidateIndex) || options.candidateIndex < 0) {
+    throw new TypeError("candidateIndex must be a non-negative safe integer.");
+  }
+  const candidate = family.candidates[options.candidateIndex];
+  if (!candidate) throw new TypeError("candidateIndex does not exist in CandidateFamily.");
+  if (timeline.scoreAddress !== candidate.scoreAddress) {
+    throw new TypeError("ResolvedTimeline scoreAddress does not match selected candidate.");
+  }
+  if (!timeline.baseState || timeline.baseState.topology !== candidate.timeline.baseState.topology) {
+    throw new TypeError("ResolvedTimeline base topology does not match selected candidate.");
+  }
+  return {
     acceptedFamilyHash: family.familyHash,
-    acceptedScoreAddress: candidate.scoreAddress,
+    acceptedAuthoritySha256: null,
+    scoreAddress: candidate.scoreAddress,
     sourceTimelineHash: timeline.timelineHash,
     sourceTopology: timeline.baseState.topology,
     lockedAxes: [...family.locks],
+  };
+}
+
+function carrierAuthorityFacts(timeline, authorityInput) {
+  const authority = verifyTopologyEventAuthority(authorityInput);
+  if (timeline.scoreAddress !== authority.scoreAddress) {
+    throw new TypeError("ResolvedTimeline scoreAddress does not match topology event authority.");
+  }
+  if (timeline.timelineHash !== authority.sourceTimelineHash) {
+    throw new TypeError("ResolvedTimeline timelineHash does not match topology event authority source timeline.");
+  }
+  if (!timeline.baseState || timeline.baseState.topology !== authority.sourceTopology) {
+    throw new TypeError("ResolvedTimeline base topology does not match topology event authority.");
+  }
+  if (timeline.analysisHash !== authority.analysisHash) {
+    throw new TypeError("ResolvedTimeline analysisHash does not match topology event authority.");
+  }
+  if (timeline.constraintsHash !== authority.constraintsHash) {
+    throw new TypeError("ResolvedTimeline constraintsHash does not match topology event authority.");
+  }
+  if (timeline.rendererProfileHash !== authority.rendererProfileHash) {
+    throw new TypeError("ResolvedTimeline rendererProfileHash does not match topology event authority.");
+  }
+  return {
+    acceptedFamilyHash: authority.birthFamilyHash,
+    acceptedAuthoritySha256: authority.authoritySha256,
+    scoreAddress: authority.scoreAddress,
+    sourceTimelineHash: authority.sourceTimelineHash,
+    sourceTopology: authority.sourceTopology,
+    lockedAxes: [...authority.lockedAxes],
+  };
+}
+
+function normalizeAuthorityFacts(timeline, options) {
+  ownDataObject(options, "Topology event options");
+  if (Object.prototype.hasOwnProperty.call(options, "authority")) {
+    exactKeys(options, ["authority", "events"], "Topology event options");
+    return carrierAuthorityFacts(timeline, options.authority);
+  }
+  exactKeys(options, ["family", "candidateIndex", "events"], "Topology event options");
+  return legacyAuthorityFacts(timeline, options);
+}
+
+function planFor({ authority, events, refusalReason = null }) {
+  const core = {
+    schema: TOPOLOGY_EVENT_PLAN_SCHEMA,
+    policyVersion: TOPOLOGY_EVENT_POLICY,
+    acceptedFamilyHash: authority.acceptedFamilyHash,
+    ...(authority.acceptedAuthoritySha256
+      ? { acceptedAuthoritySha256: authority.acceptedAuthoritySha256 }
+      : {}),
+    acceptedScoreAddress: authority.scoreAddress,
+    sourceTimelineHash: authority.sourceTimelineHash,
+    sourceTopology: authority.sourceTopology,
+    lockedAxes: [...authority.lockedAxes],
     eventCount: events.length,
     events,
     refusal: refusalReason ? { reason: refusalReason } : null,
@@ -351,7 +418,7 @@ function planFor({ family, candidate, timeline, events, refusalReason = null }) 
   });
 }
 
-function attachTopologyEventPlan(timeline, plan, family) {
+function attachTopologyEventPlan(timeline, plan, authority) {
   if (plan.sourceTimelineHash !== timeline.timelineHash) {
     throw new TypeError("Topology event plan sourceTimelineHash does not match timeline.");
   }
@@ -361,8 +428,14 @@ function attachTopologyEventPlan(timeline, plan, family) {
   if (plan.acceptedScoreAddress !== timeline.scoreAddress) {
     throw new TypeError("Topology event plan score address does not match timeline.");
   }
-  if (plan.acceptedFamilyHash !== family.familyHash) {
-    throw new TypeError("Topology event plan family address does not match accepted CandidateFamily.");
+  if (plan.acceptedFamilyHash !== authority.acceptedFamilyHash) {
+    throw new TypeError("Topology event plan family address does not match accepted authority.");
+  }
+  if (
+    authority.acceptedAuthoritySha256 &&
+    plan.acceptedAuthoritySha256 !== authority.acceptedAuthoritySha256
+  ) {
+    throw new TypeError("Topology event plan authority hash does not match accepted authority.");
   }
 
   const {
@@ -384,19 +457,7 @@ function attachTopologyEventPlan(timeline, plan, family) {
 
 function resolveTopologyEvents(timeline, options) {
   ownDataObject(timeline, "ResolvedTimeline");
-  exactKeys(options, ["family", "candidateIndex", "events"], "Topology event options");
-  const family = verifyCandidateFamilyAddress(options.family);
-  if (!Number.isSafeInteger(options.candidateIndex) || options.candidateIndex < 0) {
-    throw new TypeError("candidateIndex must be a non-negative safe integer.");
-  }
-  const candidate = family.candidates[options.candidateIndex];
-  if (!candidate) throw new TypeError("candidateIndex does not exist in CandidateFamily.");
-  if (timeline.scoreAddress !== candidate.scoreAddress) {
-    throw new TypeError("ResolvedTimeline scoreAddress does not match selected candidate.");
-  }
-  if (!timeline.baseState || timeline.baseState.topology !== candidate.timeline.baseState.topology) {
-    throw new TypeError("ResolvedTimeline base topology does not match selected candidate.");
-  }
+  const authority = normalizeAuthorityFacts(timeline, options);
   if (!Number.isSafeInteger(timeline.durationTicks) || timeline.durationTicks < 1) {
     throw new TypeError("ResolvedTimeline durationTicks is invalid.");
   }
@@ -407,24 +468,22 @@ function resolveTopologyEvents(timeline, options) {
     throw new TypeError("Topology event events must be an array.");
   }
 
-  if (family.locks.includes("topology")) {
+  if (authority.lockedAxes.includes("topology")) {
     return attachTopologyEventPlan(
       timeline,
       planFor({
-        family,
-        candidate,
-        timeline,
+        authority,
         events: [],
         refusalReason: "topology-lock-prohibits-topology-events",
       }),
-      family,
+      authority,
     );
   }
   if (options.events.length === 0) {
     return attachTopologyEventPlan(
       timeline,
-      planFor({ family, candidate, timeline, events: [], refusalReason: "no-lawful-event-window" }),
-      family,
+      planFor({ authority, events: [], refusalReason: "no-lawful-event-window" }),
+      authority,
     );
   }
 
@@ -434,8 +493,8 @@ function resolveTopologyEvents(timeline, options) {
     if (result.refusalReason) {
       return attachTopologyEventPlan(
         timeline,
-        planFor({ family, candidate, timeline, events: [], refusalReason: result.refusalReason }),
-        family,
+        planFor({ authority, events: [], refusalReason: result.refusalReason }),
+        authority,
       );
     }
     normalized.push(result.event);
@@ -446,8 +505,8 @@ function resolveTopologyEvents(timeline, options) {
 
   return attachTopologyEventPlan(
     timeline,
-    planFor({ family, candidate, timeline, events: normalized }),
-    family,
+    planFor({ authority, events: normalized }),
+    authority,
   );
 }
 

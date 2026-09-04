@@ -79,18 +79,97 @@ async function sessionWithInitialFamily(rootSeed) {
 }
 
 function assertWalkEEnrichment(candidate) {
+  assert.ok(
+    candidate.topologyEventAuthority,
+    "ordinary candidate birth must carry topology-event authority",
+  );
+  assert.equal(
+    candidate.topologyEventAuthority.schema,
+    "haunted-toaster/topology-event-authority/v1",
+  );
+  assert.match(candidate.topologyEventAuthority.authoritySha256 || "", /^[0-9a-f]{64}$/);
+  assert.equal(candidate.topologyEventAuthority.scoreAddress, candidate.scoreAddress);
+
   assert.ok(candidate.timeline.topologyEvents, "ordinary transition must carry topologyEvents");
   assert.ok(
     candidate.timeline.topologyEvents.eventCount > 0,
     "ordinary transition should retain event-rich topology activity",
   );
+  assert.equal(
+    candidate.timeline.topologyEvents.acceptedAuthoritySha256,
+    candidate.topologyEventAuthority.authoritySha256,
+    "topology plan must cite the candidate birth authority that admitted it",
+  );
+  assert.equal(
+    candidate.timeline.topologyEvents.acceptedScoreAddress,
+    candidate.topologyEventAuthority.scoreAddress,
+  );
+  assert.equal(
+    candidate.timeline.topologyEvents.sourceTimelineHash,
+    candidate.topologyEventAuthority.sourceTimelineHash,
+  );
+
   assert.ok(candidate.timeline.lBranch, "ordinary transition must carry L BRANCH");
   assert.match(candidate.timeline.lBranch.mixPlan?.planHash || "", /^[0-9a-f]{64}$/);
   assert.match(candidate.timeline.lBranch.execution?.executionHash || "", /^[0-9a-f]{64}$/);
 }
 
-async function selectAndAssertRenderable(session, family) {
-  const candidate = family.candidates.find(
+function expectedCandidateGenealogy(family, candidate) {
+  const stompPolicy = candidate.scoreArtifact?.derivation?.policy || null;
+  const stomp = family.phase === "stomp" && stompPolicy?.candidatePolicy === "visible-outcome-stomp-v1"
+    ? {
+        policy: stompPolicy.candidatePolicy,
+        sourceCandidatePolicy: stompPolicy.sourceCandidatePolicy || null,
+        role: stompPolicy.stompRole || candidate.role || null,
+        parentScoreRef: stompPolicy.parentScoreRef || null,
+        locks: Array.isArray(stompPolicy.locks) ? [...stompPolicy.locks] : [],
+        samplingSeed: stompPolicy.samplingSeed || null,
+        poolAttempt: Number.isInteger(stompPolicy.poolAttempt) ? stompPolicy.poolAttempt : null,
+        categoricalBreaks: Array.isArray(stompPolicy.categoricalBreaks)
+          ? [...stompPolicy.categoricalBreaks]
+          : [],
+        primitiveBreaks: Array.isArray(stompPolicy.primitiveBreaks)
+          ? [...stompPolicy.primitiveBreaks]
+          : [],
+        visibleDistanceFromParent: Number.isFinite(stompPolicy.visibleDistanceFromParent)
+          ? stompPolicy.visibleDistanceFromParent
+          : null,
+        minimumSiblingDistance: Number.isFinite(stompPolicy.minimumSiblingDistance)
+          ? stompPolicy.minimumSiblingDistance
+          : null,
+        thresholdRelaxation: stompPolicy.thresholdRelaxation
+          ? structuredClone(stompPolicy.thresholdRelaxation)
+          : null,
+        stompIntensity: stompPolicy.stompIntensity
+          ? structuredClone(stompPolicy.stompIntensity)
+          : null,
+      }
+    : null;
+  return {
+    schema: "haunted-toaster/candidate-genealogy/v1",
+    familyHash: family.familyHash,
+    familyPolicy: family.policy || null,
+    phase: family.phase || null,
+    rootSeed: family.rootSeed || null,
+    parentScoreRef: family.parentScoreRef || null,
+    baselineScoreRef: family.baselineScoreRef || null,
+    candidateIndex: candidate.index,
+    slotIndex: Number.isInteger(candidate.slotIndex) ? candidate.slotIndex : null,
+    role: candidate.role || null,
+    scoreAddress: candidate.scoreAddress,
+    timelineHash: candidate.timelineHash,
+    changedAxes: Array.isArray(candidate.changedAxes) ? [...candidate.changedAxes] : [],
+    toastmoodLane: candidate.toastmoodLane ? structuredClone(candidate.toastmoodLane) : null,
+    crossLineage: candidate.crossLineage ? structuredClone(candidate.crossLineage) : null,
+    frontierEvidence: candidate.frontierEvidence ? structuredClone(candidate.frontierEvidence) : null,
+    stomp,
+  };
+}
+
+async function selectAndAssertRenderable(session, family, preferredRole = null) {
+  const candidate = (preferredRole
+    ? family.candidates.find((entry) => entry.role === preferredRole)
+    : null) || family.candidates.find(
     (entry) => entry.timeline?.topologyEvents?.eventCount > 0,
   ) || family.candidates[0];
   session.select({ familyHash: family.familyHash, index: candidate.index });
@@ -101,8 +180,34 @@ async function selectAndAssertRenderable(session, family) {
     toastFeelId: "low-and-slow",
   });
   assert.equal(execution.resolvedTimeline.timelineHash, candidate.timelineHash);
-  assertWalkEEnrichment(execution.resolvedTimeline ? { timeline: execution.resolvedTimeline } : candidate);
+  assertWalkEEnrichment({
+    ...candidate,
+    timeline: execution.resolvedTimeline,
+  });
+  assert.deepEqual(
+    execution.candidateGenealogy,
+    expectedCandidateGenealogy(family, candidate),
+    "render handoff must retain current candidate genealogy separately from authority",
+  );
+  assert.equal(
+    Object.hasOwn(execution.candidateGenealogy, "topologyEventAuthority"),
+    false,
+    "genealogy must never substitute for topology-event authority",
+  );
+  assert.equal(
+    Object.hasOwn(execution.candidateGenealogy, "authoritySha256"),
+    false,
+    "genealogy must not smuggle the topology authority hash",
+  );
 }
+
+test("ordinary GENERATE constitutes topology authority before activity and L BRANCH", async () => {
+  const { session, initialFamily } = await sessionWithInitialFamily(
+    "walk-e-transition-generate-source",
+  );
+  assertWalkEEnrichment(initialFamily.candidates[0]);
+  await selectAndAssertRenderable(session, initialFamily);
+});
 
 test("ordinary MUTATE keeps topology activity and L BRANCH in the accepted render timeline", async () => {
   const { session, initialView, currentFamily } = await sessionWithInitialFamily(
@@ -153,4 +258,27 @@ test("ordinary STOMP keeps topology activity and L BRANCH in the accepted render
   const family = currentFamily();
   assertWalkEEnrichment(family.candidates[0]);
   await selectAndAssertRenderable(session, family);
+});
+
+test("ordinary CONVERGE gets fresh topology authority at the replacement birth boundary", async () => {
+  const { session, initialView, currentFamily } = await sessionWithInitialFamily(
+    "walk-e-transition-converge-source",
+  );
+  await session.mutate({
+    familyHash: initialView.familyHash,
+    parentIndex: 0,
+    presetId: "openField",
+    toastFeelId: "low-and-slow",
+    rootSeed: "walk-e-transition-converge-child",
+    converge: true,
+    locks: [],
+    lyrics: "",
+  });
+  const family = currentFamily();
+  const convergeCandidate = family.candidates.find(
+    (candidate) => candidate.role === "converge-frontier",
+  );
+  assert.ok(convergeCandidate, "CONVERGE should replace one ordinary birth slot");
+  assertWalkEEnrichment(convergeCandidate);
+  await selectAndAssertRenderable(session, family, "converge-frontier");
 });

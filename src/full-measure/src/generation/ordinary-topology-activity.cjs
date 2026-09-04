@@ -1,5 +1,6 @@
 const { deepFreeze, hashCanonical } = require("./canonical.cjs");
-const { resolveTopologyEvents, verifyCandidateFamilyAddress } = require("./topology-events.cjs");
+const { attachTopologyEventAuthorities } = require("./topology-event-authority.cjs");
+const { resolveTopologyEvents } = require("./topology-events.cjs");
 
 const ORDINARY_TOPOLOGY_ACTIVITY_POLICY = deepFreeze({
   policyVersion: "ordinary-topology-activity-v0",
@@ -149,33 +150,25 @@ function buildOrdinaryTopologyEventRequests(timeline, { rootSeed, slotIndex } = 
   return deepFreeze(requests);
 }
 
-function projectOrdinaryTopologyActivityView(family, { authorityForCandidate } = {}) {
-  if (typeof authorityForCandidate !== "function") {
-    verifyCandidateFamilyAddress(family);
-  }
-  const candidates = family.candidates.map((candidate) => {
+function projectOrdinaryTopologyActivityView(family) {
+  const birthFamily = attachTopologyEventAuthorities(family);
+  const candidates = birthFamily.candidates.map((candidate) => {
     const requests = buildOrdinaryTopologyEventRequests(candidate.timeline, {
-      rootSeed: family.rootSeed,
+      rootSeed: birthFamily.rootSeed,
       slotIndex: candidate.index,
     });
-    const authority = typeof authorityForCandidate === "function"
-      ? authorityForCandidate(candidate)
-      : { family, candidateIndex: candidate.index, sourceFamilyHash: family.familyHash };
-    if (!authority?.family || !Number.isSafeInteger(authority.candidateIndex)) {
-      throw new TypeError("Ordinary topology authority resolver returned invalid authority.");
-    }
+    const authority = candidate.topologyEventAuthority;
     const events = requests.map((request) => ({
       ...request,
       evidenceRefs: [
         ...request.evidenceRefs,
-        `event-authority:${authority.family.familyHash}`,
-        `source-family:${authority.sourceFamilyHash || family.familyHash}`,
-        `field-family:${family.familyHash}`,
+        `event-authority:${authority.authoritySha256}`,
+        `birth-family:${authority.birthFamilyHash}`,
+        `field-family:${birthFamily.familyHash}`,
       ],
     }));
     const timeline = resolveTopologyEvents(candidate.timeline, {
-      family: authority.family,
-      candidateIndex: authority.candidateIndex,
+      authority,
       events,
     });
     return deepFreeze({
@@ -189,6 +182,7 @@ function projectOrdinaryTopologyActivityView(family, { authorityForCandidate } =
         opportunitySeconds: ORDINARY_TOPOLOGY_ACTIVITY_POLICY.opportunitySeconds,
         opportunityCount: opportunityCount(candidate.timeline),
         admittedEventCount: timeline.topologyEvents?.eventCount || 0,
+        authoritySha256: authority.authoritySha256,
         forcedWitness: false,
       }),
     });
@@ -200,12 +194,12 @@ function projectOrdinaryTopologyActivityView(family, { authorityForCandidate } =
     candidates: _candidates,
     timelineHashes: _timelineHashes,
     ...familyEvidence
-  } = family;
+  } = birthFamily;
   return deepFreeze({
     ...structuredClone(familyEvidence),
     schema: ORDINARY_TOPOLOGY_ACTIVITY_VIEW_SCHEMA,
     policy: ORDINARY_TOPOLOGY_ACTIVITY_VIEW_POLICY,
-    sourceFamilyHash: family.familyHash,
+    sourceFamilyHash: birthFamily.familyHash,
     timelineHashes: candidates.map((candidate) => candidate.timelineHash),
     candidates,
   });
