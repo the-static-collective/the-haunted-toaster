@@ -1,5 +1,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fsPromises = require("node:fs/promises");
+const os = require("node:os");
+const path = require("node:path");
 const {
   FOREIGN_MATERIAL_DIGEST_FAMILY_SCHEMA,
   FOREIGN_MATERIAL_DIGEST_POLICY_VERSION,
@@ -9,6 +12,7 @@ const {
   createForeignMaterialDigestFamily,
   createForeignMaterialPlan,
 } = require("../src/render/foreign-material.cjs");
+const { resolveFfmpeg, runProcess } = require("../src/render/tooling.cjs");
 
 function sampleVideoBinding(overrides = {}) {
   return {
@@ -95,6 +99,55 @@ test("#250 topology descendant uses clip luminance only as a region mask over na
   assert.equal(applied.evidence.operatorId, FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID);
   assert.equal(applied.evidence.sourceRole, "region-mask");
   assert.equal(applied.evidence.literalSourcePixelsSurvive, false);
+});
+
+test("#250 topology-mask descendant executes real FFmpeg frames", async () => {
+  const topologyPlan = createFamily().descendants[1];
+  const applied = applyForeignMaterialToGraph({
+    graph: "[0:v]format=yuv420p[vout]",
+    foreignMaterialPlan: topologyPlan,
+    foreignMaterialInputIndex: 1,
+    width: 160,
+    height: 90,
+    fps: 12,
+  });
+  const temp = await fsPromises.mkdtemp(path.join(os.tmpdir(), "ht-video-digest-"));
+
+  try {
+    const graphPath = path.join(temp, "video-digest.ffgraph");
+    await fsPromises.writeFile(graphPath, `${applied.graph}\n`, "utf8");
+    await runProcess(
+      resolveFfmpeg(),
+      [
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        "color=c=black:s=160x90:r=12:d=0.5",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=s=160x90:r=12:d=0.5",
+        "-filter_complex_script",
+        graphPath,
+        "-map",
+        "[vout]",
+        "-frames:v",
+        "4",
+        "-f",
+        "null",
+        "-",
+      ],
+      { cwd: temp },
+    );
+    assert.match(applied.graph, /maskedmerge/);
+    assert.equal(applied.evidence.operatorId, FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID);
+  } finally {
+    await fsPromises.rm(temp, { recursive: true, force: true });
+  }
 });
 
 test("#250 digest family identity follows clip content rather than local path", () => {
