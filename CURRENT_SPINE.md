@@ -2,7 +2,7 @@
 
 > Repository-owned reconciliation ledger. This file records which lineage is current, which pull requests are historical shells, and where still-valid work must be rescued instead of merged from stale ancestry.
 >
-> Last reconciled: 2026-09-04
+> Last reconciled: 2026-09-05
 
 ## Law of use
 
@@ -65,6 +65,41 @@ That re-port is now constituted as #256 → #257. #256 has landed WALK E as its 
 
 The fill is not the carrier: equivalent source trees preserve executable content, but the landing carrier must still be constituted on the current field spine.
 
+## 2026-09-05 reconciliation cut — Stage A human pass / WALK E landing
+
+This cut closes the bounded Stage A six-address human gate and records the resulting field-spine landings. It is a **field-spine** reconciliation only: `main` receives this documentation update, not the WALK E runtime.
+
+### Stage A landing sequence
+
+- PR #256 was freshly reverified and merge-landed into `walk/e-sequential-braid` as `b5c1676f9a6064fd3ff639e1f316297c60d54c81`, preserving `d408a58754f4a53d1ca2c60141b3086bae21a22e` as an explicit parent instead of creating another squash boundary. The merge tree is exactly `5a2a55f2d8d461bd182d0d267ecc1a1cc00c3be4`.
+- PR #257 was retargeted onto that landed #256 merge, then freshly verified on synthetic merge ref `e6bdaedf2615097f1bf97cd3dad16888b8511ec7`.
+- Final landing verification run **2151** (`34000423759`) passed: Full Measure check **260 scripts**; **587/587** tests; full render smoke; candidate six-up smoke; production audit **0 vulnerabilities**; renderer-witness build and canonical comparison; and a fresh unsigned Windows installer + portable package.
+- Final run artifacts: smoke `9979338817` / SHA-256 `8a3b7c23f5030997724a69a30fdd5e16bb9e0c264104b5e328ba6ca54d9cb7af`; UI witness `9979349929` / SHA-256 `ac83fa13f57aa1c299af6dad58ae1a5dc6dd98e51a3ace4d06e24cc83d20390a`; Windows package `9979383260` / SHA-256 `e05302733b56af5645cb920078ea92ee9d9bd3e9a035c51b437abbe60901a6f1`.
+- PR #257 then merge-landed into WALK E as `4ee1bea5a84092d3f178e4c7f9e2d9da2b91b786`. Its tree is exactly `5fc954c01525a655a38c8e13c97e2ffbb6f6e2b7`; its parents are the landed #256 merge `b5c1676f…` and the witnessed #257 carrier `5b693ca8…`.
+- Current WALK E head is therefore **`4ee1bea5a84092d3f178e4c7f9e2d9da2b91b786`**.
+
+### Human Stage A witness
+
+The operator exercised the complete six-address surface through ordinary full renders and reported every address as a human pass:
+
+- `FOLLOW × WHOLE × CLEAN-RETURN`
+- `OPPOSE × WHOLE × RESIDUE`
+- `ACCENT × GRAB × CLEAN-RETURN`
+- `FOLLOW × GRAB × RESIDUE`
+- `OPPOSE × GRAB × CLEAN-RETURN`
+- `ACCENT × WHOLE × RESIDUE`
+
+The durable per-specimen receipt IDs and operator testimony are recorded on PR #257. Human testimony remains testimony: this pass establishes bounded compositional viability across all six addresses, not a claim that every axis is perfectly blind-nameable in every specimen.
+
+### Authority boundary after the pass
+
+- **#256 LANDED-SUPERSEDED** — its semantic carrier is now explicit ancestry of WALK E.
+- **#257 LANDED-SUPERSEDED** — its human-test bridge and passed six-address witness are now explicit ancestry of WALK E.
+- **#251/#254 remain ACTIVE WITNESS ANCESTRY** — preserve them; do not rewrite them merely because their exact trees now survive through current landing carriers.
+- Stage A remains explicit opt-in; accepted `ResolvedTimeline` remains execution authority.
+- This cut does **not** promote Stage B, Aperture Shape, Video Digestion, MADDCL0WN/WALK widening, a tag, a release, or WALK E runtime onto `main`.
+- The post-WALK re-entry queue is live again. #227 foreign-material metabolism and #250 Video Digestion are valid next questions; #223 shape-aware GRAB/aperture geometry remains a separate cheap multiplier rather than silently joining Stage A.
+
 ## Canonical `main` spine
 
 | Stage | Canonical commit / PR | What is carried forward | Status / successor |
@@ -106,19 +141,19 @@ These are active successors and witnesses, not permission to pretend their ances
    #249 topology-event authority carrier [landed into WALK E]
       ├─ witness ancestry: #251 → #254
       ↓
-   #256 Stage A current-WALK-E carrier
+   #256 Stage A current-WALK-E carrier   [landed into WALK E]
       ↓
-   #257 Stage A human-test carrier
+   #257 Stage A human-test carrier       [landed into WALK E · human pass]
 ```
 
 - **#212 ACTIVE** — composed human-test specimen for GRAB + Resolution/Atmosphere + Listener anchor integrity.
 - **#214 ACTIVE** — deterministic TEST 6 feature/witness branch; exact-head machine proof is green, but packaged human witness remains required. Reconciliation commits do not belong there.
-- **#244 ACTIVE** — WALK E composition lane. Its branch now carries the landed #249 authority carrier at `dce000c8…`; broader #234 perceptual graduation remains open.
+- **#244 ACTIVE** — WALK E composition lane. Its branch now carries #249 + the landed Stage A sequence #256 → #257 at current head `4ee1bea5…`; broader #234 perceptual graduation remains open.
 - **#249 LANDED-SUPERSEDED** — closed/merged into `walk/e-sequential-braid`; no `main` promotion, tag, or release.
-- **#251 ACTIVE WITNESS ANCESTRY** — preserve original Stage A machine/semantic proof on pre-squash #249 ancestry; #256 is the current carrier.
-- **#254 ACTIVE WITNESS ANCESTRY** — preserve original human-bridge witness stacked on #251; #257 is the current human-test carrier.
-- **#256 ACTIVE** — one-commit Stage A re-port on current WALK E; exact #251 source tree; fresh machine + renderer-witness proof green.
-- **#257 ACTIVE** — one-commit bridge re-port on #256; exact #254 source tree; fresh machine + 12/12 browser-witness proof green. **Human Stage A evaluation belongs here next.**
+- **#251 ACTIVE WITNESS ANCESTRY** — preserve original Stage A machine/semantic proof on pre-squash #249 ancestry; exact semantics survive through landed #256.
+- **#254 ACTIVE WITNESS ANCESTRY** — preserve original human-bridge witness stacked on #251; exact bridge survives through landed #257.
+- **#256 LANDED-SUPERSEDED** — merge-landed into WALK E as `b5c1676f…`; exact #251 tree and carrier ancestry retained.
+- **#257 LANDED-SUPERSEDED** — six-address human gate passed; merge-landed into WALK E as `4ee1bea5…`; exact #254 tree retained; final run 2151 and Windows package green.
 
 ### Sigil study lanes
 
@@ -152,12 +187,12 @@ These are active successors and witnesses, not permission to pretend their ances
 
 | PR | Reconciliation status | Repository disposition / successor |
 | --- | --- | --- |
-| #257 Stage A current human-test carrier | **ACTIVE** | Fresh one-commit re-port on #256; exact #254 tree; run 2145 green at 587/587 plus 12/12 browser witness. Human Stage A verdict is the next gate; no landing implied. |
-| #256 Stage A current-WALK-E carrier | **ACTIVE** | Fresh one-commit re-port on landed WALK E `dce000c8…`; exact #251 tree; run 2143 green at 582/582 plus renderer witness. Current semantic landing carrier; no landing implied. |
-| #254 Stage A narrow human-witness bridge | **ACTIVE** | Preserved witness ancestry only; exact behavior re-ported to #257. Do not test or land this stale-lineage branch as the current carrier. |
-| #251 Stage A post-WALK axis grammar | **ACTIVE** | Preserved RED/GREEN witness ancestry only; exact behavior re-ported to #256. Do not rewrite or land this stale-lineage branch as the current carrier. |
+| #257 Stage A current human-test carrier | **LANDED-SUPERSEDED** | Human six-address PASS recorded on PR; final retargeted run 2151 green at 587/587 plus renderer witness and Windows package; merge-landed into WALK E as `4ee1bea5…`. No `main` runtime promotion. |
+| #256 Stage A current-WALK-E carrier | **LANDED-SUPERSEDED** | Fresh re-port retained as explicit ancestry and merge-landed into WALK E as `b5c1676f…`; exact #251 tree preserved. |
+| #254 Stage A narrow human-witness bridge | **ACTIVE** | Preserved witness ancestry only; exact behavior survives through landed #257. Do not rewrite or promote this stale-lineage branch. |
+| #251 Stage A post-WALK axis grammar | **ACTIVE** | Preserved RED/GREEN witness ancestry only; exact behavior survives through landed #256. Do not rewrite or promote this stale-lineage branch. |
 | #249 topology-event authority carrier | **LANDED-SUPERSEDED** | Closed/merged into WALK E as `dce000c8…`; exact tested tree retained; no `main` promotion/tag/release. |
-| #244 WALK E sequential braid | **ACTIVE** | Current field-spine parent. Carries #249; broader #234 perceptual graduation remains open. |
+| #244 WALK E sequential braid | **ACTIVE** | Current field-spine parent; head `4ee1bea5…` carries #249 + Stage A #256/#257. Broader #234 perceptual graduation remains open. |
 | #222 foreign-material Slice D | **ACTIVE** | Renderer-facing #44 crossing is machine-green but human field-gated; do not treat Video as timeline authority. |
 | #219 Sigil Language Witness implementation plans | **ACTIVE** | Planning-only successor to merged #215; standalone language proof precedes any disposable Field Lab convergence. |
 | #218 current-spine receipt-memory implementation | **ACTIVE** | Rescue implementation 001 under #217; first backend RED→GREEN complete, wider memory proof ladder remains. |
