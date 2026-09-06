@@ -4,13 +4,39 @@ const {
 } = require("../generation/canonical.cjs");
 const {
   MIX_EXECUTION_POLICY,
+  MIX_EXECUTION_POLICY_V2,
   MIX_EXECUTION_SCHEMA,
+  MIX_EXECUTION_SCHEMA_V2,
   MIX_PLAN_POLICY,
+  MIX_PLAN_POLICY_V2,
   MIX_PLAN_SCHEMA,
+  MIX_PLAN_SCHEMA_V2,
   assertLBranchTimeline,
 } = require("../generation/l-branch.cjs");
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
+
+function contractForMixPlan(mixPlan) {
+  if (mixPlan?.policyVersion === MIX_PLAN_POLICY) {
+    return {
+      planSchema: MIX_PLAN_SCHEMA,
+      planHashDomain: "HauntedToaster-LBranchMixPlan-v1",
+      executionSchema: MIX_EXECUTION_SCHEMA,
+      executionPolicy: MIX_EXECUTION_POLICY,
+      executionHashDomain: "HauntedToaster-LBranchMixExecution-v1",
+    };
+  }
+  if (mixPlan?.policyVersion === MIX_PLAN_POLICY_V2) {
+    return {
+      planSchema: MIX_PLAN_SCHEMA_V2,
+      planHashDomain: "HauntedToaster-LBranchMixPlan-v2",
+      executionSchema: MIX_EXECUTION_SCHEMA_V2,
+      executionPolicy: MIX_EXECUTION_POLICY_V2,
+      executionHashDomain: "HauntedToaster-LBranchMixExecution-v2",
+    };
+  }
+  throw new TypeError("ResolvedTimeline L BRANCH Mix Plan identity mismatch.");
+}
 
 function assertLBranchIntegrity(timeline) {
   assertLBranchTimeline(timeline);
@@ -18,17 +44,14 @@ function assertLBranchIntegrity(timeline) {
 
   const binding = timeline.lBranch;
   const mixPlan = binding.mixPlan;
-  if (
-    !mixPlan ||
-    mixPlan.schema !== MIX_PLAN_SCHEMA ||
-    mixPlan.policyVersion !== MIX_PLAN_POLICY
-  ) {
+  const contract = contractForMixPlan(mixPlan);
+  if (!mixPlan || mixPlan.schema !== contract.planSchema) {
     throw new TypeError("ResolvedTimeline L BRANCH Mix Plan identity mismatch.");
   }
   const { planHash, ...mixPlanCore } = mixPlan;
   if (
     !SHA256_PATTERN.test(String(planHash || "")) ||
-    hashCanonical(mixPlanCore, "HauntedToaster-LBranchMixPlan-v1") !== planHash
+    hashCanonical(mixPlanCore, contract.planHashDomain) !== planHash
   ) {
     throw new TypeError("ResolvedTimeline L BRANCH Mix Plan identity mismatch.");
   }
@@ -36,15 +59,15 @@ function assertLBranchIntegrity(timeline) {
   const execution = binding.execution;
   if (
     !execution ||
-    execution.schema !== MIX_EXECUTION_SCHEMA ||
-    execution.policyVersion !== MIX_EXECUTION_POLICY
+    execution.schema !== contract.executionSchema ||
+    execution.policyVersion !== contract.executionPolicy
   ) {
     throw new TypeError("ResolvedTimeline L BRANCH execution identity mismatch.");
   }
   const { executionHash, ...executionCore } = execution;
   if (
     !SHA256_PATTERN.test(String(executionHash || "")) ||
-    hashCanonical(executionCore, "HauntedToaster-LBranchMixExecution-v1") !== executionHash
+    hashCanonical(executionCore, contract.executionHashDomain) !== executionHash
   ) {
     throw new TypeError("ResolvedTimeline L BRANCH execution identity mismatch.");
   }
