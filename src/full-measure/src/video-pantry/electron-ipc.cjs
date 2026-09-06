@@ -1,5 +1,6 @@
 const path = require("node:path");
 const { resolveToasterHome, videoPantryCatalogPath } = require("../toaster-home.cjs");
+const { normalizeDigestOperatorId } = require("../render/foreign-material.cjs");
 const { admitVideo } = require("./admit.cjs");
 const { admitVideoFolder } = require("./import-folder.cjs");
 const { loadCatalog } = require("./catalog.cjs");
@@ -19,6 +20,7 @@ function registerVideoPantryIpc({
   }
 
   const catalogPath = () => videoPantryCatalogPath(resolveToasterHome({ appDataPath: app.getPath("userData") }));
+  let currentVideo = candidateSession.state?.().video || null;
 
   ipcMain.handle("dialog:choose-video", async (_event, options = {}) => {
     const result = await dialog.showOpenDialog(getMainWindow(), {
@@ -31,9 +33,10 @@ function registerVideoPantryIpc({
       catalogPath: catalogPath(),
       persist: options?.addToPantry !== false,
     });
-    candidateSession.noteVideo(admitted.binding);
+    currentVideo = structuredClone(admitted.binding);
+    candidateSession.noteVideo(currentVideo);
     return {
-      binding: admitted.binding,
+      binding: structuredClone(currentVideo),
       inserted: admitted.inserted,
       pantryCount: admitted.catalog ? admitted.catalog.specimens.length : null,
     };
@@ -53,7 +56,29 @@ function registerVideoPantryIpc({
 
   ipcMain.handle("video-pantry:list", () => loadCatalogImpl(catalogPath()));
 
+  ipcMain.handle("video:set-digest-operator", async (_event, operatorId) => {
+    const admittedVideo = candidateSession.state?.().video || currentVideo;
+    if (!admittedVideo) {
+      const error = new Error("Video digestion requires an admitted Video specimen.");
+      error.code = "VIDEO_DIGEST_REQUIRES_SOURCE";
+      throw error;
+    }
+    const digestOperatorId = normalizeDigestOperatorId(operatorId);
+    const currentOperatorId = normalizeDigestOperatorId(admittedVideo.digestOperatorId);
+    const nextBinding = {
+      ...structuredClone(admittedVideo),
+      digestOperatorId,
+    };
+    if (digestOperatorId !== currentOperatorId) {
+      candidateSession.clearVideo();
+      candidateSession.noteVideo(nextBinding);
+    }
+    currentVideo = structuredClone(nextBinding);
+    return structuredClone(nextBinding);
+  });
+
   ipcMain.handle("video:clear", () => {
+    currentVideo = null;
     candidateSession.clearVideo();
     return true;
   });
