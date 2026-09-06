@@ -531,6 +531,10 @@
       if (event.detail?.source === "candidate-lane") return;
       clearUi();
     });
+    window.addEventListener("video-digest-change", () => {
+      clearUi({ notifyMain: false });
+      status.textContent = "Video digestion changed · generate six again.";
+    });
     document.querySelector("#removeImage")?.addEventListener("click", () => {
       api.clearCandidateImage().catch(() => {});
       clearUi({ notifyMain: false });
