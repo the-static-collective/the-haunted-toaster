@@ -18,6 +18,8 @@ const previewPath = path.join(root, "src", "render", "candidate-preview.cjs");
 const foreignMaterialPath = path.join(root, "src", "render", "foreign-material.cjs");
 const electronIpcPath = path.join(root, "src", "video-pantry", "electron-ipc.cjs");
 const preloadPath = path.join(root, "src", "preload.cjs");
+const candidateUiPath = path.join(root, "src", "renderer", "candidate-ui.js");
+const videoSourceUiPath = path.join(root, "src", "renderer", "video-source-ui.js");
 
 function read(filePath) {
   return fs.readFileSync(filePath, "utf8");
@@ -107,17 +109,21 @@ test("#250 Video IPC admits only the two bounded digest roles and requires admit
   );
 });
 
-test("#250 digest role rides the existing Video binding through preview and final render", () => {
+test("#250 digest role rides the existing Video binding through preview/final and visibly revokes stale six-up", () => {
   const candidateSource = read(candidateSessionPath);
   const previewSource = read(previewPath);
   const foreignSource = read(foreignMaterialPath);
   const ipcSource = read(electronIpcPath);
+  const candidateUiSource = read(candidateUiPath);
+  const videoSourceUiSource = read(videoSourceUiPath);
 
   assert.match(foreignSource, /videoBinding\.digestOperatorId/);
   assert.match(candidateSource, /video:\s*video \? structuredClone\(video\) : null/);
   assert.match(candidateSource, /foreignVisualMaterial:\s*createForeignMaterialPlan\(\{[\s\S]*videoBinding:\s*video \? structuredClone\(video\) : null/);
   assert.match(previewSource, /createForeignMaterialPlan\(\{[\s\S]*videoBinding:\s*config\.video \|\| null/);
   assert.match(ipcSource, /candidateSession\.clearVideo\(\)[\s\S]*candidateSession\.noteVideo\(/);
+  assert.match(videoSourceUiSource, /video-digest-change/);
+  assert.match(candidateUiSource, /window\.addEventListener\("video-digest-change"[\s\S]*clearUi\(\{ notifyMain: false \}\)/);
   assert.doesNotMatch(candidateSource, /let videoDigestOperatorId/);
 });
 
@@ -139,6 +145,8 @@ test("#250 Video row reveals exactly two digest choices only after Video admissi
     </section>
   `);
   const calls = [];
+  const digestEvents = [];
+  dom.window.addEventListener("video-digest-change", (event) => digestEvents.push(event.detail));
   const api = {
     async listVideoPantry() { return { specimens: [] }; },
     async chooseVideo() { return { binding: binding(), pantryCount: null }; },
@@ -168,6 +176,7 @@ test("#250 Video row reveals exactly two digest choices only after Video admissi
   selector.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
   await flush();
   assert.deepEqual(calls.at(-1), ["setVideoDigestOperator", FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID]);
+  assert.deepEqual(digestEvents.at(-1), { operatorId: FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID });
 
   dom.window.document.querySelector("#removeVideo").click();
   await flush();
