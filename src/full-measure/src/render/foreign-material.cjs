@@ -77,17 +77,24 @@ function assimilationPolicyForOperator(operatorId) {
   throw new TypeError(`Unsupported foreign-material digest operator: ${operatorId}.`);
 }
 
+function normalizeDigestOperatorId(value, { fallback = FOREIGN_MATERIAL_OPERATOR_ID } = {}) {
+  const normalized = String(value || fallback || "").trim();
+  if (!SUPPORTED_DIGEST_OPERATORS.has(normalized)) {
+    throw new TypeError(`Unsupported foreign-material digest operator: ${normalized || "(empty)"}.`);
+  }
+  return normalized;
+}
+
 function createForeignMaterialPlan({
   videoBinding,
   timeline,
   analysisDurationSeconds = null,
-  operatorId = FOREIGN_MATERIAL_OPERATOR_ID,
+  operatorId = null,
 } = {}) {
   if (!videoBinding) return null;
-  const normalizedOperatorId = String(operatorId || "").trim();
-  if (!SUPPORTED_DIGEST_OPERATORS.has(normalizedOperatorId)) {
-    throw new TypeError(`Unsupported foreign-material digest operator: ${normalizedOperatorId || "(empty)"}.`);
-  }
+  const normalizedOperatorId = normalizeDigestOperatorId(
+    operatorId || videoBinding.digestOperatorId || FOREIGN_MATERIAL_OPERATOR_ID,
+  );
   const reservoir = deriveFrameReservoir(videoBinding, { representativeCount: 9 });
   const normalizedTimeline = normalizeRenderDuration({ timeline, analysisDurationSeconds });
   const analysis = Object.freeze({
@@ -146,6 +153,7 @@ function createForeignMaterialDigestFamily({
     videoBinding,
     timeline,
     analysisDurationSeconds,
+    operatorId: FOREIGN_MATERIAL_OPERATOR_ID,
   });
   const topologyPlan = createForeignMaterialPlan({
     videoBinding,
@@ -333,4 +341,5 @@ module.exports = {
   createForeignMaterialDigestFamily,
   createForeignMaterialPlan,
   ffmpegInputArgsForForeignMaterial,
+  normalizeDigestOperatorId,
 };
