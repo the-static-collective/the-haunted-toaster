@@ -394,6 +394,63 @@ function hasSufficientTimingEvidence(
   return priorContinuity || nextLineCorroboration;
 }
 
+function backfillOpeningCues(cues, lines, entries, songDuration, leadSeconds) {
+  const firstTrustedIndex = cues.findIndex(
+    (cue) => cue.status === "high" && Number.isFinite(cue.start),
+  );
+  if (firstTrustedIndex <= 0) return cues;
+  if (cues.slice(0, firstTrustedIndex).some((cue) => cue.status !== "unmatched")) {
+    return cues;
+  }
+
+  let rightBoundary = cues[firstTrustedIndex].start;
+  for (let lineIndex = firstTrustedIndex - 1; lineIndex >= 0; lineIndex -= 1) {
+    const boundedEntries = entries.filter(
+      (entry) => entry.start >= 0 && entry.end <= rightBoundary,
+    );
+    if (!boundedEntries.length) continue;
+
+    const candidate = bestCandidate(
+      lines[lineIndex],
+      null,
+      boundedEntries,
+      0,
+      1,
+    );
+    const confidence = confidenceStatus(candidate);
+    const directEvidence = Boolean(
+      candidate &&
+      candidate.end <= rightBoundary &&
+      candidate.score >= LOW_PLACEMENT_MIN_SCORE &&
+      candidate.similarity >= LOW_PLACEMENT_MIN_SIMILARITY,
+    );
+    if (!candidate || (confidence.status === "low" && !directEvidence)) continue;
+
+    const start = clamp(
+      candidate.start - leadSeconds,
+      0,
+      songDuration || candidate.start,
+    );
+    const end = clamp(
+      Math.max(start + 0.18, candidate.end),
+      start + 0.18,
+      songDuration || Math.max(start + 0.18, candidate.end),
+    );
+    cues[lineIndex] = {
+      lineIndex,
+      text: lines[lineIndex],
+      start: round(start),
+      end: round(end),
+      status: confidence.status,
+      confidence: round(confidence.confidence, 4),
+      similarity: round(candidate.similarity, 4),
+      heard: candidate.heard,
+    };
+    rightBoundary = candidate.start;
+  }
+  return cues;
+}
+
 function alignLyricsToTranscript(
   lyrics,
   transcript,
@@ -479,6 +536,8 @@ function alignLyricsToTranscript(
     hasPreviousPlacement = true;
     previousPlacementEnd = candidate.end;
   }
+
+  backfillOpeningCues(cues, lines, entries, songDuration, leadSeconds);
 
   const counts = {
     high: cues.filter((cue) => cue.status === "high").length,

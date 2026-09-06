@@ -4,12 +4,17 @@ const test = require('node:test');
 const {
   DESTINATIONS,
   LANE_IDS,
+  MIX_EXECUTION_POLICY_V2,
+  MIX_EXECUTION_SCHEMA_V2,
   MIX_PLAN_POLICY,
+  MIX_PLAN_POLICY_V2,
+  MIX_PLAN_SCHEMA_V2,
   RESPONSE_MODES,
   assertLBranchTimeline,
   attachLBranchToFamily,
   buildLaneBank,
   buildMixPlan,
+  buildMixPlanFromRequests,
   compileMixPlan,
   replayLBranchFamily,
 } = require('../src/generation/l-branch.cjs');
@@ -200,4 +205,50 @@ test('replay reconstructs Lane Bank -> Mix Plan -> timeline -> family identity e
 test('historical timelines without Mix Plans preserve historical semantics', () => {
   const historical = candidate(0).timeline;
   assert.equal(assertLBranchTimeline(historical), historical);
+});
+
+test('L BRANCH v2 plans are versioned and compile relational oppose without rewriting v1', () => {
+  const bank = buildLaneBank({ responseWitness: responseWitness(), lyricTrack: null });
+  const item = candidate(0);
+  const v1 = buildMixPlan({ laneBank: bank, candidate: item });
+  const v2 = buildMixPlanFromRequests({
+    laneBank: bank,
+    candidate: item,
+    strategyId: 'post-walk-test',
+    policyVersion: MIX_PLAN_POLICY_V2,
+    requests: [{
+      lane: 'raw-energy-envelope',
+      target: 'topology',
+      gain: 1,
+      resolution: 1,
+      response: 'oppose',
+      smoothing: 0,
+      scope: 'whole',
+    }],
+  });
+
+  assert.equal(v1.policyVersion, MIX_PLAN_POLICY);
+  assert.equal(v2.schema, MIX_PLAN_SCHEMA_V2);
+  assert.equal(v2.policyVersion, MIX_PLAN_POLICY_V2);
+
+  const execution = compileMixPlan({
+    laneBank: bank,
+    mixPlan: v2,
+    timeline: item.timeline,
+  });
+  assert.equal(execution.schema, MIX_EXECUTION_SCHEMA_V2);
+  assert.equal(execution.policyVersion, MIX_EXECUTION_POLICY_V2);
+
+  const knots = execution.sends[0].knots;
+  const rising = knots.findIndex(
+    (knot, index) => index > 0 && knot.value < knots[index - 1].value,
+  );
+  assert.ok(rising > 0, 'v2 oppose must counter local rising motion');
+
+  const current = bank.lanes[0].knots[rising].value;
+  const previous = bank.lanes[0].knots[rising - 1].value;
+  const complement = 1 - current;
+  const expectedRelational = Math.max(0, Math.min(1, previous - (current - previous)));
+  assert.equal(knots[rising].value, expectedRelational);
+  assert.notEqual(knots[rising].value, complement);
 });

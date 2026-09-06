@@ -4,6 +4,7 @@ const path = require("node:path");
 const generation = require("./generation/index.cjs");
 const { admitLabProposal, parseLabProposalTransfer } = require("./lab-proposal.cjs");
 const { renderCandidateFamilyPreviews } = require("./render/candidate-preview.cjs");
+const { createForeignMaterialPlan } = require("./render/foreign-material.cjs");
 const { createLyricTrack } = require("./render/lyrics.cjs");
 const { getToastFeel } = require("./toast-feels.cjs");
 const { registerVideoPantryIpc } = require("./video-pantry/electron-ipc.cjs");
@@ -109,6 +110,59 @@ function sameVideoBinding(left, right) {
   if (left.specimenId && right.specimenId) return left.specimenId === right.specimenId;
   if (left.path && right.path) return path.resolve(left.path) === path.resolve(right.path);
   return false;
+}
+
+function candidateGenealogyEvidence(family, candidate) {
+  if (!family || !candidate) return null;
+  const stompPolicy = candidate.scoreArtifact?.derivation?.policy || null;
+  const stomp = family.phase === "stomp" && stompPolicy?.candidatePolicy === "visible-outcome-stomp-v1"
+    ? {
+        policy: stompPolicy.candidatePolicy,
+        sourceCandidatePolicy: stompPolicy.sourceCandidatePolicy || null,
+        role: stompPolicy.stompRole || candidate.role || null,
+        parentScoreRef: stompPolicy.parentScoreRef || null,
+        locks: Array.isArray(stompPolicy.locks) ? [...stompPolicy.locks] : [],
+        samplingSeed: stompPolicy.samplingSeed || null,
+        poolAttempt: Number.isInteger(stompPolicy.poolAttempt) ? stompPolicy.poolAttempt : null,
+        categoricalBreaks: Array.isArray(stompPolicy.categoricalBreaks)
+          ? [...stompPolicy.categoricalBreaks]
+          : [],
+        primitiveBreaks: Array.isArray(stompPolicy.primitiveBreaks)
+          ? [...stompPolicy.primitiveBreaks]
+          : [],
+        visibleDistanceFromParent: Number.isFinite(stompPolicy.visibleDistanceFromParent)
+          ? stompPolicy.visibleDistanceFromParent
+          : null,
+        minimumSiblingDistance: Number.isFinite(stompPolicy.minimumSiblingDistance)
+          ? stompPolicy.minimumSiblingDistance
+          : null,
+        thresholdRelaxation: stompPolicy.thresholdRelaxation
+          ? structuredClone(stompPolicy.thresholdRelaxation)
+          : null,
+        stompIntensity: stompPolicy.stompIntensity
+          ? structuredClone(stompPolicy.stompIntensity)
+          : null,
+      }
+    : null;
+  return {
+    schema: "haunted-toaster/candidate-genealogy/v1",
+    familyHash: family.familyHash,
+    familyPolicy: family.policy || null,
+    phase: family.phase || null,
+    rootSeed: family.rootSeed || null,
+    parentScoreRef: family.parentScoreRef || null,
+    baselineScoreRef: family.baselineScoreRef || null,
+    candidateIndex: candidate.index,
+    slotIndex: Number.isInteger(candidate.slotIndex) ? candidate.slotIndex : null,
+    role: candidate.role || null,
+    scoreAddress: candidate.scoreAddress,
+    timelineHash: candidate.timelineHash,
+    changedAxes: Array.isArray(candidate.changedAxes) ? [...candidate.changedAxes] : [],
+    toastmoodLane: candidate.toastmoodLane ? structuredClone(candidate.toastmoodLane) : null,
+    crossLineage: candidate.crossLineage ? structuredClone(candidate.crossLineage) : null,
+    frontierEvidence: candidate.frontierEvidence ? structuredClone(candidate.frontierEvidence) : null,
+    stomp,
+  };
 }
 
 function createCandidateSession({
@@ -220,6 +274,110 @@ function createCandidateSession({
     return timedLyricTrack(config.lyrics, Number(mediaAnalysis.duration));
   }
 
+  function admitPostWalkAxisFamily(sourceFamily, { responseWitness, lyricTrack }) {
+    const birthFamily = generation.attachTopologyEventAuthorities(sourceFamily);
+    const laneBank = generation.buildLaneBank({ responseWitness, lyricTrack });
+    const candidates = birthFamily.candidates.map((candidate) => {
+      const authority = candidate.topologyEventAuthority;
+      const recipe = generation.buildPostWalkAxisRecipe(candidate.index);
+      const admitted = generation.composePostWalkAxisRecipe({
+        family: birthFamily,
+        candidate,
+        authority,
+        laneBank,
+        recipe,
+        rootSeed: authority.rootSeed,
+        slotIndex: authority.slotIndex,
+      });
+      if (!admitted.ok) {
+        const reason = admitted.refusal?.reason || "unknown-refusal";
+        const error = new Error(`POST_WALK_AXIS_REFUSED: ${reason}.`);
+        error.code = "POST_WALK_AXIS_REFUSED";
+        error.refusal = admitted.refusal ? structuredClone(admitted.refusal) : null;
+        throw error;
+      }
+      return Object.freeze({
+        ...candidate,
+        timeline: admitted.timeline,
+        timelineHash: admitted.timeline.timelineHash,
+        postWalkAxisRecipeHash: recipe.recipeHash,
+        postWalkAxisRecipe: Object.freeze({
+          schema: recipe.schema,
+          policyVersion: recipe.policyVersion,
+          recipeHash: recipe.recipeHash,
+          response: recipe.response,
+          scope: recipe.scope,
+          consequence: recipe.consequence,
+        }),
+        laneBankHash: laneBank.laneBankHash,
+        mixPlanHash: admitted.mixPlan.planHash,
+      });
+    });
+    const {
+      familyHash: _familyHash,
+      candidates: _candidates,
+      timelineHashes: _timelineHashes,
+      ...stableCore
+    } = birthFamily;
+    const core = {
+      ...structuredClone(stableCore),
+      timelineHashes: candidates.map((candidate) => candidate.timelineHash),
+    };
+    return Object.freeze({
+      ...core,
+      familyHash: generation.hashCanonical(core, "HauntedToaster-CandidateFamily-v1"),
+      candidates,
+    });
+  }
+
+  function enrichOrdinaryFamily(sourceFamily, {
+    analysis,
+    responseWitness,
+    constraints,
+    lyricTrack,
+    profile,
+    postWalkAxisGrammar = false,
+  }) {
+    if (postWalkAxisGrammar === true) {
+      const admittedFamily = admitPostWalkAxisFamily(sourceFamily, {
+        responseWitness,
+        lyricTrack,
+      });
+      return Object.freeze({
+        ...admittedFamily,
+        forcedWitness: false,
+        fixtureFamily: null,
+        toastFeel: sourceFamily.toastFeel || null,
+        toastmoodField: sourceFamily.toastmoodField || null,
+        cross: sourceFamily.cross || null,
+      });
+    }
+    const projected = generation.projectOrdinaryGrabView(sourceFamily, {
+      authorityForCandidate(candidate) {
+        return generation.canonicalAuthorityForCandidate(sourceFamily, candidate, {
+          analysis,
+          responseWitness,
+          garmentConstraints: constraints,
+          rendererProfile,
+          lyricTrack,
+          nativeChromaticProfile: profile,
+        });
+      },
+    });
+    const lBranchFamily = generation.attachLBranchToFamily(projected, {
+      responseWitness,
+      lyricTrack,
+    });
+    return Object.freeze({
+      ...lBranchFamily,
+      forcedWitness: false,
+      fixtureFamily: null,
+      toastFeel: sourceFamily.toastFeel || null,
+      toastmoodField: sourceFamily.toastmoodField || null,
+      cross: sourceFamily.cross || null,
+    });
+  }
+
   async function materialize(nextFamily, config, signal, influence = null) {
     const requestedFeel = currentToastFeel(config.toastFeelId, { optional: true });
     const familyFeel = nextFamily.toastFeel?.id
@@ -233,6 +391,7 @@ function createCandidateSession({
       {
         audioPath,
         imagePath,
+        video: video ? structuredClone(video) : null,
         analysis: mediaAnalysis,
         presetId: config.presetId,
         title: config.title,
@@ -307,29 +466,13 @@ function createCandidateSession({
         toastFeelId: feel?.id || null,
         nativeChromaticProfile: profile,
       });
-      const projected = generation.projectOrdinaryGrabView(sourceFamily, {
-        authorityForCandidate(candidate) {
-          return generation.canonicalAuthorityForCandidate(sourceFamily, candidate, {
-            analysis,
-            responseWitness,
-            garmentConstraints: constraints,
-            rendererProfile,
-            lyricTrack,
-            nativeChromaticProfile: profile,
-          });
-        },
-      });
-      const lBranchFamily = generation.attachLBranchToFamily(projected, {
+      const nextFamily = enrichOrdinaryFamily(sourceFamily, {
+        analysis,
         responseWitness,
+        constraints,
         lyricTrack,
-      });
-      const nextFamily = Object.freeze({
-        ...lBranchFamily,
-        forcedWitness: false,
-        fixtureFamily: null,
-        toastFeel: sourceFamily.toastFeel || null,
-        toastmoodField: sourceFamily.toastmoodField || null,
-        cross: sourceFamily.cross || null,
+        profile,
+        postWalkAxisGrammar: config.postWalkAxisGrammar === true,
       });
       return await materialize(
         nextFamily,
@@ -466,6 +609,14 @@ function createCandidateSession({
           throw refusal;
         }
       }
+      nextFamily = enrichOrdinaryFamily(nextFamily, {
+        analysis,
+        responseWitness,
+        constraints,
+        lyricTrack,
+        profile,
+        postWalkAxisGrammar: config.postWalkAxisGrammar === true,
+      });
       return await materialize(
         nextFamily,
         { ...config, toastFeelId: feel?.id || null },
@@ -495,7 +646,8 @@ function createCandidateSession({
       const profile = await ensureNativeChromaticProfile();
       const analysis = toGenerationAnalysis(mediaAnalysis);
       const responseWitness = responseWitnessFor(mediaAnalysis, analysis);
-      const nextFamily = generation.generateCrossCandidateSet({
+      const lyricTrack = lyricTrackFor(config);
+      const sourceFamily = generation.generateCrossCandidateSet({
         analysis,
         responseWitness,
         garmentConstraints: constraints,
@@ -506,9 +658,17 @@ function createCandidateSession({
         rootSeed: config.rootSeed,
         count: 6,
         phase: "cross",
-        lyricTrack: lyricTrackFor(config),
+        lyricTrack,
         toastFeelId: feel?.id || null,
         nativeChromaticProfile: profile,
+      });
+      const nextFamily = enrichOrdinaryFamily(sourceFamily, {
+        analysis,
+        responseWitness,
+        constraints,
+        lyricTrack,
+        profile,
+        postWalkAxisGrammar: config.postWalkAxisGrammar === true,
       });
       return await materialize(
         nextFamily,
@@ -535,7 +695,8 @@ function createCandidateSession({
       const profile = await ensureNativeChromaticProfile();
       const analysis = toGenerationAnalysis(mediaAnalysis);
       const responseWitness = responseWitnessFor(mediaAnalysis, analysis);
-      const nextFamily = generation.generateStompCandidateSet({
+      const lyricTrack = lyricTrackFor(config);
+      const sourceFamily = generation.generateStompCandidateSet({
         analysis,
         responseWitness,
         garmentConstraints: constraints,
@@ -544,10 +705,18 @@ function createCandidateSession({
         locks: config.locks || [],
         rootSeed: config.rootSeed,
         count: 6,
-        lyricTrack: lyricTrackFor(config),
+        lyricTrack,
         toastFeelId: feel.id,
         nativeChromaticProfile: profile,
         parentNativeColorPlan: parent.timeline?.nativeColor || null,
+      });
+      const nextFamily = enrichOrdinaryFamily(sourceFamily, {
+        analysis,
+        responseWitness,
+        constraints,
+        lyricTrack,
+        profile,
+        postWalkAxisGrammar: config.postWalkAxisGrammar === true,
       });
       return await materialize(
         nextFamily,
@@ -640,11 +809,17 @@ function createCandidateSession({
       ...(forcedRenderConfig || {}),
       visualScore: selection.scoreArtifact.score,
       resolvedTimeline: selection.timeline,
+      candidateGenealogy: candidateGenealogyEvidence(family, selection),
       forcedWitnessEvidence: selection.forcedWitnessEvidence
         ? structuredClone(selection.forcedWitnessEvidence)
         : null,
       forcedRenderConfig,
       analysis: mediaAnalysis,
+      foreignVisualMaterial: createForeignMaterialPlan({
+        videoBinding: video ? structuredClone(video) : null,
+        timeline: selection.timeline,
+        analysisDurationSeconds: Number(mediaAnalysis.duration),
+      }),
       labInfluence: familyBinding.labInfluence || { enabled: false },
       toastFeel: familyBinding.toastFeel ? structuredClone(familyBinding.toastFeel) : null,
       nativeChromaticProfile: nativeChromaticProfile

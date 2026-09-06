@@ -75,6 +75,13 @@
         </header>
         <div class="candidate-toolbar">
           <div class="candidate-status" id="candidateStatus">Generate six to begin.</div>
+          <label class="candidate-stage-a" for="candidateStageA">
+            <input id="candidateStageA" type="checkbox" />
+            <span>
+              <small>STAGE A · OPT-IN</small>
+              <strong>Address this six</strong>
+            </span>
+          </label>
           <button class="candidate-regenerate" id="candidateRegenerate" type="button">Generate six</button>
         </div>
         <div class="candidate-grid" id="candidateGrid"></div>
@@ -109,6 +116,7 @@
     const regenerate = modal.querySelector("#candidateRegenerate");
     const redeal = modal.querySelector("#candidateMoveRedeal");
     const use = modal.querySelector("#candidateUse");
+    const stageAOptIn = modal.querySelector("#candidateStageA");
     const lockList = modal.querySelector(".candidate-lock-list");
 
     for (const [axis, label] of LOCKABLE_AXES) {
@@ -156,6 +164,7 @@
         rootSeed: nextRootSeed(kind),
         presetId: "openField",
         toastFeelId: currentCandidateToastFeelId(),
+        postWalkAxisGrammar: stageAOptIn.checked === true,
         title: document.querySelector("#titleInput")?.value || "",
         artist: document.querySelector("#artistInput")?.value || "",
         lyrics: document.querySelector("#lyricsInput")?.value || "",
@@ -205,6 +214,7 @@
       redeal.disabled = nextBusy || selectedIndex === null || !window.candidateMoveDeck?.dealCandidateMoves;
       use.disabled = nextBusy || selectedIndex === null;
       launch.disabled = nextBusy;
+      stageAOptIn.disabled = nextBusy;
       for (const button of moveGrid.querySelectorAll(".candidate-move-card")) {
         button.disabled = nextBusy || button.dataset.contractUnavailable === "true";
       }
@@ -335,6 +345,13 @@
         card.setAttribute("aria-pressed", "false");
         const changed = candidate.changedAxes?.length ? candidate.changedAxes.join(" · ") : "baseline";
         const lane = candidate.toastmoodLane?.name ? ` · ${candidate.toastmoodLane.name}` : "";
+        const recipe = candidate.postWalkAxisRecipe;
+        const recipeWitness = recipe
+          ? `<span class="candidate-stage-a-recipe" title="Recipe ${shortAddress(recipe.recipeHash)}">
+              <small>STAGE A</small>
+              <span>${recipe.response} · ${recipe.scope} · ${recipe.consequence}</span>
+            </span>`
+          : "";
         card.innerHTML = `
           <span class="candidate-image-wrap">
             <img src="${candidate.thumbnailDataUrl}" alt="Candidate ${candidate.index + 1} exact timeline preview" />
@@ -343,6 +360,7 @@
           <span class="candidate-copy">
             <small>${roleLabel(candidate.role)}${lane}</small>
             <strong>${candidate.signature}</strong>
+            ${recipeWitness}
             <em>${changed}</em>
             <code>${shortAddress(candidate.scoreAddress)}</code>
           </span>
@@ -353,13 +371,16 @@
 
       const shortfall = view.shortfall ? ` · ${view.producedCount}/${view.requestedCount} materially distinct` : "";
       const frontier = frontierSummary(view);
+      const stageA = (view.candidates || []).some((candidate) => candidate.postWalkAxisRecipe);
       status.textContent = frontier
         ? `CONVERGE · underexplored ${frontier} · choose one.`
         : view.cross?.policy
           ? `CROSS · ${view.producedCount} exact two-parent descendants ready. Choose one.`
-          : view.toastmoodField?.policy
-            ? `Field · ${view.producedCount} distinct Toastmood lanes ready${shortfall}. Choose one.`
-            : `${view.producedCount} exact previews ready${shortfall}. Choose one.`;
+          : stageA
+            ? `STAGE A · ${view.producedCount} addressed previews ready${shortfall}. Choose one.`
+            : view.toastmoodField?.policy
+              ? `Field · ${view.producedCount} distinct Toastmood lanes ready${shortfall}. Choose one.`
+              : `${view.producedCount} exact previews ready${shortfall}. Choose one.`;
       use.disabled = true;
     }
 
@@ -374,9 +395,11 @@
       const pressure = currentCandidateToastFeelId();
       setBusy(
         true,
-        pressure
-          ? `Compiling six exact previews with ${currentToastFeelId()} pressure…`
-          : "Compiling six exact previews across the Toastmood field…",
+        stageAOptIn.checked
+          ? "Compiling six addressed Stage A previews…"
+          : pressure
+            ? `Compiling six exact previews with ${currentToastFeelId()} pressure…`
+            : "Compiling six exact previews across the Toastmood field…",
       );
       try {
         renderFamily(await api.generateCandidates(configFor("generate")));
@@ -473,6 +496,22 @@
       if (!family && songIsReady()) generateSix();
     });
     regenerate.addEventListener("click", generateSix);
+    stageAOptIn.addEventListener("change", async () => {
+      if (busy) return;
+      if (family || acceptedSelection) {
+        clearUi({ notifyMain: false });
+        setBusy(true, "Stage A changed · clearing the prior six…");
+        try {
+          await api.clearCandidates();
+        } catch (error) {
+          status.textContent = error?.message || String(error);
+          return;
+        } finally {
+          setBusy(false);
+        }
+      }
+      status.textContent = "Stage A changed · generate six again.";
+    });
     redeal.addEventListener("click", redealMoves);
     use.addEventListener("click", useSelected);
     for (const input of lockList.querySelectorAll("input")) {

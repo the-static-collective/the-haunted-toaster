@@ -193,3 +193,62 @@ test("event order and evidence refs normalize deterministically", () => {
   assert.deepEqual(timeline.topologyEvents.events.map((event) => event.id), ["grab-a", "grab-z"]);
   assert.deepEqual(timeline.topologyEvents.events[0].evidenceRefs, ["fixture:a", "fixture:z"]);
 });
+
+test("candidate-level topology event authority carrier admits the exact birth timeline", () => {
+  assert.equal(
+    typeof generation.issueTopologyEventAuthority,
+    "function",
+    "candidate birth must expose an authority issuer",
+  );
+  assert.equal(
+    typeof generation.verifyTopologyEventAuthority,
+    "function",
+    "topology execution must expose a carrier verifier",
+  );
+
+  const { family, candidate } = fixture();
+  const authority = generation.issueTopologyEventAuthority(family, candidate.index);
+  const verified = generation.verifyTopologyEventAuthority(authority);
+
+  assert.equal(authority.schema, "haunted-toaster/topology-event-authority/v1");
+  assert.equal(authority.birthFamilyHash, family.familyHash);
+  assert.equal(authority.candidateIndex, candidate.index);
+  assert.equal(authority.scoreAddress, candidate.scoreAddress);
+  assert.equal(authority.sourceTimelineHash, candidate.timeline.timelineHash);
+  assert.equal(authority.sourceTopology, candidate.timeline.baseState.topology);
+  assert.deepEqual(authority.lockedAxes, family.locks);
+  assert.equal(verified.authoritySha256, authority.authoritySha256);
+  assert.equal(Object.isFrozen(authority), true);
+
+  const after = generation.resolveTopologyEvents(candidate.timeline, {
+    authority,
+    events: [grabRequest],
+  });
+  assert.equal(after.topologyEvents.acceptedAuthoritySha256, authority.authoritySha256);
+  assert.equal(after.topologyEvents.acceptedFamilyHash, family.familyHash);
+  assert.equal(after.topologyEvents.acceptedScoreAddress, candidate.scoreAddress);
+  assert.equal(after.topologyEvents.sourceTimelineHash, candidate.timeline.timelineHash);
+});
+
+test("topology event authority carrier refuses tampered birth facts", () => {
+  assert.equal(typeof generation.issueTopologyEventAuthority, "function");
+  assert.equal(typeof generation.verifyTopologyEventAuthority, "function");
+
+  const { family, candidate } = fixture();
+  const authority = generation.issueTopologyEventAuthority(family, candidate.index);
+  for (const mutate of [
+    (clone) => { clone.birthFamilyHash = "0".repeat(64); },
+    (clone) => { clone.candidateIndex += 1; },
+    (clone) => { clone.scoreAddress = `ht1_${"0".repeat(64)}`; },
+    (clone) => { clone.sourceTimelineHash = "0".repeat(64); },
+    (clone) => { clone.lockedAxes = ["topology"]; },
+    (clone) => { clone.authoritySha256 = "0".repeat(64); },
+  ]) {
+    const forged = structuredClone(authority);
+    mutate(forged);
+    assert.throws(
+      () => generation.verifyTopologyEventAuthority(forged),
+      /authority|hash|birth|candidate|score|timeline|lock/i,
+    );
+  }
+});

@@ -6,8 +6,11 @@ module.exports = {
   ...require("./resolver.cjs"),
   ...require("./operations.cjs"),
   ...require("./candidate-family.cjs"),
+  ...require("./topology-event-authority.cjs"),
   ...require("./topology-events.cjs"),
   ...require("./topology-event-generation.cjs"),
+  ...require("./ordinary-topology-activity.cjs"),
+  ...require("./ordinary-topology-session-alias.cjs"),
   ...require("./test-six-witness.cjs"),
   ...require("./test-six-witness-neutral.cjs"),
   ...require("./converge-frontier.cjs"),
@@ -38,4 +41,5 @@ module.exports = {
   ...require("./sigil-topology-compiler.cjs"),
   ...require("./sigil-utterance-family.cjs"),
   ...require("./l-branch.cjs"),
+  ...require("./post-walk-axis-grammar.cjs"),
 };
