@@ -1,5 +1,6 @@
 const path = require("node:path");
 const { resolveToasterHome, videoPantryCatalogPath } = require("../toaster-home.cjs");
+const { normalizeDigestOperatorId } = require("../render/foreign-material.cjs");
 const { admitVideo } = require("./admit.cjs");
 const { admitVideoFolder } = require("./import-folder.cjs");
 const { loadCatalog } = require("./catalog.cjs");
@@ -52,6 +53,26 @@ function registerVideoPantryIpc({
   });
 
   ipcMain.handle("video-pantry:list", () => loadCatalogImpl(catalogPath()));
+
+  ipcMain.handle("video:set-digest-operator", async (_event, operatorId) => {
+    const currentVideo = candidateSession.state?.().video || null;
+    if (!currentVideo) {
+      const error = new Error("Video digestion requires an admitted Video specimen.");
+      error.code = "VIDEO_DIGEST_REQUIRES_SOURCE";
+      throw error;
+    }
+    const digestOperatorId = normalizeDigestOperatorId(operatorId);
+    const currentOperatorId = normalizeDigestOperatorId(currentVideo.digestOperatorId);
+    const nextBinding = {
+      ...structuredClone(currentVideo),
+      digestOperatorId,
+    };
+    if (digestOperatorId !== currentOperatorId) {
+      candidateSession.clearVideo();
+      candidateSession.noteVideo(nextBinding);
+    }
+    return structuredClone(nextBinding);
+  });
 
   ipcMain.handle("video:clear", () => {
     candidateSession.clearVideo();
