@@ -50,6 +50,16 @@ function requireVideoReceipt(receipt, label) {
   return receipt;
 }
 
+function isTraceableVideoReceipt(receipt) {
+  try {
+    requireVideoReceipt(receipt, "receipt");
+    return true;
+  } catch (error) {
+    if (error?.code === "INVALID_DOGRAM_TRACE_RECEIPT") return false;
+    throw error;
+  }
+}
+
 function opaque(value) {
   return Object.freeze({ kind: "opaque", value });
 }
@@ -107,4 +117,5 @@ module.exports = {
   BOUNDARY_ORDER,
   buildDogramDeltaSpecimen,
   buildDogramTraceSource,
+  isTraceableVideoReceipt,
 };
