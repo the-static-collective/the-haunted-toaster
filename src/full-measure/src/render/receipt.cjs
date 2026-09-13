@@ -2,7 +2,10 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const fsPromises = require("node:fs/promises");
 const path = require("node:path");
-const { buildDogramTraceSource } = require("./dogram-trace.cjs");
+const {
+  buildDogramTraceSource,
+  isTraceableVideoReceipt,
+} = require("./dogram-trace.cjs");
 const { promoteTopologyResponseEvidence } = require("./visual-compiler-evidence.cjs");
 
 async function hashFile(filePath) {
@@ -49,8 +52,18 @@ async function writeReceipt(receipt, outputPath) {
   receipt.build = buildProvenance();
   const receiptPath = receiptPathFor(outputPath);
   const dogramPath = dogramPathFor(outputPath);
-  const dogramTrace = buildDogramTraceSource(receipt);
 
+  if (!isTraceableVideoReceipt(receipt)) {
+    await fsPromises.rm(dogramPath, { force: true }).catch(() => {});
+    await fsPromises.writeFile(
+      receiptPath,
+      `${JSON.stringify(receipt, null, 2)}\n`,
+      "utf8",
+    );
+    return receiptPath;
+  }
+
+  const dogramTrace = buildDogramTraceSource(receipt);
   await fsPromises.writeFile(
     dogramPath,
     `${JSON.stringify(dogramTrace, null, 2)}\n`,
