@@ -2,6 +2,7 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const fsPromises = require("node:fs/promises");
 const path = require("node:path");
+const { buildDogramTraceSource } = require("./dogram-trace.cjs");
 const { promoteTopologyResponseEvidence } = require("./visual-compiler-evidence.cjs");
 
 async function hashFile(filePath) {
@@ -17,6 +18,11 @@ async function hashFile(filePath) {
 function receiptPathFor(outputPath) {
   const parsed = path.parse(outputPath);
   return path.join(parsed.dir, `${parsed.name}.video-receipt.json`);
+}
+
+function dogramPathFor(outputPath) {
+  const parsed = path.parse(outputPath);
+  return path.join(parsed.dir, `${parsed.name}.dogram.json`);
 }
 
 function buildProvenance() {
@@ -42,16 +48,30 @@ async function writeReceipt(receipt, outputPath) {
   promoteVisualCompilerInReceipt(receipt);
   receipt.build = buildProvenance();
   const receiptPath = receiptPathFor(outputPath);
+  const dogramPath = dogramPathFor(outputPath);
+  const dogramTrace = buildDogramTraceSource(receipt);
+
   await fsPromises.writeFile(
-    receiptPath,
-    `${JSON.stringify(receipt, null, 2)}\n`,
+    dogramPath,
+    `${JSON.stringify(dogramTrace, null, 2)}\n`,
     "utf8",
   );
+  try {
+    await fsPromises.writeFile(
+      receiptPath,
+      `${JSON.stringify(receipt, null, 2)}\n`,
+      "utf8",
+    );
+  } catch (error) {
+    await fsPromises.rm(dogramPath, { force: true }).catch(() => {});
+    throw error;
+  }
   return receiptPath;
 }
 
 module.exports = {
   buildProvenance,
+  dogramPathFor,
   hashFile,
   promoteVisualCompilerInReceipt,
   receiptPathFor,
