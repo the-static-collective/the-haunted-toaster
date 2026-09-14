@@ -12,6 +12,23 @@ const uiModulePath = path.resolve(
   "haunted-haiku-ui.js",
 );
 
+function hauntedReceipt(description) {
+  return {
+    publication: {
+      hauntedHaiku: {
+        schema: "haunted-haiku/v1",
+        authority: "descriptive-only",
+        lines: [
+          "porch light under daylight",
+          "the reflection leaves first",
+          "the house keeps the receipt",
+        ],
+        youtubeDescription: description,
+      },
+    },
+  };
+}
+
 test("completion UI has a dedicated Haunted Haiku receipt renderer", () => {
   assert.equal(
     fs.existsSync(uiModulePath),
@@ -43,28 +60,66 @@ test("Haunted Haiku receipt renders the ready-to-paste YouTube description below
       "",
       "#HauntedToaster #TheStaticCollective #ExperimentalVideo",
     ].join("\n");
-    const receipt = {
-      publication: {
-        hauntedHaiku: {
-          schema: "haunted-haiku/v1",
-          authority: "descriptive-only",
-          lines: [
-            "porch light under daylight",
-            "the reflection leaves first",
-            "the house keeps the receipt",
-          ],
-          youtubeDescription: description,
-        },
-      },
-    };
 
-    const section = renderHauntedHaikuReceipt(dom.window.document, receipt);
+    const section = renderHauntedHaikuReceipt(
+      dom.window.document,
+      hauntedReceipt(description),
+    );
     assert.ok(section);
     assert.equal(section.dataset.authority, "descriptive-only");
     assert.equal(section.querySelector("strong").textContent, "Haunted Haiku");
     assert.equal(section.querySelector("pre").textContent, description);
     assert.equal(section.parentElement.id, "resultCard");
     assert.ok(dom.window.document.querySelector("#hauntedHaikuReceiptStyle"));
+  } finally {
+    dom.window.close();
+  }
+});
+
+test("Haunted Haiku receipt exposes an icon-only copy control that copies the full YouTube description", async () => {
+  const { renderHauntedHaikuReceipt } = require(uiModulePath);
+  const dom = new JSDOM(`<!doctype html><html><head></head><body>
+    <div class="result-card" id="resultCard"></div>
+  </body></html>`);
+
+  try {
+    const description = [
+      "one lamp awake at noon",
+      "the signal answers sideways",
+      "the witness stays quiet",
+      "",
+      "Copy Proof · Haunted Toaster specimen · The Static Collective",
+      "",
+      "#HauntedToaster #TheStaticCollective #ExperimentalVideo",
+    ].join("\n");
+    let copied = null;
+    Object.defineProperty(dom.window.navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: async (value) => {
+          copied = value;
+        },
+      },
+    });
+
+    const section = renderHauntedHaikuReceipt(
+      dom.window.document,
+      hauntedReceipt(description),
+    );
+    const button = section.querySelector(".haunted-haiku-copy");
+    assert.ok(button, "receipt should include the universal copy icon control");
+    assert.equal(button.tagName, "BUTTON");
+    assert.equal(button.getAttribute("aria-label"), "Copy description");
+    assert.equal(button.getAttribute("title"), "Copy description");
+    assert.ok(button.querySelector("svg"), "copy control should be represented by an icon");
+    assert.equal(button.textContent.trim(), "", "copy control should not need a visible text label");
+
+    button.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    assert.equal(copied, description);
+    assert.equal(button.dataset.copyState, "copied");
+    assert.equal(button.getAttribute("aria-label"), "Copied");
   } finally {
     dom.window.close();
   }
