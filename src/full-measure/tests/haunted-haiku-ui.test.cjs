@@ -8,14 +8,15 @@ const uiModulePath = path.resolve(
   __dirname,
   "..",
   "src",
-  "haunted-haiku-ui.cjs",
+  "renderer",
+  "haunted-haiku-ui.js",
 );
 
 test("completion UI has a dedicated Haunted Haiku receipt renderer", () => {
   assert.equal(
     fs.existsSync(uiModulePath),
     true,
-    "src/haunted-haiku-ui.cjs should own the completion receipt presentation",
+    "renderer/haunted-haiku-ui.js should own the completion receipt presentation",
   );
 });
 
@@ -24,13 +25,13 @@ test("Haunted Haiku receipt renders the ready-to-paste YouTube description below
   const { renderHauntedHaikuReceipt } = require(uiModulePath);
   assert.equal(typeof renderHauntedHaikuReceipt, "function");
 
-  const dom = new JSDOM(`<!doctype html><body>
+  const dom = new JSDOM(`<!doctype html><html><head></head><body>
     <div class="result-card" id="resultCard">
       <div class="result-check">✓</div>
       <div><span>Full measure rendered</span><strong id="resultName">specimen.mp4</strong></div>
       <div class="result-actions"></div>
     </div>
-  </body>`);
+  </body></html>`);
 
   try {
     const description = [
@@ -72,7 +73,7 @@ test("Haunted Haiku receipt renders the ready-to-paste YouTube description below
 test("Haunted Haiku completion UI stays absent without an accepted publication witness", () => {
   assert.equal(fs.existsSync(uiModulePath), true);
   const { renderHauntedHaikuReceipt } = require(uiModulePath);
-  const dom = new JSDOM('<!doctype html><body><div id="resultCard"></div></body>');
+  const dom = new JSDOM('<!doctype html><html><head></head><body><div id="resultCard"></div></body></html>');
 
   try {
     assert.equal(renderHauntedHaikuReceipt(dom.window.document, {}), null);
