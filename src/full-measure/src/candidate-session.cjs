@@ -181,6 +181,7 @@ function createCandidateSession({
   let candidateEcologyEntered = false;
   let stagedLabProposal = null;
   let acceptedHistory = [];
+  let scrapeIndex = 0;
   let busy = false;
 
   function clearCandidates({ resetEcology = false } = {}) {
@@ -188,6 +189,7 @@ function createCandidateSession({
     familyBinding = null;
     selection = null;
     keptSelection = null;
+    scrapeIndex = 0;
     if (resetEcology) candidateEcologyEntered = false;
   }
 
@@ -433,6 +435,7 @@ function createCandidateSession({
 
   async function generate(config = {}, signal) {
     assertReady();
+    scrapeIndex = 0;
     const feel = currentToastFeel(config.toastFeelId, { optional: true });
     busy = true;
     try {
@@ -490,6 +493,7 @@ function createCandidateSession({
 
   async function generateTestSix(config = {}, signal) {
     assertReady();
+    scrapeIndex = 0;
     currentToastFeel(config.toastFeelId, { optional: true });
     busy = true;
     try {
@@ -548,6 +552,7 @@ function createCandidateSession({
     assertReady();
     assertCurrentFamily(config);
     assertOrdinaryEcology();
+    scrapeIndex = 0;
     const parent = family.candidates[Number(config.parentIndex)];
     if (!parent) throw new TypeError("Choose a current candidate before mutating.");
     const feel = feelForParent(config, parent);
@@ -635,6 +640,7 @@ function createCandidateSession({
     assertReady();
     assertCurrentFamily(config);
     assertOrdinaryEcology();
+    scrapeIndex = 0;
     if (!Array.isArray(config.parentIndexes) || config.parentIndexes.length !== 2) {
       throw new TypeError("CROSS requires exactly two current parent candidates.");
     }
@@ -688,6 +694,7 @@ function createCandidateSession({
     assertReady();
     assertCurrentFamily(config);
     assertOrdinaryEcology();
+    scrapeIndex = 0;
     const parent = family.candidates[Number(config.parentIndex)];
     if (!parent) throw new TypeError("Choose a current candidate before stomping.");
     const feel = feelForParent(config, parent);
@@ -783,6 +790,7 @@ function createCandidateSession({
     if (!candidate) throw new TypeError("Choose a current candidate before KEEP.");
     selection = candidate;
     keptSelection = candidate;
+    scrapeIndex = 0;
     if (
       candidate.forcedWitness !== true &&
       !acceptedHistory.some((score) => generation.addressVisualScore(score) === candidate.scoreAddress)
@@ -829,8 +837,26 @@ function createCandidateSession({
     assertOrdinaryEcology();
     const sourceFamilyHash = family.familyHash;
     const priorInfluence = familyBinding?.labInfluence || null;
-    const feel = currentToastFeel(config.toastFeelId || familyBinding?.toastFeelId, { optional: true });
-    const dealerSeed = String(config.rootSeed || `scrape:${sourceFamilyHash}`);
+    const currentScrapeIndex = scrapeIndex;
+    const dealerMode = currentScrapeIndex === 0
+      ? "diverse-redeal"
+      : currentScrapeIndex === 1
+        ? "stomp-escalation"
+        : "fresh-birth";
+    const requestedFeel = currentToastFeel(config.toastFeelId, { optional: true });
+    const inheritedFeel = currentToastFeel(familyBinding?.toastFeelId, { optional: true });
+    const feel = dealerMode === "stomp-escalation"
+      ? currentToastFeel("madd-clown-crazy-slots")
+      : dealerMode === "fresh-birth"
+        ? null
+        : requestedFeel || inheritedFeel;
+    const dealerSeed = `continuation:${generation.hashCanonical({
+      policyVersion: "madd-clown-dealer-v0",
+      requestedRootSeed: String(config.rootSeed || "scrape"),
+      sourceFamilyHash,
+      scrapeIndex: currentScrapeIndex,
+      dealerMode,
+    }, "HauntedToaster-ContinuationDealerSeed-v0")}`;
     busy = true;
     try {
       const constraints = currentConstraints(config.presetId);
@@ -861,11 +887,21 @@ function createCandidateSession({
         postWalkAxisGrammar: config.postWalkAxisGrammar === true,
       });
       const operation = Object.freeze({
-        kind: "rebirth",
+        kind: "dealer",
         policyVersion: "madd-clown-dealer-v0",
+        dealerMode,
+        scrapeIndex: currentScrapeIndex,
         rootSeed: dealerSeed,
-        parentAuthority: "none",
+        scrapedFamilyParentAuthority: "none",
         sourceFamilyHash,
+        reusedMachinery: dealerMode === "stomp-escalation"
+          ? "STOMP"
+          : dealerMode === "diverse-redeal"
+            ? "ordinary-six-up"
+            : "initial-birth",
+        resultPolicy: nextFamily.policy || null,
+        seedFamilyHash: nextFamily.toastFeel?.seedFamilyHash || null,
+        seedParentScoreRef: nextFamily.toastFeel?.seedParentScoreRef || null,
       });
       const view = await materialize(
         nextFamily,
@@ -879,6 +915,7 @@ function createCandidateSession({
         operation,
         resultFamilyHash: nextFamily.familyHash,
       });
+      scrapeIndex = currentScrapeIndex >= 2 ? 0 : currentScrapeIndex + 1;
       return {
         ...view,
         verdict: "SCRAPE",
