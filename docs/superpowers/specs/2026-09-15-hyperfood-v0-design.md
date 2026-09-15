@@ -154,6 +154,24 @@ A `HyperFood Receipt` records the specimen identity, renderer environment, outpu
 
 It is provenance for visual material. It is not a `full-measure.video-receipt.v1` song receipt and does not impersonate one.
 
+### 4.7 Relationship to existing Toaster primitives
+
+HyperFood is additive and must not silently replace existing project-owned behavior.
+
+The current `lyric-ghost-plan/v1` resolves composted lyric fragments into deterministic song-domain apparitions and explicitly carries `semanticTimingAuthority: "none"`. `GHOST-TEXT@0.1.0` is a different layer: it renders an already-declared cue stream as a reusable material organism. A future bridge may explicitly transform a lyric-ghost plan into HyperFood cues, but the HyperFood adapter must not invoke the song-domain ghost planner implicitly or claim its policy authority.
+
+The current Frame Reservoir already exposes deterministic frame identities and a motion-affordance vocabulary including `nested-crop-v1`, `tunnel-fold-v1`, and `radial-echo-v1`. `FRAME-EAT-FRAME@0.1.0` occupies the neighboring temporal-composition layer. It may accept an addressed reservoir frame as an upstream `Surface`, and a later compiler may map parts of its trace onto existing affordances where semantics genuinely match, but HyperFood must not redefine or silently version those existing affordance IDs.
+
+This establishes a general rule:
+
+```text
+existing Toaster planner / affordance
+        !=
+HyperFood organism
+```
+
+Bridges between them are explicit, versioned derivations with receipts or hashes where they affect identity.
+
 ## 5. Identity model
 
 HyperFood preserves three separate identities.
@@ -189,6 +207,7 @@ The specimen identity includes:
 - schema version;
 - organism/version or full composition graph;
 - asset content digests and byte lengths;
+- explicit input bindings;
 - timing values and explicit event/cue data;
 - semantic parameters;
 - seed where the organism permits seeded variation;
@@ -256,10 +275,14 @@ The initial semantic shape is:
     {
       "id": "primary",
       "mediaType": "image/png",
-      "sha256": "<64 hex>",
+      "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       "byteLength": 12345
     }
   ],
+  "inputs": {
+    "surface": { "asset": "primary" },
+    "events": { "timingField": "events" }
+  },
   "timing": {
     "durationMs": 4200,
     "events": [
@@ -299,12 +322,17 @@ Conceptual form:
   "schema": "haunted-toaster/hyperfood-spec/v0.1",
   "graph": {
     "nodes": [
-      { "id": "asset-a", "op": "ASSET", "version": "0.1.0" },
+      { "id": "asset-a", "op": "ASSET", "version": "0.1.0", "outputType": "Surface" },
+      { "id": "font-a", "op": "ASSET", "version": "0.1.0", "outputType": "FontAsset" },
+      { "id": "cues-a", "op": "TEXT-CUES", "version": "0.1.0" },
+      { "id": "events-a", "op": "EVENT-GRID", "version": "0.1.0" },
       { "id": "ghost", "op": "GHOST-TEXT", "version": "0.1.0" },
       { "id": "pulse", "op": "PULSE", "version": "0.1.0" }
     ],
     "edges": [
       { "from": "asset-a.surface", "to": "ghost.surface" },
+      { "from": "font-a.font", "to": "ghost.font" },
+      { "from": "cues-a.cues", "to": "ghost.cues" },
       { "from": "ghost.surface", "to": "pulse.surface" },
       { "from": "events-a.events", "to": "pulse.events" }
     ],
@@ -313,14 +341,17 @@ Conceptual form:
 }
 ```
 
+Graph source nodes such as `ASSET`, `TEXT-CUES`, and `EVENT-GRID` are typed value providers, not motion organisms. Their exact serialized payloads are part of the enclosing canonical spec.
+
 Graph laws:
 
 - node IDs are unique;
+- all referenced source nodes exist;
 - edges connect compatible declared port types;
 - the graph is acyclic in v0;
 - exactly one output surface is declared;
 - node/edge canonical ordering is derived from IDs and ports, never authoring order;
-- every node retains its organism/version and local parameter payload;
+- every organism node retains its organism/version and local parameter payload;
 - composition does not flatten away ancestry;
 - cyclic visual feedback is refused in v0 rather than implicitly simulated.
 
@@ -345,7 +376,7 @@ surface : Surface
 { tMs: non-negative integer, strength: bounded number [0,1] }
 ```
 
-Events must be sorted canonically by `tMs`, then strength. Duplicate event timestamps are allowed and combine by a versioned rule: `max(strength)` for v0.1.0.
+Events are normalized by ascending `tMs`. Duplicate event timestamps combine by an explicit versioned rule: `max(strength)` for v0.1.0. The normalized event grid, not authoring order, enters specimen identity.
 
 PULSE never analyzes raw audio. Beat/onset analysis is an upstream process that must leave its own evidence if used.
 
@@ -418,6 +449,8 @@ Initial parameters:
 
 Fonts are pinned assets by bytes. System-font fallback is not permitted for a verified specimen because it would change geometry across environments.
 
+`GHOST-TEXT` accepts already-declared cues. It does not decide which lyrics are composted, which words deserve apparition, or where a song-domain ghost should occur. Those remain upstream planning questions.
+
 ### 8.3 FRAME-EAT-FRAME@0.1.0
 
 **Purpose:** recursively re-enter the same source surface through nested viewports/transforms.
@@ -445,6 +478,8 @@ Initial parameters:
 
 Every nested level references the same declared upstream source or prior graph-node surface according to the graph. No frame at time `t` may sample the encoded/rendered frame at `t-1` in v0.
 
+The implementation should reuse existing frame addressing and motion vocabulary where their semantics match, rather than cloning `nested-crop-v1`, `tunnel-fold-v1`, or related reservoir concepts under new hidden meanings.
+
 ## 9. Adapter contract
 
 Every adapter must produce two things before encoding:
@@ -461,11 +496,11 @@ Minimum adapter declaration:
   "adapter": "hyperframes/v0",
   "adapterVersion": "0.1.0",
   "renderer": "hyperframes",
-  "rendererVersion": "<pinned>",
+  "rendererVersion": "tool-reported-and-pinned-by-implementation",
   "runtime": {
-    "node": "<pinned>",
-    "browser": "<pinned-or-tool-reported>",
-    "ffmpeg": "<tool-reported>"
+    "node": "tool-reported-and-pinned-by-implementation",
+    "browser": "tool-reported-and-pinned-by-implementation",
+    "ffmpeg": "tool-reported-and-recorded"
   }
 }
 ```
@@ -503,12 +538,12 @@ Conceptual receipt:
 ```json
 {
   "schema": "haunted-toaster/hyperfood-receipt/v0",
-  "specimenId": "hf0_...",
-  "renderId": "hfr0_...",
+  "specimenId": "hf0_example",
+  "renderId": "hfr0_example",
   "organismLineage": [
     { "id": "PULSE", "version": "0.1.0" }
   ],
-  "specHash": "...",
+  "specHash": "sha256-example",
   "adapter": {
     "id": "hyperframes/v0",
     "version": "0.1.0",
@@ -522,7 +557,7 @@ Conceptual receipt:
     "alpha": true
   },
   "output": {
-    "sha256": "...",
+    "sha256": "sha256-example",
     "byteLength": 123456
   },
   "determinism": {
@@ -556,7 +591,7 @@ The child receipt records:
 
 A mutation must be reconstructable from parent spec + delta and must produce exactly the child's canonical spec. If reconstruction does not hash to the declared child specimen ID, the mutation is invalid.
 
-The initial mutation representation uses JSON-Pointer-like operations over canonical semantic fields with only `add`, `replace`, and `remove`; array index mutation is refused where canonical ordering would make index meaning unstable. Event/cue changes should replace the explicitly addressed semantic collection in v0.
+The initial mutation representation uses JSON-Pointer-like operations over canonical semantic fields with only `add`, `replace`, and `remove`; array index mutation is refused where canonical ordering would make index meaning unstable. Event/cue changes replace the explicitly addressed semantic collection in v0.
 
 ## 12. VSPantry / freezer relationship
 
@@ -636,6 +671,7 @@ HyperFood v0 must refuse clearly when:
 
 - the schema/organism version is unsupported;
 - required asset bytes are unavailable or digest/length mismatched;
+- an input binding references a missing or incompatible source;
 - a font is unpinned for verified `GHOST-TEXT`;
 - timing is negative, non-finite, outside duration, or violates organism bounds;
 - an event/cue/parameter uses an unsupported type/value;
@@ -706,6 +742,7 @@ GHOST-TEXT -> PULSE
 Required proof:
 
 - graph validates;
+- all source bindings resolve;
 - both organism lineages remain present;
 - PULSE consumes the upstream surface without renderer-specific special casing in the HyperFood graph contract.
 
@@ -725,6 +762,7 @@ Required proof:
 Fixture tests must prove loud failure for at least:
 
 - missing/mismatched asset;
+- unresolved input binding;
 - invalid event time;
 - unsupported parameter;
 - cyclic graph;
@@ -742,6 +780,7 @@ No renderer integration.
 Deliverables:
 
 - schema validation;
+- explicit input binding resolution;
 - organism registry metadata for the first three organisms;
 - canonical specimen identity using existing Haunted Toaster canonicalization;
 - typed DAG validation;
@@ -797,6 +836,8 @@ HyperFood v0 does not:
 
 - replace Haunted Toaster's production renderer;
 - change `VisualScore` or `ResolvedTimeline` authority;
+- replace `lyric-ghost-plan/v1`;
+- redefine Frame Reservoir motion-affordance IDs;
 - add a UI;
 - automatically select HyperFood clips for songs;
 - introduce a learned preference/taste model;
