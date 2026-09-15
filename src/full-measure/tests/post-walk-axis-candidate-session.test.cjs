@@ -104,7 +104,11 @@ test("Stage A candidate-session opt-in admits the six addressed recipes before p
   }
 
   const selectedCandidate = admittedFamily.candidates[0];
-  const selection = harness.session.select({
+  const focus = harness.session.select({
+    familyHash: view.familyHash,
+    index: selectedCandidate.index,
+  });
+  const keep = harness.session.keep({
     familyHash: view.familyHash,
     index: selectedCandidate.index,
   });
@@ -115,7 +119,8 @@ test("Stage A candidate-session opt-in admits the six addressed recipes before p
     toastFeelId: "low-and-slow",
   });
 
-  assert.equal(selection.timelineHash, selectedCandidate.timelineHash);
+  assert.equal(focus.timelineHash, selectedCandidate.timelineHash);
+  assert.equal(keep.timelineHash, selectedCandidate.timelineHash);
   assert.equal(execution.resolvedTimeline.timelineHash, selectedCandidate.timelineHash);
   assert.equal(
     execution.resolvedTimeline.postWalkAxis?.recipeHash,
