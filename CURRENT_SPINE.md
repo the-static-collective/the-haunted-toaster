@@ -6,20 +6,21 @@
 
 ## 2026-09-15 — BETA 0.0.0 reconciliation overlay
 
-This section is the current release-cut overlay. The older ledger below remains historical context; where the two differ, this overlay describes the present proposed carrier.
+This is the newest authority cut. The September 4/5 field-spine ledger below is preserved intact as provenance; where an older status conflicts with this overlay, this overlay governs the proposed release carrier.
 
 - `main` remains product authority until a BETA carrier lands.
-- **PR #275 / `beta/reconcile-0.0.0` is the single proposed BETA 0.0.0 reconciliation carrier.**
-- **PR #274 is superseded as a carrier and retained as provenance only.** #274 and #275 diverged from the same WALK-era base; #274 retained the intentional RED continuation contract and has no `keep()` / `scrape()` implementation that needs to be merged over #275.
-- #275 contains observational focus, explicit KEEP/SCRAPE continuation transitions, receipt/UI wiring, and a KEEP-required ordinary candidate render handoff.
+- **PR #275 / `beta/reconcile-0.0.0` is the witnessed BETA 0.0.0 carrier ancestry.**
+- **Prepared two-parent reconciliation commit `0f36763e22d940fc51900152d01225ad9703ad75` explicitly binds #275 ancestry to current `main` `3c6fd48c6d8a26bcccf1f2d96f6f3c609e52dac8`.**
+- PR #274 is superseded as a carrier and retained as provenance only; it contains no executable KEEP/SCRAPE truth that needs transplantation over #275.
+- The BETA carrier contains observational focus, explicit KEEP/SCRAPE continuation transitions, receipt/UI wiring, and a KEEP-required ordinary candidate render handoff.
 - Dogram remains `comparison-only`; Haunted Haiku remains deterministic `descriptive-only` receipt-derived copy. Neither acquires render or interpretive authority.
 - Human release epoch: **HAUNTED TOASTER — BETA 0.0.0**.
-- Application package identity for the proposed release cut: **`0.0.0-beta.0`**.
-- Scope is frozen for the cut: motion-mask, temporal Video modes, Aperture Shape, HyperFood/HyperFrames descendants, broader taste-learning, and unrelated future features do not become BETA 0.0.0 blockers.
-- Exact-head release proof must include consolidated tests/smoke, runtime audit, production browser witness, Windows Setup + Portable package evidence, Build Info/tree/artifact receipt, and one normal packaged **song → six → KEEP/SCRAPE → finished video** witness.
-- Landing still requires explicit approval for the exact proven head.
+- Application package identity: **`0.0.0-beta.0`**.
+- Scope remains frozen for this cut: motion-mask, temporal Video modes, Aperture Shape, HyperFood/HyperFrames descendants, broader taste-learning, and unrelated future features are not BETA 0.0.0 blockers.
+- Exact-head release proof still requires consolidated tests/smoke, production dependency audit, production browser witness, Dogram + Haunted Haiku receipt composition, Windows Setup + Portable artifacts, exact SHA/tree/workflow/artifact/Build Info evidence, and one normal packaged **song → six → KEEP/SCRAPE → finished video** witness.
+- Landing still requires explicit approval for the exact proven head. No tag/release/promotion follows from ancestry reconciliation alone.
 
-See [`docs/BETA_0.0.0_TRUTH_FLOOR.md`](docs/BETA_0.0.0_TRUTH_FLOOR.md) for the compact current release truth and [`docs/BETA_0.0.1_FRONTIER.md`](docs/BETA_0.0.1_FRONTIER.md) for future-work classification.
+See [`docs/BETA_0.0.0_TRUTH_FLOOR.md`](docs/BETA_0.0.0_TRUTH_FLOOR.md) for the compact release truth, [`docs/BETA_0.0.1_FRONTIER.md`](docs/BETA_0.0.1_FRONTIER.md) for deferred work, and [`docs/reconciliation/2026-09-15-beta-main-bind.md`](docs/reconciliation/2026-09-15-beta-main-bind.md) for the explicit carrier-bind receipt.
 
 ## Law of use
 
@@ -36,9 +37,88 @@ Closing a superseded PR does **not** erase its history. The old branch remains p
 
 A closed PR may still carry one of the latter three statuses. **Closed is transport state; reconciliation status explains why.**
 
-## Canonical `main` spine
+## 2026-09-04 reconciliation cut — WALK E authority carrier / Stage A queue
 
-The following table is the historical `main` reconciliation cut recorded on 2026-08-23. It is preserved for provenance and does not override the 2026-09-15 overlay above.
+This cut records a new field-spine fact without pretending that field work is on `main`.
+
+### `main`
+
+- Ledger parent before this docs-only reconciliation update: `a42aaab5fced936aed9e85156389cadcc2119c9f`.
+- PR #216, the first `CURRENT_SPINE.md` landing, merged earlier as `10f65ca1f6d721178355c5c67b933e0183753c45`.
+- PR #215 is landed on `main` as `b4ceaabc4a4d9334177180812acbf1e0e01ff69f`, not an open design target. #219 remains its planning successor.
+- This ledger update changes documentation only; it does not promote WALK E, Stage A, a package, tag, or release onto `main`.
+
+### WALK E field spine
+
+- Parent composition lane: PR #244 / branch `walk/e-sequential-braid`.
+- PR #249 (`#248 Topology event authority carrier`) was explicitly landing-approved on 2026-09-04 and squash-landed **into the WALK E branch, not `main`**.
+- Landed WALK E head: `dce000c8d04e81e65a1b0011b904588fc2bf19ce`.
+- The landed tree is `f54e2a52122db49d3e95ddeeefa2808fae5f52d0`, the same tree freshly verified on the PR merge ref before landing.
+- Fresh exact-head proof before landing: Full Measure check 254 scripts; 566/566 tests; full render smoke; candidate six-up smoke; production audit 0 vulnerabilities; canonical renderer-witness comparison green; fresh Windows package green.
+- #249's narrow human authority-carrier gate is satisfied by the attributable GRAB witness. Broader WALK E perceptual graduation on #234 remains open: SPEAK/APERTURE are under-characterized by eye and GROW/BODY/KITCHEN SINK remain unestablished by that specimen.
+- CROSS remains only a machine transition specimen for the authority seam; it does not silently enter WALK E product/UI human-witness scope.
+
+### Stage A queue after #249
+
+- **#251 ACTIVE WITNESS ANCESTRY** — original Stage A `RESPONSE STANCE × SCOPE × CONSEQUENCE` RED/GREEN machine/semantic witness. Exact witnessed head: `9d31eab1e4e695fb226031034203b0b50c72b411`; exact tree: `5a2a55f2d8d461bd182d0d267ecc1a1cc00c3be4`. Preserve; do not rewrite or use as the current landing carrier.
+- **#254 ACTIVE WITNESS ANCESTRY** — original narrow human-witness bridge stacked on #251. Exact witnessed head: `a27ccd1292f870063bceb3d60d64996a5cd70de2`; exact tree: `5fc954c01525a655a38c8e13c97e2ffbb6f6e2b7`. Preserve; do not use as the current human-test carrier.
+- **#256 ACTIVE CURRENT CARRIER** — fresh Stage A re-port directly parented by landed WALK E `dce000c8…`. Head `d408a58754f4a53d1ca2c60141b3086bae21a22e`; tree exactly equals #251's witnessed tree `5a2a55f2…`. Fresh workflow run 2143: 259-script check; 582/582 tests; both smokes green; production audit 0 vulnerabilities; renderer witness build and canonical comparison green. No Windows/package/release promotion.
+- **#257 ACTIVE HUMAN-TEST CARRIER** — fresh narrow bridge directly parented by #256 `d408a587…`. Head `5b693ca8760253a902920884ff33692ac30d5c03`; tree exactly equals #254's witnessed tree `5fc954c01525a655a38c8e13c97e2ffbb6f6e2b7`. Fresh workflow run 2145: 260-script check; 587/587 tests; both smokes green; production audit 0 vulnerabilities; renderer witness build green; 12/12 browser witness states green. No Windows/package/release promotion.
+- #257 is now the human doorway: `existing six-up → explicit Stage A opt-in → six addressed creatures → existing preview/render`.
+- Human Stage A witness remains outstanding. Neither #256 nor #257 receives landing approval from this reconciliation entry.
+
+### Squash-ancestry rule discovered and fulfilled at this cut
+
+#251 was built directly on the original #249 feature-branch ancestry. #249 was then squash-landed into WALK E as `dce000c8…` with equivalent tested tree content but a different commit ancestry.
+
+Therefore:
+
+- do **not** rewrite the witnessed #251/#254 branches merely to make ancestry look tidy;
+- do **not** infer that equivalent trees make different commit lineages interchangeable provenance;
+- do **not** directly retarget the witnessed #251 branch across the squash boundary and call that a normalized landing lineage;
+- preserve #251/#254 as witness ancestry;
+- constitute any landing/human-test successor from the current WALK E carrier with fresh proof.
+
+That re-port is now constituted as #256 → #257. #256 has landed WALK E as its sole parent while retaining #251's exact source tree; #257 has #256 as its sole parent while retaining #254's exact source tree. The old witness branches remain provenance.
+
+The fill is not the carrier: equivalent source trees preserve executable content, but the landing carrier must still be constituted on the current field spine.
+
+## 2026-09-05 reconciliation cut — Stage A human pass / WALK E landing
+
+This cut closes the bounded Stage A six-address human gate and records the resulting field-spine landings. It is a **field-spine** reconciliation only: `main` receives this documentation update, not the WALK E runtime.
+
+### Stage A landing sequence
+
+- PR #256 was freshly reverified and merge-landed into `walk/e-sequential-braid` as `b5c1676f9a6064fd3ff639e1f316297c60d54c81`, preserving `d408a58754f4a53d1ca2c60141b3086bae21a22e` as an explicit parent instead of creating another squash boundary. The merge tree is exactly `5a2a55f2d8d461bd182d0d267ecc1a1cc00c3be4`.
+- PR #257 was retargeted onto that landed #256 merge, then freshly verified on synthetic merge ref `e6bdaedf2615097f1bf97cd3dad16888b8511ec7`.
+- Final landing verification run **2151** (`34000423759`) passed: Full Measure check **260 scripts**; **587/587** tests; full render smoke; candidate six-up smoke; production audit **0 vulnerabilities**; renderer-witness build and canonical comparison; and a fresh unsigned Windows installer + portable package.
+- Final run artifacts: smoke `9979338817` / SHA-256 `8a3b7c23f5030997724a69a30fdd5e16bb9e0c264104b5e328ba6ca54d9cb7af`; UI witness `9979349929` / SHA-256 `ac83fa13f57aa1c299af6dad58ae1a5dc6dd98e51a3ace4d06e24cc83d20390a`; Windows package `9979383260` / SHA-256 `e05302733b56af5645cb920078ea92ee9d9bd3e9a035c51b437abbe60901a6f1`.
+- PR #257 then merge-landed into WALK E as `4ee1bea5a84092d3f178e4c7f9e2d9da2b91b786`. Its tree is exactly `5fc954c01525a655a38c8e13c97e2ffbb6f6e2b7`; its parents are the landed #256 merge `b5c1676f…` and the witnessed #257 carrier `5b693ca8…`.
+- Current WALK E head is therefore **`4ee1bea5a84092d3f178e4c7f9e2d9da2b91b786`**.
+
+### Human Stage A witness
+
+The operator exercised the complete six-address surface through ordinary full renders and reported every address as a human pass:
+
+- `FOLLOW × WHOLE × CLEAN-RETURN`
+- `OPPOSE × WHOLE × RESIDUE`
+- `ACCENT × GRAB × CLEAN-RETURN`
+- `FOLLOW × GRAB × RESIDUE`
+- `OPPOSE × GRAB × CLEAN-RETURN`
+- `ACCENT × WHOLE × RESIDUE`
+
+The durable per-specimen receipt IDs and operator testimony are recorded on PR #257. Human testimony remains testimony: this pass establishes bounded compositional viability across all six addresses, not a claim that every axis is perfectly blind-nameable in every specimen.
+
+### Authority boundary after the pass
+
+- **#256 LANDED-SUPERSEDED** — its semantic carrier is now explicit ancestry of WALK E.
+- **#257 LANDED-SUPERSEDED** — its human-test bridge and passed six-address witness are now explicit ancestry of WALK E.
+- **#251/#254 remain ACTIVE WITNESS ANCESTRY** — preserve them; do not rewrite them merely because their exact trees now survive through current landing carriers.
+- Stage A remains explicit opt-in; accepted `ResolvedTimeline` remains execution authority.
+- This cut does **not** promote Stage B, Aperture Shape, Video Digestion, MADDCL0WN/WALK widening, a tag, a release, or WALK E runtime onto `main`.
+- The post-WALK re-entry queue is live again. #227 foreign-material metabolism and #250 Video Digestion are valid next questions; #223 shape-aware GRAB/aperture geometry remains a separate cheap multiplier rather than silently joining Stage A.
+
+## Canonical `main` spine
 
 | Stage | Canonical commit / PR | What is carried forward | Status / successor |
 | --- | --- | --- | --- |
@@ -53,11 +133,13 @@ The following table is the historical `main` reconciliation cut recorded on 2026
 | Topology Events design | `d9a668db48131e86969acc49223e25ca5d026fe9` / #196 | accepted topology-event authority/integrity design | On `main`; implementation field spine began at #200 |
 | Resolution Field design | `7d0d7560b224684d0e4a46b6499dce21e3770d5f` / #198 | bounded internal-resolution primitive and human-gated experiment | On `main`; implementation field spine began at #201 |
 | Sigil Grammar v0 | `899a920b17019a54dadfb0c6bb321cc6e4cf860b` / #211 | generation-only Witness Sigil compatibility, topology expressions/plans, deterministic six-utterance families, replay | On `main`; language/algebra study lanes remain non-renderer |
-| Sigil Algebra v0 implementation plan | `3d0615ced52313db3232f79501b59357bdd211d8` / #221 | docs-only exact integer/rational Transform2 equivalence proof plan for #220; no renderer/UI/authority behavior | Historical `main` head at the 2026-08-23 reconciliation cut |
+| Sigil Algebra v0 implementation plan | `3d0615ced52313db3232f79501b59357bdd211d8` / #221 | docs-only exact integer/rational Transform2 equivalence proof plan for #220; no renderer/UI/authority behavior | On `main`; no longer current HEAD |
+| CURRENT_SPINE ledger | `10f65ca1f6d721178355c5c67b933e0183753c45` / #216 | repository-owned reconciliation law and ledger | Landed on `main`; living artifact updated by later reconciliation commits |
+| Sigil Language Witness v0 design | `b4ceaabc4a4d9334177180812acbf1e0e01ff69f` / #215 | reviewed/frozen design-only language witness contract | Landed on `main`; planning successor #219 |
 
-## Active field / design / rescue lanes — historical 2026-08-23 snapshot
+## Active field / design / rescue lanes — not yet `main`
 
-These entries are preserved as the prior reconciliation snapshot. Their present release relevance is subordinate to the 2026-09-15 overlay and exact current repository evidence.
+These are active successors and witnesses, not permission to pretend their ancestor branches landed individually.
 
 ### Field witness lane
 
@@ -71,50 +153,73 @@ These entries are preserved as the prior reconciliation snapshot. Their present 
    #212 fresh Resolution + Listener witness  ← #204 Listener bridge [closed · superseded]
       ↓
    #214 TEST 6 forced witness harness
+      ↓
+   #244 WALK E sequential braid
+      ↓
+   #249 topology-event authority carrier [landed into WALK E]
+      ├─ witness ancestry: #251 → #254
+      ↓
+   #256 Stage A current-WALK-E carrier   [landed into WALK E]
+      ↓
+   #257 Stage A human-test carrier       [landed into WALK E · human pass]
 ```
 
-- **#212 ACTIVE at 2026-08-23 cut** — composed human-test specimen for GRAB + Resolution/Atmosphere + Listener anchor integrity.
-- **#214 ACTIVE at 2026-08-23 cut** — deterministic TEST 6 feature/witness branch; exact-head machine proof was green, but packaged human witness remained required. Reconciliation commits do not belong there.
+- **#212 ACTIVE** — composed human-test specimen for GRAB + Resolution/Atmosphere + Listener anchor integrity.
+- **#214 ACTIVE** — deterministic TEST 6 feature/witness branch; exact-head machine proof is green, but packaged human witness remains required. Reconciliation commits do not belong there.
+- **#244 ACTIVE** — WALK E composition lane. Its branch now carries #249 + the landed Stage A sequence #256 → #257 at current head `4ee1bea5…`; broader #234 perceptual graduation remains open.
+- **#249 LANDED-SUPERSEDED** — closed/merged into `walk/e-sequential-braid`; no `main` promotion, tag, or release.
+- **#251 ACTIVE WITNESS ANCESTRY** — preserve original Stage A machine/semantic proof on pre-squash #249 ancestry; exact semantics survive through landed #256.
+- **#254 ACTIVE WITNESS ANCESTRY** — preserve original human-bridge witness stacked on #251; exact bridge survives through landed #257.
+- **#256 LANDED-SUPERSEDED** — merge-landed into WALK E as `b5c1676f…`; exact #251 tree and carrier ancestry retained.
+- **#257 LANDED-SUPERSEDED** — six-address human gate passed; merge-landed into WALK E as `4ee1bea5…`; exact #254 tree retained; final run 2151 and Windows package green.
 
 ### Sigil study lanes
 
-- **#215 ACTIVE at 2026-08-23 cut** — Sigil Language Witness v0 design ancestor; #219 records that the design received human review.
-- **#219 ACTIVE at 2026-08-23 cut** — planning-only standalone Language Witness + separately gated disposable Field Lab convergence plan. It must not merge TEST 6 and Language Lab authority merely because they share a package.
-- **#221 LANDED ON MAIN at 2026-08-23 cut** — Sigil Algebra v0 implementation plan only; production implementation remains future work under #220.
+- **#215 LANDED-SUPERSEDED** — design is on `main` at `b4ceaabc…`; #219 is the active planning successor.
+- **#219 ACTIVE** — planning-only standalone Language Witness + separately gated disposable Field Lab convergence plan. It must not merge TEST 6 and Language Lab authority merely because they share a package.
+- **#221 LANDED ON MAIN** — Sigil Algebra v0 implementation plan only; production implementation remains future work under #220.
 
 ### Foreign-material lane
 
-- **#222 ACTIVE at 2026-08-23 cut** — first renderer-facing foreign-material crossing for #44.
+- **#222 ACTIVE** — first renderer-facing foreign-material crossing for #44.
 - Exact head recorded by the PR: `f4a575db65d1bdb9cc5e7b462c30226660d4b804`.
-- Machine workflow `32615247440` was green for application proof, runtime audit, smoke, renderer witness build, and canonical witness-state comparison.
-- **Human field gate remained mandatory at that cut:** one real admitted 5–10 second clip against a longer song had to prove preview/final parity, receipt-bound source/plan evidence, contribution beyond literal clip duration, exact replay, Toaster assimilation rather than stock-video cutaway behavior, and clean return to the no-video path.
+- Machine workflow `32615247440` is green for application proof, runtime audit, smoke, renderer witness build, and canonical witness-state comparison.
+- **Human field gate remains mandatory:** one real admitted 5–10 second clip against a longer song must prove preview/final parity, receipt-bound source/plan evidence, contribution beyond literal clip duration, exact replay, Toaster assimilation rather than stock-video cutaway behavior, and clean return to the no-video path.
 - Video remains foreign material; it does not gain an independent timeline or placement authority.
 
 ### Main-based design / reconciliation lanes
 
-- **#216 ACTIVE at 2026-08-23 cut** — reconciliation ledger only; no runtime behavior.
-- **#217 ACTIVE at 2026-08-23 cut** — BETA Receipt Memory + Witness Loop rescue v2 design, based on current-spine law; #166 is ancestry only.
+- **#216 LANDED-SUPERSEDED** — original ledger transport PR is merged; `CURRENT_SPINE.md` remains the living reconciliation artifact on `main`.
+- **#217 ACTIVE** — BETA Receipt Memory + Witness Loop rescue v2 design, based on current-spine law; #166 is ancestry only.
 
 ### Rescue implementation lane
 
-- **#218 ACTIVE at 2026-08-23 cut** — first executable current-spine rescue implementation for #166 concepts.
+- **#218 ACTIVE** — first executable current-spine rescue implementation for #166 concepts.
 - Implementation ancestry began from `main` @ `899a920b17019a54dadfb0c6bb321cc6e4cf860b`; do not reinterpret that historical base as the current `main` cut.
-- Fresh RED at that cut: **443 tests / 441 pass / exactly 2 fail**, both missing `memory-service.cjs` and `witness-encounter.cjs`.
-- Exact GREEN head at that cut: `0f967b8f7f0544bf94160611a60fa3c9232504e9`.
+- Fresh RED: **443 tests / 441 pass / exactly 2 fail**, both missing `memory-service.cjs` and `witness-encounter.cjs`.
+- Exact GREEN head: `0f967b8f7f0544bf94160611a60fa3c9232504e9`.
 - Workflow `32606946521`: renderer verify, consolidated application proof, runtime audit, smoke, renderer witness, and canonical witness-state comparison all PASS; package/release intentionally skipped for the draft rescue slice.
-- Still downstream under #217 at that cut: deterministic projection/capsule coordination, one-seat ordinary memory influence, replay, explicit Re-toast arming, narrow IPC, Past Toasts, Thoughtline, and packaged human witness.
+- Still downstream under #217: deterministic projection/capsule coordination, one-seat ordinary memory influence, replay, explicit Re-toast arming, narrow IPC, Past Toasts, Thoughtline, and packaged human witness.
 
-## Reconciliation ledger — historical 2026-08-23 snapshot
+## Reconciliation ledger
 
 | PR | Reconciliation status | Repository disposition / successor |
 | --- | --- | --- |
-| #222 foreign-material Slice D | **ACTIVE** | Renderer-facing #44 crossing was machine-green but human field-gated; do not treat Video as timeline authority. |
-| #219 Sigil Language Witness implementation plans | **ACTIVE** | Planning-only successor to reviewed #215; standalone language proof precedes any disposable Field Lab convergence. |
-| #218 current-spine receipt-memory implementation | **ACTIVE** | Rescue implementation 001 under #217; first backend RED→GREEN complete, wider memory proof ladder remained. |
+| #275 BETA 0.0.0 reconciliation | **ACTIVE PROPOSED CARRIER** | Witnessed KEEP/SCRAPE carrier ancestry; exact-head release gate remains. Two-parent bind prepared at `0f36763e…`. |
+| #274 duplicate BETA carrier | **ARCHIVE / SUPERSEDED** | Closed unmerged; provenance only. No unique executable KEEP/SCRAPE truth required by #275. |
+| #257 Stage A current human-test carrier | **LANDED-SUPERSEDED** | Human six-address PASS recorded on PR; final retargeted run 2151 green at 587/587 plus renderer witness and Windows package; merge-landed into WALK E as `4ee1bea5…`. No `main` runtime promotion. |
+| #256 Stage A current-WALK-E carrier | **LANDED-SUPERSEDED** | Fresh re-port retained as explicit ancestry and merge-landed into WALK E as `b5c1676f…`; exact #251 tree preserved. |
+| #254 Stage A narrow human-witness bridge | **ACTIVE** | Preserved witness ancestry only; exact behavior survives through landed #257. Do not rewrite or promote this stale-lineage branch. |
+| #251 Stage A post-WALK axis grammar | **ACTIVE** | Preserved RED/GREEN witness ancestry only; exact behavior survives through landed #256. Do not rewrite or promote this stale-lineage branch. |
+| #249 topology-event authority carrier | **LANDED-SUPERSEDED** | Closed/merged into WALK E as `dce000c8…`; exact tested tree retained; no `main` promotion/tag/release. |
+| #244 WALK E sequential braid | **ACTIVE** | Current field-spine parent; head `4ee1bea5…` carries #249 + Stage A #256/#257. Broader #234 perceptual graduation remains open. |
+| #222 foreign-material Slice D | **ACTIVE** | Renderer-facing #44 crossing is machine-green but human field-gated; do not treat Video as timeline authority. |
+| #219 Sigil Language Witness implementation plans | **ACTIVE** | Planning-only successor to merged #215; standalone language proof precedes any disposable Field Lab convergence. |
+| #218 current-spine receipt-memory implementation | **ACTIVE** | Rescue implementation 001 under #217; first backend RED→GREEN complete, wider memory proof ladder remains. |
 | #217 BETA receipt-memory rescue v2 design | **ACTIVE** | Current-spine design successor for #166. |
-| #216 CURRENT_SPINE ledger | **ACTIVE** | Reconciliation-only artifact; runtime untouched. |
-| #215 Sigil Language Witness design | **ACTIVE** | Reviewed design ancestor for #219; keep disposition explicit until the design PR itself is closed/landed. |
-| #214 TEST 6 witness harness | **ACTIVE** | Machine-green field harness; packaged human witness remained. #171 donated only typed receipt/build-provenance mechanics; old alpha.9 questionnaire/operator path rejected. |
+| #216 CURRENT_SPINE ledger PR | **LANDED-SUPERSEDED** | Closed/merged as `10f65ca1…`; living `CURRENT_SPINE.md` continues on `main`. |
+| #215 Sigil Language Witness design | **LANDED-SUPERSEDED** | Closed/merged on `main` as `b4ceaabc…`; #219 is active planning successor. |
+| #214 TEST 6 witness harness | **ACTIVE** | Machine-green field harness; packaged human witness remains. #171 donates only typed receipt/build-provenance mechanics; old alpha.9 questionnaire/operator path rejected. |
 | #212 fresh Resolution + Listener witness | **ACTIVE** | Composed field witness for #200/#201/#204/#205; do not confuse its field ancestry with `main`. |
 | #205 Atmosphere alpha preservation | **LANDED-SUPERSEDED** | **Closed unmerged.** Valid behavior survives in #212. |
 | #204 Listener anchor bridge repair | **LANDED-SUPERSEDED** | **Closed unmerged.** Valid repair survives in #212. |
@@ -122,7 +227,7 @@ These entries are preserved as the prior reconciliation snapshot. Their present 
 | #200 GRAB topology event v0.1 | **LANDED-SUPERSEDED** | **Closed unmerged.** Value survives in #212 field lineage; no claim that GRAB is on `main`. |
 | #171 alpha.9 field witness receipt | **RESCUE-PARTS** | **Closed unmerged.** Useful provenance law consumed by #214; alpha.9-specific witness/operator semantics retired. |
 | #170 Creative Context Table foundation | **LANDED-SUPERSEDED** | **Closed unmerged.** #175 explicitly ports the Creative Context contract foundation onto BETA `main`. |
-| #166 receipt memory + witness loop | **RESCUE-PARTS** | **Closed unmerged.** Current successors at that cut: #217 design + #218 implementation. Preserve branch as ancestry only. |
+| #166 receipt memory + witness loop | **RESCUE-PARTS** | **Closed unmerged.** Current successors: #217 design + #218 implementation. Preserve branch as ancestry only. |
 | #161 private YouTube publish handoff | **ARCHIVE** | **Closed unmerged.** Preserve dormant until a canonical release spine exists; local render remains authoritative. |
 | #155 Listener durable draft | **LANDED-SUPERSEDED** | **Closed unmerged.** #175 explicitly ports Track 0 renderer/Listener trust repairs. |
 | #154 nested response compaction | **LANDED-SUPERSEDED** | **Closed unmerged.** #175 explicitly ports Track 0 renderer trust repair. |
@@ -130,15 +235,15 @@ These entries are preserved as the prior reconciliation snapshot. Their present 
 | #137 alpha.9 creative range calibration | **LANDED-SUPERSEDED** | **Closed unmerged.** #175 explicitly ports alpha.9 creative range calibration. |
 | #131 alpha.9 packaged test line | **LANDED-SUPERSEDED** | **Closed unmerged.** #175 is the canonical BETA re-port of the trusted alpha.9 semantic core. |
 
-## Rescue expedition 001 — historical #166 → #217 / #218
+## Rescue expedition 001 — #166 → #217 / #218
 
-The receipt-memory **foundation was already on `main` via #164** at the 2026-08-23 cut. The rescue therefore did not replay #166's 34 commits.
+The receipt-memory **foundation is already on `main` via #164**. The rescue therefore does not replay #166's 34 commits.
 
-Authority recorded at that cut:
+Current authority:
 
-- **#217** defined the BETA-native rescue contract and `toaster-memory-seat-v2` boundary.
-- **#218** was the executable implementation expedition from a fresh current-spine branch at expedition start.
-- **#166** remained historical design/implementation evidence only.
+- **#217** defines the BETA-native rescue contract and `toaster-memory-seat-v2` boundary.
+- **#218** is the executable implementation expedition from a fresh current-spine branch at expedition start.
+- **#166** remains historical design/implementation evidence only.
 
 Rescue target, in proof order:
 
