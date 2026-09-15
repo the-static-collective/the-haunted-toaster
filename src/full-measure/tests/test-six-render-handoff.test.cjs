@@ -97,11 +97,11 @@ test("candidate ecology without an accepted winner refuses instead of silently f
         presetId: "openField",
         toastFeelId: "low-and-slow",
       }),
-    /candidate.*selection.*required|accepted.*candidate.*required|choose.*candidate/i,
+    /Candidate KEEP required|KEEP a candidate before rendering/i,
   );
 });
 
-test("a stale ordinary selected candidate refuses instead of silently falling back to legacy render", async () => {
+test("a stale ordinary kept candidate refuses instead of silently falling back to legacy render", async () => {
   const value = session();
   const family = await value.generate({
     presetId: "openField",
@@ -110,6 +110,7 @@ test("a stale ordinary selected candidate refuses instead of silently falling ba
     lyrics: "",
   });
   value.select({ familyHash: family.familyHash, index: 0 });
+  value.keep({ familyHash: family.familyHash, index: 0 });
 
   assert.throws(
     () =>
@@ -119,11 +120,11 @@ test("a stale ordinary selected candidate refuses instead of silently falling ba
         presetId: "porchlight",
         toastFeelId: "low-and-slow",
       }),
-    /selected candidate.*render inputs|render inputs.*selected candidate/i,
+    /kept candidate.*render inputs|render inputs.*kept candidate/i,
   );
 });
 
-test("selected candidate refuses when source audio bytes change at the same path", async () => {
+test("kept candidate refuses when source audio bytes change at the same path", async () => {
   const value = createCandidateSession({ renderCandidateFamilyPreviews: previewView });
   value.noteAudio(audioPath, {
     ...mediaAnalysis,
@@ -136,6 +137,7 @@ test("selected candidate refuses when source audio bytes change at the same path
     lyrics: "",
   });
   value.select({ familyHash: family.familyHash, index: 0 });
+  value.keep({ familyHash: family.familyHash, index: 0 });
 
   assert.throws(
     () =>
@@ -146,6 +148,6 @@ test("selected candidate refuses when source audio bytes change at the same path
         presetId: "openField",
         toastFeelId: "low-and-slow",
       }),
-    /selected candidate.*render inputs|render inputs.*selected candidate/i,
+    /kept candidate.*render inputs|render inputs.*kept candidate/i,
   );
 });
