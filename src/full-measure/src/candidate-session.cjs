@@ -177,6 +177,7 @@ function createCandidateSession({
   let family = null;
   let familyBinding = null;
   let selection = null;
+  let keptSelection = null;
   let candidateEcologyEntered = false;
   let stagedLabProposal = null;
   let acceptedHistory = [];
@@ -186,6 +187,7 @@ function createCandidateSession({
     family = null;
     familyBinding = null;
     selection = null;
+    keptSelection = null;
     if (resetEcology) candidateEcologyEntered = false;
   }
 
@@ -415,6 +417,7 @@ function createCandidateSession({
       labInfluence: influence,
     };
     selection = null;
+    keptSelection = null;
     return {
       ...previewView,
       schema: nextFamily.schema,
@@ -729,11 +732,57 @@ function createCandidateSession({
     }
   }
 
+  function continuationReceipt({ verdict, sourceFamilyHash, candidate = null, operation = null, resultFamilyHash = null }) {
+    const core = {
+      schema: "haunted-toaster/continuation-verdict/v0",
+      policyVersion: "continuation-without-preference-v0",
+      verdict,
+      authority: verdict === "KEEP" ? "continuation-only" : "search-only",
+      preferenceInference: "none",
+      sourceFamilyHash,
+      sourceAudioSha256: familyBinding?.audioSourceSha256 || null,
+      candidateIndex: candidate ? candidate.index : null,
+      scoreAddress: candidate ? candidate.scoreAddress : null,
+      timelineHash: candidate ? candidate.timelineHash : null,
+      operation: operation ? structuredClone(operation) : null,
+      resultFamilyHash,
+    };
+    return Object.freeze({
+      ...core,
+      receiptHash: generation.hashCanonical(core, "HauntedToaster-ContinuationVerdict-v0"),
+    });
+  }
+
   function select(config = {}) {
     assertCurrentFamily(config);
     const candidate = family.candidates[Number(config.index)];
     if (!candidate) throw new TypeError("Choose a current candidate.");
     selection = candidate;
+    if (candidate.forcedWitness === true) keptSelection = candidate;
+    return {
+      familyHash: family.familyHash,
+      index: candidate.index,
+      scoreAddress: candidate.scoreAddress,
+      timelineHash: candidate.timelineHash,
+      frontierEvidence: candidate.frontierEvidence || null,
+      crossLineage: candidate.crossLineage || null,
+      toastmoodLane: candidate.toastmoodLane || null,
+      toastFeel: familyBinding.toastFeel ? structuredClone(familyBinding.toastFeel) : null,
+      forcedWitnessEvidence: candidate.forcedWitnessEvidence
+        ? structuredClone(candidate.forcedWitnessEvidence)
+        : null,
+      acceptedHistoryCount: acceptedHistory.length,
+      continuationPermission: candidate.forcedWitness === true ? "forced-witness" : false,
+      labInfluence: familyBinding?.labInfluence || { enabled: false },
+    };
+  }
+
+  function keep(config = {}) {
+    assertCurrentFamily(config);
+    const candidate = family.candidates[Number(config.index)];
+    if (!candidate) throw new TypeError("Choose a current candidate before KEEP.");
+    selection = candidate;
+    keptSelection = candidate;
     if (
       candidate.forcedWitness !== true &&
       !acceptedHistory.some((score) => generation.addressVisualScore(score) === candidate.scoreAddress)
@@ -749,7 +798,13 @@ function createCandidateSession({
       familyBinding.toastFeelId = inheritedFeel.id;
       familyBinding.toastFeel = structuredClone(inheritedFeel);
     }
+    const receipt = continuationReceipt({
+      verdict: "KEEP",
+      sourceFamilyHash: family.familyHash,
+      candidate,
+    });
     return {
+      verdict: "KEEP",
       familyHash: family.familyHash,
       index: candidate.index,
       scoreAddress: candidate.scoreAddress,
@@ -762,26 +817,96 @@ function createCandidateSession({
         ? structuredClone(candidate.forcedWitnessEvidence)
         : null,
       acceptedHistoryCount: acceptedHistory.length,
+      continuationPermission: true,
+      receipt,
       labInfluence: familyBinding?.labInfluence || { enabled: false },
     };
   }
 
+  async function scrape(config = {}, signal) {
+    assertReady();
+    assertCurrentFamily(config);
+    assertOrdinaryEcology();
+    const sourceFamilyHash = family.familyHash;
+    const priorInfluence = familyBinding?.labInfluence || null;
+    const feel = currentToastFeel(config.toastFeelId || familyBinding?.toastFeelId, { optional: true });
+    const dealerSeed = String(config.rootSeed || `scrape:${sourceFamilyHash}`);
+    busy = true;
+    try {
+      const constraints = currentConstraints(config.presetId);
+      const profile = await ensureNativeChromaticProfile();
+      const analysis = toGenerationAnalysis(mediaAnalysis);
+      const responseWitness = responseWitnessFor(mediaAnalysis, analysis);
+      const lyricTrack = lyricTrackFor(config);
+      const sourceFamily = generation.generateCandidateSet({
+        analysis,
+        responseWitness,
+        garmentConstraints: constraints,
+        rendererProfile,
+        parentScore: null,
+        locks: config.locks || [],
+        rootSeed: dealerSeed,
+        count: 6,
+        phase: "initial",
+        lyricTrack,
+        toastFeelId: feel?.id || null,
+        nativeChromaticProfile: profile,
+      });
+      const nextFamily = enrichOrdinaryFamily(sourceFamily, {
+        analysis,
+        responseWitness,
+        constraints,
+        lyricTrack,
+        profile,
+        postWalkAxisGrammar: config.postWalkAxisGrammar === true,
+      });
+      const operation = Object.freeze({
+        kind: "rebirth",
+        policyVersion: "madd-clown-dealer-v0",
+        rootSeed: dealerSeed,
+        parentAuthority: "none",
+        sourceFamilyHash,
+      });
+      const view = await materialize(
+        nextFamily,
+        { ...config, rootSeed: dealerSeed, toastFeelId: feel?.id || null },
+        signal,
+        priorInfluence,
+      );
+      const receipt = continuationReceipt({
+        verdict: "SCRAPE",
+        sourceFamilyHash,
+        operation,
+        resultFamilyHash: nextFamily.familyHash,
+      });
+      return {
+        ...view,
+        verdict: "SCRAPE",
+        acceptedHistoryCount: acceptedHistory.length,
+        continuationPermission: false,
+        receipt,
+      };
+    } finally {
+      busy = false;
+    }
+  }
+
   function executionForRender(config = {}) {
-    if (!selection) {
+    if (!keptSelection) {
       if (candidateEcologyEntered) {
         const error = new Error(
-          "Candidate selection required: choose a candidate and use the selected timeline before rendering.",
+          "Candidate KEEP required: focus is observational; KEEP a candidate before rendering.",
         );
-        error.code = "CANDIDATE_RENDER_SELECTION_REQUIRED";
+        error.code = "CANDIDATE_RENDER_KEEP_REQUIRED";
         throw error;
       }
       return null;
     }
     if (!familyBinding) {
-      throw new Error("Selected candidate has no accepted render binding.");
+      throw new Error("Kept candidate has no accepted render binding.");
     }
     const mismatch = (detail) => {
-      const error = new Error(`Selected candidate no longer matches the current render inputs: ${detail}.`);
+      const error = new Error(`Kept candidate no longer matches the current render inputs: ${detail}.`);
       error.code = "CANDIDATE_RENDER_INPUT_MISMATCH";
       return error;
     };
@@ -802,22 +927,22 @@ function createCandidateSession({
     if (!sameOptionalPath(config.imagePath, familyBinding.imagePath)) {
       throw mismatch("image changed");
     }
-    const forcedRenderConfig = selection.timeline?.renderConfig
-      ? structuredClone(selection.timeline.renderConfig)
+    const forcedRenderConfig = keptSelection.timeline?.renderConfig
+      ? structuredClone(keptSelection.timeline.renderConfig)
       : null;
     return {
       ...(forcedRenderConfig || {}),
-      visualScore: selection.scoreArtifact.score,
-      resolvedTimeline: selection.timeline,
-      candidateGenealogy: candidateGenealogyEvidence(family, selection),
-      forcedWitnessEvidence: selection.forcedWitnessEvidence
-        ? structuredClone(selection.forcedWitnessEvidence)
+      visualScore: keptSelection.scoreArtifact.score,
+      resolvedTimeline: keptSelection.timeline,
+      candidateGenealogy: candidateGenealogyEvidence(family, keptSelection),
+      forcedWitnessEvidence: keptSelection.forcedWitnessEvidence
+        ? structuredClone(keptSelection.forcedWitnessEvidence)
         : null,
       forcedRenderConfig,
       analysis: mediaAnalysis,
       foreignVisualMaterial: createForeignMaterialPlan({
         videoBinding: video ? structuredClone(video) : null,
-        timeline: selection.timeline,
+        timeline: keptSelection.timeline,
         analysisDurationSeconds: Number(mediaAnalysis.duration),
       }),
       labInfluence: familyBinding.labInfluence || { enabled: false },
@@ -861,6 +986,14 @@ function createCandidateSession({
       assertAvailable();
       return select(config);
     });
+    ipcMain.handle("candidate:keep", (_event, config) => {
+      assertAvailable();
+      return keep(config);
+    });
+    ipcMain.handle("candidate:scrape", (_event, config) => {
+      assertAvailable();
+      return scrape(config);
+    });
     ipcMain.handle("candidate:clear", () => {
       clearCandidates();
       return true;
@@ -889,11 +1022,13 @@ function createCandidateSession({
     generate,
     generateTestSix,
     importLabProposal,
+    keep,
     mutate,
     noteAudio,
     noteImage,
     noteVideo,
     registerIpc,
+    scrape,
     select,
     stageLabProposal,
     state,
