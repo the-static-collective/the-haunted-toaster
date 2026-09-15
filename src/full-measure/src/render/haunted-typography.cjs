@@ -2,6 +2,7 @@ const crypto = require("node:crypto");
 
 const TYPOGRAPHY_POLICY_VERSION = "haunted-typography/v2";
 const TYPOGRAPHY_DOMAIN = "typography";
+const TITLE_ANGLE_LIMIT = 30;
 
 const TREATMENTS = Object.freeze([
   Object.freeze({
@@ -176,6 +177,11 @@ function treatmentFor(identity) {
   return TREATMENTS[index];
 }
 
+function angleForRole(role, angle) {
+  if (role !== "title") return angle;
+  return Math.max(-TITLE_ANGLE_LIMIT, Math.min(TITLE_ANGLE_LIMIT, angle));
+}
+
 function resolveTreatment(role, text, index, context) {
   const identity = {
     policyVersion: TYPOGRAPHY_POLICY_VERSION,
@@ -195,7 +201,7 @@ function resolveTreatment(role, text, index, context) {
     scaleX: treatment.scaleX,
     scaleY: treatment.scaleY,
     spacing: treatment.spacing,
-    angle: treatment.angle,
+    angle: angleForRole(role, treatment.angle),
     bold: treatment.bold,
     italic: treatment.italic,
     outline: treatment.outline,
@@ -267,6 +273,8 @@ function typographyEvidence(plan) {
     rootCandidateIdentity:
       plan.lineage?.rootCandidateIdentity ?? plan.scoreIdentity ?? null,
     childSeedSha256: plan.lineage?.childSeedSha256 || null,
+    titleTreatmentId: plan.title?.treatmentId || null,
+    titleAngle: plan.title?.angle ?? null,
     specimenIds: Object.freeze(specimenIds),
     planSha256: plan.hash,
   });
@@ -312,6 +320,7 @@ function assOverride(treatment, extra = "") {
 module.exports = {
   TYPOGRAPHY_DOMAIN,
   TYPOGRAPHY_POLICY_VERSION,
+  TITLE_ANGLE_LIMIT,
   TREATMENTS,
   applyCaseMode,
   assOverride,
