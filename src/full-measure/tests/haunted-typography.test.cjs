@@ -126,10 +126,13 @@ test("title keeps its haunted treatment but stays inside the visible rotation en
     title: "TITLE",
     cues: CUES,
   });
+  const evidence = typographyEvidence(plan);
 
   assert.equal(plan.title.treatmentId, "inverted-emphasis");
   assert.equal(plan.title.angle, 30);
   assert.ok(plan.title.angle >= -30 && plan.title.angle <= 30);
+  assert.equal(evidence.titleTreatmentId, "inverted-emphasis");
+  assert.equal(evidence.titleAngle, 30);
   assert.ok(
     TREATMENTS.some(
       (treatment) => treatment.id === "inverted-emphasis" && treatment.angle === 180,
