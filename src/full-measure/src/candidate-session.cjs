@@ -2,6 +2,7 @@ const path = require("node:path");
 const generation = require("./generation/index.cjs");
 const { admitLabProposal, parseLabProposalTransfer } = require("./lab-proposal.cjs");
 const { renderCandidateFamilyPreviews } = require("./render/candidate-preview.cjs");
+const { createForeignMaterialPlan } = require("./render/foreign-material.cjs");
 const { createLyricTrack } = require("./render/lyrics.cjs");
 const { getToastFeel } = require("./toast-feels.cjs");
 const { registerVideoPantryIpc } = require("./video-pantry/electron-ipc.cjs");
@@ -189,6 +190,7 @@ function createCandidateSession({
       {
         audioPath,
         imagePath,
+        video: video ? structuredClone(video) : null,
         analysis: mediaAnalysis,
         presetId: config.presetId,
         title: config.title,
@@ -478,6 +480,11 @@ function createCandidateSession({
       visualScore: selection.scoreArtifact.score,
       resolvedTimeline: selection.timeline,
       analysis: mediaAnalysis,
+      foreignVisualMaterial: createForeignMaterialPlan({
+        videoBinding: video ? structuredClone(video) : null,
+        timeline: selection.timeline,
+        analysisDurationSeconds: Number(mediaAnalysis.duration),
+      }),
       labInfluence: familyBinding.labInfluence || { enabled: false },
       toastFeel: familyBinding.toastFeel ? structuredClone(familyBinding.toastFeel) : null,
       nativeChromaticProfile: nativeChromaticProfile
