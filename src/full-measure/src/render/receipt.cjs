@@ -8,6 +8,10 @@ const {
   buildPostWalkAxisRecipe,
 } = require("../generation/post-walk-axis-grammar.cjs");
 const { assertResolvedTimeline } = require("./timeline-execution.cjs");
+const {
+  buildDogramTraceSource,
+  isTraceableVideoReceipt,
+} = require("./dogram-trace.cjs");
 const { promoteTopologyResponseEvidence } = require("./visual-compiler-evidence.cjs");
 
 const CANDIDATE_GENEALOGY_SCHEMA = "haunted-toaster/candidate-genealogy/v1";
@@ -25,6 +29,11 @@ async function hashFile(filePath) {
 function receiptPathFor(outputPath) {
   const parsed = path.parse(outputPath);
   return path.join(parsed.dir, `${parsed.name}.video-receipt.json`);
+}
+
+function dogramPathFor(outputPath) {
+  const parsed = path.parse(outputPath);
+  return path.join(parsed.dir, `${parsed.name}.dogram.json`);
 }
 
 function buildProvenance() {
@@ -257,11 +266,34 @@ async function writeReceipt(receipt, outputPath, options = {}) {
   await promoteCanonicalTimelineEvidenceInReceipt(receipt, outputPath, options);
   receipt.build = buildProvenance();
   const receiptPath = receiptPathFor(outputPath);
+  const dogramPath = dogramPathFor(outputPath);
+
+  if (!isTraceableVideoReceipt(receipt)) {
+    await fsPromises.rm(dogramPath, { force: true }).catch(() => {});
+    await fsPromises.writeFile(
+      receiptPath,
+      `${JSON.stringify(receipt, null, 2)}\n`,
+      "utf8",
+    );
+    return receiptPath;
+  }
+
+  const dogramTrace = buildDogramTraceSource(receipt);
   await fsPromises.writeFile(
-    receiptPath,
-    `${JSON.stringify(receipt, null, 2)}\n`,
+    dogramPath,
+    `${JSON.stringify(dogramTrace, null, 2)}\n`,
     "utf8",
   );
+  try {
+    await fsPromises.writeFile(
+      receiptPath,
+      `${JSON.stringify(receipt, null, 2)}\n`,
+      "utf8",
+    );
+  } catch (error) {
+    await fsPromises.rm(dogramPath, { force: true }).catch(() => {});
+    throw error;
+  }
   return receiptPath;
 }
 
@@ -270,6 +302,7 @@ module.exports = {
   compactCandidateGenealogyEvidence,
   compactPostWalkAxisEvidence,
   compactTopologyEventEvidence,
+  dogramPathFor,
   hashFile,
   promoteCandidateGenealogyInReceipt,
   promoteCanonicalTimelineEvidenceInReceipt,
