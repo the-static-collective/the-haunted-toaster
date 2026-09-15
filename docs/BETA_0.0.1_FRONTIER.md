@@ -8,7 +8,7 @@ This file is a durable repository-owned index, not product authority and not a p
 
 > **Reconcile before rebuilding. Missing proof stays missing. A spreadsheet may mirror this registry; it does not outrank Git history.**
 
-The immediate BETA 0.0.0 reconciliation remains owned by #273 / draft PR #275. Nothing below becomes a 0.0.0 blocker merely because it is interesting.
+The immediate BETA 0.0.0 reconciliation remains owned by #273 / PR #275. Nothing below becomes a 0.0.0 blocker merely because it is interesting.
 
 ## State vocabulary
 
@@ -26,11 +26,13 @@ The immediate BETA 0.0.0 reconciliation remains owned by #273 / draft PR #275. N
 
 | Seam | Current evidence | Remaining delta |
 | --- | --- | --- |
-| Continuation Without Preference / #207 / #273 | Clean intentional RED on PR #275: 618 tests, 615 pass, exactly three new failures. Ordinary focus currently admits ancestry; `session.keep` and `session.scrape` do not exist. | Make focus observational; add explicit KEEP authority transition; add deterministic SCRAPE/dealer transition with no scalar negative-preference inference; preserve TEST 6 forced-witness exception; migrate ordinary UI/bridge/receipt evidence. |
-| Carrier reconciliation / PR #275 | WALK carrier + Dogram `comparison-only` + Haunted Haiku `descriptive-only` are deliberately composed. | Finish continuation semantics and any remaining valid main-only fruit discovered by sweep. |
-| Fossil disposition | Closed with explicit receipts: #147, #206, #225, #227, #242, #248. Partial/human-only residues called out below for #195, #197, #209. | Continue exact acceptance-cell archaeology; do not mass-close from test names alone. |
-| Truth floor | Reconciliation plan and this registry exist. | Rewrite `CURRENT_SPINE.md`, root/app README truth, active/substrate/ancestry/not-built manifest, and build/version identity after executable semantics settle. |
-| Exact-head proof | Current failure is intentionally isolated to continuation law. | Focused GREEN + consolidated proof + browser witness + production audit + exact Windows package + one coherent human smoke + Build Info/tree/artifact receipt. |
+| Continuation Without Preference / #207 / #273 | **GREEN on PR #275.** Ordinary focus is observational; `session.keep()` grants exact-creature continuation authority/ancestry; `session.scrape()` deterministically searches again without ancestry or scalar negative-preference inference; UI/bridge/receipt evidence is wired; ordinary candidate render requires KEEP. TEST 6 forced witness remains a distinct declared exception. | No implementation delta for the BETA 0.0.0 continuation law. Preserve the law during release proof and normal packaged use. |
+| Carrier reconciliation / PR #275 | #275 contains the WALK-era machine plus the landed continuation law, Dogram `comparison-only`, Haunted Haiku `descriptive-only`, and KEEP-required render handoff. Direct comparison shows #274 is an older divergent RED carrier with no `keep()`/`scrape()` implementation that needs transplant. | Treat #275 as the one proposed carrier. Retire #274 explicitly as provenance-only; do not merge it. |
+| Fossil disposition | Closed with explicit receipts: #147, #206, #225, #227, #242, #248. Partial/human-only residues called out below for #195, #197, #209. | Continue exact acceptance-cell archaeology after the release cut; do not mass-close from test names alone. |
+| Truth floor | Root/app README, `CURRENT_SPINE.md`, package identity and [`BETA_0.0.0_TRUTH_FLOOR.md`](BETA_0.0.0_TRUTH_FLOOR.md) are reconciled to the proposed #275 release reality. Package identity is `0.0.0-beta.0`; historical alpha identities remain historical. | Keep these files synchronized with the exact release head. Do not describe future feature lanes as landed. |
+| Exact-head proof | Pre-truth-floor #275 head `4ecfe391171758cbe1d247787d95b7680e31146b` proved 621/621 tests, candidate/render smoke with KEEP, production runtime audit, and production browser witness in workflow run `35000659485`. This is evidence for the code seam, **not** release proof for the new truth-floor head. | Re-run exact-head locked install/consolidated proof/audit/browser witness after the truth-floor commit; then build Windows Setup + Portable from that same exact head and record SHA/tree/run/artifact digest/Build Info; finally perform one normal packaged song → six → KEEP/SCRAPE → finished-video witness. |
+
+The compact BETA 0.0.0 release classification lives in [`BETA_0.0.0_TRUTH_FLOOR.md`](BETA_0.0.0_TRUTH_FLOOR.md). Scope is frozen until that floor is cut: motion-mask, temporal Video modes, Aperture Shape, HyperFood/HyperFrames descendants and unrelated feature expansion are not 0.0.0 blockers.
 
 ## READY / EXECUTABLE — strongest 0.0.1 candidates
 
@@ -127,7 +129,7 @@ These are suspiciously behind current executable truth, but are **not closure-au
 
 ## Candidate 0.0.1 walking order
 
-1. **Finish 0.0.0 first:** Continuation Without Preference, truth floor, exact package/witness.
+1. **Cut 0.0.0 first:** exact-head proof, exact Windows package, normal packaged-use witness, explicit landing approval.
 2. **Aperture Shape (#223):** smallest direct multiplier over proven GRAB/Stage-A scope.
 3. **Human hands (#181 + #199):** make the already-capable appliance easier to operate without changing creative authority.
 4. **One creative descendant:** choose **either** MOLT/HAUNT (#149) **or** one deeper Video Digestion role (#250), not both simultaneously.

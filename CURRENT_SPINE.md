@@ -2,7 +2,24 @@
 
 > Repository-owned reconciliation ledger. This file records which lineage is current, which pull requests are historical shells, and where still-valid work must be rescued instead of merged from stale ancestry.
 >
-> Last reconciled: 2026-08-23
+> Last reconciled: 2026-09-15
+
+## 2026-09-15 — BETA 0.0.0 reconciliation overlay
+
+This section is the current release-cut overlay. The older ledger below remains historical context; where the two differ, this overlay describes the present proposed carrier.
+
+- `main` remains product authority until a BETA carrier lands.
+- **PR #275 / `beta/reconcile-0.0.0` is the single proposed BETA 0.0.0 reconciliation carrier.**
+- **PR #274 is superseded as a carrier and retained as provenance only.** #274 and #275 diverged from the same WALK-era base; #274 retained the intentional RED continuation contract and has no `keep()` / `scrape()` implementation that needs to be merged over #275.
+- #275 contains observational focus, explicit KEEP/SCRAPE continuation transitions, receipt/UI wiring, and a KEEP-required ordinary candidate render handoff.
+- Dogram remains `comparison-only`; Haunted Haiku remains deterministic `descriptive-only` receipt-derived copy. Neither acquires render or interpretive authority.
+- Human release epoch: **HAUNTED TOASTER — BETA 0.0.0**.
+- Application package identity for the proposed release cut: **`0.0.0-beta.0`**.
+- Scope is frozen for the cut: motion-mask, temporal Video modes, Aperture Shape, HyperFood/HyperFrames descendants, broader taste-learning, and unrelated future features do not become BETA 0.0.0 blockers.
+- Exact-head release proof must include consolidated tests/smoke, runtime audit, production browser witness, Windows Setup + Portable package evidence, Build Info/tree/artifact receipt, and one normal packaged **song → six → KEEP/SCRAPE → finished video** witness.
+- Landing still requires explicit approval for the exact proven head.
+
+See [`docs/BETA_0.0.0_TRUTH_FLOOR.md`](docs/BETA_0.0.0_TRUTH_FLOOR.md) for the compact current release truth and [`docs/BETA_0.0.1_FRONTIER.md`](docs/BETA_0.0.1_FRONTIER.md) for future-work classification.
 
 ## Law of use
 
@@ -21,6 +38,8 @@ A closed PR may still carry one of the latter three statuses. **Closed is transp
 
 ## Canonical `main` spine
 
+The following table is the historical `main` reconciliation cut recorded on 2026-08-23. It is preserved for provenance and does not override the 2026-09-15 overlay above.
+
 | Stage | Canonical commit / PR | What is carried forward | Status / successor |
 | --- | --- | --- | --- |
 | alpha.8 packaged test line | `a0dfa4f45c79d1e4b7d54805943e36c0d86321b2` / #126 | UI Witness, Toast Feels, Native Color, seeded STOMP/MADD CLOWN, alpha.8 package identity | Historical ancestor → #175 |
@@ -34,11 +53,11 @@ A closed PR may still carry one of the latter three statuses. **Closed is transp
 | Topology Events design | `d9a668db48131e86969acc49223e25ca5d026fe9` / #196 | accepted topology-event authority/integrity design | On `main`; implementation field spine began at #200 |
 | Resolution Field design | `7d0d7560b224684d0e4a46b6499dce21e3770d5f` / #198 | bounded internal-resolution primitive and human-gated experiment | On `main`; implementation field spine began at #201 |
 | Sigil Grammar v0 | `899a920b17019a54dadfb0c6bb321cc6e4cf860b` / #211 | generation-only Witness Sigil compatibility, topology expressions/plans, deterministic six-utterance families, replay | On `main`; language/algebra study lanes remain non-renderer |
-| Sigil Algebra v0 implementation plan | `3d0615ced52313db3232f79501b59357bdd211d8` / #221 | docs-only exact integer/rational Transform2 equivalence proof plan for #220; no renderer/UI/authority behavior | **Current `main` head at reconciliation cut** |
+| Sigil Algebra v0 implementation plan | `3d0615ced52313db3232f79501b59357bdd211d8` / #221 | docs-only exact integer/rational Transform2 equivalence proof plan for #220; no renderer/UI/authority behavior | Historical `main` head at the 2026-08-23 reconciliation cut |
 
-## Active field / design / rescue lanes — not yet `main`
+## Active field / design / rescue lanes — historical 2026-08-23 snapshot
 
-These are active successors and witnesses, not permission to pretend their ancestor branches landed individually.
+These entries are preserved as the prior reconciliation snapshot. Their present release relevance is subordinate to the 2026-09-15 overlay and exact current repository evidence.
 
 ### Field witness lane
 
@@ -54,48 +73,48 @@ These are active successors and witnesses, not permission to pretend their ances
    #214 TEST 6 forced witness harness
 ```
 
-- **#212 ACTIVE** — composed human-test specimen for GRAB + Resolution/Atmosphere + Listener anchor integrity.
-- **#214 ACTIVE** — deterministic TEST 6 feature/witness branch; exact-head machine proof is green, but packaged human witness remains required. Reconciliation commits do not belong there.
+- **#212 ACTIVE at 2026-08-23 cut** — composed human-test specimen for GRAB + Resolution/Atmosphere + Listener anchor integrity.
+- **#214 ACTIVE at 2026-08-23 cut** — deterministic TEST 6 feature/witness branch; exact-head machine proof was green, but packaged human witness remained required. Reconciliation commits do not belong there.
 
 ### Sigil study lanes
 
-- **#215 ACTIVE** — Sigil Language Witness v0 design ancestor; #219 records that the design received human review.
-- **#219 ACTIVE** — planning-only standalone Language Witness + separately gated disposable Field Lab convergence plan. It must not merge TEST 6 and Language Lab authority merely because they share a package.
-- **#221 LANDED ON MAIN** — Sigil Algebra v0 implementation plan only; production implementation remains future work under #220.
+- **#215 ACTIVE at 2026-08-23 cut** — Sigil Language Witness v0 design ancestor; #219 records that the design received human review.
+- **#219 ACTIVE at 2026-08-23 cut** — planning-only standalone Language Witness + separately gated disposable Field Lab convergence plan. It must not merge TEST 6 and Language Lab authority merely because they share a package.
+- **#221 LANDED ON MAIN at 2026-08-23 cut** — Sigil Algebra v0 implementation plan only; production implementation remains future work under #220.
 
 ### Foreign-material lane
 
-- **#222 ACTIVE** — first renderer-facing foreign-material crossing for #44.
+- **#222 ACTIVE at 2026-08-23 cut** — first renderer-facing foreign-material crossing for #44.
 - Exact head recorded by the PR: `f4a575db65d1bdb9cc5e7b462c30226660d4b804`.
-- Machine workflow `32615247440` is green for application proof, runtime audit, smoke, renderer witness build, and canonical witness-state comparison.
-- **Human field gate remains mandatory:** one real admitted 5–10 second clip against a longer song must prove preview/final parity, receipt-bound source/plan evidence, contribution beyond literal clip duration, exact replay, Toaster assimilation rather than stock-video cutaway behavior, and clean return to the no-video path.
+- Machine workflow `32615247440` was green for application proof, runtime audit, smoke, renderer witness build, and canonical witness-state comparison.
+- **Human field gate remained mandatory at that cut:** one real admitted 5–10 second clip against a longer song had to prove preview/final parity, receipt-bound source/plan evidence, contribution beyond literal clip duration, exact replay, Toaster assimilation rather than stock-video cutaway behavior, and clean return to the no-video path.
 - Video remains foreign material; it does not gain an independent timeline or placement authority.
 
 ### Main-based design / reconciliation lanes
 
-- **#216 ACTIVE** — this reconciliation ledger only; no runtime behavior.
-- **#217 ACTIVE** — BETA Receipt Memory + Witness Loop rescue v2 design, based on current-spine law; #166 is ancestry only.
+- **#216 ACTIVE at 2026-08-23 cut** — reconciliation ledger only; no runtime behavior.
+- **#217 ACTIVE at 2026-08-23 cut** — BETA Receipt Memory + Witness Loop rescue v2 design, based on current-spine law; #166 is ancestry only.
 
 ### Rescue implementation lane
 
-- **#218 ACTIVE** — first executable current-spine rescue implementation for #166 concepts.
+- **#218 ACTIVE at 2026-08-23 cut** — first executable current-spine rescue implementation for #166 concepts.
 - Implementation ancestry began from `main` @ `899a920b17019a54dadfb0c6bb321cc6e4cf860b`; do not reinterpret that historical base as the current `main` cut.
-- Fresh RED: **443 tests / 441 pass / exactly 2 fail**, both missing `memory-service.cjs` and `witness-encounter.cjs`.
-- Exact GREEN head: `0f967b8f7f0544bf94160611a60fa3c9232504e9`.
+- Fresh RED at that cut: **443 tests / 441 pass / exactly 2 fail**, both missing `memory-service.cjs` and `witness-encounter.cjs`.
+- Exact GREEN head at that cut: `0f967b8f7f0544bf94160611a60fa3c9232504e9`.
 - Workflow `32606946521`: renderer verify, consolidated application proof, runtime audit, smoke, renderer witness, and canonical witness-state comparison all PASS; package/release intentionally skipped for the draft rescue slice.
-- Still downstream under #217: deterministic projection/capsule coordination, one-seat ordinary memory influence, replay, explicit Re-toast arming, narrow IPC, Past Toasts, Thoughtline, and packaged human witness.
+- Still downstream under #217 at that cut: deterministic projection/capsule coordination, one-seat ordinary memory influence, replay, explicit Re-toast arming, narrow IPC, Past Toasts, Thoughtline, and packaged human witness.
 
-## Reconciliation ledger
+## Reconciliation ledger — historical 2026-08-23 snapshot
 
 | PR | Reconciliation status | Repository disposition / successor |
 | --- | --- | --- |
-| #222 foreign-material Slice D | **ACTIVE** | Renderer-facing #44 crossing is machine-green but human field-gated; do not treat Video as timeline authority. |
+| #222 foreign-material Slice D | **ACTIVE** | Renderer-facing #44 crossing was machine-green but human field-gated; do not treat Video as timeline authority. |
 | #219 Sigil Language Witness implementation plans | **ACTIVE** | Planning-only successor to reviewed #215; standalone language proof precedes any disposable Field Lab convergence. |
-| #218 current-spine receipt-memory implementation | **ACTIVE** | Rescue implementation 001 under #217; first backend RED→GREEN complete, wider memory proof ladder remains. |
+| #218 current-spine receipt-memory implementation | **ACTIVE** | Rescue implementation 001 under #217; first backend RED→GREEN complete, wider memory proof ladder remained. |
 | #217 BETA receipt-memory rescue v2 design | **ACTIVE** | Current-spine design successor for #166. |
 | #216 CURRENT_SPINE ledger | **ACTIVE** | Reconciliation-only artifact; runtime untouched. |
 | #215 Sigil Language Witness design | **ACTIVE** | Reviewed design ancestor for #219; keep disposition explicit until the design PR itself is closed/landed. |
-| #214 TEST 6 witness harness | **ACTIVE** | Machine-green field harness; packaged human witness remains. #171 donates only typed receipt/build-provenance mechanics; old alpha.9 questionnaire/operator path rejected. |
+| #214 TEST 6 witness harness | **ACTIVE** | Machine-green field harness; packaged human witness remained. #171 donated only typed receipt/build-provenance mechanics; old alpha.9 questionnaire/operator path rejected. |
 | #212 fresh Resolution + Listener witness | **ACTIVE** | Composed field witness for #200/#201/#204/#205; do not confuse its field ancestry with `main`. |
 | #205 Atmosphere alpha preservation | **LANDED-SUPERSEDED** | **Closed unmerged.** Valid behavior survives in #212. |
 | #204 Listener anchor bridge repair | **LANDED-SUPERSEDED** | **Closed unmerged.** Valid repair survives in #212. |
@@ -103,7 +122,7 @@ These are active successors and witnesses, not permission to pretend their ances
 | #200 GRAB topology event v0.1 | **LANDED-SUPERSEDED** | **Closed unmerged.** Value survives in #212 field lineage; no claim that GRAB is on `main`. |
 | #171 alpha.9 field witness receipt | **RESCUE-PARTS** | **Closed unmerged.** Useful provenance law consumed by #214; alpha.9-specific witness/operator semantics retired. |
 | #170 Creative Context Table foundation | **LANDED-SUPERSEDED** | **Closed unmerged.** #175 explicitly ports the Creative Context contract foundation onto BETA `main`. |
-| #166 receipt memory + witness loop | **RESCUE-PARTS** | **Closed unmerged.** Current successors: #217 design + #218 implementation. Preserve branch as ancestry only. |
+| #166 receipt memory + witness loop | **RESCUE-PARTS** | **Closed unmerged.** Current successors at that cut: #217 design + #218 implementation. Preserve branch as ancestry only. |
 | #161 private YouTube publish handoff | **ARCHIVE** | **Closed unmerged.** Preserve dormant until a canonical release spine exists; local render remains authoritative. |
 | #155 Listener durable draft | **LANDED-SUPERSEDED** | **Closed unmerged.** #175 explicitly ports Track 0 renderer/Listener trust repairs. |
 | #154 nested response compaction | **LANDED-SUPERSEDED** | **Closed unmerged.** #175 explicitly ports Track 0 renderer trust repair. |
@@ -111,15 +130,15 @@ These are active successors and witnesses, not permission to pretend their ances
 | #137 alpha.9 creative range calibration | **LANDED-SUPERSEDED** | **Closed unmerged.** #175 explicitly ports alpha.9 creative range calibration. |
 | #131 alpha.9 packaged test line | **LANDED-SUPERSEDED** | **Closed unmerged.** #175 is the canonical BETA re-port of the trusted alpha.9 semantic core. |
 
-## Rescue expedition 001 — #166 → #217 / #218
+## Rescue expedition 001 — historical #166 → #217 / #218
 
-The receipt-memory **foundation is already on `main` via #164**. The rescue therefore does not replay #166's 34 commits.
+The receipt-memory **foundation was already on `main` via #164** at the 2026-08-23 cut. The rescue therefore did not replay #166's 34 commits.
 
-Current authority:
+Authority recorded at that cut:
 
-- **#217** defines the BETA-native rescue contract and `toaster-memory-seat-v2` boundary.
-- **#218** is the executable implementation expedition from a fresh current-spine branch at expedition start.
-- **#166** remains historical design/implementation evidence only.
+- **#217** defined the BETA-native rescue contract and `toaster-memory-seat-v2` boundary.
+- **#218** was the executable implementation expedition from a fresh current-spine branch at expedition start.
+- **#166** remained historical design/implementation evidence only.
 
 Rescue target, in proof order:
 

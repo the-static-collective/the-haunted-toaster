@@ -4,23 +4,42 @@
 
 > **SONG IN → FINISHED VIDEO OUT**
 
-The Haunted Toaster is a local-first deterministic music-video instrument. Give it a finished song, optional artwork/video material, and lyrics; it analyzes the song, proposes a six-up of visual creatures, preserves exact creative lineage, and can render an accepted creature as a complete witnessed music video.
+The Haunted Toaster is a local-first deterministic music-video instrument. Give it a finished song, optional artwork/video material, and lyrics; it analyzes the song, proposes a six-up of visual creatures, preserves exact creative lineage, and can render a kept creature as a complete witnessed music video.
 
-The long-term product idea is deliberately smaller than the machine underneath it:
+The product law is deliberately smaller than the machine underneath it:
 
 > **The Toaster owns possibility. The human owns continuation.**
 
-The intended ordinary interaction is moving toward **KEEP / SCRAPE**. The human should not need to operate the genome. The Toaster owns mutation, crossing, divergence, topology, listening, composition, and the rest of the reproductive machinery; the human decides whether a creature gets to continue.
+The ordinary BETA interaction is **KEEP / SCRAPE**. The human does not need to operate the genome. The Toaster owns mutation, crossing, divergence, topology, listening, composition, and the rest of the reproductive machinery; the human decides whether an exact creature may continue.
 
-That compressed interface is still being migrated. Current WALK builds expose more of the underlying candidate controls for development and witness work.
+```text
+focus != verdict
+focus != ancestry
+KEEP = continuation permission
+SCRAPE = reject this family and search again
+SCRAPE != negative feature preference
+```
 
 > **A ghost is continuity without the original body. A receipt is continuity without the original event.**
 
 The video is the performance. The receipt is the ghost of that performance: residual proof that the encounter happened on these terms, with this score and timeline, producing these hashes.
 
+## BETA 0.0.0 release cut
+
+Draft PR **#275** (`beta/reconcile-0.0.0`) is the single proposed BETA 0.0.0 reconciliation carrier. `main` remains product authority until that PR lands.
+
+Human epoch: **HAUNTED TOASTER — BETA 0.0.0**  
+Application package identity: **`0.0.0-beta.0`**
+
+PR #274 is superseded as a release carrier and retained only as provenance. It contains no executable continuation truth that should be merged over #275.
+
+The compact release truth is recorded in [`docs/BETA_0.0.0_TRUTH_FLOOR.md`](docs/BETA_0.0.0_TRUTH_FLOOR.md). The future-work registry is [`docs/BETA_0.0.1_FRONTIER.md`](docs/BETA_0.0.1_FRONTIER.md).
+
+Scope is frozen for this cut. Motion-mask work, temporal Video modes, Aperture Shape, HyperFood/HyperFrames descendants, broader taste-learning, and other new feature lanes are **not** BETA 0.0.0 blockers.
+
 ## What exists now
 
-Current executable development includes substantially more than the old 0.4 demo surface:
+The proposed BETA carrier executes this ordinary path:
 
 ```text
 song + optional art / admitted video + lyrics
@@ -29,45 +48,39 @@ song + optional art / admitted video + lyrics
         ↓
  deterministic six-up candidate ecology
         ↓
- VisualScore + genealogy + topology / listening / composition
+ focus = observation only
         ↓
- MUTATE / CROSS / STOMP / CONVERGE machinery
+     KEEP / SCRAPE
         ↓
- accepted ResolvedTimeline
+ KEEP-authorized VisualScore / ResolvedTimeline
         ↓
  preview and final render
         ↓
- video + score + timeline + receipt + subtitle sidecars
+ video + score + timeline + Dogram + Haunted Haiku + receipt + subtitles
 ```
 
 The current machine includes:
 
 - **Deterministic six-up generation.** A song produces a bounded family of materially different visual creatures rather than one opaque roll.
+- **Explicit continuation authority.** `keep()` admits the exact creature as lawful ancestry; `scrape()` rejects the current family and deterministically searches again without constructing a negative-preference model.
+- **KEEP-required ordinary render handoff.** The ordinary candidate path refuses a final candidate render that has not been explicitly kept. TEST 6 forced witness remains a separate declared exception.
 - **VisualScore and exact replay evidence.** Candidate identity, derivation, accepted score, and resolved timeline remain inspectable.
-- **Evolutionary machinery.** Deterministic MUTATE, exact two-parent CROSS, STOMP for farther descendants, locks, genealogy, and accepted-history plumbing exist in the current development carrier.
+- **Evolutionary machinery.** Deterministic MUTATE, exact two-parent CROSS, STOMP, CONVERGE, locks, genealogy, and accepted-history plumbing exist as deeper machine substrate. They are not ordinary-user release gates.
 - **Diversity and frontier exploration.** Branch exploration uses role-separated candidate slots; CONVERGE can deterministically target a least-visited lawful topology × motion × material region.
 - **Topology language.** APERTURE, SPEAK, GRAB, GROW, and BODY participate in the current composition system, with deterministic TEST 6 witnesses kept separate from ordinary ecology.
 - **L BRANCH / listening composition.** Response evidence and mix-plan machinery can alter how visual events listen to the song without becoming an audio remix.
 - **Listener lyric timing.** The optional local Listener can lend timing to supplied English lyrics while preserving human lyric authority and correction anchors.
-- **Foreign video material.** Short admitted video material can participate in the composition path; digestion/metabolism work is still developing.
+- **Foreign video material.** Short admitted video material can participate in the composition path; deeper digestion/metabolism remains future work.
 - **Haunted typography and lyric residue.** Typography treatment, role-specific safety, and non-authoritative lyric/ghost residue are part of the visual language.
+- **Dogram and Haunted Haiku composition.** Dogram remains `comparison-only`; Haunted Haiku remains deterministic `descriptive-only` publication copy. Neither silently acquires render or interpretive authority.
 - **Local-first execution.** Rendering happens on the machine. The selected song remains the sole soundtrack.
 - **Witnessed output.** Accepted renders travel with score/timeline/receipt evidence rather than pretending the pixels appeared from nowhere.
 
-## Product direction: KEEP / SCRAPE
+## KEEP / SCRAPE law
 
-The ordinary interface is being compressed around one constitutional distinction:
+KEEP does not mean “learn that I like this color/topology/motion.” It means only that this exact creature may survive as lawful ancestry.
 
-```text
-focus != verdict
-KEEP = continuation permission
-SCRAPE = local lineage extinction
-verdict != feature preference
-```
-
-KEEP should not mean “learn that I like this color/topology/motion.” It means only that this exact creature may survive as lawful ancestry.
-
-SCRAPE should not become six negative ratings or a permanent feature blacklist. It means that none of the current family receives continuation. The Toaster chooses the next lawful reproductive operation and leaves a receipt for that choice.
+SCRAPE does not become six negative ratings or a permanent feature blacklist. It means that none of the current family receives continuation. The Toaster chooses the next lawful reproductive operation and leaves a receipt for that choice.
 
 The design is recorded in [`docs/superpowers/specs/2026-09-15-madd-clown-crazy-slots-design.md`](docs/superpowers/specs/2026-09-15-madd-clown-crazy-slots-design.md).
 
@@ -84,27 +97,35 @@ A successful score-driven render produces an evidence bundle around the finished
 <name>.en.vtt
 ```
 
+Additional receipt-derived Dogram and Haunted Haiku evidence is composed without changing the accepted render authority.
+
 The receipt records the media result and provenance needed to verify the admitted render. The exact accepted `ResolvedTimeline` remains the semantic authority shared by preview and final render.
 
 ## Why the toaster is built this way
 
 Creative variation and execution authority are different jobs.
 
-A candidate may be strange. Mutation may make it stranger. STOMP may deliberately leave the local neighborhood. CONVERGE may seek underexplored lawful territory. But once a candidate is accepted, the renderer does not secretly reinterpret it, invent new entropy, or run a second lyric clock.
+A candidate may be strange. Mutation may make it stranger. STOMP may deliberately leave the local neighborhood. CONVERGE may seek underexplored lawful territory. But once a candidate is kept, the renderer does not secretly reinterpret it, invent new entropy, or run a second lyric clock.
 
 Likewise, human judgment and machine interpretation are different jobs. A KEEP verdict is evidence of continuation, not permission to silently construct a universal model of the human's taste.
 
 That lets the appliance remain haunted without becoming unaccountable.
 
-## Current carrier status
+## Release proof
 
-The project is in **v0.5 prerelease development**.
+BETA 0.0.0 is cut only from one exact head after all of the following agree:
 
-The active WALK carrier currently contains much of the candidate/evolution/topology/composition machinery. `main` also contains later independent work that must be deliberately re-ported or composed rather than blindly merged. In particular, current development treats branch identity and provenance as authority boundaries.
+- locked install and consolidated full suite;
+- candidate/render smoke, including KEEP → render;
+- production dependency audit;
+- production browser/UI witness;
+- Dogram/Haiku receipt composition;
+- Windows Setup + Portable artifacts built from that exact head;
+- recorded commit SHA, tree, workflow/run, artifact digest, and Build Info;
+- one normal packaged use: **song in → six → KEEP/SCRAPE → finished video**;
+- explicit exact-head landing approval.
 
-A current WALK package has passed the repository proof-and-package workflow. Human witness is still closing the remaining WALK perceptual delta before a landing decision.
-
-Expect an alpha: the machine is executable end to end, but several product surfaces are intentionally still experimental or more exposed than the intended final appliance.
+The final packaged-use witness is intentionally ordinary use. It is not a requirement to manually summon every internal verb.
 
 ## Install and verify from source
 

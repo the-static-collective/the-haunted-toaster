@@ -2,44 +2,57 @@
 
 > **SONG IN → FINISHED VIDEO OUT**
 
-This directory contains the application package for The Haunted Toaster. The repository root README is the current product overview; this file describes the executable package boundary.
+This directory is the versioned application package for The Haunted Toaster. The repository-root README is the product overview; this file describes the executable package boundary.
 
-The Haunted Toaster is a local-first deterministic music-video instrument. It analyzes a finished song, builds a bounded candidate ecology, resolves accepted creative authority into one exact timeline, and renders a complete 1920×1080 music video with provenance artifacts.
+Human release epoch: **HAUNTED TOASTER — BETA 0.0.0**  
+Application package identity: **`0.0.0-beta.0`**
 
-The current v0.5 development machine is substantially beyond the historical 0.4 demo cut. Portable VisualScore, deterministic candidate generation, mutation, crossing, topology, genealogy, replay evidence, and six-up candidate ecology are present in current development work and must not be described as merely future architecture.
+Draft PR #275 (`beta/reconcile-0.0.0`) is the proposed reconciliation carrier. `main` remains product authority until that carrier lands.
+
+The Haunted Toaster is a local-first deterministic music-video instrument. It analyzes a finished song, builds a bounded candidate ecology, lets the human explicitly decide continuation with KEEP / SCRAPE, resolves a kept creature into one exact timeline, and renders a complete 1920×1080 music video with provenance artifacts.
 
 ## Current invariant
 
-A successful score-driven path is:
+The ordinary BETA path is:
 
 1. Choose or drop a finished song.
 2. Optionally provide artwork/video material, title, artist, and lyrics.
 3. Inspect the song and build deterministic response evidence.
 4. Generate a bounded six-up candidate family.
-5. Resolve one accepted candidate to an exact `ResolvedTimeline`.
-6. Render that exact accepted authority.
-7. Receive one playable full-song MP4 plus evidence artifacts.
+5. Focus may inspect a creature but does not grant ancestry.
+6. **KEEP** grants continuation authority to the exact selected creature, or **SCRAPE** rejects the family and deterministically searches again without negative-preference inference.
+7. Resolve the kept candidate to an exact `ResolvedTimeline`.
+8. Render that exact accepted authority.
+9. Receive one playable full-song MP4 plus evidence artifacts.
+
+The ordinary candidate render handoff requires KEEP. The explicitly forced TEST 6 witness path remains separate and declared.
 
 The selected song remains the sole soundtrack. Haunted Toaster does not regenerate, remix, stretch, truncate, or add sound.
 
 ## Current creative machinery
 
-The active development carrier includes:
+The active reconciliation carrier includes:
 
 - deterministic six-up candidate families;
+- observational focus plus explicit `keep()` / `scrape()` continuation transitions;
+- KEEP-required ordinary candidate render authority;
 - VisualScore addressing and exact timeline replay evidence;
-- MUTATE, exact two-parent CROSS, STOMP, and CONVERGE/frontier exploration;
+- MUTATE, exact two-parent CROSS, STOMP, and CONVERGE/frontier exploration as deeper substrate;
 - role-separated branch diversity;
 - candidate genealogy and accepted-history plumbing;
 - APERTURE, SPEAK, GRAB, GROW, and BODY topology/composition behavior;
 - deterministic TEST 6 witnesses kept outside ordinary mutation ecology;
 - L BRANCH response/mix-plan machinery;
-- admitted foreign video material and developing digestion paths;
+- admitted foreign video material and existing digestion descendants;
 - Haunted Typography and lyric/ghost residue;
 - local Listener-assisted lyric timing with human correction authority;
+- Dogram `comparison-only` sidecar evidence;
+- deterministic Haunted Haiku `descriptive-only` publication copy;
 - score/timeline/receipt/subtitle evidence around accepted renders.
 
-The intended ordinary product interface is being compressed toward **KEEP / SCRAPE**: the Toaster owns reproductive operations and the human owns continuation. That interface is design direction, not yet a claim about the current UI. See the repository-root README and [`../../docs/superpowers/specs/2026-09-15-madd-clown-crazy-slots-design.md`](../../docs/superpowers/specs/2026-09-15-madd-clown-crazy-slots-design.md).
+The machine owns reproductive operations; ordinary human interaction owns continuation. Development controls may still expose deeper machinery, but manually exercising each internal verb is not a BETA 0.0.0 release gate.
+
+See [`../../docs/BETA_0.0.0_TRUTH_FLOOR.md`](../../docs/BETA_0.0.0_TRUTH_FLOOR.md) and [`../../docs/superpowers/specs/2026-09-15-madd-clown-crazy-slots-design.md`](../../docs/superpowers/specs/2026-09-15-madd-clown-crazy-slots-design.md).
 
 ## Lyrics
 
@@ -78,9 +91,13 @@ From the repository root:
 ```bash
 npm --prefix src/full-measure ci
 npm run verify
+npm --prefix src/full-measure test
+npm --prefix src/full-measure run smoke
+npm --prefix src/full-measure run pack
+npm --prefix src/full-measure audit --omit=dev --audit-level=high
 ```
 
-The proof path exercises deterministic tests and smoke renders. GitHub Actions uses the same consolidated proof entry point.
+GitHub Actions also performs the production renderer/browser witness. BETA 0.0.0 additionally requires Windows Setup + Portable artifacts and one normal packaged-use witness from the same exact head.
 
 ## Audio preservation
 
@@ -103,6 +120,6 @@ The proof path exercises deterministic tests and smoke renders. GitHub Actions u
 
 ## Honest boundary
 
-The application is still an alpha/prerelease machine. Human witness is finishing the current WALK perceptual delta, some development controls expose more internal machinery than the intended KEEP/SCRAPE appliance, memory orchestration is not yet a finished cross-session product loop, and branch-carrier reconciliation with `main` must remain deliberate.
+BETA 0.0.0 is a reconciliation cut, not a declaration that every future Toaster idea is complete. Motion-mask work, temporal Video modes, Aperture Shape, HyperFood/HyperFrames descendants, broader cross-session taste learning, and other future feature lanes remain outside this release floor.
 
 The Windows package is unsigned and may trigger SmartScreen.
