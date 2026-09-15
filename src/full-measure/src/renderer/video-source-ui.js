@@ -18,12 +18,30 @@
   const TOPOLOGY_MASK_DIGEST_OPERATOR_ID = "clip-luma-mask-v1";
   const MOTION_MASK_DIGEST_OPERATOR_ID = "clip-motion-mask-v1";
   const LOOP_SAMPLING_POLICY_ID = "loop-source-clip-v1";
+  const ONCE_SAMPLING_POLICY_ID = "play-source-once-v1";
+  const STRETCH_SAMPLING_POLICY_ID = "stretch-source-clip-v1";
 
   function digestOperatorForBinding(binding) {
     if (binding?.digestOperatorId === MOTION_MASK_DIGEST_OPERATOR_ID) return MOTION_MASK_DIGEST_OPERATOR_ID;
     return binding?.digestOperatorId === TOPOLOGY_MASK_DIGEST_OPERATOR_ID
       ? TOPOLOGY_MASK_DIGEST_OPERATOR_ID
       : TEXTURE_DIGEST_OPERATOR_ID;
+  }
+
+  function digestLabel(operatorId) {
+    if (operatorId === MOTION_MASK_DIGEST_OPERATOR_ID) return "Motion mask";
+    if (operatorId === TOPOLOGY_MASK_DIGEST_OPERATOR_ID) return "Topology mask";
+    return "Texture";
+  }
+
+  function samplingLabel(policyId) {
+    if (policyId === ONCE_SAMPLING_POLICY_ID) return "Play once → release";
+    if (policyId === STRETCH_SAMPLING_POLICY_ID) return "Stretch across song";
+    return "Loop";
+  }
+
+  function formatVideoPhraseStamp(digestOperatorId, samplingPolicyId) {
+    return `Video phrase · ${digestLabel(digestOperatorId)} × ${samplingLabel(samplingPolicyId)} · generate six again`;
   }
 
   function formatVideoHint(binding) {
@@ -208,11 +226,7 @@
             detail: { operatorId: acceptedDigestOperator },
           }));
         }
-        status.textContent = acceptedDigestOperator === MOTION_MASK_DIGEST_OPERATOR_ID
-          ? "Video digestion · Motion mask · generate six again"
-          : acceptedDigestOperator === TOPOLOGY_MASK_DIGEST_OPERATOR_ID
-          ? "Video digestion · Topology mask · generate six again"
-          : "Video digestion · Texture · generate six again";
+        status.textContent = formatVideoPhraseStamp(acceptedDigestOperator, acceptedSamplingPolicy);
       } catch (error) {
         digestOperator.value = acceptedDigestOperator;
         status.textContent = `Video digestion refused · ${String(error?.message || error)}`;
@@ -238,7 +252,7 @@
             detail: { samplingPolicyId: acceptedSamplingPolicy },
           }));
         }
-        status.textContent = "Video timing changed · generate six again";
+        status.textContent = formatVideoPhraseStamp(acceptedDigestOperator, acceptedSamplingPolicy);
       } catch (error) {
         samplingPolicy.value = acceptedSamplingPolicy;
         status.textContent = `Video timing refused · ${String(error?.message || error)}`;
