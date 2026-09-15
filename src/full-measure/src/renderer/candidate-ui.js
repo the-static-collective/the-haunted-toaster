@@ -69,7 +69,7 @@
           <div>
             <span>HAUNTED TOASTER · EXACT TIMELINES</span>
             <h2 id="candidateTitle">Choose what the song looks like</h2>
-            <p>Pick a creature, then pick one of six lawful ways forward.</p>
+            <p>Inspect freely. KEEP one creature, or SCRAPE the whole six.</p>
           </div>
           <button class="candidate-close" type="button" data-candidate-close aria-label="Close candidate chooser">×</button>
         </header>
@@ -88,22 +88,23 @@
         <section class="candidate-move-panel" aria-labelledby="candidateMoveTitle">
           <div class="candidate-move-heading">
             <span>
-              <small>NEXT MOVE · SIX-UP</small>
-              <strong id="candidateMoveTitle">Pick what happens next</strong>
+              <small>EXPERT / DEBUG · MOVE DECK</small>
+              <strong id="candidateMoveTitle">Manual reproductive moves</strong>
             </span>
             <button class="candidate-move-redeal" id="candidateMoveRedeal" type="button" disabled>↻ Deal six more</button>
           </div>
           <div class="candidate-move-grid" id="candidateMoveGrid" aria-live="polite">
-            <p class="candidate-move-empty">Choose a creature above to deal moves.</p>
+            <p class="candidate-move-empty">Focus a creature to inspect the expert move deck.</p>
           </div>
         </section>
         <footer class="candidate-actions">
           <div class="candidate-locks" id="candidateLocks">
-            <span>Lock before choosing a move</span>
+            <span>Expert locks</span>
             <div class="candidate-lock-list"></div>
           </div>
           <div class="candidate-action-buttons">
-            <button class="candidate-use" id="candidateUse" type="button" disabled>Use selected timeline</button>
+            <button class="candidate-use candidate-scrape" id="candidateScrape" type="button" disabled>SCRAPE TOAST</button>
+            <button class="candidate-use candidate-keep" id="candidateKeep" type="button" disabled>KEEP TOAST</button>
           </div>
         </footer>
       </section>
@@ -115,7 +116,8 @@
     const status = modal.querySelector("#candidateStatus");
     const regenerate = modal.querySelector("#candidateRegenerate");
     const redeal = modal.querySelector("#candidateMoveRedeal");
-    const use = modal.querySelector("#candidateUse");
+    const keep = modal.querySelector("#candidateKeep");
+    const scrape = modal.querySelector("#candidateScrape");
     const stageAOptIn = modal.querySelector("#candidateStageA");
     const lockList = modal.querySelector(".candidate-lock-list");
 
@@ -212,7 +214,8 @@
       busy = nextBusy;
       regenerate.disabled = nextBusy;
       redeal.disabled = nextBusy || selectedIndex === null || !window.candidateMoveDeck?.dealCandidateMoves;
-      use.disabled = nextBusy || selectedIndex === null;
+      keep.disabled = nextBusy || selectedIndex === null;
+      scrape.disabled = nextBusy || !family;
       launch.disabled = nextBusy;
       stageAOptIn.disabled = nextBusy;
       for (const button of moveGrid.querySelectorAll(".candidate-move-card")) {
@@ -228,15 +231,15 @@
       const strong = renderButton.querySelector(".button-label strong");
       if (!small || !strong) return;
       if (acceptedSelection) {
-        small.textContent = "CHOSEN TIMELINE → MP4";
-        strong.textContent = "Render chosen vision";
+        small.textContent = "KEPT TIMELINE → MP4";
+        strong.textContent = "Render kept vision";
       } else {
         small.textContent = originalRenderSmall;
         strong.textContent = originalRenderStrong;
       }
     }
 
-    function renderMoveEmpty(copy = "Choose a creature above to deal moves.") {
+    function renderMoveEmpty(copy = "Focus a creature to inspect the expert move deck.") {
       moveGrid.replaceChildren();
       const empty = document.createElement("p");
       empty.className = "candidate-move-empty";
@@ -253,7 +256,8 @@
       grid.replaceChildren();
       renderMoveEmpty();
       status.textContent = "Generate six to begin.";
-      use.disabled = true;
+      keep.disabled = true;
+      scrape.disabled = true;
       launch.querySelector("strong").textContent = "Generate six visions";
       for (const input of lockList.querySelectorAll("input")) input.checked = false;
       updateRenderLabel();
@@ -279,7 +283,7 @@
       }
       const dealer = window.candidateMoveDeck?.dealCandidateMoves;
       if (!dealer) {
-        renderMoveEmpty("Move deck loading…");
+        renderMoveEmpty("Expert move deck loading…");
         return;
       }
       const deal = dealer(moveDeckContext());
@@ -305,25 +309,22 @@
       }
       redeal.disabled = busy;
       redeal.dataset.dealAddress = deal.dealAddress;
-      redeal.title = `Move deal ${deal.dealIndex + 1} · proposals only`;
+      redeal.title = `Move deal ${deal.dealIndex + 1} · expert/debug proposals only`;
     }
 
     function chooseCard(index) {
       selectedIndex = index;
-      acceptedSelection = null;
       moveDealIndex = 0;
       for (const card of grid.querySelectorAll(".candidate-card")) {
         const active = Number(card.dataset.index) === index;
         card.classList.toggle("is-selected", active);
         card.setAttribute("aria-pressed", active ? "true" : "false");
       }
-      use.disabled = busy;
+      keep.disabled = busy;
       renderMoveDeck();
       const candidate = family?.candidates?.find((item) => item.index === index);
       if (candidate) {
-        status.textContent = window.candidateMoveDeck?.dealCandidateMoves
-          ? `Candidate ${index + 1} selected · six bounded moves dealt.`
-          : `Candidate ${index + 1} selected · move deck loading.`;
+        status.textContent = `Candidate ${index + 1} focused · KEEP this creature or SCRAPE the whole six.`;
       }
       updateRenderLabel();
     }
@@ -373,15 +374,16 @@
       const frontier = frontierSummary(view);
       const stageA = (view.candidates || []).some((candidate) => candidate.postWalkAxisRecipe);
       status.textContent = frontier
-        ? `CONVERGE · underexplored ${frontier} · choose one.`
+        ? `CONVERGE · underexplored ${frontier} · inspect freely, then KEEP or SCRAPE.`
         : view.cross?.policy
-          ? `CROSS · ${view.producedCount} exact two-parent descendants ready. Choose one.`
+          ? `CROSS · ${view.producedCount} exact two-parent descendants ready. Inspect freely, then KEEP or SCRAPE.`
           : stageA
-            ? `STAGE A · ${view.producedCount} addressed previews ready${shortfall}. Choose one.`
+            ? `STAGE A · ${view.producedCount} addressed previews ready${shortfall}. Inspect freely, then KEEP or SCRAPE.`
             : view.toastmoodField?.policy
-              ? `Field · ${view.producedCount} distinct Toastmood lanes ready${shortfall}. Choose one.`
-              : `${view.producedCount} exact previews ready${shortfall}. Choose one.`;
-      use.disabled = true;
+              ? `Field · ${view.producedCount} distinct Toastmood lanes ready${shortfall}. Inspect freely, then KEEP or SCRAPE.`
+              : `${view.producedCount} exact previews ready${shortfall}. Inspect freely, then KEEP or SCRAPE.`;
+      keep.disabled = true;
+      scrape.disabled = busy || !family;
     }
 
     async function generateSix() {
@@ -454,7 +456,7 @@
       if (busy || !family || selectedIndex === null) return;
       moveDealIndex += 1;
       renderMoveDeck();
-      status.textContent = `Move deal ${moveDealIndex + 1} · candidate family unchanged.`;
+      status.textContent = `Expert move deal ${moveDealIndex + 1} · candidate family unchanged.`;
     }
 
     function bindElectedFieldFeel(selection) {
@@ -472,18 +474,40 @@
       }));
     }
 
-    async function useSelected() {
+    async function keepSelected() {
       if (busy || !family || selectedIndex === null) return;
-      setBusy(true, "Binding the exact winner to production render…");
+      setBusy(true, "KEEP: granting this exact creature continuation and render authority…");
       try {
-        acceptedSelection = await api.selectCandidate({ familyHash: family.familyHash, index: selectedIndex });
+        acceptedSelection = await api.keepCandidate({ familyHash: family.familyHash, index: selectedIndex });
         const candidate = family.candidates.find((item) => item.index === selectedIndex);
-        launch.querySelector("strong").textContent = `Chosen · ${shortAddress(candidate?.scoreAddress)}`;
+        launch.querySelector("strong").textContent = `Kept · ${shortAddress(candidate?.scoreAddress)}`;
         bindElectedFieldFeel(acceptedSelection);
         updateRenderLabel();
-        status.textContent = "Exact winner bound. Production render will consume this accepted timeline.";
+        status.textContent = "KEEP recorded. Production render will consume this exact kept timeline.";
         closeModal(true);
         document.querySelector(".render-panel")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      } catch (error) {
+        status.textContent = error?.message || String(error);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function scrapeFamily() {
+      if (busy || !family) return;
+      const sourceFamilyHash = family.familyHash;
+      setBusy(true, "SCRAPE: no creature continues · the Toaster is dealing another lawful family…");
+      try {
+        const result = await api.scrapeCandidates({
+          ...configFor("scrape"),
+          familyHash: sourceFamilyHash,
+          locks: selectedLocks(),
+        });
+        renderFamily(result);
+        const mode = result?.receipt?.operation?.dealerMode;
+        status.textContent = mode
+          ? `SCRAPE recorded · ${mode} · another family is on the table.`
+          : "SCRAPE recorded · another family is on the table.";
       } catch (error) {
         status.textContent = error?.message || String(error);
       } finally {
@@ -513,13 +537,14 @@
       status.textContent = "Stage A changed · generate six again.";
     });
     redeal.addEventListener("click", redealMoves);
-    use.addEventListener("click", useSelected);
+    keep.addEventListener("click", keepSelected);
+    scrape.addEventListener("click", scrapeFamily);
     for (const input of lockList.querySelectorAll("input")) {
       input.addEventListener("change", () => {
         if (!family || selectedIndex === null || busy) return;
         moveDealIndex = 0;
         renderMoveDeck();
-        status.textContent = "Locks changed · move deck re-addressed. Candidate family unchanged.";
+        status.textContent = "Expert locks changed · move deck re-addressed. Candidate family unchanged.";
       });
     }
     for (const close of modal.querySelectorAll("[data-candidate-close]")) close.addEventListener("click", closeModal);
@@ -558,7 +583,7 @@
     loadMoveDeck(() => {
       if (family && selectedIndex !== null) {
         renderMoveDeck();
-        status.textContent = `Candidate ${selectedIndex + 1} selected · six bounded moves dealt.`;
+        status.textContent = `Candidate ${selectedIndex + 1} focused · KEEP/SCRAPE ready · expert move deck loaded.`;
       }
     });
   }
