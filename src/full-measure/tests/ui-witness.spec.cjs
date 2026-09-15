@@ -202,7 +202,7 @@ test("witness Video source and VSPantry", async ({ page }, testInfo) => {
   await digest.selectOption("clip-motion-mask-v1");
   await expect(status).toContainText("Motion mask");
   await timing.selectOption("play-source-once-v1");
-  await expect(status).toContainText("Video timing changed");
+  await expect(status).toHaveText("Video phrase · Motion mask × Play once → release · generate six again");
   await expect(digest).toHaveValue("clip-motion-mask-v1");
   await expect(timing).toHaveValue("play-source-once-v1");
   for (const selector of [digest, timing]) {
