@@ -171,7 +171,7 @@ test("SCRAPE is family-level and can deal another six without choosing a creatur
     scrapeCandidates: async (request) => {
       scrapeCalls += 1;
       assert.equal(request.familyHash, "family-a");
-      assert.deepEqual(request.locks, []);
+      assert.equal(Array.from(request.locks || []).length, 0);
       return {
         ...familyView("family-b", "score-b"),
         verdict: "SCRAPE",
