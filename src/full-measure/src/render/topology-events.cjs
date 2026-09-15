@@ -1,10 +1,12 @@
 const { deepFreeze, quantizeNumber } = require("../generation/canonical.cjs");
 const {
+  TOPOLOGY_EVENT_KINDS,
   TOPOLOGY_EVENT_PLAN_SCHEMA,
   TOPOLOGY_EVENT_POLICY,
 } = require("../generation/topology-events.cjs");
 
 const SHA256_RE = /^[0-9a-f]{64}$/;
+const TOPOLOGY_EVENT_PHASES = deepFreeze(["prepare", "strike", "release", "residue"]);
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, Number(value)));
@@ -127,6 +129,107 @@ function grabExpressions(event, timebase) {
   });
 }
 
+function effectEnvelope(event) {
+  return {
+    eventSha256: event.eventSha256,
+    kind: event.kind,
+    phases: [...TOPOLOGY_EVENT_PHASES],
+    prepareTick: event.prepareTick,
+    strikeTick: event.strikeTick,
+    releaseTick: event.releaseTick,
+    residueUntilTick: event.residueUntilTick,
+    anchorX: event.parameters.anchorX,
+    anchorY: event.parameters.anchorY,
+    radiusX: event.parameters.radiusX,
+    radiusY: event.parameters.radiusY,
+  };
+}
+
+function compileApertureEffect(event) {
+  return deepFreeze({
+    ...effectEnvelope(event),
+    focus: event.parameters.focus,
+    peripheralCompression: event.parameters.peripheralCompression,
+    orbit: event.parameters.orbit,
+  });
+}
+
+function compileSpeakEffect(event) {
+  return deepFreeze({
+    ...effectEnvelope(event),
+    seamWidth: event.parameters.seamWidth,
+    emission: event.parameters.emission,
+    residue: event.parameters.residue,
+  });
+}
+
+function compileGrabEffect(event, timebase) {
+  return deepFreeze({
+    ...effectEnvelope(event),
+    targetX: event.parameters.targetX,
+    targetY: event.parameters.targetY,
+    pull: event.parameters.pull,
+    recoil: event.parameters.recoil,
+    falloff: event.parameters.falloff,
+    residualVectorX: event.parameters.residualVectorX,
+    residualVectorY: event.parameters.residualVectorY,
+    residualStretch: event.parameters.residualStretch,
+    expressions: grabExpressions(event, timebase),
+  });
+}
+
+function compileGrowEffect(event) {
+  const p = event.parameters;
+  const layerCount = Math.max(2, p.branchCount + 1);
+  const ageLayers = Array.from({ length: layerCount }, (_, index) => {
+    const age = q((index + 1) / (layerCount + 1));
+    return {
+      age,
+      branchIndex: index % p.branchCount,
+      reach: q(p.growth * (0.35 + 0.65 * age)),
+      retainedPressure: q(p.persistence * (0.5 + 0.5 * age)),
+    };
+  });
+  return deepFreeze({
+    ...effectEnvelope(event),
+    branchCount: p.branchCount,
+    growth: p.growth,
+    persistence: p.persistence,
+    ageBias: p.ageBias,
+    ageLayers,
+  });
+}
+
+function compileEffect(event, timebase) {
+  switch (event.kind) {
+    case "aperture":
+      return compileApertureEffect(event);
+    case "speak":
+      return compileSpeakEffect(event);
+    case "grab":
+      return compileGrabEffect(event, timebase);
+    case "grow":
+      return compileGrowEffect(event);
+    default:
+      throw new TypeError(`Topology Events v0.1 renderer does not support ${String(event.kind)}.`);
+  }
+}
+
+function grabLocalDeformation(effect) {
+  return deepFreeze({
+    kind: "grab",
+    eventSha256: effect.eventSha256,
+    anchorX: effect.anchorX,
+    anchorY: effect.anchorY,
+    centerX: effect.anchorX,
+    centerY: effect.anchorY,
+    radiusX: effect.radiusX,
+    radiusY: effect.radiusY,
+    falloff: effect.falloff,
+    expressions: effect.expressions,
+  });
+}
+
 function compileTopologyEvents(timeline) {
   if (!timeline || typeof timeline !== "object") throw new TypeError("ResolvedTimeline is required.");
   const plan = timeline.topologyEvents;
@@ -141,18 +244,28 @@ function compileTopologyEvents(timeline) {
     throw new TypeError("Topology event planSha256 must be lowercase SHA-256.");
   }
   if (plan.refusal) return null;
-  if (plan.eventCount !== 1 || !Array.isArray(plan.events) || plan.events.length !== 1) {
-    throw new TypeError("Topology Events v0.1 renderer accepts exactly one GRAB event.");
+  if (!Number.isSafeInteger(plan.eventCount) || plan.eventCount < 1) {
+    throw new TypeError("Topology Events v0.1 renderer requires at least one accepted event.");
   }
-  const event = plan.events[0];
-  if (event.kind !== "grab") throw new TypeError("Topology Events v0.1 renderer supports GRAB only.");
-  if (!SHA256_RE.test(event.eventSha256 || "")) {
-    throw new TypeError("Topology event eventSha256 must be lowercase SHA-256.");
+  if (!Array.isArray(plan.events) || plan.events.length !== plan.eventCount) {
+    throw new TypeError("Topology Events v0.1 eventCount must match accepted events.");
   }
   const timebase = Number(timeline.timebase);
   if (!Number.isSafeInteger(timebase) || timebase <= 0) {
     throw new TypeError("ResolvedTimeline timebase must be a positive safe integer.");
   }
+
+  for (const event of plan.events) {
+    if (!TOPOLOGY_EVENT_KINDS.includes(event.kind)) {
+      throw new TypeError(`Topology Events v0.1 renderer does not support ${String(event.kind)}.`);
+    }
+    if (!SHA256_RE.test(event.eventSha256 || "")) {
+      throw new TypeError("Topology event eventSha256 must be lowercase SHA-256.");
+    }
+  }
+
+  const effects = plan.events.map((event) => compileEffect(event, timebase));
+  const oneGrab = effects.length === 1 && effects[0].kind === "grab";
 
   return deepFreeze({
     evidence: {
@@ -160,24 +273,15 @@ function compileTopologyEvents(timeline) {
       planSha256: plan.planSha256,
       sourceTopology: plan.sourceTopology,
       eventCount: plan.eventCount,
-      renderedKinds: ["grab"],
+      renderedKinds: effects.map((effect) => effect.kind),
     },
-    localDeformation: {
-      kind: "grab",
-      eventSha256: event.eventSha256,
-      anchorX: event.parameters.anchorX,
-      anchorY: event.parameters.anchorY,
-      centerX: event.parameters.anchorX,
-      centerY: event.parameters.anchorY,
-      radiusX: event.parameters.radiusX,
-      radiusY: event.parameters.radiusY,
-      falloff: event.parameters.falloff,
-      expressions: grabExpressions(event, timebase),
-    },
+    effects,
+    localDeformation: oneGrab ? grabLocalDeformation(effects[0]) : null,
   });
 }
 
 module.exports = {
+  TOPOLOGY_EVENT_PHASES,
   compileTopologyEvents,
   sampleGrabEvent,
 };

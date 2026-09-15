@@ -10,12 +10,20 @@ const LANE_BANK_POLICY = "l-branch-lane-bank-v1";
 const LANE_SCHEMA = "haunted-toaster/evidence-lane/v1";
 const MIX_PLAN_SCHEMA = "haunted-toaster/l-branch-mix-plan/v1";
 const MIX_PLAN_POLICY = "l-branch-mix-plan-v1";
+const MIX_PLAN_SCHEMA_V2 = "haunted-toaster/l-branch-mix-plan/v2";
+const MIX_PLAN_POLICY_V2 = "l-branch-mix-plan-v2";
 const MIX_EXECUTION_SCHEMA = "haunted-toaster/l-branch-mix-execution/v1";
 const MIX_EXECUTION_POLICY = "l-branch-mix-execution-v1";
+const MIX_EXECUTION_SCHEMA_V2 = "haunted-toaster/l-branch-mix-execution/v2";
+const MIX_EXECUTION_POLICY_V2 = "l-branch-mix-execution-v2";
 const TIMELINE_BINDING_SCHEMA = "haunted-toaster/l-branch-timeline/v1";
 const TIMELINE_BINDING_POLICY = "l-branch-timeline-v1";
 const FAMILY_BINDING_SCHEMA = "haunted-toaster/l-branch-family/v1";
 const FAMILY_BINDING_POLICY = "l-branch-family-v1";
+const MIX_PLAN_HASH_DOMAIN_V1 = "HauntedToaster-LBranchMixPlan-v1";
+const MIX_PLAN_HASH_DOMAIN_V2 = "HauntedToaster-LBranchMixPlan-v2";
+const MIX_EXECUTION_HASH_DOMAIN_V1 = "HauntedToaster-LBranchMixExecution-v1";
+const MIX_EXECUTION_HASH_DOMAIN_V2 = "HauntedToaster-LBranchMixExecution-v2";
 
 const LANE_IDS = Object.freeze([
   "raw-energy-envelope",
@@ -278,7 +286,47 @@ function normalizeSend(request, laneBank, candidate) {
   });
 }
 
-function buildMixPlan({ laneBank, candidate } = {}) {
+function mixPlanContract(policyVersion) {
+  if (policyVersion === MIX_PLAN_POLICY) {
+    return {
+      schema: MIX_PLAN_SCHEMA,
+      hashDomain: MIX_PLAN_HASH_DOMAIN_V1,
+    };
+  }
+  if (policyVersion === MIX_PLAN_POLICY_V2) {
+    return {
+      schema: MIX_PLAN_SCHEMA_V2,
+      hashDomain: MIX_PLAN_HASH_DOMAIN_V2,
+    };
+  }
+  throw new TypeError(`Unknown L BRANCH Mix Plan policy: ${String(policyVersion)}.`);
+}
+
+function mixExecutionContract(policyVersion) {
+  if (policyVersion === MIX_PLAN_POLICY) {
+    return {
+      schema: MIX_EXECUTION_SCHEMA,
+      policyVersion: MIX_EXECUTION_POLICY,
+      hashDomain: MIX_EXECUTION_HASH_DOMAIN_V1,
+    };
+  }
+  if (policyVersion === MIX_PLAN_POLICY_V2) {
+    return {
+      schema: MIX_EXECUTION_SCHEMA_V2,
+      policyVersion: MIX_EXECUTION_POLICY_V2,
+      hashDomain: MIX_EXECUTION_HASH_DOMAIN_V2,
+    };
+  }
+  throw new TypeError(`Unknown L BRANCH Mix Plan policy: ${String(policyVersion)}.`);
+}
+
+function buildMixPlanFromRequests({
+  laneBank,
+  candidate,
+  strategyId,
+  requests,
+  policyVersion,
+} = {}) {
   if (
     !laneBank ||
     laneBank.schema !== LANE_BANK_SCHEMA ||
@@ -293,19 +341,25 @@ function buildMixPlan({ laneBank, candidate } = {}) {
   if (!Number.isInteger(index) || index < 0) {
     throw new TypeError("Mix Plan candidate index must be a non-negative integer.");
   }
-  const strategy = STRATEGIES[index % STRATEGIES.length];
-  const sends = strategy.sends
+  if (typeof strategyId !== "string" || !strategyId.length) {
+    throw new TypeError("Mix Plan strategyId must be a non-empty string.");
+  }
+  if (!Array.isArray(requests)) {
+    throw new TypeError("Mix Plan requests must be an array.");
+  }
+  const contract = mixPlanContract(policyVersion);
+  const sends = requests
     .map((request) => normalizeSend(request, laneBank, candidate))
     .filter(Boolean);
   const consumed = new Set(sends.map((send) => send.sourceLaneId));
   const core = {
-    schema: MIX_PLAN_SCHEMA,
-    policyVersion: MIX_PLAN_POLICY,
+    schema: contract.schema,
+    policyVersion,
     laneBankHash: laneBank.laneBankHash,
     sourceTimelineHash: candidate.timelineHash,
     scoreAddress: candidate.scoreAddress,
     candidateIndex: index,
-    strategyId: strategy.id,
+    strategyId,
     sends,
     ignoredLaneIds: laneBank.lanes
       .map((lane) => lane.id)
@@ -313,7 +367,25 @@ function buildMixPlan({ laneBank, candidate } = {}) {
   };
   return deepFreeze({
     ...core,
-    planHash: hashCanonical(core, "HauntedToaster-LBranchMixPlan-v1"),
+    planHash: hashCanonical(core, contract.hashDomain),
+  });
+}
+
+function buildMixPlan({ laneBank, candidate } = {}) {
+  if (!candidate) {
+    throw new TypeError("Mix Plan requires a candidate with an accepted source ResolvedTimeline.");
+  }
+  const index = Number(candidate.index);
+  if (!Number.isInteger(index) || index < 0) {
+    throw new TypeError("Mix Plan candidate index must be a non-negative integer.");
+  }
+  const strategy = STRATEGIES[index % STRATEGIES.length];
+  return buildMixPlanFromRequests({
+    laneBank,
+    candidate,
+    strategyId: strategy.id,
+    requests: strategy.sends,
+    policyVersion: MIX_PLAN_POLICY,
   });
 }
 
@@ -360,7 +432,7 @@ function movingAverage(values, radius) {
   });
 }
 
-function resolvedLaneKnots(lane, send, timeline) {
+function resolvedLaneKnots(lane, send, timeline, policyVersion = MIX_PLAN_POLICY) {
   const timebase = finiteNonNegative(timeline.timebase, "timeline.timebase");
   if (!timebase) throw new TypeError("timeline.timebase must be positive.");
   const durationTicks = finiteNonNegative(timeline.durationTicks, "timeline.durationTicks");
@@ -382,8 +454,13 @@ function resolvedLaneKnots(lane, send, timeline) {
     .map((knot, index) => {
       const value = smoothed[index] ?? 0;
       let responseValue = value;
-      if (send.response === "oppose") responseValue = 1 - value;
-      else if (send.response === "accent") responseValue = Math.abs(value - previous);
+      if (send.response === "oppose") {
+        responseValue = policyVersion === MIX_PLAN_POLICY_V2
+          ? clamp01(previous - (value - previous))
+          : 1 - value;
+      } else if (send.response === "accent") {
+        responseValue = Math.abs(value - previous);
+      }
       previous = value;
       return { atTick: knot.atTick, value: q(responseValue * send.gain) };
     })
@@ -404,6 +481,11 @@ function compileMixPlan({ laneBank, mixPlan, timeline } = {}) {
   if (!timeline || timeline.timelineHash !== mixPlan.sourceTimelineHash) {
     throw new TypeError("Mix Plan source timeline identity mismatch.");
   }
+  const planContract = mixPlanContract(mixPlan.policyVersion);
+  if (mixPlan.schema !== planContract.schema) {
+    throw new TypeError("Mix Plan schema does not match its policy version.");
+  }
+  const executionContract = mixExecutionContract(mixPlan.policyVersion);
   const lanes = new Map(laneBank.lanes.map((lane) => [lane.id, lane]));
   const sends = mixPlan.sends.map((send, index) => {
     assertSend(send, laneBank, timeline);
@@ -418,12 +500,12 @@ function compileMixPlan({ laneBank, mixPlan, timeline } = {}) {
       response: send.response,
       smoothing: send.smoothing,
       scope: structuredClone(send.scope),
-      knots: resolvedLaneKnots(lane, send, timeline),
+      knots: resolvedLaneKnots(lane, send, timeline, mixPlan.policyVersion),
     });
   });
   const core = {
-    schema: MIX_EXECUTION_SCHEMA,
-    policyVersion: MIX_EXECUTION_POLICY,
+    schema: executionContract.schema,
+    policyVersion: executionContract.policyVersion,
     laneBankHash: laneBank.laneBankHash,
     planHash: mixPlan.planHash,
     sourceTimelineHash: mixPlan.sourceTimelineHash,
@@ -431,11 +513,11 @@ function compileMixPlan({ laneBank, mixPlan, timeline } = {}) {
   };
   return deepFreeze({
     ...core,
-    executionHash: hashCanonical(core, "HauntedToaster-LBranchMixExecution-v1"),
+    executionHash: hashCanonical(core, executionContract.hashDomain),
   });
 }
 
-function bindTimeline(timeline, laneBank, mixPlan) {
+function bindMixPlanToTimeline(timeline, laneBank, mixPlan) {
   if (timeline.timelineHash !== mixPlan.sourceTimelineHash) {
     throw new TypeError("Cannot admit a Mix Plan onto a different source timeline.");
   }
@@ -469,7 +551,7 @@ function attachLBranchToFamily(family, { responseWitness, lyricTrack = null } = 
   const laneBank = buildLaneBank({ responseWitness, lyricTrack });
   const candidates = family.candidates.map((candidate) => {
     const mixPlan = buildMixPlan({ laneBank, candidate });
-    const timeline = bindTimeline(candidate.timeline, laneBank, mixPlan);
+    const timeline = bindMixPlanToTimeline(candidate.timeline, laneBank, mixPlan);
     return deepFreeze({
       ...candidate,
       timeline,
@@ -577,17 +659,23 @@ module.exports = {
   LANE_BANK_SCHEMA,
   LANE_IDS,
   MIX_EXECUTION_POLICY,
+  MIX_EXECUTION_POLICY_V2,
   MIX_EXECUTION_SCHEMA,
+  MIX_EXECUTION_SCHEMA_V2,
   MIX_PLAN_POLICY,
+  MIX_PLAN_POLICY_V2,
   MIX_PLAN_SCHEMA,
+  MIX_PLAN_SCHEMA_V2,
   RESPONSE_MODES,
   STRATEGIES,
   TIMELINE_BINDING_POLICY,
   TIMELINE_BINDING_SCHEMA,
   assertLBranchTimeline,
   attachLBranchToFamily,
+  bindMixPlanToTimeline,
   buildLaneBank,
   buildMixPlan,
+  buildMixPlanFromRequests,
   compileMixPlan,
   replayLBranchFamily,
 };

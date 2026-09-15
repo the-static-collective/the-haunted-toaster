@@ -10,6 +10,10 @@ const {
   typographyContextForTimeline,
 } = require("./haunted-typography-render.cjs");
 const {
+  createForeignMaterialPlan,
+  ffmpegInputArgsForForeignMaterial,
+} = require("./foreign-material.cjs");
+const {
   assertTimelineDuration,
   createTimelineExecution,
 } = require("./timeline-execution.cjs");
@@ -93,9 +97,34 @@ function crossLockProjectionForScore(score = {}) {
   });
 }
 
-function candidatePreviewPlan(candidate, typography = null) {
+function postWalkAxisRecipeForCandidate(candidate) {
+  const admittedRecipeHash = candidate?.timeline?.postWalkAxis?.recipeHash || null;
+  const declaredRecipeHash = candidate?.postWalkAxisRecipeHash || null;
+  const recipe = candidate?.postWalkAxisRecipe || null;
+  if (!admittedRecipeHash && !declaredRecipeHash && !recipe) return null;
+  if (
+    !admittedRecipeHash ||
+    !declaredRecipeHash ||
+    !recipe ||
+    declaredRecipeHash !== admittedRecipeHash ||
+    recipe.recipeHash !== admittedRecipeHash
+  ) {
+    throw new Error("Stage A recipe witness does not match its accepted candidate timeline.");
+  }
+  return Object.freeze({
+    schema: recipe.schema,
+    policyVersion: recipe.policyVersion,
+    recipeHash: recipe.recipeHash,
+    response: recipe.response,
+    scope: recipe.scope,
+    consequence: recipe.consequence,
+  });
+}
+
+function candidatePreviewPlan(candidate, typography = null, foreignMaterial = null) {
   const sample = previewSampleFor(candidate);
   const score = candidate.scoreArtifact.score;
+  const postWalkAxisRecipe = postWalkAxisRecipeForCandidate(candidate);
   return Object.freeze({
     index: candidate.index,
     role: candidate.role,
@@ -110,8 +139,10 @@ function candidatePreviewPlan(candidate, typography = null) {
     signature: previewSignature(score),
     baseIdentity: baseIdentityForScore(score),
     crossLockProjection: crossLockProjectionForScore(score),
+    ...(postWalkAxisRecipe ? { postWalkAxisRecipe } : {}),
     sample,
     typography,
+    foreignMaterial,
   });
 }
 
@@ -150,6 +181,16 @@ async function renderCandidateFamilyPreviews(config, family, hooks = {}) {
         candidate.scoreAddress,
         candidate.timeline,
       );
+      const foreignMaterialPlan = createForeignMaterialPlan({
+        videoBinding: config.video || null,
+        timeline: candidate.timeline,
+        analysisDurationSeconds: Number(analysis.duration),
+      });
+      const foreignMaterialInputIndex = foreignMaterialPlan
+        ? imagePath
+          ? 3
+          : 2
+        : null;
       const baseFilter = await buildHauntedFilterGraph({
         tempDirectory,
         analysis,
@@ -163,11 +204,14 @@ async function renderCandidateFamilyPreviews(config, family, hooks = {}) {
         fps,
         atmosphereResolutionScale:
           candidate.timeline?.renderConfig?.atmosphereResolutionScale ?? null,
+      foreignMaterialPlan,
+      foreignMaterialInputIndex,
         ...typographyContext,
       });
       const plan = candidatePreviewPlan(
         candidate,
         baseFilter.typographyEvidence,
+      baseFilter.foreignMaterialEvidence,
       );
       const execution = createTimelineExecution(candidate.timeline);
       assertTimelineDuration(execution.timeline, analysis.duration);
@@ -204,6 +248,7 @@ async function renderCandidateFamilyPreviews(config, family, hooks = {}) {
           imagePath,
         );
       }
+      args.push(...ffmpegInputArgsForForeignMaterial(foreignMaterialPlan));
       args.push(
         "-filter_complex_script",
         filterPath,
@@ -253,6 +298,7 @@ module.exports = {
   baseIdentityForScore,
   candidatePreviewPlan,
   crossLockProjectionForScore,
+  postWalkAxisRecipeForCandidate,
   previewSampleFor,
   previewSignature,
   renderCandidateFamilyPreviews,

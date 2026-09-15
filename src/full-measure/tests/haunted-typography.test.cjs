@@ -119,6 +119,28 @@ test("resolved treatments contain only bounded declarative ASS morphology", () =
   );
 });
 
+test("title keeps its haunted treatment but stays inside the visible rotation envelope", () => {
+  const plan = resolveHauntedTypography({
+    scoreIdentity: "htvs1_title-safe-5",
+    profileIdentity: "toaster-raster-2",
+    title: "TITLE",
+    cues: CUES,
+  });
+  const evidence = typographyEvidence(plan);
+
+  assert.equal(plan.title.treatmentId, "inverted-emphasis");
+  assert.equal(plan.title.angle, 30);
+  assert.ok(plan.title.angle >= -30 && plan.title.angle <= 30);
+  assert.equal(evidence.titleTreatmentId, "inverted-emphasis");
+  assert.equal(evidence.titleAngle, 30);
+  assert.ok(
+    TREATMENTS.some(
+      (treatment) => treatment.id === "inverted-emphasis" && treatment.angle === 180,
+    ),
+    "the full haunted rotation vocabulary remains available to non-title roles",
+  );
+});
+
 test("case treatment is deterministic and does not rewrite non-letter content", () => {
   assert.equal(applyCaseMode("Ghost 23!", "upper"), "GHOST 23!");
   assert.equal(applyCaseMode("Ghost 23!", "alternating"), "GhOsT 23!");

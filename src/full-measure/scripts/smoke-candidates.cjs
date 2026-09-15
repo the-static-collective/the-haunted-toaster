@@ -96,6 +96,20 @@ async function main() {
   ) {
     throw new Error("Production receipt does not identify the exact six-up winner.");
   }
+  if (
+    JSON.stringify(result.receipt.candidateGenealogy) !==
+    JSON.stringify(execution.candidateGenealogy)
+  ) {
+    throw new Error("Production receipt does not retain the selected candidate genealogy.");
+  }
+  if (
+    result.receipt.canonicalExecution.topologyEvents?.planSha256 !==
+    execution.resolvedTimeline.topologyEvents?.planSha256 ||
+    result.receipt.canonicalExecution.topologyEvents?.acceptedAuthoritySha256 !==
+    execution.resolvedTimeline.topologyEvents?.acceptedAuthoritySha256
+  ) {
+    throw new Error("Production receipt topology plan does not match accepted render input.");
+  }
 
   process.stdout.write(
     [

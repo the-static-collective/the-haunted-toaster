@@ -11,6 +11,7 @@ const { applyAtmosphereToGraph } = require("./atmosphere.cjs");
 const {
   applyResolutionFieldToAtmosphereGraph,
 } = require("./atmosphere-resolution-field.cjs");
+const { applyForeignMaterialToGraph } = require("./foreign-material.cjs");
 
 const TEXT_OVERLAY_FILENAME = "text-overlay.ass";
 const LYRIC_PRIMARY_COLOUR = "&H33FFFFFF";
@@ -152,6 +153,8 @@ async function buildHauntedFilterGraph({
   profileIdentity = null,
   atmosphereTimeline = null,
   atmosphereResolutionScale = null,
+  foreignMaterialPlan = null,
+  foreignMaterialInputIndex = null,
   ...legacyConfig
 }) {
   const baseFilter = await legacy.buildFilterGraph(legacyConfig);
@@ -203,11 +206,20 @@ async function buildHauntedFilterGraph({
         resolutionField: atmosphereResolution.evidence,
       })
     : atmosphere.evidence;
+  const foreignMaterial = applyForeignMaterialToGraph({
+    graph: atmosphereResolution?.graph || atmosphere.graph,
+    foreignMaterialPlan,
+    foreignMaterialInputIndex,
+    width: legacyConfig.width,
+    height: legacyConfig.height,
+    fps: legacyConfig.fps,
+  });
   return {
     ...baseFilter,
-    graph: atmosphereResolution?.graph || atmosphere.graph,
+    graph: foreignMaterial.graph,
     primitiveFieldEvidence: primitiveField.evidence,
     atmosphereEvidence,
+    foreignMaterialEvidence: foreignMaterial.evidence,
     typographyPlan,
     typographyEvidence: typographyEvidence(typographyPlan),
   };

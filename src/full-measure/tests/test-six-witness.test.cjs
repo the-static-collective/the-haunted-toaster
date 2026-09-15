@@ -14,11 +14,11 @@ const profile = readJson("profiles/toaster-raster-4.json");
 const analysis = readJson("fixtures/analysis/sectional.v1.json");
 
 const EXPECTED_SLOTS = [
-  ["big-grab", "BIG GRAB", "guaranteed-grab"],
-  ["tight-grab", "TIGHT GRAB", "guaranteed-grab"],
-  ["wide-grab", "WIDE GRAB", "guaranteed-grab"],
-  ["scar", "SCAR", "guaranteed-scar"],
-  ["succession", "SUCCESSION", "guaranteed-succession"],
+  ["aperture", "APERTURE", "guaranteed-aperture"],
+  ["speak", "SPEAK", "guaranteed-speak"],
+  ["grab", "GRAB", "guaranteed-grab"],
+  ["grow", "GROW", "guaranteed-grow"],
+  ["body", "BODY", "guaranteed-body-choreography"],
   ["kitchen-sink", "KITCHEN SINK", "guaranteed-integration-stress"],
 ];
 
@@ -60,46 +60,60 @@ test("TEST 6 is a separate forced-witness family with six fixed fixture slots", 
   }
 });
 
-test("the three GRAB fixtures are guaranteed, regional, and materially distinct parameter profiles", () => {
+test("APERTURE, SPEAK, GRAB, and GROW are guaranteed native one-event witnesses", () => {
   const family = makeFamily();
-  const grabs = family.candidates.slice(0, 3);
+  const primitives = family.candidates.slice(0, 4);
+  const expectedKinds = ["aperture", "speak", "grab", "grow"];
 
-  for (const candidate of grabs) {
+  assert.deepEqual(
+    primitives.map((candidate) => candidate.timeline.topologyEvents?.events?.[0]?.kind),
+    expectedKinds,
+  );
+
+  for (let index = 0; index < primitives.length; index += 1) {
+    const candidate = primitives[index];
     const events = candidate.timeline.topologyEvents?.events || [];
     assert.equal(events.length, 1);
-    assert.equal(events[0].kind, "grab");
-    assert.equal(candidate.forcedCondition, "guaranteed-grab");
-    assert.ok(events[0].parameters.radiusX < 0.7, "GRAB must stay regional rather than whole-frame");
-    assert.ok(events[0].parameters.radiusY < 0.7, "GRAB must stay regional rather than whole-frame");
-    assert.ok(events[0].residueUntilTick > events[0].releaseTick, "GRAB must leave residual consequence");
+    assert.equal(events[0].kind, expectedKinds[index]);
+    assert.ok(events[0].residueUntilTick > events[0].releaseTick);
   }
 
-  const [big, tight, wide] = grabs.map((candidate) => candidate.timeline.topologyEvents.events[0].parameters);
-  assert.ok(big.pull > tight.pull, "BIG GRAB should pull harder than TIGHT GRAB");
-  assert.ok(tight.radiusX < big.radiusX && tight.radiusY < big.radiusY, "TIGHT GRAB should be the smallest locality");
-  assert.ok(wide.radiusX > big.radiusX && wide.radiusY > tight.radiusY, "WIDE GRAB should affect the broadest bounded region");
+  const grab = primitives[2].timeline.topologyEvents.events[0];
+  assert.ok(grab.parameters.radiusX < 0.7, "GRAB must stay regional rather than whole-frame");
+  assert.ok(grab.parameters.radiusY < 0.7, "GRAB must stay regional rather than whole-frame");
 });
 
-test("SCAR and SUCCESSION force existing Topology Arc outcomes rather than inventing event kinds", () => {
+test("BODY is APERTURE → SPEAK → GRAB → GROW choreography and never a fifth event kind", () => {
   const family = makeFamily();
-  const scar = family.candidates[3];
-  const succession = family.candidates[4];
+  const body = family.candidates[4];
+  const events = body.timeline.topologyEvents?.events || [];
 
-  assert.equal(scar.timeline.topologyEvents?.eventCount || 0, 0);
-  assert.equal(succession.timeline.topologyEvents?.eventCount || 0, 0);
-  assert.ok(scar.timeline.topologyArc?.windows?.some((window) => window.outcome === "scar"));
-  assert.ok(succession.timeline.topologyArc?.windows?.some((window) => window.outcome === "succession"));
-  assert.ok(
-    scar.timeline.topologyArc.windows.some((window) => window.outcome === "scar" && window.scar),
-    "SCAR fixture must carry residue/scar evidence",
+  assert.deepEqual(
+    events.map((event) => event.kind),
+    ["aperture", "speak", "grab", "grow"],
   );
+  assert.equal(events.length, 4);
+  assert.equal(events.some((event) => event.kind === "body"), false);
+  assert.equal(generation.TOPOLOGY_EVENT_KINDS.includes("body"), false);
+
+  for (let index = 1; index < events.length; index += 1) {
+    assert.ok(
+      events[index].prepareTick > events[index - 1].prepareTick,
+      "BODY choreography must preserve ordered event envelopes",
+    );
+  }
 });
 
-test("KITCHEN SINK combines existing lawful layers and forces the bounded Resolution Field lane", () => {
+test("KITCHEN SINK combines BODY choreography with existing lawful layers and bounded Resolution Field", () => {
   const family = makeFamily();
   const sink = family.candidates[5];
+  const events = sink.timeline.topologyEvents?.events || [];
 
-  assert.equal(sink.timeline.topologyEvents?.events?.[0]?.kind, "grab");
+  assert.deepEqual(
+    events.map((event) => event.kind),
+    ["aperture", "speak", "grab", "grow"],
+  );
+  assert.equal(events.some((event) => event.kind === "body"), false);
   assert.ok(sink.timeline.topologyArc?.windowCount > 0);
   assert.ok(sink.timeline.atmosphere, "integration fixture must retain Atmosphere evidence");
   assert.deepEqual(sink.forcedRenderConfig, { atmosphereResolutionScale: 0.5 });
