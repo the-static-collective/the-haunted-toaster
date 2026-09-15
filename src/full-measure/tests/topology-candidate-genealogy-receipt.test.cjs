@@ -93,6 +93,7 @@ function selectExecution(session, family, preferredRole = null) {
     (entry) => entry.timeline?.topologyEvents?.eventCount > 0,
   ) || family.candidates[0];
   session.select({ familyHash: family.familyHash, index: candidate.index });
+  session.keep({ familyHash: family.familyHash, index: candidate.index });
   const execution = session.executionForRender({
     audioPath,
     imagePath: null,
