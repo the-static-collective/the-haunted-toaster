@@ -213,6 +213,8 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   crossCandidates: (config) => ipcRenderer.invoke("candidate:cross", config),
   stompCandidates: (config) => ipcRenderer.invoke("candidate:stomp", config),
   selectCandidate: (config) => ipcRenderer.invoke("candidate:select", config),
+  keepCandidate: (config) => ipcRenderer.invoke("candidate:keep", config),
+  scrapeCandidates: (config) => ipcRenderer.invoke("candidate:scrape", config),
   clearCandidates: () => ipcRenderer.invoke("candidate:clear"),
   clearCandidateImage: () => ipcRenderer.invoke("candidate:clear-image"),
   startRender: async (config) => {
