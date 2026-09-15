@@ -4,6 +4,7 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
+const packageInfo = require("../package.json");
 const { buildUiWitness } = require("../scripts/build-ui-witness.cjs");
 const { CANONICAL_WITNESS_STATES, normalizeWitnessState } = require("../witness/witness-controller.js");
 
@@ -38,7 +39,8 @@ test("UI witness is generated from production renderer assets", (t) => {
   }
   assert.match(generated, /__uiWitnessToastFeels/);
   assert.match(generated, /__uiWitnessBuildInfo/);
-  assert.match(generated, /"version":"0\.5\.0-alpha\.8"/);
+  assert.ok(generated.includes(`"version":${JSON.stringify(packageInfo.version)}`));
+  assert.match(generated, /<span class="alpha-pill">Beta <b id="versionLabel">/);
   for (const capability of [
     "uiWitnessV1",
     "toastFeelV2",
@@ -58,6 +60,7 @@ test("UI witness is generated from production renderer assets", (t) => {
   assert.match(generated, /data-ui-witness-commit="deadbeef"/);
   assert.ok(production.includes("./styles.css"));
   assert.ok(production.includes("./beta-home-ui.css"));
+  assert.match(production, /<span class="alpha-pill">Beta <b id="versionLabel">/);
 });
 
 test("Vercel publishes only the generated renderer witness", () => {
