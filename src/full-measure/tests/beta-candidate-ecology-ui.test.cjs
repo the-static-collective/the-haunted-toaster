@@ -55,7 +55,7 @@ test("move proposals stay a renderer-local deterministic projection with no prel
   assert.match(witnessBuilder, /"candidate-move-deck\.js"/);
 });
 
-test("candidate UI replaces the verb toolbar with one contextual second six-up", () => {
+test("candidate UI keeps the contextual second six-up behind explicit KEEP and SCRAPE", () => {
   const ui = source("src/renderer/candidate-ui.js");
   assert.match(ui, /id="candidateMoveGrid"/);
   assert.match(ui, /id="candidateMoveRedeal"/);
@@ -66,7 +66,9 @@ test("candidate UI replaces the verb toolbar with one contextual second six-up",
   assert.match(ui, /api\.crossCandidates/);
   assert.match(ui, /api\.stompCandidates/);
   assert.match(ui, /api\.mutateCandidates/);
-  assert.match(ui, /id="candidateUse"/);
+  assert.match(ui, /id="candidateScrape"/);
+  assert.match(ui, /id="candidateKeep"/);
+  assert.match(ui, /EXPERT \/ DEBUG · MOVE DECK/);
   assert.doesNotMatch(ui, /id="candidateCrossMark"/);
   assert.doesNotMatch(ui, /id="candidateCross"/);
   assert.doesNotMatch(ui, /Mark CROSS parent/);
