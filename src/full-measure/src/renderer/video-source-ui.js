@@ -16,8 +16,11 @@
 })(typeof window !== "undefined" ? window : null, () => {
   const TEXTURE_DIGEST_OPERATOR_ID = "clip-luma-texture-v1";
   const TOPOLOGY_MASK_DIGEST_OPERATOR_ID = "clip-luma-mask-v1";
+  const MOTION_MASK_DIGEST_OPERATOR_ID = "clip-motion-mask-v1";
+  const LOOP_SAMPLING_POLICY_ID = "loop-source-clip-v1";
 
   function digestOperatorForBinding(binding) {
+    if (binding?.digestOperatorId === MOTION_MASK_DIGEST_OPERATOR_ID) return MOTION_MASK_DIGEST_OPERATOR_ID;
     return binding?.digestOperatorId === TOPOLOGY_MASK_DIGEST_OPERATOR_ID
       ? TOPOLOGY_MASK_DIGEST_OPERATOR_ID
       : TEXTURE_DIGEST_OPERATOR_ID;
@@ -84,6 +87,15 @@
             <select id="videoDigestOperator">
               <option value="clip-luma-texture-v1">Texture</option>
               <option value="clip-luma-mask-v1">Topology mask · experimental</option>
+              <option value="clip-motion-mask-v1">Motion mask · experimental</option>
+            </select>
+          </label>
+          <label class="video-timing-control is-hidden" for="videoSamplingPolicy">
+            <span>Video timing</span>
+            <select id="videoSamplingPolicy">
+              <option value="loop-source-clip-v1">Loop</option>
+              <option value="play-source-once-v1">Play once → release</option>
+              <option value="stretch-source-clip-v1">Stretch across song</option>
             </select>
           </label>
           <button class="remove-image is-hidden" id="removeVideo" type="button">Clear video</button>
@@ -97,15 +109,27 @@
     const addToPantry = sourceMount.querySelector("#addVideoToPantry");
     const digestControl = sourceMount.querySelector(".video-digest-control");
     const digestOperator = sourceMount.querySelector("#videoDigestOperator");
+    const timingControl = sourceMount.querySelector(".video-timing-control");
+    const samplingPolicy = sourceMount.querySelector("#videoSamplingPolicy");
     const remove = sourceMount.querySelector("#removeVideo");
     let importInFlight = false;
     let pantryStateBeforeImport = "empty";
     let admittedVideo = false;
     let acceptedDigestOperator = TEXTURE_DIGEST_OPERATOR_ID;
+    let acceptedSamplingPolicy = LOOP_SAMPLING_POLICY_ID;
 
     function setDigestVisible(visible) {
       digestControl.classList.toggle("is-hidden", !visible);
       digestOperator.disabled = !visible;
+      timingControl.classList.toggle("is-hidden", !visible);
+      samplingPolicy.disabled = !visible;
+    }
+
+    function setVideoBusy(busy) {
+      digestOperator.disabled = busy || !admittedVideo;
+      samplingPolicy.disabled = busy || !admittedVideo;
+      chooseButton.disabled = busy;
+      remove.disabled = busy;
     }
 
     function setImportBusy(busy) {
@@ -150,6 +174,8 @@
         admittedVideo = true;
         acceptedDigestOperator = digestOperatorForBinding(result.binding);
         digestOperator.value = acceptedDigestOperator;
+        acceptedSamplingPolicy = result.binding.samplingPolicyId || LOOP_SAMPLING_POLICY_ID;
+        samplingPolicy.value = acceptedSamplingPolicy;
         setDigestVisible(true);
         title.textContent = result.binding.filename || "Video selected";
         hint.textContent = formatVideoHint(result.binding) || "Video selected";
@@ -171,7 +197,7 @@
         return;
       }
       const requestedOperator = digestOperator.value;
-      digestOperator.disabled = true;
+      setVideoBusy(true);
       try {
         const binding = await api.setVideoDigestOperator(requestedOperator);
         acceptedDigestOperator = digestOperatorForBinding(binding);
@@ -182,14 +208,42 @@
             detail: { operatorId: acceptedDigestOperator },
           }));
         }
-        status.textContent = acceptedDigestOperator === TOPOLOGY_MASK_DIGEST_OPERATOR_ID
+        status.textContent = acceptedDigestOperator === MOTION_MASK_DIGEST_OPERATOR_ID
+          ? "Video digestion · Motion mask · generate six again"
+          : acceptedDigestOperator === TOPOLOGY_MASK_DIGEST_OPERATOR_ID
           ? "Video digestion · Topology mask · generate six again"
           : "Video digestion · Texture · generate six again";
       } catch (error) {
         digestOperator.value = acceptedDigestOperator;
         status.textContent = `Video digestion refused · ${String(error?.message || error)}`;
       } finally {
-        digestOperator.disabled = !admittedVideo;
+        setVideoBusy(false);
+      }
+    });
+
+    samplingPolicy.addEventListener("change", async () => {
+      if (!admittedVideo || typeof api.setVideoSamplingPolicy !== "function") {
+        samplingPolicy.value = acceptedSamplingPolicy;
+        return;
+      }
+      const requestedPolicy = samplingPolicy.value;
+      setVideoBusy(true);
+      try {
+        const binding = await api.setVideoSamplingPolicy(requestedPolicy);
+        acceptedSamplingPolicy = binding.samplingPolicyId || LOOP_SAMPLING_POLICY_ID;
+        samplingPolicy.value = acceptedSamplingPolicy;
+        const view = document.defaultView;
+        if (view?.CustomEvent) {
+          view.dispatchEvent(new view.CustomEvent("video-digest-change", {
+            detail: { samplingPolicyId: acceptedSamplingPolicy },
+          }));
+        }
+        status.textContent = "Video timing changed · generate six again";
+      } catch (error) {
+        samplingPolicy.value = acceptedSamplingPolicy;
+        status.textContent = `Video timing refused · ${String(error?.message || error)}`;
+      } finally {
+        setVideoBusy(false);
       }
     });
 
@@ -216,6 +270,8 @@
       await api.clearVideo();
       admittedVideo = false;
       acceptedDigestOperator = TEXTURE_DIGEST_OPERATOR_ID;
+      acceptedSamplingPolicy = LOOP_SAMPLING_POLICY_ID;
+      samplingPolicy.value = acceptedSamplingPolicy;
       digestOperator.value = acceptedDigestOperator;
       setDigestVisible(false);
       title.textContent = "Add one video";

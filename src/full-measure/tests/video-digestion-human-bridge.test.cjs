@@ -6,6 +6,7 @@ const { JSDOM } = require("jsdom");
 const {
   FOREIGN_MATERIAL_OPERATOR_ID,
   FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID,
+  FOREIGN_MATERIAL_MOTION_OPERATOR_ID,
   createForeignMaterialPlan,
 } = require("../src/render/foreign-material.cjs");
 const { createCandidateSession } = require("../src/candidate-session.cjs");
@@ -65,6 +66,31 @@ function flush() {
   return new Promise((resolve) => setImmediate(resolve));
 }
 
+test("re-admitting the same clip with different timing or digest revokes KEEP", async () => {
+  for (const changed of [
+    { samplingPolicyId: "play-source-once-v1" },
+    { digestOperatorId: FOREIGN_MATERIAL_MOTION_OPERATOR_ID },
+  ]) {
+    const session = createCandidateSession({
+      async renderCandidateFamilyPreviews(_config, family) {
+        return { familyHash: family.familyHash, candidates: family.candidates.map(({ index, scoreAddress, timelineHash }) => ({ index, scoreAddress, timelineHash })) };
+      },
+    });
+    const audioPath = path.resolve("/tmp/video-phrasing.wav");
+    session.noteAudio(audioPath, { duration: 3, sections: [{ start: 0, end: 3, energy: 0.5 }], energySamples: [] });
+    session.noteVideo({ ...binding(), ...changed });
+    const config = { presetId: "openField", toastFeelId: "low-and-slow", rootSeed: "video-re-admission", lyrics: "" };
+    const view = await session.generate(config);
+    session.keep({ familyHash: view.familyHash, index: 0 });
+    const renderConfig = { ...config, audioPath, imagePath: null };
+    assert.ok(session.executionForRender(renderConfig));
+    session.noteVideo({ ...binding(), ...changed });
+    assert.ok(session.executionForRender(renderConfig), "unchanged binding preserves KEEP");
+    session.noteVideo(binding());
+    assert.throws(() => session.executionForRender(renderConfig), { code: "CANDIDATE_RENDER_KEEP_REQUIRED" });
+  }
+});
+
 test("#250 human bridge defaults admitted Video to the exact legacy texture digest", () => {
   const session = createCandidateSession();
   session.noteVideo(binding());
@@ -76,7 +102,7 @@ test("#250 human bridge defaults admitted Video to the exact legacy texture dige
   assert.equal(plan.assimilationPolicy.operatorId, FOREIGN_MATERIAL_OPERATOR_ID);
 });
 
-test("#250 Video IPC admits only the two bounded digest roles and requires admitted Video", async () => {
+test("Video IPC admits bounded digest roles and requires admitted Video", async () => {
   const session = createCandidateSession();
   const ipcMain = fakeIpcMain();
   registerVideoPantryIpc({
@@ -95,6 +121,8 @@ test("#250 Video IPC admits only the two bounded digest roles and requires admit
   const selected = await setDigest({}, FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID);
   assert.equal(selected.digestOperatorId, FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID);
   assert.equal(session.state().video.digestOperatorId, FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID);
+  const motion = await setDigest({}, FOREIGN_MATERIAL_MOTION_OPERATOR_ID);
+  assert.equal(motion.digestOperatorId, FOREIGN_MATERIAL_MOTION_OPERATOR_ID);
 
   await assert.rejects(
     () => setDigest({}, "clip-mystery-v99"),
@@ -136,7 +164,7 @@ test("#250 digest mode is a narrow sandbox Video IPC operation rather than rende
   assert.doesNotMatch(preloadSource, /foreignMaterialPlan/);
 });
 
-test("#250 Video row reveals exactly two digest choices only after Video admission", async () => {
+test("Video row reveals the three digest roles only after Video admission", async () => {
   const dom = new JSDOM(`
     <div id="videoSourceMount"></div>
     <section id="videoPantryWindow">
@@ -164,7 +192,7 @@ test("#250 Video row reveals exactly two digest choices only after Video admissi
   assert.equal(selector.closest(".video-digest-control").classList.contains("is-hidden"), true);
   assert.deepEqual(
     [...selector.options].map((option) => option.value),
-    [FOREIGN_MATERIAL_OPERATOR_ID, FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID],
+    [FOREIGN_MATERIAL_OPERATOR_ID, FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID, FOREIGN_MATERIAL_MOTION_OPERATOR_ID],
   );
 
   dom.window.document.querySelector("#videoDrop").click();
@@ -182,4 +210,56 @@ test("#250 Video row reveals exactly two digest choices only after Video admissi
   await flush();
   assert.equal(selector.closest(".video-digest-control").classList.contains("is-hidden"), true);
   assert.equal(selector.value, FOREIGN_MATERIAL_OPERATOR_ID);
+});
+
+test("Video timing crosses real IPC, preserves the digest, and rolls back refused UI changes", async () => {
+  const session = createCandidateSession();
+  const ipcMain = fakeIpcMain();
+  registerVideoPantryIpc({
+    app: { getPath: () => "/tmp/toaster-user-data" },
+    dialog: { showOpenDialog: async () => ({ canceled: true }) },
+    ipcMain, candidateSession: session,
+    loadCatalogImpl: async () => ({ specimens: [] }),
+  });
+  const setSampling = ipcMain.handlers.get("video:set-sampling-policy");
+  assert.equal(typeof setSampling, "function");
+  await assert.rejects(() => setSampling({}, "play-source-once-v1"), /admitted Video/i);
+  const dom = new JSDOM('<div id="videoSourceMount"></div><section id="videoPantryWindow"><strong id="videoPantryStatus"></strong><button id="videoFolderImport">Import</button></section>');
+  const events = [];
+  dom.window.addEventListener("video-digest-change", (event) => events.push(event.detail));
+  let refuse = false;
+  installVideoSourceControls({ document: dom.window.document, api: {
+    listVideoPantry: async () => ({ specimens: [] }),
+    chooseVideo: async () => {
+      session.noteVideo({ ...binding(), digestOperatorId: FOREIGN_MATERIAL_MOTION_OPERATOR_ID });
+      return { binding: session.state().video };
+    },
+    clearVideo: () => ipcMain.handlers.get("video:clear")({}),
+    setVideoSamplingPolicy: (id) => setSampling({}, refuse ? "mystery" : id),
+  } });
+  const selector = dom.window.document.querySelector("#videoSamplingPolicy");
+  assert.ok(selector);
+  assert.equal(selector.disabled, true);
+  dom.window.document.querySelector("#videoDrop").click();
+  await flush();
+  assert.equal(selector.disabled, false);
+  assert.equal(dom.window.document.querySelector("#videoDigestOperator").value, FOREIGN_MATERIAL_MOTION_OPERATOR_ID);
+  selector.value = "play-source-once-v1";
+  selector.dispatchEvent(new dom.window.Event("change"));
+  await flush();
+  assert.equal(session.state().video.samplingPolicyId, "play-source-once-v1");
+  assert.equal(session.state().video.digestOperatorId, FOREIGN_MATERIAL_MOTION_OPERATOR_ID);
+  assert.equal(events.length, 1, "accepted timing must invalidate displayed candidates");
+  refuse = true;
+  selector.value = "stretch-source-clip-v1";
+  selector.dispatchEvent(new dom.window.Event("change"));
+  await flush();
+  assert.equal(selector.value, "play-source-once-v1");
+  assert.equal(events.length, 1, "refusal must not publish an accepted timing");
+  assert.equal(session.state().video.samplingPolicyId, "play-source-once-v1");
+  dom.window.document.querySelector("#removeVideo").click();
+  await flush();
+  assert.equal(selector.disabled, true);
+  assert.equal(selector.value, "loop-source-clip-v1");
+  dom.window.close();
 });
