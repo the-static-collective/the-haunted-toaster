@@ -49,17 +49,38 @@ function resolveTemporalSampling(innerCadence, outerCadence = "30/1") {
   });
 }
 
+function findPostVisualSubtitleSeam(graph) {
+  const source = String(graph || "");
+  const pattern = /\[([^\]\r\n;]+)\]ass=/g;
+  let match = null;
+  let seam = null;
+
+  while ((match = pattern.exec(source)) !== null) {
+    seam = Object.freeze({
+      marker: match[0],
+      markerIndex: match.index,
+      inputLabel: match[1],
+    });
+  }
+
+  if (!seam) {
+    throw new Error("Production filter graph is missing the post-visual subtitle seam.");
+  }
+  return seam;
+}
+
 function applyTemporalSamplingToGraph(graph, innerCadence, outerCadence = "30/1") {
   const policy = resolveTemporalSampling(innerCadence, outerCadence);
   if (!policy) return Object.freeze({ graph, policy: null });
-  const marker = "[timelineFinal]ass=";
-  const markerIndex = graph.indexOf(marker);
-  if (markerIndex < 0) {
-    throw new Error("Production filter graph is missing the post-visual subtitle seam.");
-  }
-  const cadence = `[timelineFinal]${policy.ffmpegInnerFilter},${policy.ffmpegOuterFilter}[cadencedField];\n[cadencedField]ass=`;
+
+  // Protected typography is the final ASS consumer in the production graph. Visual
+  // compilers may rename its input (for example Resolution Field ends at
+  // [atmosphereStage]), so sampling must bind to the seam itself rather than a
+  // historical upstream label such as [timelineFinal].
+  const seam = findPostVisualSubtitleSeam(graph);
+  const cadence = `[${seam.inputLabel}]${policy.ffmpegInnerFilter},${policy.ffmpegOuterFilter}[cadencedField];\n[cadencedField]ass=`;
   return Object.freeze({
-    graph: `${graph.slice(0, markerIndex)}${cadence}${graph.slice(markerIndex + marker.length)}`,
+    graph: `${graph.slice(0, seam.markerIndex)}${cadence}${graph.slice(seam.markerIndex + seam.marker.length)}`,
     policy,
   });
 }

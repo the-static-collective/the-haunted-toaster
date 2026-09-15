@@ -1,0 +1,520 @@
+const {
+  canonicalStringify,
+  deepFreeze,
+  hashCanonical,
+  quantizeNumber,
+} = require("./canonical.cjs");
+const {
+  CANDIDATE_FAMILY_POLICY,
+  CANDIDATE_FAMILY_SCHEMA,
+} = require("./candidate-family.cjs");
+const { verifyTopologyEventAuthority } = require("./topology-event-authority.cjs");
+
+const TOPOLOGY_EVENT_POLICY = "topology-events-v0.1";
+const TOPOLOGY_EVENT_PLAN_SCHEMA = "haunted-toaster/topology-event-plan/v0.1";
+const TOPOLOGY_EVENT_KINDS = deepFreeze(["aperture", "speak", "grab", "grow"]);
+const FAMILY_HASH_DOMAIN = "HauntedToaster-CandidateFamily-v1";
+const EVENT_HASH_DOMAIN = "HauntedToaster-TopologyEvent-v0.1";
+const PLAN_HASH_DOMAIN = "HauntedToaster-TopologyEventPlan-v0.1";
+const TIMELINE_HASH_DOMAIN = "HauntedToaster-ResolvedTimeline-v1";
+const SHA256_RE = /^[0-9a-f]{64}$/;
+
+function ownDataObject(value, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError(`${label} must be a plain object.`);
+  }
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null) {
+    throw new TypeError(`${label} must be a plain object.`);
+  }
+  const descriptors = Object.getOwnPropertyDescriptors(value);
+  for (const [key, descriptor] of Object.entries(descriptors)) {
+    if (!descriptor.enumerable) continue;
+    if (descriptor.get || descriptor.set) {
+      throw new TypeError(`${label}.${key} must be an own data property.`);
+    }
+  }
+  return value;
+}
+
+function exactKeys(value, expected, label) {
+  ownDataObject(value, label);
+  const actual = Object.keys(value).sort();
+  const wanted = [...expected].sort();
+  if (actual.length !== wanted.length || actual.some((key, index) => key !== wanted[index])) {
+    throw new TypeError(`${label} contains unknown or missing fields.`);
+  }
+  return value;
+}
+
+function safeTick(value, label) {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new TypeError(`${label} must be a non-negative safe integer.`);
+  }
+  return value;
+}
+
+function boundedNumber(value, min, max, label, { exclusiveMin = false } = {}) {
+  if (!Number.isFinite(value)) throw new TypeError(`${label} must be finite.`);
+  const normalized = quantizeNumber(value);
+  if ((exclusiveMin ? normalized <= min : normalized < min) || normalized > max) {
+    throw new TypeError(`${label} is out of bounds.`);
+  }
+  return normalized;
+}
+
+function boundedInteger(value, min, max, label) {
+  if (!Number.isSafeInteger(value) || value < min || value > max) {
+    throw new TypeError(`${label} is out of bounds.`);
+  }
+  return value;
+}
+
+function normalizeEvidenceRefs(value) {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new TypeError("Topology event evidenceRefs must be a non-empty array.");
+  }
+  const refs = value.map((ref) => {
+    if (typeof ref !== "string" || ref.length === 0) {
+      throw new TypeError("Topology event evidenceRefs must contain non-empty strings.");
+    }
+    return ref;
+  });
+  return [...new Set(refs)].sort();
+}
+
+function verifyCandidateFamilyAddress(family) {
+  ownDataObject(family, "CandidateFamily");
+  if (family.schema !== CANDIDATE_FAMILY_SCHEMA || family.policy !== CANDIDATE_FAMILY_POLICY) {
+    throw new TypeError("CandidateFamily v1 schema/policy is required.");
+  }
+  if (!SHA256_RE.test(family.familyHash || "")) {
+    throw new TypeError("CandidateFamily familyHash must be lowercase SHA-256.");
+  }
+
+  const familyCore = {
+    schema: family.schema,
+    policy: family.policy,
+    scoreSchema: family.scoreSchema,
+    prng: family.prng,
+    rootSeed: family.rootSeed,
+    parentScoreRef: family.parentScoreRef,
+    baselineScoreRef: family.baselineScoreRef,
+    constraintPackId: family.constraintPackId,
+    analysisHash: family.analysisHash,
+    constraintsHash: family.constraintsHash,
+    rendererProfileHash: family.rendererProfileHash,
+    locks: family.locks,
+    requestedCount: family.requestedCount,
+    producedCount: family.producedCount,
+    roles: family.roles,
+    scoreAddresses: family.scoreAddresses,
+    timelineHashes: family.timelineHashes,
+    shortfall: family.shortfall,
+  };
+  const actualHash = hashCanonical(familyCore, FAMILY_HASH_DOMAIN);
+  if (actualHash !== family.familyHash) {
+    throw new TypeError("CandidateFamily canonical address does not match familyHash.");
+  }
+
+  if (!Number.isSafeInteger(family.producedCount) || family.producedCount < 1) {
+    throw new TypeError("CandidateFamily producedCount is invalid.");
+  }
+  if (!Array.isArray(family.candidates) || family.candidates.length !== family.producedCount) {
+    throw new TypeError("CandidateFamily candidates do not align with producedCount.");
+  }
+  for (const key of ["roles", "scoreAddresses", "timelineHashes"]) {
+    if (!Array.isArray(family[key]) || family[key].length !== family.producedCount) {
+      throw new TypeError(`CandidateFamily ${key} does not align with producedCount.`);
+    }
+  }
+  for (let index = 0; index < family.candidates.length; index += 1) {
+    const candidate = family.candidates[index];
+    ownDataObject(candidate, `CandidateFamily.candidates[${index}]`);
+    if (candidate.index !== index) {
+      throw new TypeError("CandidateFamily candidate indices are not aligned.");
+    }
+    if (candidate.role !== family.roles[index]) {
+      throw new TypeError("CandidateFamily roles are not aligned with candidates.");
+    }
+    if (candidate.scoreAddress !== family.scoreAddresses[index]) {
+      throw new TypeError("CandidateFamily scoreAddresses are not aligned with candidates.");
+    }
+    if (candidate.timelineHash !== family.timelineHashes[index]) {
+      throw new TypeError("CandidateFamily timelineHashes are not aligned with candidates.");
+    }
+    ownDataObject(candidate.timeline, `CandidateFamily.candidates[${index}].timeline`);
+    if (candidate.timeline.timelineHash !== candidate.timelineHash) {
+      throw new TypeError("CandidateFamily candidate timeline identity does not match timelineHashes.");
+    }
+    if (candidate.timeline.scoreAddress !== candidate.scoreAddress) {
+      throw new TypeError("CandidateFamily candidate timeline scoreAddress does not match candidate address.");
+    }
+    if (!candidate.timeline.baseState || typeof candidate.timeline.baseState.topology !== "string") {
+      throw new TypeError("CandidateFamily candidate timeline base topology is required.");
+    }
+  }
+  return family;
+}
+
+function normalizeApertureParameters(parameters) {
+  exactKeys(
+    parameters,
+    [
+      "anchorX",
+      "anchorY",
+      "radiusX",
+      "radiusY",
+      "focus",
+      "peripheralCompression",
+      "orbit",
+    ],
+    "APERTURE parameters",
+  );
+  return {
+    anchorX: boundedNumber(parameters.anchorX, 0, 1, "APERTURE anchorX"),
+    anchorY: boundedNumber(parameters.anchorY, 0, 1, "APERTURE anchorY"),
+    radiusX: boundedNumber(parameters.radiusX, 0, 1, "APERTURE radiusX", { exclusiveMin: true }),
+    radiusY: boundedNumber(parameters.radiusY, 0, 1, "APERTURE radiusY", { exclusiveMin: true }),
+    focus: boundedNumber(parameters.focus, 0, 1, "APERTURE focus"),
+    peripheralCompression: boundedNumber(
+      parameters.peripheralCompression,
+      0,
+      1,
+      "APERTURE peripheralCompression",
+    ),
+    orbit: boundedNumber(parameters.orbit, 0, 1, "APERTURE orbit"),
+  };
+}
+
+function normalizeSpeakParameters(parameters) {
+  exactKeys(
+    parameters,
+    [
+      "anchorX",
+      "anchorY",
+      "radiusX",
+      "radiusY",
+      "seamWidth",
+      "emission",
+      "residue",
+    ],
+    "SPEAK parameters",
+  );
+  return {
+    anchorX: boundedNumber(parameters.anchorX, 0, 1, "SPEAK anchorX"),
+    anchorY: boundedNumber(parameters.anchorY, 0, 1, "SPEAK anchorY"),
+    radiusX: boundedNumber(parameters.radiusX, 0, 1, "SPEAK radiusX", { exclusiveMin: true }),
+    radiusY: boundedNumber(parameters.radiusY, 0, 1, "SPEAK radiusY", { exclusiveMin: true }),
+    seamWidth: boundedNumber(parameters.seamWidth, 0, 1, "SPEAK seamWidth", { exclusiveMin: true }),
+    emission: boundedNumber(parameters.emission, 0, 1, "SPEAK emission"),
+    residue: boundedNumber(parameters.residue, 0, 1, "SPEAK residue"),
+  };
+}
+
+function normalizeGrabParameters(parameters) {
+  exactKeys(
+    parameters,
+    [
+      "anchorX",
+      "anchorY",
+      "targetX",
+      "targetY",
+      "radiusX",
+      "radiusY",
+      "pull",
+      "recoil",
+      "falloff",
+      "residualVectorX",
+      "residualVectorY",
+      "residualStretch",
+    ],
+    "GRAB parameters",
+  );
+  return {
+    anchorX: boundedNumber(parameters.anchorX, 0, 1, "GRAB anchorX"),
+    anchorY: boundedNumber(parameters.anchorY, 0, 1, "GRAB anchorY"),
+    targetX: boundedNumber(parameters.targetX, 0, 1, "GRAB targetX"),
+    targetY: boundedNumber(parameters.targetY, 0, 1, "GRAB targetY"),
+    radiusX: boundedNumber(parameters.radiusX, 0, 1, "GRAB radiusX", { exclusiveMin: true }),
+    radiusY: boundedNumber(parameters.radiusY, 0, 1, "GRAB radiusY", { exclusiveMin: true }),
+    pull: boundedNumber(parameters.pull, 0, 1, "GRAB pull"),
+    recoil: boundedNumber(parameters.recoil, 0, 1, "GRAB recoil"),
+    falloff: boundedNumber(parameters.falloff, 0, 1, "GRAB falloff"),
+    residualVectorX: boundedNumber(parameters.residualVectorX, -1, 1, "GRAB residualVectorX"),
+    residualVectorY: boundedNumber(parameters.residualVectorY, -1, 1, "GRAB residualVectorY"),
+    residualStretch: boundedNumber(parameters.residualStretch, -1, 1, "GRAB residualStretch"),
+  };
+}
+
+function normalizeGrowParameters(parameters) {
+  exactKeys(
+    parameters,
+    [
+      "anchorX",
+      "anchorY",
+      "radiusX",
+      "radiusY",
+      "branchCount",
+      "growth",
+      "persistence",
+      "ageBias",
+    ],
+    "GROW parameters",
+  );
+  return {
+    anchorX: boundedNumber(parameters.anchorX, 0, 1, "GROW anchorX"),
+    anchorY: boundedNumber(parameters.anchorY, 0, 1, "GROW anchorY"),
+    radiusX: boundedNumber(parameters.radiusX, 0, 1, "GROW radiusX", { exclusiveMin: true }),
+    radiusY: boundedNumber(parameters.radiusY, 0, 1, "GROW radiusY", { exclusiveMin: true }),
+    branchCount: boundedInteger(parameters.branchCount, 1, 16, "GROW branchCount"),
+    growth: boundedNumber(parameters.growth, 0, 1, "GROW growth"),
+    persistence: boundedNumber(parameters.persistence, 0, 1, "GROW persistence", { exclusiveMin: true }),
+    ageBias: boundedNumber(parameters.ageBias, 0, 1, "GROW ageBias"),
+  };
+}
+
+function normalizeEventParameters(kind, parameters) {
+  switch (kind) {
+    case "aperture":
+      return normalizeApertureParameters(parameters);
+    case "speak":
+      return normalizeSpeakParameters(parameters);
+    case "grab":
+      return normalizeGrabParameters(parameters);
+    case "grow":
+      return normalizeGrowParameters(parameters);
+    default:
+      return null;
+  }
+}
+
+function normalizeEvent(request, durationTicks) {
+  exactKeys(
+    request,
+    ["id", "kind", "prepareTick", "strikeTick", "releaseTick", "residueUntilTick", "parameters", "evidenceRefs"],
+    "Topology event request",
+  );
+  if (typeof request.id !== "string" || request.id.length === 0) {
+    throw new TypeError("Topology event id must be a non-empty string.");
+  }
+  if (!TOPOLOGY_EVENT_KINDS.includes(request.kind)) {
+    return { refusalReason: "unsupported-event-kind" };
+  }
+
+  const prepareTick = safeTick(request.prepareTick, "prepareTick");
+  const strikeTick = safeTick(request.strikeTick, "strikeTick");
+  const releaseTick = safeTick(request.releaseTick, "releaseTick");
+  const residueUntilTick = safeTick(request.residueUntilTick, "residueUntilTick");
+  if (!(prepareTick < strikeTick && strikeTick <= releaseTick && releaseTick < residueUntilTick)) {
+    throw new TypeError(
+      "Topology event requires prepareTick < strikeTick <= releaseTick < residueUntilTick.",
+    );
+  }
+  if (residueUntilTick > durationTicks) {
+    throw new TypeError("Topology event envelope exceeds timeline durationTicks.");
+  }
+
+  const core = {
+    id: request.id,
+    kind: request.kind,
+    prepareTick,
+    strikeTick,
+    releaseTick,
+    residueUntilTick,
+    parameters: normalizeEventParameters(request.kind, request.parameters),
+    evidenceRefs: normalizeEvidenceRefs(request.evidenceRefs),
+  };
+  return {
+    event: deepFreeze({
+      ...core,
+      eventSha256: hashCanonical(core, EVENT_HASH_DOMAIN),
+    }),
+  };
+}
+
+function legacyAuthorityFacts(timeline, options) {
+  const family = verifyCandidateFamilyAddress(options.family);
+  if (!Number.isSafeInteger(options.candidateIndex) || options.candidateIndex < 0) {
+    throw new TypeError("candidateIndex must be a non-negative safe integer.");
+  }
+  const candidate = family.candidates[options.candidateIndex];
+  if (!candidate) throw new TypeError("candidateIndex does not exist in CandidateFamily.");
+  if (timeline.scoreAddress !== candidate.scoreAddress) {
+    throw new TypeError("ResolvedTimeline scoreAddress does not match selected candidate.");
+  }
+  if (!timeline.baseState || timeline.baseState.topology !== candidate.timeline.baseState.topology) {
+    throw new TypeError("ResolvedTimeline base topology does not match selected candidate.");
+  }
+  return {
+    acceptedFamilyHash: family.familyHash,
+    acceptedAuthoritySha256: null,
+    scoreAddress: candidate.scoreAddress,
+    sourceTimelineHash: timeline.timelineHash,
+    sourceTopology: timeline.baseState.topology,
+    lockedAxes: [...family.locks],
+  };
+}
+
+function carrierAuthorityFacts(timeline, authorityInput) {
+  const authority = verifyTopologyEventAuthority(authorityInput);
+  if (timeline.scoreAddress !== authority.scoreAddress) {
+    throw new TypeError("ResolvedTimeline scoreAddress does not match topology event authority.");
+  }
+  if (timeline.timelineHash !== authority.sourceTimelineHash) {
+    throw new TypeError("ResolvedTimeline timelineHash does not match topology event authority source timeline.");
+  }
+  if (!timeline.baseState || timeline.baseState.topology !== authority.sourceTopology) {
+    throw new TypeError("ResolvedTimeline base topology does not match topology event authority.");
+  }
+  if (timeline.analysisHash !== authority.analysisHash) {
+    throw new TypeError("ResolvedTimeline analysisHash does not match topology event authority.");
+  }
+  if (timeline.constraintsHash !== authority.constraintsHash) {
+    throw new TypeError("ResolvedTimeline constraintsHash does not match topology event authority.");
+  }
+  if (timeline.rendererProfileHash !== authority.rendererProfileHash) {
+    throw new TypeError("ResolvedTimeline rendererProfileHash does not match topology event authority.");
+  }
+  return {
+    acceptedFamilyHash: authority.birthFamilyHash,
+    acceptedAuthoritySha256: authority.authoritySha256,
+    scoreAddress: authority.scoreAddress,
+    sourceTimelineHash: authority.sourceTimelineHash,
+    sourceTopology: authority.sourceTopology,
+    lockedAxes: [...authority.lockedAxes],
+  };
+}
+
+function normalizeAuthorityFacts(timeline, options) {
+  ownDataObject(options, "Topology event options");
+  if (Object.prototype.hasOwnProperty.call(options, "authority")) {
+    exactKeys(options, ["authority", "events"], "Topology event options");
+    return carrierAuthorityFacts(timeline, options.authority);
+  }
+  exactKeys(options, ["family", "candidateIndex", "events"], "Topology event options");
+  return legacyAuthorityFacts(timeline, options);
+}
+
+function planFor({ authority, events, refusalReason = null }) {
+  const core = {
+    schema: TOPOLOGY_EVENT_PLAN_SCHEMA,
+    policyVersion: TOPOLOGY_EVENT_POLICY,
+    acceptedFamilyHash: authority.acceptedFamilyHash,
+    ...(authority.acceptedAuthoritySha256
+      ? { acceptedAuthoritySha256: authority.acceptedAuthoritySha256 }
+      : {}),
+    acceptedScoreAddress: authority.scoreAddress,
+    sourceTimelineHash: authority.sourceTimelineHash,
+    sourceTopology: authority.sourceTopology,
+    lockedAxes: [...authority.lockedAxes],
+    eventCount: events.length,
+    events,
+    refusal: refusalReason ? { reason: refusalReason } : null,
+  };
+  return deepFreeze({
+    ...core,
+    planSha256: hashCanonical(core, PLAN_HASH_DOMAIN),
+  });
+}
+
+function attachTopologyEventPlan(timeline, plan, authority) {
+  if (plan.sourceTimelineHash !== timeline.timelineHash) {
+    throw new TypeError("Topology event plan sourceTimelineHash does not match timeline.");
+  }
+  if (plan.sourceTopology !== timeline.baseState.topology) {
+    throw new TypeError("Topology event plan sourceTopology does not match timeline base topology.");
+  }
+  if (plan.acceptedScoreAddress !== timeline.scoreAddress) {
+    throw new TypeError("Topology event plan score address does not match timeline.");
+  }
+  if (plan.acceptedFamilyHash !== authority.acceptedFamilyHash) {
+    throw new TypeError("Topology event plan family address does not match accepted authority.");
+  }
+  if (
+    authority.acceptedAuthoritySha256 &&
+    plan.acceptedAuthoritySha256 !== authority.acceptedAuthoritySha256
+  ) {
+    throw new TypeError("Topology event plan authority hash does not match accepted authority.");
+  }
+
+  const {
+    timelineHash: _timelineHash,
+    canonicalJson: _canonicalJson,
+    topologyEvents: _priorTopologyEvents,
+    ...currentBody
+  } = timeline;
+  const body = {
+    ...currentBody,
+    topologyEvents: plan,
+  };
+  return deepFreeze({
+    ...body,
+    timelineHash: hashCanonical(body, TIMELINE_HASH_DOMAIN),
+    canonicalJson: canonicalStringify(body),
+  });
+}
+
+function resolveTopologyEvents(timeline, options) {
+  ownDataObject(timeline, "ResolvedTimeline");
+  const authority = normalizeAuthorityFacts(timeline, options);
+  if (!Number.isSafeInteger(timeline.durationTicks) || timeline.durationTicks < 1) {
+    throw new TypeError("ResolvedTimeline durationTicks is invalid.");
+  }
+  if (!SHA256_RE.test(timeline.timelineHash || "")) {
+    throw new TypeError("ResolvedTimeline timelineHash must be lowercase SHA-256.");
+  }
+  if (!Array.isArray(options.events)) {
+    throw new TypeError("Topology event events must be an array.");
+  }
+
+  if (authority.lockedAxes.includes("topology")) {
+    return attachTopologyEventPlan(
+      timeline,
+      planFor({
+        authority,
+        events: [],
+        refusalReason: "topology-lock-prohibits-topology-events",
+      }),
+      authority,
+    );
+  }
+  if (options.events.length === 0) {
+    return attachTopologyEventPlan(
+      timeline,
+      planFor({ authority, events: [], refusalReason: "no-lawful-event-window" }),
+      authority,
+    );
+  }
+
+  const normalized = [];
+  for (const request of options.events) {
+    const result = normalizeEvent(request, timeline.durationTicks);
+    if (result.refusalReason) {
+      return attachTopologyEventPlan(
+        timeline,
+        planFor({ authority, events: [], refusalReason: result.refusalReason }),
+        authority,
+      );
+    }
+    normalized.push(result.event);
+  }
+  normalized.sort((left, right) =>
+    left.prepareTick - right.prepareTick || left.id.localeCompare(right.id),
+  );
+
+  return attachTopologyEventPlan(
+    timeline,
+    planFor({ authority, events: normalized }),
+    authority,
+  );
+}
+
+module.exports = {
+  TOPOLOGY_EVENT_KINDS,
+  TOPOLOGY_EVENT_PLAN_SCHEMA,
+  TOPOLOGY_EVENT_POLICY,
+  attachTopologyEventPlan,
+  resolveTopologyEvents,
+  verifyCandidateFamilyAddress,
+};

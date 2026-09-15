@@ -13,6 +13,10 @@ const {
   typographyContextForTimeline,
 } = require("./haunted-typography-render.cjs");
 const {
+  createForeignMaterialPlan,
+  ffmpegInputArgsForForeignMaterial,
+} = require("./foreign-material.cjs");
+const {
   getOutputProfile,
   resolveProfileAudioPlan,
   transportReceipt,
@@ -65,6 +69,39 @@ function compactNativeColorEvidence(profile, timeline) {
     relationship: plan.relationship,
     planSha256: plan.planSha256,
     windowCount: plan.windowCount,
+  };
+}
+
+function compactForcedWitnessEvidence(evidence) {
+  if (!evidence) return null;
+  if (evidence.forcedWitness !== true || evidence.fixtureFamily !== "test-6") {
+    throw new TypeError("Forced witness evidence must be TEST 6 evidence.");
+  }
+  const fixtureSlot = String(evidence.fixtureSlot || "");
+  const forcedCondition = String(evidence.forcedCondition || "");
+  const policyVersion = String(evidence.policyVersion || "");
+  if (!fixtureSlot || !forcedCondition || !policyVersion) {
+    throw new TypeError("TEST 6 forced witness evidence is incomplete.");
+  }
+  return {
+    forcedWitness: true,
+    fixtureFamily: "test-6",
+    fixtureSlot,
+    forcedCondition,
+    policyVersion,
+  };
+}
+
+function compactForeignMaterialEvidence(plan, compilerEvidence) {
+  if (!plan) return null;
+  return {
+    sourceSpecimenId: plan.sourceSpecimenId,
+    sourceSha256: plan.sourceSha256,
+    clipAnalysisHash: plan.clipAnalysisHash,
+    assimilationPolicy: structuredClone(plan.assimilationPolicy),
+    placement: structuredClone(plan.placement),
+    sampling: structuredClone(plan.sampling),
+    compiledOperator: compilerEvidence ? structuredClone(compilerEvidence) : null,
   };
 }
 
@@ -142,6 +179,19 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       execution.timeline,
     );
 
+    const foreignMaterialPlan =
+      config.foreignVisualMaterial
+      || createForeignMaterialPlan({
+        videoBinding: config.video || null,
+        timeline: execution.timeline,
+        analysisDurationSeconds: Number(analysis.duration),
+      });
+    const foreignMaterialInputIndex = foreignMaterialPlan
+      ? imagePath
+        ? 3
+        : 2
+      : null;
+
     const sourceHash = await hashFile(audioPath);
     const proceduralPath = path.join(tempDirectory, "garment.ppm");
     await createProceduralPpm(proceduralPath, preset);
@@ -158,6 +208,9 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       width,
       height,
       fps,
+      atmosphereResolutionScale: config.atmosphereResolutionScale ?? null,
+      foreignMaterialPlan,
+      foreignMaterialInputIndex,
       ...typographyContext,
     });
     const compiledTimeline = compileTimelineFilterGraph(baseFilter.graph, execution);
@@ -179,6 +232,7 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       topologyArc: compiledTimeline.topologyArc || null,
       operators: compiledTimeline.operators,
       atmosphere: baseFilter.atmosphereEvidence,
+      foreignMaterial: baseFilter.foreignMaterialEvidence,
       temporalSampling: temporalSampling.policy,
       witnessWindow: witnessWindow.evidence,
       graphSha256: crypto
@@ -206,6 +260,8 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
     if (imagePath) {
       ffmpegArgs.push("-loop", "1", "-framerate", String(fps), "-i", imagePath);
     }
+
+    ffmpegArgs.push(...ffmpegInputArgsForForeignMaterial(foreignMaterialPlan));
 
     ffmpegArgs.push(
       "-filter_complex_script", filterPath,
@@ -238,6 +294,7 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       ffmpegArgs,
       visualScore: config.visualScore,
       resolvedTimeline: execution.timeline,
+      candidateGenealogy: config.candidateGenealogy || null,
       sourceAudio: {
         path: audioPath,
         filename: analysis.filename,
@@ -250,6 +307,16 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       },
       sourceImage: imagePath
         ? { path: imagePath, filename: path.basename(imagePath) }
+        : null,
+      foreignMaterial: foreignMaterialPlan
+        ? {
+            sourcePath: foreignMaterialPlan.sourcePath,
+            sourceFilename: foreignMaterialPlan.sourceFilename,
+            sourceSpecimenId: foreignMaterialPlan.sourceSpecimenId,
+            sourceSha256: foreignMaterialPlan.sourceSha256,
+            planHash: foreignMaterialPlan.planHash,
+            clipAnalysisHash: foreignMaterialPlan.clipAnalysisHash,
+          }
         : null,
       visualCompiler: filter.visualCompiler,
     };
@@ -330,6 +397,7 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       product: "Full Measure",
       artifact: "Video Receipt",
       createdAt: finishedAt.toISOString(),
+      forcedWitness: compactForcedWitnessEvidence(config.forcedWitnessEvidence),
       source: {
         filename: analysis.filename,
         sha256: sourceHash,
@@ -358,6 +426,10 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
           execution.timeline,
         ),
         typography: filter.typographyEvidence,
+        foreignVisualMaterial: compactForeignMaterialEvidence(
+          foreignMaterialPlan,
+          filter.foreignMaterialEvidence,
+        ),
         userImage: imagePath ? path.basename(imagePath) : null,
         wordsIncluded: filter.lyricTrack.cues.length > 0 || filter.lyricGhostPlan.apparitions.length > 0,
         wordLineCount: filter.lyricTrack.lines.length,
@@ -446,7 +518,9 @@ async function renderResolvedTimelineVideo(config, hooks = {}) {
       },
     };
 
-    const receiptPath = await writeReceipt(receipt, outputPath);
+    const receiptPath = await writeReceipt(receipt, outputPath, {
+      candidateGenealogy: config.candidateGenealogy || null,
+    });
     hooks.onProgress?.({ ratio: 1, renderedSeconds: analysis.duration, duration: analysis.duration });
 
     return {
@@ -521,6 +595,8 @@ async function renderVideo(config, hooks = {}) {
 module.exports = {
   ...legacy,
   applyWitnessWindowToGraph,
+  compactForcedWitnessEvidence,
+  compactForeignMaterialEvidence,
   compactNativeColorEvidence,
   compactToastFeelEvidence,
   renderVideo,

@@ -63,15 +63,20 @@ async function main() {
     throw new Error("Candidate descendant smoke did not produce six previews.");
   }
 
-  const selected = session.select({ familyHash: descendants.familyHash, index: 1 });
+  const focused = session.select({ familyHash: descendants.familyHash, index: 1 });
+  const kept = session.keep({ familyHash: descendants.familyHash, index: 1 });
+  if (focused.timelineHash !== kept.timelineHash || focused.scoreAddress !== kept.scoreAddress) {
+    throw new Error("KEEP did not preserve the focused candidate identity.");
+  }
+
   const execution = session.executionForRender({
     audioPath,
     imagePath: null,
     presetId: "wireOrchard",
     toastFeelId: TOAST_FEEL_ID,
   });
-  if (!execution || execution.resolvedTimeline.timelineHash !== selected.timelineHash) {
-    throw new Error("Selected candidate did not bind its exact timeline to production render.");
+  if (!execution || execution.resolvedTimeline.timelineHash !== kept.timelineHash) {
+    throw new Error("Kept candidate did not bind its exact timeline to production render.");
   }
 
   const result = await renderVideo({
@@ -91,18 +96,32 @@ async function main() {
     throw new Error("Chosen candidate production render was not accepted.");
   }
   if (
-    result.receipt.canonicalExecution.timelineHash !== selected.timelineHash ||
-    result.receipt.canonicalExecution.scoreAddress !== selected.scoreAddress
+    result.receipt.canonicalExecution.timelineHash !== kept.timelineHash ||
+    result.receipt.canonicalExecution.scoreAddress !== kept.scoreAddress
   ) {
-    throw new Error("Production receipt does not identify the exact six-up winner.");
+    throw new Error("Production receipt does not identify the exact kept six-up winner.");
+  }
+  if (
+    JSON.stringify(result.receipt.candidateGenealogy) !==
+    JSON.stringify(execution.candidateGenealogy)
+  ) {
+    throw new Error("Production receipt does not retain the kept candidate genealogy.");
+  }
+  if (
+    result.receipt.canonicalExecution.topologyEvents?.planSha256 !==
+    execution.resolvedTimeline.topologyEvents?.planSha256 ||
+    result.receipt.canonicalExecution.topologyEvents?.acceptedAuthoritySha256 !==
+    execution.resolvedTimeline.topologyEvents?.acceptedAuthoritySha256
+  ) {
+    throw new Error("Production receipt topology plan does not match accepted render input.");
   }
 
   process.stdout.write(
     [
       "Candidate six-up smoke passed.",
       `Family: ${descendants.familyHash}`,
-      `Winner score: ${selected.scoreAddress}`,
-      `Winner timeline: ${selected.timelineHash}`,
+      `Winner score: ${kept.scoreAddress}`,
+      `Winner timeline: ${kept.timelineHash}`,
       `Video: ${result.outputPath}`,
     ].join("\n") + "\n",
   );

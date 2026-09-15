@@ -8,6 +8,10 @@ const {
 } = require("./haunted-typography.cjs");
 const { applyPrimitiveFieldToGraph } = require("./primitive-field.cjs");
 const { applyAtmosphereToGraph } = require("./atmosphere.cjs");
+const {
+  applyResolutionFieldToAtmosphereGraph,
+} = require("./atmosphere-resolution-field.cjs");
+const { applyForeignMaterialToGraph } = require("./foreign-material.cjs");
 
 const TEXT_OVERLAY_FILENAME = "text-overlay.ass";
 const LYRIC_PRIMARY_COLOUR = "&H33FFFFFF";
@@ -148,6 +152,9 @@ async function buildHauntedFilterGraph({
   scoreIdentity = null,
   profileIdentity = null,
   atmosphereTimeline = null,
+  atmosphereResolutionScale = null,
+  foreignMaterialPlan = null,
+  foreignMaterialInputIndex = null,
   ...legacyConfig
 }) {
   const baseFilter = await legacy.buildFilterGraph(legacyConfig);
@@ -183,11 +190,36 @@ async function buildHauntedFilterGraph({
     width: legacyConfig.width,
     height: legacyConfig.height,
   });
+  const atmosphereResolution =
+    atmosphereResolutionScale == null || !atmosphere.evidence.fileName
+      ? null
+      : applyResolutionFieldToAtmosphereGraph({
+          graph: atmosphere.graph,
+          fileName: atmosphere.evidence.fileName,
+          width: legacyConfig.width,
+          height: legacyConfig.height,
+          scale: atmosphereResolutionScale,
+        });
+  const atmosphereEvidence = atmosphereResolution
+    ? Object.freeze({
+        ...atmosphere.evidence,
+        resolutionField: atmosphereResolution.evidence,
+      })
+    : atmosphere.evidence;
+  const foreignMaterial = applyForeignMaterialToGraph({
+    graph: atmosphereResolution?.graph || atmosphere.graph,
+    foreignMaterialPlan,
+    foreignMaterialInputIndex,
+    width: legacyConfig.width,
+    height: legacyConfig.height,
+    fps: legacyConfig.fps,
+  });
   return {
     ...baseFilter,
-    graph: atmosphere.graph,
+    graph: foreignMaterial.graph,
     primitiveFieldEvidence: primitiveField.evidence,
-    atmosphereEvidence: atmosphere.evidence,
+    atmosphereEvidence,
+    foreignMaterialEvidence: foreignMaterial.evidence,
     typographyPlan,
     typographyEvidence: typographyEvidence(typographyPlan),
   };

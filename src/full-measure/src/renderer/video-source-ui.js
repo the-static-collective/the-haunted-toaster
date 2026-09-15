@@ -14,6 +14,15 @@
     install();
   }
 })(typeof window !== "undefined" ? window : null, () => {
+  const TEXTURE_DIGEST_OPERATOR_ID = "clip-luma-texture-v1";
+  const TOPOLOGY_MASK_DIGEST_OPERATOR_ID = "clip-luma-mask-v1";
+
+  function digestOperatorForBinding(binding) {
+    return binding?.digestOperatorId === TOPOLOGY_MASK_DIGEST_OPERATOR_ID
+      ? TOPOLOGY_MASK_DIGEST_OPERATOR_ID
+      : TEXTURE_DIGEST_OPERATOR_ID;
+  }
+
   function formatVideoHint(binding) {
     const probe = binding?.probe || {};
     const duration = Number(probe.durationSeconds);
@@ -70,6 +79,13 @@
             <span class="video-pantry-track" aria-hidden="true"><i></i></span>
             <span>Add to VSPantry</span>
           </label>
+          <label class="video-digest-control is-hidden" for="videoDigestOperator">
+            <span>Video digestion</span>
+            <select id="videoDigestOperator">
+              <option value="clip-luma-texture-v1">Texture</option>
+              <option value="clip-luma-mask-v1">Topology mask · experimental</option>
+            </select>
+          </label>
           <button class="remove-image is-hidden" id="removeVideo" type="button">Clear video</button>
         </div>
       </div>
@@ -79,9 +95,18 @@
     const title = sourceMount.querySelector("#videoDropTitle");
     const hint = sourceMount.querySelector("#videoDropHint");
     const addToPantry = sourceMount.querySelector("#addVideoToPantry");
+    const digestControl = sourceMount.querySelector(".video-digest-control");
+    const digestOperator = sourceMount.querySelector("#videoDigestOperator");
     const remove = sourceMount.querySelector("#removeVideo");
     let importInFlight = false;
     let pantryStateBeforeImport = "empty";
+    let admittedVideo = false;
+    let acceptedDigestOperator = TEXTURE_DIGEST_OPERATOR_ID;
+
+    function setDigestVisible(visible) {
+      digestControl.classList.toggle("is-hidden", !visible);
+      digestOperator.disabled = !visible;
+    }
 
     function setImportBusy(busy) {
       importInFlight = Boolean(busy);
@@ -122,6 +147,10 @@
       try {
         const result = await api.chooseVideo({ addToPantry: addToPantry.checked });
         if (!result?.binding) return;
+        admittedVideo = true;
+        acceptedDigestOperator = digestOperatorForBinding(result.binding);
+        digestOperator.value = acceptedDigestOperator;
+        setDigestVisible(true);
         title.textContent = result.binding.filename || "Video selected";
         hint.textContent = formatVideoHint(result.binding) || "Video selected";
         remove.classList.remove("is-hidden");
@@ -133,6 +162,34 @@
         }
       } catch (error) {
         status.textContent = `Video refused · ${String(error?.message || error)}`;
+      }
+    });
+
+    digestOperator.addEventListener("change", async () => {
+      if (!admittedVideo || typeof api.setVideoDigestOperator !== "function") {
+        digestOperator.value = acceptedDigestOperator;
+        return;
+      }
+      const requestedOperator = digestOperator.value;
+      digestOperator.disabled = true;
+      try {
+        const binding = await api.setVideoDigestOperator(requestedOperator);
+        acceptedDigestOperator = digestOperatorForBinding(binding);
+        digestOperator.value = acceptedDigestOperator;
+        const view = document.defaultView;
+        if (view?.CustomEvent) {
+          view.dispatchEvent(new view.CustomEvent("video-digest-change", {
+            detail: { operatorId: acceptedDigestOperator },
+          }));
+        }
+        status.textContent = acceptedDigestOperator === TOPOLOGY_MASK_DIGEST_OPERATOR_ID
+          ? "Video digestion · Topology mask · generate six again"
+          : "Video digestion · Texture · generate six again";
+      } catch (error) {
+        digestOperator.value = acceptedDigestOperator;
+        status.textContent = `Video digestion refused · ${String(error?.message || error)}`;
+      } finally {
+        digestOperator.disabled = !admittedVideo;
       }
     });
 
@@ -157,11 +214,16 @@
 
     remove.addEventListener("click", async () => {
       await api.clearVideo();
+      admittedVideo = false;
+      acceptedDigestOperator = TEXTURE_DIGEST_OPERATOR_ID;
+      digestOperator.value = acceptedDigestOperator;
+      setDigestVisible(false);
       title.textContent = "Add one video";
       hint.textContent = "Optional · MP4 or WebM";
       remove.classList.add("is-hidden");
     });
 
+    setDigestVisible(false);
     void refreshPantry();
     return true;
   }

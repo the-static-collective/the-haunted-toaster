@@ -30,14 +30,17 @@ test('candidate session stores and clears a Video source binding', () => {
   assert.equal(session.state().video, null);
 });
 
-test('Slice A leaves render execution authority unaware of Video', () => {
+test('WALK A crosses Video into render only as a derived foreign-material plan', () => {
   const source = read(candidateSessionPath);
   const start = source.indexOf('function executionForRender');
   const end = source.indexOf('function registerIpc', start);
   assert.notEqual(start, -1);
   assert.notEqual(end, -1);
   const executionSource = source.slice(start, end);
-  assert.doesNotMatch(executionSource, /videoBinding|videoPath|foreignVisual|specimenId|\bvideo\b/);
+  assert.match(executionSource, /foreignVisualMaterial:\s*createForeignMaterialPlan\(\{/);
+  assert.match(executionSource, /videoBinding:\s*video \? structuredClone\(video\) : null/);
+  assert.doesNotMatch(executionSource, /\n\s+video:\s/);
+  assert.doesNotMatch(executionSource, /\n\s+videoPath:\s/);
 });
 
 test('canonical candidate session owns the bounded Video/VSPantry integration seam', () => {

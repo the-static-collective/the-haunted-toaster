@@ -1,35 +1,58 @@
-# The Haunted Toaster
+# The Haunted Toaster — application package
 
-> Drop in a song. Receive the whole music video.
+> **SONG IN → FINISHED VIDEO OUT**
 
-The Haunted Toaster is a local-first desktop music-video instrument. It turns a finished song into one complete 1920×1080 MP4 using an optional image, a procedural visual garment, audio-reactive motion, and an optional lyric layer. The core render path requires no account, cloud upload, subscription, API key, or media credits.
+This directory is the versioned application package for The Haunted Toaster. The repository-root README is the product overview; this file describes the executable package boundary.
 
-Every accepted render also produces a **Video Receipt** containing source and output hashes, media facts, detected energy sections, render settings, lyric timing provenance, audio handling, and post-render duration validation.
+Human release epoch: **HAUNTED TOASTER — BETA 0.0.0**  
+Application package identity: **`0.0.0-beta.0`**
 
-## Version 0.4.0 demo cut
+Draft PR #275 (`beta/reconcile-0.0.0`) is the proposed reconciliation carrier. `main` remains product authority until that carrier lands.
 
-This release candidate combines the 0.3.1 instrument with the repaired lyric and animation clock:
+The Haunted Toaster is a local-first deterministic music-video instrument. It analyzes a finished song, builds a bounded candidate ecology, lets the human explicitly decide continuation with KEEP / SCRAPE, resolves a kept creature into one exact timeline, and renders a complete 1920×1080 music video with provenance artifacts.
 
-- frame-rate-independent FFmpeg motion timing;
-- one normalized cue timeline shared by preview and render;
-- exact cue-boundary selection without swallowed gaps or arbitrary extensions;
-- deterministic regression tests for fractional boundaries, long songs, gaps, and frame-rate expressions;
-- canonical Haunted Toaster packaging and launcher;
-- root-level CI that proves tests, audit, smoke renders, receipts, and optional Windows packaging.
+## Current invariant
 
-See [`DEMO.md`](DEMO.md) for the presentation path and release gate.
-
-## Core invariant
-
-The instrument succeeds only when this path succeeds:
+The ordinary BETA path is:
 
 1. Choose or drop a finished song.
-2. Optionally add one image, title, artist, and lyrics.
-3. Choose Porchlight, Wire Orchard, or Absolute Residual.
-4. Click **Make full video**.
-5. Receive one playable, full-song MP4 with audio, video, and an accepted receipt.
+2. Optionally provide artwork/video material, title, artist, and lyrics.
+3. Inspect the song and build deterministic response evidence.
+4. Generate a bounded six-up candidate family.
+5. Focus may inspect a creature but does not grant ancestry.
+6. **KEEP** grants continuation authority to the exact selected creature, or **SCRAPE** rejects the family and deterministically searches again without negative-preference inference.
+7. Resolve the kept candidate to an exact `ResolvedTimeline`.
+8. Render that exact accepted authority.
+9. Receive one playable full-song MP4 plus evidence artifacts.
 
-Generated clips and online models are not part of the critical path.
+The ordinary candidate render handoff requires KEEP. The explicitly forced TEST 6 witness path remains separate and declared.
+
+The selected song remains the sole soundtrack. Haunted Toaster does not regenerate, remix, stretch, truncate, or add sound.
+
+## Current creative machinery
+
+The active reconciliation carrier includes:
+
+- deterministic six-up candidate families;
+- observational focus plus explicit `keep()` / `scrape()` continuation transitions;
+- KEEP-required ordinary candidate render authority;
+- VisualScore addressing and exact timeline replay evidence;
+- MUTATE, exact two-parent CROSS, STOMP, and CONVERGE/frontier exploration as deeper substrate;
+- role-separated branch diversity;
+- candidate genealogy and accepted-history plumbing;
+- APERTURE, SPEAK, GRAB, GROW, and BODY topology/composition behavior;
+- deterministic TEST 6 witnesses kept outside ordinary mutation ecology;
+- L BRANCH response/mix-plan machinery;
+- admitted foreign video material and existing digestion descendants;
+- Haunted Typography and lyric/ghost residue;
+- local Listener-assisted lyric timing with human correction authority;
+- Dogram `comparison-only` sidecar evidence;
+- deterministic Haunted Haiku `descriptive-only` publication copy;
+- score/timeline/receipt/subtitle evidence around accepted renders.
+
+The machine owns reproductive operations; ordinary human interaction owns continuation. Development controls may still expose deeper machinery, but manually exercising each internal verb is not a BETA 0.0.0 release gate.
+
+See [`../../docs/BETA_0.0.0_TRUTH_FLOOR.md`](../../docs/BETA_0.0.0_TRUTH_FLOOR.md) and [`../../docs/superpowers/specs/2026-09-15-madd-clown-crazy-slots-design.md`](../../docs/superpowers/specs/2026-09-15-madd-clown-crazy-slots-design.md).
 
 ## Lyrics
 
@@ -39,9 +62,9 @@ Paste plain lyrics or import LRC, SRT, VTT, or timestamped JSON.
 - LRC locks each line to its vocal entrance.
 - SRT and VTT preserve supplied cue starts and ends.
 - Timestamped JSON accepts Haunted Toaster cues and common Whisper/WhisperX-style segment, transcription, and word arrays.
-- Word-only JSON is grouped into readable phrases without replacing the supplied words.
+- Word-only JSON is grouped into readable phrases without replacing supplied words.
 
-On 64-bit Windows, the optional local **Listener** can lend timing to supplied English lyrics. It downloads a verified whisper.cpp CPU binary and compact model once, then works locally. The transcript never becomes lyric authority. Uncertain or unmatched lines remain visible for timecode, drag, nudge, or Spacebar correction.
+On 64-bit Windows, the optional local **Listener** can lend timing to supplied English lyrics. The transcript does not become lyric authority. Uncertain or unmatched lines remain available for human correction.
 
 See [`docs/LYRIC_TIMING.md`](docs/LYRIC_TIMING.md) and [`docs/AUTO_SYNC.md`](docs/AUTO_SYNC.md).
 
@@ -52,54 +75,51 @@ Requirements:
 - Node.js 22 or newer;
 - npm.
 
-On Windows, double-click:
-
-```text
-START_HAUNTED_TOASTER.bat
-```
-
-Or run directly:
+From the repository root:
 
 ```bash
-npm ci
-npm start
+npm --prefix src/full-measure ci
+npm run start
 ```
 
-The first setup requires internet access for dependencies. Rendering is local afterward. The historical `START_FULL_MEASURE.bat` and `fullMeasure` preload bridge remain temporarily for compatibility.
+On Windows, `START_HAUNTED_TOASTER.bat` remains the double-click entry point.
 
-## Prove the renderer
+## Prove the renderer and application
+
+From the repository root:
 
 ```bash
-npm run check
-npm test
-npm audit --omit=dev --audit-level=high
-npm run smoke
+npm --prefix src/full-measure ci
+npm run verify
+npm --prefix src/full-measure test
+npm --prefix src/full-measure run smoke
+npm --prefix src/full-measure run pack
+npm --prefix src/full-measure audit --omit=dev --audit-level=high
 ```
 
-The smoke proof creates short multi-section audio fixtures, renders complete 1080p outputs, validates their streams and duration, and writes MP4/receipt pairs to `test-artifacts/`.
+GitHub Actions also performs the production renderer/browser witness. BETA 0.0.0 additionally requires Windows Setup + Portable artifacts and one normal packaged-use witness from the same exact head.
 
 ## Audio preservation
 
-The selected song remains the sole soundtrack. The Haunted Toaster never regenerates, remixes, stretches, truncates, or adds sound.
-
 - MP3 and AAC streams are copied into MP4 where the container permits it.
-- WAV/PCM and FLAC are encoded to high-quality 320 kbps AAC for portable MP4 playback.
-- Timing, pitch, channel layout, and full-song duration are preserved within the accepted validation tolerance.
-
-The receipt records which path was used.
+- WAV/PCM and FLAC are encoded to high-quality AAC for portable MP4 playback.
+- Timing, pitch, channel layout, and full-song duration are preserved within accepted validation tolerance.
+- The receipt records which path was used.
 
 ## Architecture
 
-- `src/align/` — verified Listener setup, local transcription, monotonic lyric matching, sidecars, and correction data;
+- `src/align/` — Listener setup, local transcription, matching, sidecars, and correction data;
+- `src/generation/` — VisualScore, candidate ecology, diversity, mutation/cross/frontier/topology composition machinery;
+- `src/memory/` — receipt archive, verdict/projection/capsule primitives and preserved memory experiments;
 - `src/render/` — analysis, procedural artwork, FFmpeg rendering, validation, and receipts;
-- `src/main.cjs` — narrow Electron IPC boundary;
-- `src/preload.cjs` — isolated desktop bridge and product shell;
-- `src/renderer/` — dependency-free interface;
-- `scripts/smoke-render.cjs` — end-to-end render proof;
-- `tests/` — deterministic analysis, lyrics, renderer, alignment, and receipt tests.
+- `src/main.cjs` — Electron/main process and candidate-session authority boundary;
+- `src/preload.cjs` — isolated desktop bridge;
+- `src/renderer/` — product UI, candidate interaction, Listener controls, and development surfaces;
+- `scripts/` — smoke/proof/package support;
+- `tests/` — deterministic generation, authority, interaction, rendering, alignment, and receipt proof.
 
 ## Honest boundary
 
-The compact Listener targets English vocals on 64-bit Windows. Dense mixes, extreme effects, overlapping singers, and sustained syllables may need human correction. The Windows package is unsigned and may trigger SmartScreen.
+BETA 0.0.0 is a reconciliation cut, not a declaration that every future Toaster idea is complete. Motion-mask work, temporal Video modes, Aperture Shape, HyperFood/HyperFrames descendants, broader cross-session taste learning, and other future feature lanes remain outside this release floor.
 
-Version 0.4.0 does not yet contain the planned portable `VisualScore`, deterministic mutation engine, circular or mirrored-ring topology, score breeding, or replay/diff interface. Those are the next architectural generation and are deliberately excluded from this stable demo cut.
+The Windows package is unsigned and may trigger SmartScreen.

@@ -1,7 +1,10 @@
+const crypto = require("node:crypto");
+const fs = require("node:fs");
 const path = require("node:path");
 const generation = require("./generation/index.cjs");
 const { admitLabProposal, parseLabProposalTransfer } = require("./lab-proposal.cjs");
 const { renderCandidateFamilyPreviews } = require("./render/candidate-preview.cjs");
+const { createForeignMaterialPlan } = require("./render/foreign-material.cjs");
 const { createLyricTrack } = require("./render/lyrics.cjs");
 const { getToastFeel } = require("./toast-feels.cjs");
 const { registerVideoPantryIpc } = require("./video-pantry/electron-ipc.cjs");
@@ -20,6 +23,39 @@ const CONSTRAINTS_BY_PRESET = Object.freeze({
   wireOrchard,
   absoluteResidual,
 });
+const SHA256_PATTERN = /^[0-9a-f]{64}$/;
+const HASH_CHUNK_BYTES = 1024 * 1024;
+
+function normalizeSourceSha256(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return SHA256_PATTERN.test(normalized) ? normalized : null;
+}
+
+function hashFileSha256Sync(filePath) {
+  const hash = crypto.createHash("sha256");
+  const descriptor = fs.openSync(path.resolve(filePath), "r");
+  const buffer = Buffer.allocUnsafe(HASH_CHUNK_BYTES);
+  try {
+    let bytesRead = 0;
+    do {
+      bytesRead = fs.readSync(descriptor, buffer, 0, buffer.length, null);
+      if (bytesRead > 0) hash.update(buffer.subarray(0, bytesRead));
+    } while (bytesRead > 0);
+  } finally {
+    fs.closeSync(descriptor);
+  }
+  return hash.digest("hex");
+}
+
+function sourceSha256ForAudio(filePath, analysis = null) {
+  const declared = normalizeSourceSha256(analysis?.sourceSha256);
+  if (declared) return declared;
+  try {
+    return hashFileSha256Sync(filePath);
+  } catch {
+    return null;
+  }
+}
 
 function toGenerationAnalysis(mediaAnalysis) {
   if (!mediaAnalysis || !Number.isFinite(Number(mediaAnalysis.duration))) {
@@ -76,6 +112,59 @@ function sameVideoBinding(left, right) {
   return false;
 }
 
+function candidateGenealogyEvidence(family, candidate) {
+  if (!family || !candidate) return null;
+  const stompPolicy = candidate.scoreArtifact?.derivation?.policy || null;
+  const stomp = family.phase === "stomp" && stompPolicy?.candidatePolicy === "visible-outcome-stomp-v1"
+    ? {
+        policy: stompPolicy.candidatePolicy,
+        sourceCandidatePolicy: stompPolicy.sourceCandidatePolicy || null,
+        role: stompPolicy.stompRole || candidate.role || null,
+        parentScoreRef: stompPolicy.parentScoreRef || null,
+        locks: Array.isArray(stompPolicy.locks) ? [...stompPolicy.locks] : [],
+        samplingSeed: stompPolicy.samplingSeed || null,
+        poolAttempt: Number.isInteger(stompPolicy.poolAttempt) ? stompPolicy.poolAttempt : null,
+        categoricalBreaks: Array.isArray(stompPolicy.categoricalBreaks)
+          ? [...stompPolicy.categoricalBreaks]
+          : [],
+        primitiveBreaks: Array.isArray(stompPolicy.primitiveBreaks)
+          ? [...stompPolicy.primitiveBreaks]
+          : [],
+        visibleDistanceFromParent: Number.isFinite(stompPolicy.visibleDistanceFromParent)
+          ? stompPolicy.visibleDistanceFromParent
+          : null,
+        minimumSiblingDistance: Number.isFinite(stompPolicy.minimumSiblingDistance)
+          ? stompPolicy.minimumSiblingDistance
+          : null,
+        thresholdRelaxation: stompPolicy.thresholdRelaxation
+          ? structuredClone(stompPolicy.thresholdRelaxation)
+          : null,
+        stompIntensity: stompPolicy.stompIntensity
+          ? structuredClone(stompPolicy.stompIntensity)
+          : null,
+      }
+    : null;
+  return {
+    schema: "haunted-toaster/candidate-genealogy/v1",
+    familyHash: family.familyHash,
+    familyPolicy: family.policy || null,
+    phase: family.phase || null,
+    rootSeed: family.rootSeed || null,
+    parentScoreRef: family.parentScoreRef || null,
+    baselineScoreRef: family.baselineScoreRef || null,
+    candidateIndex: candidate.index,
+    slotIndex: Number.isInteger(candidate.slotIndex) ? candidate.slotIndex : null,
+    role: candidate.role || null,
+    scoreAddress: candidate.scoreAddress,
+    timelineHash: candidate.timelineHash,
+    changedAxes: Array.isArray(candidate.changedAxes) ? [...candidate.changedAxes] : [],
+    toastmoodLane: candidate.toastmoodLane ? structuredClone(candidate.toastmoodLane) : null,
+    crossLineage: candidate.crossLineage ? structuredClone(candidate.crossLineage) : null,
+    frontierEvidence: candidate.frontierEvidence ? structuredClone(candidate.frontierEvidence) : null,
+    stomp,
+  };
+}
+
 function createCandidateSession({
   renderCandidateFamilyPreviews: renderPreviews = renderCandidateFamilyPreviews,
   analyzeNativeChromaticProfile: analyzeProfile = defaultAnalyzeNativeChromaticProfile,
@@ -88,24 +177,37 @@ function createCandidateSession({
   let family = null;
   let familyBinding = null;
   let selection = null;
+  let keptSelection = null;
+  let candidateEcologyEntered = false;
   let stagedLabProposal = null;
   let acceptedHistory = [];
+  let scrapeIndex = 0;
   let busy = false;
 
-  function clearCandidates() {
+  function clearCandidates({ resetEcology = false } = {}) {
     family = null;
     familyBinding = null;
     selection = null;
+    keptSelection = null;
+    scrapeIndex = 0;
+    if (resetEcology) candidateEcologyEntered = false;
   }
 
   function noteAudio(nextAudioPath, nextMediaAnalysis) {
     const resolved = path.resolve(nextAudioPath);
-    if (audioPath !== resolved) {
-      clearCandidates();
+    const priorSourceSha256 = normalizeSourceSha256(mediaAnalysis?.sourceSha256);
+    const nextSourceSha256 = sourceSha256ForAudio(resolved, nextMediaAnalysis);
+    if (
+      audioPath !== resolved ||
+      (priorSourceSha256 && nextSourceSha256 && priorSourceSha256 !== nextSourceSha256)
+    ) {
+      clearCandidates({ resetEcology: true });
       acceptedHistory = [];
     }
     audioPath = resolved;
-    mediaAnalysis = nextMediaAnalysis;
+    mediaAnalysis = nextMediaAnalysis && nextSourceSha256
+      ? { ...nextMediaAnalysis, sourceSha256: nextSourceSha256 }
+      : nextMediaAnalysis;
   }
 
   function noteImage(nextImagePath) {
@@ -176,6 +278,110 @@ function createCandidateSession({
     return timedLyricTrack(config.lyrics, Number(mediaAnalysis.duration));
   }
 
+  function admitPostWalkAxisFamily(sourceFamily, { responseWitness, lyricTrack }) {
+    const birthFamily = generation.attachTopologyEventAuthorities(sourceFamily);
+    const laneBank = generation.buildLaneBank({ responseWitness, lyricTrack });
+    const candidates = birthFamily.candidates.map((candidate) => {
+      const authority = candidate.topologyEventAuthority;
+      const recipe = generation.buildPostWalkAxisRecipe(candidate.index);
+      const admitted = generation.composePostWalkAxisRecipe({
+        family: birthFamily,
+        candidate,
+        authority,
+        laneBank,
+        recipe,
+        rootSeed: authority.rootSeed,
+        slotIndex: authority.slotIndex,
+      });
+      if (!admitted.ok) {
+        const reason = admitted.refusal?.reason || "unknown-refusal";
+        const error = new Error(`POST_WALK_AXIS_REFUSED: ${reason}.`);
+        error.code = "POST_WALK_AXIS_REFUSED";
+        error.refusal = admitted.refusal ? structuredClone(admitted.refusal) : null;
+        throw error;
+      }
+      return Object.freeze({
+        ...candidate,
+        timeline: admitted.timeline,
+        timelineHash: admitted.timeline.timelineHash,
+        postWalkAxisRecipeHash: recipe.recipeHash,
+        postWalkAxisRecipe: Object.freeze({
+          schema: recipe.schema,
+          policyVersion: recipe.policyVersion,
+          recipeHash: recipe.recipeHash,
+          response: recipe.response,
+          scope: recipe.scope,
+          consequence: recipe.consequence,
+        }),
+        laneBankHash: laneBank.laneBankHash,
+        mixPlanHash: admitted.mixPlan.planHash,
+      });
+    });
+    const {
+      familyHash: _familyHash,
+      candidates: _candidates,
+      timelineHashes: _timelineHashes,
+      ...stableCore
+    } = birthFamily;
+    const core = {
+      ...structuredClone(stableCore),
+      timelineHashes: candidates.map((candidate) => candidate.timelineHash),
+    };
+    return Object.freeze({
+      ...core,
+      familyHash: generation.hashCanonical(core, "HauntedToaster-CandidateFamily-v1"),
+      candidates,
+    });
+  }
+
+  function enrichOrdinaryFamily(sourceFamily, {
+    analysis,
+    responseWitness,
+    constraints,
+    lyricTrack,
+    profile,
+    postWalkAxisGrammar = false,
+  }) {
+    if (postWalkAxisGrammar === true) {
+      const admittedFamily = admitPostWalkAxisFamily(sourceFamily, {
+        responseWitness,
+        lyricTrack,
+      });
+      return Object.freeze({
+        ...admittedFamily,
+        forcedWitness: false,
+        fixtureFamily: null,
+        toastFeel: sourceFamily.toastFeel || null,
+        toastmoodField: sourceFamily.toastmoodField || null,
+        cross: sourceFamily.cross || null,
+      });
+    }
+    const projected = generation.projectOrdinaryGrabView(sourceFamily, {
+      authorityForCandidate(candidate) {
+        return generation.canonicalAuthorityForCandidate(sourceFamily, candidate, {
+          analysis,
+          responseWitness,
+          garmentConstraints: constraints,
+          rendererProfile,
+          lyricTrack,
+          nativeChromaticProfile: profile,
+        });
+      },
+    });
+    const lBranchFamily = generation.attachLBranchToFamily(projected, {
+      responseWitness,
+      lyricTrack,
+    });
+    return Object.freeze({
+      ...lBranchFamily,
+      forcedWitness: false,
+      fixtureFamily: null,
+      toastFeel: sourceFamily.toastFeel || null,
+      toastmoodField: sourceFamily.toastmoodField || null,
+      cross: sourceFamily.cross || null,
+    });
+  }
+
   async function materialize(nextFamily, config, signal, influence = null) {
     const requestedFeel = currentToastFeel(config.toastFeelId, { optional: true });
     const familyFeel = nextFamily.toastFeel?.id
@@ -189,6 +395,7 @@ function createCandidateSession({
       {
         audioPath,
         imagePath,
+        video: video ? structuredClone(video) : null,
         analysis: mediaAnalysis,
         presetId: config.presetId,
         title: config.title,
@@ -198,9 +405,11 @@ function createCandidateSession({
       nextFamily,
       { signal },
     );
+    candidateEcologyEntered = true;
     family = nextFamily;
     familyBinding = {
       audioPath,
+      audioSourceSha256: normalizeSourceSha256(mediaAnalysis?.sourceSha256),
       imagePath,
       presetId: config.presetId,
       toastFeelId: feel?.id || null,
@@ -210,8 +419,13 @@ function createCandidateSession({
       labInfluence: influence,
     };
     selection = null;
+    keptSelection = null;
     return {
       ...previewView,
+      schema: nextFamily.schema,
+      policy: nextFamily.policy,
+      forcedWitness: nextFamily.forcedWitness === true,
+      fixtureFamily: nextFamily.fixtureFamily || null,
       toastFeel: feel ? structuredClone(nextFamily.toastFeel || feel) : null,
       toastmoodField: nextFamily.toastmoodField ? structuredClone(nextFamily.toastmoodField) : null,
       cross: nextFamily.cross ? structuredClone(nextFamily.cross) : null,
@@ -221,6 +435,7 @@ function createCandidateSession({
 
   async function generate(config = {}, signal) {
     assertReady();
+    scrapeIndex = 0;
     const feel = currentToastFeel(config.toastFeelId, { optional: true });
     busy = true;
     try {
@@ -244,7 +459,7 @@ function createCandidateSession({
             admittedScoreAddress: admitted.scoreArtifact.address,
           }
         : { enabled: false };
-      const nextFamily = generation.generateCandidateSet({
+      const sourceFamily = generation.generateCandidateSet({
         analysis,
         responseWitness,
         garmentConstraints: constraints,
@@ -257,7 +472,52 @@ function createCandidateSession({
         toastFeelId: feel?.id || null,
         nativeChromaticProfile: profile,
       });
-      return await materialize(nextFamily, config, signal, influence);
+      const nextFamily = enrichOrdinaryFamily(sourceFamily, {
+        analysis,
+        responseWitness,
+        constraints,
+        lyricTrack,
+        profile,
+        postWalkAxisGrammar: config.postWalkAxisGrammar === true,
+      });
+      return await materialize(
+        nextFamily,
+        config,
+        signal,
+        { ...influence, forcedWitness: false },
+      );
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function generateTestSix(config = {}, signal) {
+    assertReady();
+    scrapeIndex = 0;
+    currentToastFeel(config.toastFeelId, { optional: true });
+    busy = true;
+    try {
+      const constraints = currentConstraints(config.presetId);
+      const profile = await ensureNativeChromaticProfile();
+      const lyricTrack = lyricTrackFor(config);
+      const analysis = toGenerationAnalysis(mediaAnalysis);
+      const responseWitness = responseWitnessFor(mediaAnalysis, analysis);
+      const nextFamily = generation.generateTestSixWitnessFamily({
+        analysis,
+        responseWitness,
+        garmentConstraints: constraints,
+        rendererProfile,
+        rootSeed: config.rootSeed,
+        lyricTrack,
+        toastFeelId: null,
+        nativeChromaticProfile: profile,
+      });
+      return await materialize(
+        nextFamily,
+        { ...config, toastFeelId: null },
+        signal,
+        { enabled: false, forcedWitness: true },
+      );
     } finally {
       busy = false;
     }
@@ -274,6 +534,12 @@ function createCandidateSession({
     }
   }
 
+  function assertOrdinaryEcology() {
+    if (family?.forcedWitness === true || family?.fixtureFamily === "test-6") {
+      throw new Error("TEST 6 is a forced witness and cannot enter mutation ecology.");
+    }
+  }
+
   function feelForParent(config, parent) {
     const explicit = currentToastFeel(config.toastFeelId, { optional: true });
     if (explicit) return explicit;
@@ -285,6 +551,8 @@ function createCandidateSession({
   async function mutate(config = {}, signal) {
     assertReady();
     assertCurrentFamily(config);
+    assertOrdinaryEcology();
+    scrapeIndex = 0;
     const parent = family.candidates[Number(config.parentIndex)];
     if (!parent) throw new TypeError("Choose a current candidate before mutating.");
     const feel = feelForParent(config, parent);
@@ -349,6 +617,14 @@ function createCandidateSession({
           throw refusal;
         }
       }
+      nextFamily = enrichOrdinaryFamily(nextFamily, {
+        analysis,
+        responseWitness,
+        constraints,
+        lyricTrack,
+        profile,
+        postWalkAxisGrammar: config.postWalkAxisGrammar === true,
+      });
       return await materialize(
         nextFamily,
         { ...config, toastFeelId: feel?.id || null },
@@ -363,6 +639,8 @@ function createCandidateSession({
   async function cross(config = {}, signal) {
     assertReady();
     assertCurrentFamily(config);
+    assertOrdinaryEcology();
+    scrapeIndex = 0;
     if (!Array.isArray(config.parentIndexes) || config.parentIndexes.length !== 2) {
       throw new TypeError("CROSS requires exactly two current parent candidates.");
     }
@@ -377,7 +655,8 @@ function createCandidateSession({
       const profile = await ensureNativeChromaticProfile();
       const analysis = toGenerationAnalysis(mediaAnalysis);
       const responseWitness = responseWitnessFor(mediaAnalysis, analysis);
-      const nextFamily = generation.generateCrossCandidateSet({
+      const lyricTrack = lyricTrackFor(config);
+      const sourceFamily = generation.generateCrossCandidateSet({
         analysis,
         responseWitness,
         garmentConstraints: constraints,
@@ -388,9 +667,17 @@ function createCandidateSession({
         rootSeed: config.rootSeed,
         count: 6,
         phase: "cross",
-        lyricTrack: lyricTrackFor(config),
+        lyricTrack,
         toastFeelId: feel?.id || null,
         nativeChromaticProfile: profile,
+      });
+      const nextFamily = enrichOrdinaryFamily(sourceFamily, {
+        analysis,
+        responseWitness,
+        constraints,
+        lyricTrack,
+        profile,
+        postWalkAxisGrammar: config.postWalkAxisGrammar === true,
       });
       return await materialize(
         nextFamily,
@@ -406,6 +693,8 @@ function createCandidateSession({
   async function stomp(config = {}, signal) {
     assertReady();
     assertCurrentFamily(config);
+    assertOrdinaryEcology();
+    scrapeIndex = 0;
     const parent = family.candidates[Number(config.parentIndex)];
     if (!parent) throw new TypeError("Choose a current candidate before stomping.");
     const feel = feelForParent(config, parent);
@@ -416,7 +705,8 @@ function createCandidateSession({
       const profile = await ensureNativeChromaticProfile();
       const analysis = toGenerationAnalysis(mediaAnalysis);
       const responseWitness = responseWitnessFor(mediaAnalysis, analysis);
-      const nextFamily = generation.generateStompCandidateSet({
+      const lyricTrack = lyricTrackFor(config);
+      const sourceFamily = generation.generateStompCandidateSet({
         analysis,
         responseWitness,
         garmentConstraints: constraints,
@@ -425,10 +715,18 @@ function createCandidateSession({
         locks: config.locks || [],
         rootSeed: config.rootSeed,
         count: 6,
-        lyricTrack: lyricTrackFor(config),
+        lyricTrack,
         toastFeelId: feel.id,
         nativeChromaticProfile: profile,
         parentNativeColorPlan: parent.timeline?.nativeColor || null,
+      });
+      const nextFamily = enrichOrdinaryFamily(sourceFamily, {
+        analysis,
+        responseWitness,
+        constraints,
+        lyricTrack,
+        profile,
+        postWalkAxisGrammar: config.postWalkAxisGrammar === true,
       });
       return await materialize(
         nextFamily,
@@ -441,19 +739,33 @@ function createCandidateSession({
     }
   }
 
+  function continuationReceipt({ verdict, sourceFamilyHash, candidate = null, operation = null, resultFamilyHash = null }) {
+    const core = {
+      schema: "haunted-toaster/continuation-verdict/v0",
+      policyVersion: "continuation-without-preference-v0",
+      verdict,
+      authority: verdict === "KEEP" ? "continuation-only" : "search-only",
+      preferenceInference: "none",
+      sourceFamilyHash,
+      sourceAudioSha256: familyBinding?.audioSourceSha256 || null,
+      candidateIndex: candidate ? candidate.index : null,
+      scoreAddress: candidate ? candidate.scoreAddress : null,
+      timelineHash: candidate ? candidate.timelineHash : null,
+      operation: operation ? structuredClone(operation) : null,
+      resultFamilyHash,
+    };
+    return Object.freeze({
+      ...core,
+      receiptHash: generation.hashCanonical(core, "HauntedToaster-ContinuationVerdict-v0"),
+    });
+  }
+
   function select(config = {}) {
     assertCurrentFamily(config);
     const candidate = family.candidates[Number(config.index)];
     if (!candidate) throw new TypeError("Choose a current candidate.");
     selection = candidate;
-    if (!acceptedHistory.some((score) => generation.addressVisualScore(score) === candidate.scoreAddress)) {
-      acceptedHistory.push(candidate.scoreArtifact.score);
-    }
-    if (!familyBinding.toastFeelId && candidate.toastmoodLane?.id) {
-      const inheritedFeel = currentToastFeel(candidate.toastmoodLane.id);
-      familyBinding.toastFeelId = inheritedFeel.id;
-      familyBinding.toastFeel = structuredClone(inheritedFeel);
-    }
+    if (candidate.forcedWitness === true) keptSelection = candidate;
     return {
       familyHash: family.familyHash,
       index: candidate.index,
@@ -463,21 +775,213 @@ function createCandidateSession({
       crossLineage: candidate.crossLineage || null,
       toastmoodLane: candidate.toastmoodLane || null,
       toastFeel: familyBinding.toastFeel ? structuredClone(familyBinding.toastFeel) : null,
+      forcedWitnessEvidence: candidate.forcedWitnessEvidence
+        ? structuredClone(candidate.forcedWitnessEvidence)
+        : null,
       acceptedHistoryCount: acceptedHistory.length,
+      continuationPermission: candidate.forcedWitness === true ? "forced-witness" : false,
       labInfluence: familyBinding?.labInfluence || { enabled: false },
     };
   }
 
-  function executionForRender(config = {}) {
-    if (!selection || !familyBinding) return null;
-    if (path.resolve(config.audioPath) !== familyBinding.audioPath) return null;
-    if (config.presetId !== familyBinding.presetId) return null;
-    if ((config.toastFeelId || null) !== (familyBinding.toastFeelId || null)) return null;
-    if (!sameOptionalPath(config.imagePath, familyBinding.imagePath)) return null;
+  function keep(config = {}) {
+    assertCurrentFamily(config);
+    const candidate = family.candidates[Number(config.index)];
+    if (!candidate) throw new TypeError("Choose a current candidate before KEEP.");
+    selection = candidate;
+    keptSelection = candidate;
+    scrapeIndex = 0;
+    if (
+      candidate.forcedWitness !== true &&
+      !acceptedHistory.some((score) => generation.addressVisualScore(score) === candidate.scoreAddress)
+    ) {
+      acceptedHistory.push(candidate.scoreArtifact.score);
+    }
+    if (
+      candidate.forcedWitness !== true &&
+      !familyBinding.toastFeelId &&
+      candidate.toastmoodLane?.id
+    ) {
+      const inheritedFeel = currentToastFeel(candidate.toastmoodLane.id);
+      familyBinding.toastFeelId = inheritedFeel.id;
+      familyBinding.toastFeel = structuredClone(inheritedFeel);
+    }
+    const receipt = continuationReceipt({
+      verdict: "KEEP",
+      sourceFamilyHash: family.familyHash,
+      candidate,
+    });
     return {
-      visualScore: selection.scoreArtifact.score,
-      resolvedTimeline: selection.timeline,
+      verdict: "KEEP",
+      familyHash: family.familyHash,
+      index: candidate.index,
+      scoreAddress: candidate.scoreAddress,
+      timelineHash: candidate.timelineHash,
+      frontierEvidence: candidate.frontierEvidence || null,
+      crossLineage: candidate.crossLineage || null,
+      toastmoodLane: candidate.toastmoodLane || null,
+      toastFeel: familyBinding.toastFeel ? structuredClone(familyBinding.toastFeel) : null,
+      forcedWitnessEvidence: candidate.forcedWitnessEvidence
+        ? structuredClone(candidate.forcedWitnessEvidence)
+        : null,
+      acceptedHistoryCount: acceptedHistory.length,
+      continuationPermission: true,
+      receipt,
+      labInfluence: familyBinding?.labInfluence || { enabled: false },
+    };
+  }
+
+  async function scrape(config = {}, signal) {
+    assertReady();
+    assertCurrentFamily(config);
+    assertOrdinaryEcology();
+    const sourceFamilyHash = family.familyHash;
+    const priorInfluence = familyBinding?.labInfluence || null;
+    const currentScrapeIndex = scrapeIndex;
+    const dealerMode = currentScrapeIndex === 0
+      ? "diverse-redeal"
+      : currentScrapeIndex === 1
+        ? "stomp-escalation"
+        : "fresh-birth";
+    const requestedFeel = currentToastFeel(config.toastFeelId, { optional: true });
+    const inheritedFeel = currentToastFeel(familyBinding?.toastFeelId, { optional: true });
+    const feel = dealerMode === "stomp-escalation"
+      ? currentToastFeel("madd-clown-crazy-slots")
+      : dealerMode === "fresh-birth"
+        ? null
+        : requestedFeel || inheritedFeel;
+    const dealerSeed = `continuation:${generation.hashCanonical({
+      policyVersion: "madd-clown-dealer-v0",
+      requestedRootSeed: String(config.rootSeed || "scrape"),
+      sourceFamilyHash,
+      scrapeIndex: currentScrapeIndex,
+      dealerMode,
+    }, "HauntedToaster-ContinuationDealerSeed-v0")}`;
+    busy = true;
+    try {
+      const constraints = currentConstraints(config.presetId);
+      const profile = await ensureNativeChromaticProfile();
+      const analysis = toGenerationAnalysis(mediaAnalysis);
+      const responseWitness = responseWitnessFor(mediaAnalysis, analysis);
+      const lyricTrack = lyricTrackFor(config);
+      const sourceFamily = generation.generateCandidateSet({
+        analysis,
+        responseWitness,
+        garmentConstraints: constraints,
+        rendererProfile,
+        parentScore: null,
+        locks: config.locks || [],
+        rootSeed: dealerSeed,
+        count: 6,
+        phase: "initial",
+        lyricTrack,
+        toastFeelId: feel?.id || null,
+        nativeChromaticProfile: profile,
+      });
+      const nextFamily = enrichOrdinaryFamily(sourceFamily, {
+        analysis,
+        responseWitness,
+        constraints,
+        lyricTrack,
+        profile,
+        postWalkAxisGrammar: config.postWalkAxisGrammar === true,
+      });
+      const operation = Object.freeze({
+        kind: "dealer",
+        policyVersion: "madd-clown-dealer-v0",
+        dealerMode,
+        scrapeIndex: currentScrapeIndex,
+        rootSeed: dealerSeed,
+        scrapedFamilyParentAuthority: "none",
+        sourceFamilyHash,
+        reusedMachinery: dealerMode === "stomp-escalation"
+          ? "STOMP"
+          : dealerMode === "diverse-redeal"
+            ? "ordinary-six-up"
+            : "initial-birth",
+        resultPolicy: nextFamily.policy || null,
+        seedFamilyHash: nextFamily.toastFeel?.seedFamilyHash || null,
+        seedParentScoreRef: nextFamily.toastFeel?.seedParentScoreRef || null,
+      });
+      const view = await materialize(
+        nextFamily,
+        { ...config, rootSeed: dealerSeed, toastFeelId: feel?.id || null },
+        signal,
+        priorInfluence,
+      );
+      const receipt = continuationReceipt({
+        verdict: "SCRAPE",
+        sourceFamilyHash,
+        operation,
+        resultFamilyHash: nextFamily.familyHash,
+      });
+      scrapeIndex = currentScrapeIndex >= 2 ? 0 : currentScrapeIndex + 1;
+      return {
+        ...view,
+        verdict: "SCRAPE",
+        acceptedHistoryCount: acceptedHistory.length,
+        continuationPermission: false,
+        receipt,
+      };
+    } finally {
+      busy = false;
+    }
+  }
+
+  function executionForRender(config = {}) {
+    if (!keptSelection) {
+      if (candidateEcologyEntered) {
+        const error = new Error(
+          "Candidate KEEP required: focus is observational; KEEP a candidate before rendering.",
+        );
+        error.code = "CANDIDATE_RENDER_KEEP_REQUIRED";
+        throw error;
+      }
+      return null;
+    }
+    if (!familyBinding) {
+      throw new Error("Kept candidate has no accepted render binding.");
+    }
+    const mismatch = (detail) => {
+      const error = new Error(`Kept candidate no longer matches the current render inputs: ${detail}.`);
+      error.code = "CANDIDATE_RENDER_INPUT_MISMATCH";
+      return error;
+    };
+    if (path.resolve(config.audioPath) !== familyBinding.audioPath) {
+      throw mismatch("song changed");
+    }
+    if (familyBinding.audioSourceSha256) {
+      const currentAudioSourceSha256 =
+        normalizeSourceSha256(config.audioSourceSha256) ||
+        sourceSha256ForAudio(config.audioPath);
+      if (currentAudioSourceSha256 !== familyBinding.audioSourceSha256) {
+        throw mismatch("song content changed");
+      }
+    }
+    if (config.presetId !== familyBinding.presetId) {
+      throw mismatch("garment changed");
+    }
+    if (!sameOptionalPath(config.imagePath, familyBinding.imagePath)) {
+      throw mismatch("image changed");
+    }
+    const forcedRenderConfig = keptSelection.timeline?.renderConfig
+      ? structuredClone(keptSelection.timeline.renderConfig)
+      : null;
+    return {
+      ...(forcedRenderConfig || {}),
+      visualScore: keptSelection.scoreArtifact.score,
+      resolvedTimeline: keptSelection.timeline,
+      candidateGenealogy: candidateGenealogyEvidence(family, keptSelection),
+      forcedWitnessEvidence: keptSelection.forcedWitnessEvidence
+        ? structuredClone(keptSelection.forcedWitnessEvidence)
+        : null,
+      forcedRenderConfig,
       analysis: mediaAnalysis,
+      foreignVisualMaterial: createForeignMaterialPlan({
+        videoBinding: video ? structuredClone(video) : null,
+        timeline: keptSelection.timeline,
+        analysisDurationSeconds: Number(mediaAnalysis.duration),
+      }),
       labInfluence: familyBinding.labInfluence || { enabled: false },
       toastFeel: familyBinding.toastFeel ? structuredClone(familyBinding.toastFeel) : null,
       nativeChromaticProfile: nativeChromaticProfile
@@ -490,6 +994,10 @@ function createCandidateSession({
     ipcMain.handle("candidate:generate", (_event, config) => {
       assertAvailable();
       return generate(config);
+    });
+    ipcMain.handle("candidate:test-6", (_event, config) => {
+      assertAvailable();
+      return generateTestSix(config);
     });
     ipcMain.handle("candidate:stage-lab-proposal", (_event, transfer) => {
       assertAvailable();
@@ -514,6 +1022,14 @@ function createCandidateSession({
     ipcMain.handle("candidate:select", (_event, config) => {
       assertAvailable();
       return select(config);
+    });
+    ipcMain.handle("candidate:keep", (_event, config) => {
+      assertAvailable();
+      return keep(config);
+    });
+    ipcMain.handle("candidate:scrape", (_event, config) => {
+      assertAvailable();
+      return scrape(config);
     });
     ipcMain.handle("candidate:clear", () => {
       clearCandidates();
@@ -541,12 +1057,15 @@ function createCandidateSession({
     cross,
     executionForRender,
     generate,
+    generateTestSix,
     importLabProposal,
+    keep,
     mutate,
     noteAudio,
     noteImage,
     noteVideo,
     registerIpc,
+    scrape,
     select,
     stageLabProposal,
     state,

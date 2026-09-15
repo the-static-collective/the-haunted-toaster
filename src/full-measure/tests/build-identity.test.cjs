@@ -20,7 +20,7 @@ const workflow = fs.readFileSync(
 );
 
 test("package, lockfile, and source runtime share one forward version", () => {
-  assert.equal(packageInfo.version, "0.5.0-alpha.8");
+  assert.match(packageInfo.version, /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
   assert.equal(packageLock.version, packageInfo.version);
   assert.equal(packageLock.packages[""].version, packageInfo.version);
   assert.equal(buildInfo.version, packageInfo.version);

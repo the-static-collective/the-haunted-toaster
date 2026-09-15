@@ -443,14 +443,14 @@ function compileTimelineFilterGraph(graph, execution) {
 
   const geometry = productionFrameGeometry(graph);
   const topologyCompiled = compileProductionTopology(graph, execution);
-  const marker = "[stage0]ass=";
-  const markerIndex = topologyCompiled.graph.indexOf(marker);
-  if (markerIndex < 0) {
-    throw new Error("Production filter graph is missing the stage0 subtitle seam.");
+  const consumerMatch = /\[stage0\](?=[a-z][a-z0-9_-]*(?:=|,|\[))/i.exec(topologyCompiled.graph);
+  const consumerIndex = consumerMatch?.index ?? -1;
+  if (consumerIndex < 0) {
+    throw new Error("Production filter graph is missing the canonical stage0 consumer seam.");
   }
 
-  const prefix = topologyCompiled.graph.slice(0, markerIndex);
-  const suffix = topologyCompiled.graph.slice(markerIndex).replace(/^\[stage0\]/, "[timelineFinal]");
+  const prefix = topologyCompiled.graph.slice(0, consumerIndex);
+  const suffix = topologyCompiled.graph.slice(consumerIndex).replace(/^\[stage0\]/, "[timelineFinal]");
   const arcCompilation = possessionArcCompilation(execution, geometry);
 
   if (arcCompilation) {

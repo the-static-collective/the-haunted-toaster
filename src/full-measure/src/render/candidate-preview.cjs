@@ -4,10 +4,15 @@ const path = require("node:path");
 const legacy = require("./render-legacy.cjs");
 const { createProceduralPpm } = require("./artwork.cjs");
 const { getPreset } = require("./presets.cjs");
+const { canonicalStringify } = require("../generation/canonical.cjs");
 const {
   buildHauntedFilterGraph,
   typographyContextForTimeline,
 } = require("./haunted-typography-render.cjs");
+const {
+  createForeignMaterialPlan,
+  ffmpegInputArgsForForeignMaterial,
+} = require("./foreign-material.cjs");
 const {
   assertTimelineDuration,
   createTimelineExecution,
@@ -72,19 +77,72 @@ function previewSignature(score) {
   ].join(" · ");
 }
 
-function candidatePreviewPlan(candidate, typography = null) {
+function crossLockProjectionForScore(score = {}) {
+  const primitiveField = score.primitiveField || {};
+  return Object.freeze({
+    topology: canonicalStringify({
+      value: score.topology ?? null,
+      primitiveStructure: primitiveField.structure ?? null,
+    }),
+    motion: canonicalStringify({
+      value: score.motion ?? null,
+      primitiveDynamics: primitiveField.dynamics ?? null,
+    }),
+    palette: canonicalStringify(score.palette ?? null),
+    material: canonicalStringify(score.material ?? null),
+    lyric: canonicalStringify(score.lyric ?? null),
+    camera: canonicalStringify(score.camera ?? null),
+    temporalDensity: canonicalStringify(score.temporalDensity ?? null),
+    atmosphere: canonicalStringify(score.atmosphere ?? null),
+  });
+}
+
+function postWalkAxisRecipeForCandidate(candidate) {
+  const admittedRecipeHash = candidate?.timeline?.postWalkAxis?.recipeHash || null;
+  const declaredRecipeHash = candidate?.postWalkAxisRecipeHash || null;
+  const recipe = candidate?.postWalkAxisRecipe || null;
+  if (!admittedRecipeHash && !declaredRecipeHash && !recipe) return null;
+  if (
+    !admittedRecipeHash ||
+    !declaredRecipeHash ||
+    !recipe ||
+    declaredRecipeHash !== admittedRecipeHash ||
+    recipe.recipeHash !== admittedRecipeHash
+  ) {
+    throw new Error("Stage A recipe witness does not match its accepted candidate timeline.");
+  }
+  return Object.freeze({
+    schema: recipe.schema,
+    policyVersion: recipe.policyVersion,
+    recipeHash: recipe.recipeHash,
+    response: recipe.response,
+    scope: recipe.scope,
+    consequence: recipe.consequence,
+  });
+}
+
+function candidatePreviewPlan(candidate, typography = null, foreignMaterial = null) {
   const sample = previewSampleFor(candidate);
   const score = candidate.scoreArtifact.score;
+  const postWalkAxisRecipe = postWalkAxisRecipeForCandidate(candidate);
   return Object.freeze({
     index: candidate.index,
     role: candidate.role,
+    fixtureLabel: candidate.fixtureLabel,
+    fixtureSlot: candidate.fixtureSlot,
+    forcedCondition: candidate.forcedCondition,
+    forcedWitness: candidate.forcedWitness === true,
+    fixturePolicyVersion: candidate.fixtureReceipt?.policyVersion || null,
     scoreAddress: candidate.scoreAddress,
     timelineHash: candidate.timelineHash,
     changedAxes: Object.freeze([...(candidate.changedAxes || [])]),
     signature: previewSignature(score),
     baseIdentity: baseIdentityForScore(score),
+    crossLockProjection: crossLockProjectionForScore(score),
+    ...(postWalkAxisRecipe ? { postWalkAxisRecipe } : {}),
     sample,
     typography,
+    foreignMaterial,
   });
 }
 
@@ -123,6 +181,16 @@ async function renderCandidateFamilyPreviews(config, family, hooks = {}) {
         candidate.scoreAddress,
         candidate.timeline,
       );
+      const foreignMaterialPlan = createForeignMaterialPlan({
+        videoBinding: config.video || null,
+        timeline: candidate.timeline,
+        analysisDurationSeconds: Number(analysis.duration),
+      });
+      const foreignMaterialInputIndex = foreignMaterialPlan
+        ? imagePath
+          ? 3
+          : 2
+        : null;
       const baseFilter = await buildHauntedFilterGraph({
         tempDirectory,
         analysis,
@@ -134,11 +202,16 @@ async function renderCandidateFamilyPreviews(config, family, hooks = {}) {
         width,
         height,
         fps,
+        atmosphereResolutionScale:
+          candidate.timeline?.renderConfig?.atmosphereResolutionScale ?? null,
+      foreignMaterialPlan,
+      foreignMaterialInputIndex,
         ...typographyContext,
       });
       const plan = candidatePreviewPlan(
         candidate,
         baseFilter.typographyEvidence,
+      baseFilter.foreignMaterialEvidence,
       );
       const execution = createTimelineExecution(candidate.timeline);
       assertTimelineDuration(execution.timeline, analysis.duration);
@@ -175,6 +248,7 @@ async function renderCandidateFamilyPreviews(config, family, hooks = {}) {
           imagePath,
         );
       }
+      args.push(...ffmpegInputArgsForForeignMaterial(foreignMaterialPlan));
       args.push(
         "-filter_complex_script",
         filterPath,
@@ -223,6 +297,8 @@ module.exports = {
   PREVIEW_WIDTH,
   baseIdentityForScore,
   candidatePreviewPlan,
+  crossLockProjectionForScore,
+  postWalkAxisRecipeForCandidate,
   previewSampleFor,
   previewSignature,
   renderCandidateFamilyPreviews,

@@ -12,6 +12,28 @@ function installVideoSourceUiScript() {
   document.body.appendChild(script);
 }
 
+function installHauntedHaikuUiScript() {
+  if (document.querySelector('script[data-haunted-haiku-ui="v1"]')) return;
+  const script = document.createElement("script");
+  script.src = "./haunted-haiku-ui.js";
+  script.dataset.hauntedHaikuUi = "v1";
+  document.body.appendChild(script);
+}
+
+function stageHauntedHaikuReceipt(receipt) {
+  const resultCard = document.querySelector("#resultCard");
+  if (!resultCard) return;
+  const witness = receipt?.publication?.hauntedHaiku;
+  if (
+    witness?.authority !== "descriptive-only" ||
+    !String(witness?.youtubeDescription || "").trim()
+  ) {
+    delete resultCard.dataset.hauntedHaikuReceipt;
+    return;
+  }
+  resultCard.dataset.hauntedHaikuReceipt = JSON.stringify(witness);
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   document.title = PRODUCT_NAME;
 
@@ -31,6 +53,7 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   installVideoSourceUiScript();
+  installHauntedHaikuUiScript();
 });
 
 function subscribe(channel, callback) {
@@ -59,7 +82,7 @@ function normalizeStagedListenerEvidence(evidence = {}) {
         if (!anchor?.lineId || !Number.isFinite(mediaTimeMs) || mediaTimeMs < 0) return [];
         return [{
           lineId: String(anchor.lineId).slice(0, 96),
-          mediaTimeMs: Math.round(mediaTimeMs),
+          mediaTimeMs: Math.round(anchor.mediaTimeMs),
           source: anchor.source === "human-edit" ? "human-edit" : "human-tap",
           anchorVersion: String(anchor.anchorVersion || "lyric-anchor/v1").slice(0, 64),
         }];
@@ -79,6 +102,39 @@ function normalizeStagedListenerEvidence(evidence = {}) {
       })
     : [];
   return { anchors, previousEvidence };
+}
+
+function assertReturnedListenerAnchorsHeld(result, anchors = []) {
+  if (!anchors.length) return result;
+
+  const cuesByLineId = new Map(
+    (Array.isArray(result?.cues) ? result.cues : [])
+      .filter((cue) => cue?.lineId)
+      .map((cue) => [String(cue.lineId), cue]),
+  );
+
+  for (const anchor of anchors) {
+    const cue = cuesByLineId.get(anchor.lineId);
+    const expectedStartMs = Math.round(anchor.mediaTimeMs);
+    const actualStartMs = Number.isFinite(Number(cue?.start))
+      ? Math.round(Number(cue.start) * 1000)
+      : null;
+
+    if (
+      !cue ||
+      cue.status !== "human" ||
+      cue.humanCorrected !== true ||
+      actualStartMs !== expectedStartMs
+    ) {
+      const error = new Error(
+        `Listener Re-listen refused: human anchor ${anchor.lineId} was not held at ${expectedStartMs} ms.`,
+      );
+      error.code = "LISTENER_ANCHOR_VIOLATION";
+      throw error;
+    }
+  }
+
+  return result;
 }
 
 async function withLyricFoundry(config = {}) {
@@ -118,6 +174,7 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   chooseVideoFolder: () => ipcRenderer.invoke("dialog:choose-video-folder"),
   listVideoPantry: () => ipcRenderer.invoke("video-pantry:list"),
   clearVideo: () => ipcRenderer.invoke("video:clear"),
+  setVideoDigestOperator: (operatorId) => ipcRenderer.invoke("video:set-digest-operator", operatorId),
   chooseLyrics: () => ipcRenderer.invoke("dialog:choose-lyrics"),
   chooseOutput: (suggestedName) => ipcRenderer.invoke("dialog:choose-output", suggestedName),
   inspectAudio: (filePath) => ipcRenderer.invoke("media:inspect", filePath),
@@ -139,13 +196,14 @@ contextBridge.exposeInMainWorld("fullMeasure", {
       previousEvidenceCount: pendingListenerEvidence.previousEvidence.length,
     };
   },
-  autoSyncLyrics: (config) => {
+  autoSyncLyrics: async (config) => {
     const evidence = pendingListenerEvidence;
     pendingListenerEvidence = null;
-    return ipcRenderer.invoke("lyrics:auto-sync", {
+    const result = await ipcRenderer.invoke("lyrics:auto-sync", {
       ...config,
       ...(evidence || {}),
     });
+    return assertReturnedListenerAnchorsHeld(result, evidence?.anchors || []);
   },
   cancelLyricSync: () => ipcRenderer.invoke("lyrics:cancel-sync"),
   generateCandidates: (config) => ipcRenderer.invoke("candidate:generate", config),
@@ -155,9 +213,19 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   crossCandidates: (config) => ipcRenderer.invoke("candidate:cross", config),
   stompCandidates: (config) => ipcRenderer.invoke("candidate:stomp", config),
   selectCandidate: (config) => ipcRenderer.invoke("candidate:select", config),
+  keepCandidate: (config) => ipcRenderer.invoke("candidate:keep", config),
+  scrapeCandidates: (config) => ipcRenderer.invoke("candidate:scrape", config),
   clearCandidates: () => ipcRenderer.invoke("candidate:clear"),
   clearCandidateImage: () => ipcRenderer.invoke("candidate:clear-image"),
-  startRender: async (config) => ipcRenderer.invoke("render:start", await withLyricFoundry(config)),
+  startRender: async (config) => {
+    stageHauntedHaikuReceipt(null);
+    const result = await ipcRenderer.invoke(
+      "render:start",
+      await withLyricFoundry(config),
+    );
+    stageHauntedHaikuReceipt(result?.receipt);
+    return result;
+  },
   cancelRender: () => ipcRenderer.invoke("render:cancel"),
   revealFile: (filePath) => ipcRenderer.invoke("shell:reveal", filePath),
   openFile: (filePath) => ipcRenderer.invoke("shell:open", filePath),

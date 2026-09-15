@@ -22,7 +22,7 @@ test("CONVERGE remains a one-parent mutation move", () => {
 });
 
 test("CONVERGE is proposed only after a current creature exists", () => {
-  assert.match(candidateUi, /Choose a creature above to deal moves\./);
+  assert.match(candidateUi, /Focus a creature to inspect the expert move deck\./);
   assert.match(moveDeck, /CONVERGE · underexplored/);
   assert.match(moveDeck, /parentIndex: context\.selectedIndex/);
 });
@@ -30,5 +30,5 @@ test("CONVERGE is proposed only after a current creature exists", () => {
 test("CONVERGE returns to the same six-up surface with terse frontier evidence", () => {
   assert.match(candidateUi, /candidate\.role === "converge-frontier"/);
   assert.match(candidateUi, /selectedFrontierTarget/);
-  assert.match(candidateUi, /CONVERGE · underexplored \$\{frontier\} · choose one\./);
+  assert.match(candidateUi, /CONVERGE: pushing this creature toward one lawful underexplored frontier…/);
 });

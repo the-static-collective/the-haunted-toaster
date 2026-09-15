@@ -2,7 +2,25 @@
 
 > Repository-owned reconciliation ledger. This file records which lineage is current, which pull requests are historical shells, and where still-valid work must be rescued instead of merged from stale ancestry.
 >
-> Last reconciled: 2026-09-05
+> Last reconciled: 2026-09-15
+
+## 2026-09-15 — BETA 0.0.0 reconciliation overlay
+
+This is the newest authority cut. The September 4/5 field-spine ledger below is preserved intact as provenance; where an older status conflicts with this overlay, this overlay governs the proposed release carrier.
+
+- `main` remains product authority until a BETA carrier lands.
+- **PR #275 / `beta/reconcile-0.0.0` is the witnessed BETA 0.0.0 carrier ancestry.**
+- **Prepared two-parent reconciliation commit `0f36763e22d940fc51900152d01225ad9703ad75` explicitly binds #275 ancestry to current `main` `3c6fd48c6d8a26bcccf1f2d96f6f3c609e52dac8`.**
+- PR #274 is superseded as a carrier and retained as provenance only; it contains no executable KEEP/SCRAPE truth that needs transplantation over #275.
+- The BETA carrier contains observational focus, explicit KEEP/SCRAPE continuation transitions, receipt/UI wiring, and a KEEP-required ordinary candidate render handoff.
+- Dogram remains `comparison-only`; Haunted Haiku remains deterministic `descriptive-only` receipt-derived copy. Neither acquires render or interpretive authority.
+- Human release epoch: **HAUNTED TOASTER — BETA 0.0.0**.
+- Application package identity: **`0.0.0-beta.0`**.
+- Scope remains frozen for this cut: motion-mask, temporal Video modes, Aperture Shape, HyperFood/HyperFrames descendants, broader taste-learning, and unrelated future features are not BETA 0.0.0 blockers.
+- Exact-head release proof still requires consolidated tests/smoke, production dependency audit, production browser witness, Dogram + Haunted Haiku receipt composition, Windows Setup + Portable artifacts, exact SHA/tree/workflow/artifact/Build Info evidence, and one normal packaged **song → six → KEEP/SCRAPE → finished video** witness.
+- Landing still requires explicit approval for the exact proven head. No tag/release/promotion follows from ancestry reconciliation alone.
+
+See [`docs/BETA_0.0.0_TRUTH_FLOOR.md`](docs/BETA_0.0.0_TRUTH_FLOOR.md) for the compact release truth, [`docs/BETA_0.0.1_FRONTIER.md`](docs/BETA_0.0.1_FRONTIER.md) for deferred work, and [`docs/reconciliation/2026-09-15-beta-main-bind.md`](docs/reconciliation/2026-09-15-beta-main-bind.md) for the explicit carrier-bind receipt.
 
 ## Law of use
 
@@ -45,7 +63,7 @@ This cut records a new field-spine fact without pretending that field work is on
 - **#251 ACTIVE WITNESS ANCESTRY** — original Stage A `RESPONSE STANCE × SCOPE × CONSEQUENCE` RED/GREEN machine/semantic witness. Exact witnessed head: `9d31eab1e4e695fb226031034203b0b50c72b411`; exact tree: `5a2a55f2d8d461bd182d0d267ecc1a1cc00c3be4`. Preserve; do not rewrite or use as the current landing carrier.
 - **#254 ACTIVE WITNESS ANCESTRY** — original narrow human-witness bridge stacked on #251. Exact witnessed head: `a27ccd1292f870063bceb3d60d64996a5cd70de2`; exact tree: `5fc954c01525a655a38c8e13c97e2ffbb6f6e2b7`. Preserve; do not use as the current human-test carrier.
 - **#256 ACTIVE CURRENT CARRIER** — fresh Stage A re-port directly parented by landed WALK E `dce000c8…`. Head `d408a58754f4a53d1ca2c60141b3086bae21a22e`; tree exactly equals #251's witnessed tree `5a2a55f2…`. Fresh workflow run 2143: 259-script check; 582/582 tests; both smokes green; production audit 0 vulnerabilities; renderer witness build and canonical comparison green. No Windows/package/release promotion.
-- **#257 ACTIVE HUMAN-TEST CARRIER** — fresh narrow bridge directly parented by #256 `d408a587…`. Head `5b693ca8760253a902920884ff33692ac30d5c03`; tree exactly equals #254's witnessed tree `5fc954c0…`. Fresh workflow run 2145: 260-script check; 587/587 tests; both smokes green; production audit 0 vulnerabilities; renderer witness build green; 12/12 browser witness states green. No Windows/package/release promotion.
+- **#257 ACTIVE HUMAN-TEST CARRIER** — fresh narrow bridge directly parented by #256 `d408a587…`. Head `5b693ca8760253a902920884ff33692ac30d5c03`; tree exactly equals #254's witnessed tree `5fc954c01525a655a38c8e13c97e2ffbb6f6e2b7`. Fresh workflow run 2145: 260-script check; 587/587 tests; both smokes green; production audit 0 vulnerabilities; renderer witness build green; 12/12 browser witness states green. No Windows/package/release promotion.
 - #257 is now the human doorway: `existing six-up → explicit Stage A opt-in → six addressed creatures → existing preview/render`.
 - Human Stage A witness remains outstanding. Neither #256 nor #257 receives landing approval from this reconciliation entry.
 
@@ -187,6 +205,8 @@ These are active successors and witnesses, not permission to pretend their ances
 
 | PR | Reconciliation status | Repository disposition / successor |
 | --- | --- | --- |
+| #275 BETA 0.0.0 reconciliation | **ACTIVE PROPOSED CARRIER** | Witnessed KEEP/SCRAPE carrier ancestry; exact-head release gate remains. Two-parent bind prepared at `0f36763e…`. |
+| #274 duplicate BETA carrier | **ARCHIVE / SUPERSEDED** | Closed unmerged; provenance only. No unique executable KEEP/SCRAPE truth required by #275. |
 | #257 Stage A current human-test carrier | **LANDED-SUPERSEDED** | Human six-address PASS recorded on PR; final retargeted run 2151 green at 587/587 plus renderer witness and Windows package; merge-landed into WALK E as `4ee1bea5…`. No `main` runtime promotion. |
 | #256 Stage A current-WALK-E carrier | **LANDED-SUPERSEDED** | Fresh re-port retained as explicit ancestry and merge-landed into WALK E as `b5c1676f…`; exact #251 tree preserved. |
 | #254 Stage A narrow human-witness bridge | **ACTIVE** | Preserved witness ancestry only; exact behavior survives through landed #257. Do not rewrite or promote this stale-lineage branch. |
