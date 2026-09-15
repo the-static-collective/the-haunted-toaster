@@ -162,7 +162,7 @@ const PARAMETER_RULES = Object.freeze({
   }),
 });
 
-function normalizeParameters(definition, parameters) {
+function normalizeOrganismParameters(definition, parameters) {
   if (parameters === undefined) return {};
   if (!parameters || typeof parameters !== "object" || Array.isArray(parameters)) {
     throw new TypeError("HyperFood parameters must be an object.");
@@ -281,25 +281,26 @@ function normalizeHyperFoodSpec(input) {
   const seed = integer(input.seed ?? 0, "HyperFood seed");
 
   if (input.graph !== undefined) {
-    if (input.organism !== undefined || input.inputs !== undefined) {
-      throw new TypeError("HyperFood graph specs cannot also declare top-level organism or inputs.");
+    if (input.organism !== undefined || input.inputs !== undefined || input.parameters !== undefined) {
+      throw new TypeError(
+        "HyperFood graph specs cannot also declare top-level organism, inputs, or parameters.",
+      );
     }
-    if (!input.graph || typeof input.graph !== "object" || Array.isArray(input.graph)) {
-      throw new TypeError("HyperFood graph must be an object.");
-    }
+    const { normalizeHyperFoodGraph } = require("./graph.cjs");
+    const graph = normalizeHyperFoodGraph(input.graph, { assets, timing });
     return {
       schema: HYPERFOOD_SPEC_SCHEMA,
       assets,
       timing,
       seed,
       target,
-      graph: structuredClone(input.graph),
+      graph,
     };
   }
 
   const definition = getOrganismDefinition(input.organism?.id, input.organism?.version);
   const organism = { id: definition.id, version: definition.version };
-  const parameters = normalizeParameters(definition, input.parameters);
+  const parameters = normalizeOrganismParameters(definition, input.parameters);
   const partiallyNormalized = {
     schema: HYPERFOOD_SPEC_SCHEMA,
     organism,
@@ -327,6 +328,7 @@ module.exports = {
   HYPERFOOD_SPEC_SCHEMA,
   normalizeEventGrid,
   normalizeHyperFoodSpec,
+  normalizeOrganismParameters,
   normalizeTextCues,
   resolveSingleOrganismInputs,
 };
