@@ -90,7 +90,9 @@ async function ordinaryRun({ rootSeed = "walk-e-ordinary", video = null } = {}) 
     lyrics: "",
   });
   assert.ok(family);
-  session.select({ familyHash: view.familyHash, index: family.candidates[0].index });
+  const candidateIndex = family.candidates[0].index;
+  session.select({ familyHash: view.familyHash, index: candidateIndex });
+  session.keep({ familyHash: view.familyHash, index: candidateIndex });
   const execution = session.executionForRender({
     audioPath,
     imagePath: null,
