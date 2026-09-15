@@ -37,6 +37,7 @@ test("candidate session binds exact accepted Toast Feel identity through executi
     lyrics: "",
   });
   session.select({ familyHash: view.familyHash, index: 0 });
+  session.keep({ familyHash: view.familyHash, index: 0 });
 
   const matching = session.executionForRender({
     audioPath: "/tmp/toast-song.wav",
