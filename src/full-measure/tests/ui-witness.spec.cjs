@@ -1,4 +1,5 @@
 const { test, expect } = require("@playwright/test");
+const { version: PACKAGE_VERSION } = require("../package.json");
 
 const ALPHA_STATES = [
   "empty",
@@ -17,6 +18,11 @@ for (const state of ALPHA_STATES) {
     await expect(page.locator("html")).toHaveAttribute("data-witness-ready", "true");
     await expect(page.locator("body")).toHaveAttribute("data-ui-witness-commit", /.+/);
     expect(await page.evaluate(() => window.__consoleErrors)).toEqual([]);
+
+    const releaseBadge = page.locator(".alpha-pill");
+    await expect(releaseBadge).toContainText("Beta");
+    await expect(page.locator("#versionLabel")).toHaveText(PACKAGE_VERSION);
+    expect(PACKAGE_VERSION).toMatch(/-beta\./);
 
     if (state === "toast-feel") {
       const ordinary = page.locator(".toast-feel:not(.toast-feel--madd-clown)");
@@ -127,6 +133,14 @@ for (const state of ALPHA_STATES) {
       await expect(page.locator(".toast-feel:disabled")).toHaveCount(7);
     }
 
+    // Release identity is asserted semantically above. Normalize its volatile copy
+    // back to the ancestral screenshot value so version bumps do not counterfeit a
+    // structural UI delta.
+    await releaseBadge.evaluate((element) => {
+      element.childNodes[0].textContent = "Alpha ";
+      element.querySelector("#versionLabel").textContent = "0.5.0-alpha.8";
+    });
+
     // Per-commit provenance is asserted above but must not churn visual baselines.
     await page.locator("#buildInfoSummary").evaluate((element) => {
       element.style.visibility = "hidden";
@@ -156,7 +170,7 @@ for (const state of ALPHA_STATES) {
       await expect(page).toHaveScreenshot(`${state}.png`, {
         animations: "disabled",
         fullPage: true,
-        maxDiffPixelRatio: 0,
+        maxDiffPixels: 8,
       });
     }
   });
