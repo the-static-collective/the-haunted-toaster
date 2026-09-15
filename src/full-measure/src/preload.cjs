@@ -12,6 +12,28 @@ function installVideoSourceUiScript() {
   document.body.appendChild(script);
 }
 
+function installHauntedHaikuUiScript() {
+  if (document.querySelector('script[data-haunted-haiku-ui="v1"]')) return;
+  const script = document.createElement("script");
+  script.src = "./haunted-haiku-ui.js";
+  script.dataset.hauntedHaikuUi = "v1";
+  document.body.appendChild(script);
+}
+
+function stageHauntedHaikuReceipt(receipt) {
+  const resultCard = document.querySelector("#resultCard");
+  if (!resultCard) return;
+  const witness = receipt?.publication?.hauntedHaiku;
+  if (
+    witness?.authority !== "descriptive-only" ||
+    !String(witness?.youtubeDescription || "").trim()
+  ) {
+    delete resultCard.dataset.hauntedHaikuReceipt;
+    return;
+  }
+  resultCard.dataset.hauntedHaikuReceipt = JSON.stringify(witness);
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   document.title = PRODUCT_NAME;
 
@@ -31,6 +53,7 @@ window.addEventListener("DOMContentLoaded", () => {
   }
 
   installVideoSourceUiScript();
+  installHauntedHaikuUiScript();
 });
 
 function subscribe(channel, callback) {
@@ -59,7 +82,7 @@ function normalizeStagedListenerEvidence(evidence = {}) {
         if (!anchor?.lineId || !Number.isFinite(mediaTimeMs) || mediaTimeMs < 0) return [];
         return [{
           lineId: String(anchor.lineId).slice(0, 96),
-          mediaTimeMs: Math.round(anchor.mediaTimeMs),
+          mediaTimeMs: Math.round(mediaTimeMs),
           source: anchor.source === "human-edit" ? "human-edit" : "human-tap",
           anchorVersion: String(anchor.anchorVersion || "lyric-anchor/v1").slice(0, 64),
         }];
@@ -192,7 +215,15 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   selectCandidate: (config) => ipcRenderer.invoke("candidate:select", config),
   clearCandidates: () => ipcRenderer.invoke("candidate:clear"),
   clearCandidateImage: () => ipcRenderer.invoke("candidate:clear-image"),
-  startRender: async (config) => ipcRenderer.invoke("render:start", await withLyricFoundry(config)),
+  startRender: async (config) => {
+    stageHauntedHaikuReceipt(null);
+    const result = await ipcRenderer.invoke(
+      "render:start",
+      await withLyricFoundry(config),
+    );
+    stageHauntedHaikuReceipt(result?.receipt);
+    return result;
+  },
   cancelRender: () => ipcRenderer.invoke("render:cancel"),
   revealFile: (filePath) => ipcRenderer.invoke("shell:reveal", filePath),
   openFile: (filePath) => ipcRenderer.invoke("shell:open", filePath),
