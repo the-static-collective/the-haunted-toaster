@@ -205,6 +205,13 @@ test("witness Video source and VSPantry", async ({ page }, testInfo) => {
   await expect(status).toContainText("Video timing changed");
   await expect(digest).toHaveValue("clip-motion-mask-v1");
   await expect(timing).toHaveValue("play-source-once-v1");
+  for (const selector of [digest, timing]) {
+    expect(await selector.evaluate((element) => {
+      const context = document.createElement("canvas").getContext("2d");
+      context.font = getComputedStyle(element).font;
+      return context.measureText(element.selectedOptions[0].textContent).width <= element.clientWidth - 24;
+    }), "selected video policy must remain readable").toBe(true);
+  }
 
   await importFolder.click();
   await expect(importFolder).toBeDisabled();
