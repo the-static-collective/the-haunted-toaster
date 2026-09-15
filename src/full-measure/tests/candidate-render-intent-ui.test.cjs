@@ -14,8 +14,25 @@ function flush() {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-test("candidate UI requires explicit winner binding and visibly revokes it when render context changes", async () => {
-  const dom = new JSDOM(`
+function familyView(familyHash = "family-test", scoreAddress = "htvs1_candidate_test") {
+  return {
+    familyHash,
+    producedCount: 1,
+    requestedCount: 1,
+    candidates: [{
+      index: 0,
+      role: "baseline",
+      thumbnailDataUrl: "data:image/png;base64,",
+      signature: "Spiral · drift · grain",
+      scoreAddress,
+      changedAxes: [],
+      toastmoodLane: null,
+    }],
+  };
+}
+
+function createDom() {
+  return new JSDOM(`
     <body>
       <section class="garment-panel"></section>
       <section class="shape-card"><div id="timeline"></div></section>
@@ -36,8 +53,9 @@ test("candidate UI requires explicit winner binding and visibly revokes it when 
     runScripts: "outside-only",
     url: "file:///haunted-toaster/index.html",
   });
+}
 
-  const { window } = dom;
+function installSharedWindowState(window) {
   window.HTMLElement.prototype.scrollIntoView = () => {};
   window.toastFeel = {
     getToastFeelId: () => "low-and-slow",
@@ -50,30 +68,35 @@ test("candidate UI requires explicit winner binding and visibly revokes it when 
       proposals: [],
     }),
   };
+}
+
+test("candidate UI keeps focus observational and requires explicit KEEP for render authority", async () => {
+  const dom = createDom();
+  const { window } = dom;
+  installSharedWindowState(window);
 
   let selectCalls = 0;
+  let keepCalls = 0;
   let clearCalls = 0;
   window.fullMeasure = {
-    generateCandidates: async () => ({
-      familyHash: "family-test",
-      producedCount: 1,
-      requestedCount: 1,
-      candidates: [{
-        index: 0,
-        role: "baseline",
-        thumbnailDataUrl: "data:image/png;base64,",
-        signature: "Spiral · drift · grain",
-        scoreAddress: "htvs1_candidate_test",
-        changedAxes: [],
-        toastmoodLane: null,
-      }],
-    }),
-    selectCandidate: async (request) => {
+    generateCandidates: async () => familyView(),
+    selectCandidate: async () => {
       selectCalls += 1;
+      throw new Error("ordinary UI must not use focus as render authority");
+    },
+    keepCandidate: async (request) => {
+      keepCalls += 1;
       assert.equal(request.familyHash, "family-test");
       assert.equal(request.index, 0);
-      return { familyHash: "family-test", index: 0, toastFeel: null };
+      return {
+        verdict: "KEEP",
+        familyHash: "family-test",
+        index: 0,
+        continuationPermission: true,
+        toastFeel: null,
+      };
     },
+    scrapeCandidates: async () => { throw new Error("not exercised"); },
     clearCandidates: async () => {
       clearCalls += 1;
       return true;
@@ -95,24 +118,28 @@ test("candidate UI requires explicit winner binding and visibly revokes it when 
     assert.ok(card, "real candidate UI must render a selectable card");
     card.click();
 
-    assert.equal(selectCalls, 0, "card click is proposal-only and must not silently become render authority");
+    assert.equal(selectCalls, 0, "card click is observational and must not silently become render authority");
+    assert.equal(keepCalls, 0);
     assert.equal(
       window.document.querySelector("#renderButton .button-label strong").textContent,
       "Make full video",
-      "render control must not claim a chosen timeline before explicit acceptance",
+      "render control must not claim a kept timeline before explicit KEEP",
     );
 
-    window.document.querySelector("#candidateUse").click();
+    const keep = window.document.querySelector("#candidateKeep");
+    assert.ok(keep, "ordinary candidate UI must expose KEEP");
+    keep.click();
     await flush();
 
-    assert.equal(selectCalls, 1, "Use selected timeline must perform the authoritative candidate binding");
+    assert.equal(keepCalls, 1, "KEEP must perform the authoritative continuation transition");
+    assert.equal(selectCalls, 0, "KEEP must not be implemented by the old focus/select binding");
     assert.equal(
       window.document.querySelector("#renderButton .button-label small").textContent,
-      "CHOSEN TIMELINE → MP4",
+      "KEPT TIMELINE → MP4",
     );
     assert.equal(
       window.document.querySelector("#renderButton .button-label strong").textContent,
-      "Render chosen vision",
+      "Render kept vision",
     );
 
     const lyrics = window.document.querySelector("#lyricsInput");
@@ -120,11 +147,72 @@ test("candidate UI requires explicit winner binding and visibly revokes it when 
     lyrics.dispatchEvent(new window.Event("input", { bubbles: true }));
     await flush();
 
-    assert.equal(clearCalls, 1, "render-context mutation must invalidate the candidate in main");
+    assert.equal(clearCalls, 1, "render-context mutation must invalidate the kept candidate in main");
     assert.equal(
       window.document.querySelector("#renderButton .button-label strong").textContent,
       "Make full video",
-      "the UI must visibly revoke the stale winner rather than continue claiming it is bound",
+      "the UI must visibly revoke stale KEEP authority rather than continue claiming it is bound",
+    );
+  } finally {
+    window.close();
+  }
+});
+
+test("SCRAPE is family-level and can deal another six without choosing a creature", async () => {
+  const dom = createDom();
+  const { window } = dom;
+  installSharedWindowState(window);
+
+  let scrapeCalls = 0;
+  window.fullMeasure = {
+    generateCandidates: async () => familyView("family-a", "score-a"),
+    selectCandidate: async () => { throw new Error("not exercised"); },
+    keepCandidate: async () => { throw new Error("not exercised"); },
+    scrapeCandidates: async (request) => {
+      scrapeCalls += 1;
+      assert.equal(request.familyHash, "family-a");
+      assert.deepEqual(request.locks, []);
+      return {
+        ...familyView("family-b", "score-b"),
+        verdict: "SCRAPE",
+        continuationPermission: false,
+        receipt: {
+          operation: {
+            dealerMode: "diverse-redeal",
+          },
+        },
+      };
+    },
+    clearCandidates: async () => true,
+    clearCandidateImage: async () => true,
+    mutateCandidates: async () => { throw new Error("not exercised"); },
+    crossCandidates: async () => { throw new Error("not exercised"); },
+    stompCandidates: async () => { throw new Error("not exercised"); },
+  };
+
+  window.eval(source("src/renderer/candidate-ui.js"));
+
+  try {
+    window.document.querySelector(".candidate-launch").click();
+    await flush();
+    await flush();
+
+    const scrape = window.document.querySelector("#candidateScrape");
+    assert.ok(scrape, "ordinary candidate UI must expose SCRAPE");
+    assert.equal(scrape.disabled, false, "SCRAPE applies to the whole current family, not the focused candidate");
+    assert.equal(window.document.querySelector(".candidate-card[aria-pressed='true']"), null);
+
+    scrape.click();
+    await flush();
+    await flush();
+
+    assert.equal(scrapeCalls, 1);
+    assert.equal(window.document.querySelector(".candidate-card code").textContent, "score-b");
+    assert.match(window.document.querySelector("#candidateStatus").textContent, /SCRAPE|dealt|family/i);
+    assert.equal(
+      window.document.querySelector("#renderButton .button-label strong").textContent,
+      "Make full video",
+      "SCRAPE must never grant render authority",
     );
   } finally {
     window.close();
