@@ -52,8 +52,8 @@ test("selected TEST 6 execution carries fixture provenance and bounded render ov
 
   assert.match(session, /forcedWitnessEvidence/);
   assert.match(session, /forcedRenderConfig/);
-  assert.match(session, /resolvedTimeline:\s*selection\.timeline/);
-  assert.match(session, /visualScore:\s*selection\.scoreArtifact\.score/);
+  assert.match(session, /resolvedTimeline:\s*keptSelection\.timeline/);
+  assert.match(session, /visualScore:\s*keptSelection\.scoreArtifact\.score/);
 });
 
 test("forced witness identity crosses the preview surface and the final video receipt", () => {
