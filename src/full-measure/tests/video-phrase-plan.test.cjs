@@ -8,6 +8,7 @@ const {
   createVideoPhrasePlan,
   normalizeVideoPhrasePlan,
   hashVideoPhrasePlan,
+  phrasePlanForLegacyBinding,
 } = require("../src/render/video-phrase-plan.cjs");
 
 function binding(path) {
@@ -140,4 +141,56 @@ test("normalizer refuses phrase-count and overlap-depth overflow", () => {
     })),
     /overlap/i,
   );
+});
+
+test("#277 Loop lowers to bounded forward recurrence over the full source", () => {
+  const legacy = {
+    ...binding("C:/legacy.mp4"),
+    digestOperatorId: "clip-motion-mask-v1",
+    samplingPolicyId: "loop-source-clip-v1",
+  };
+  const plan = phrasePlanForLegacyBinding({
+    videoBinding: legacy,
+    timeline: { durationTicks: 12000, timebase: 1000 },
+  });
+  assert.equal(plan.phrases.length, 1);
+  assert.equal(plan.phrases[0].traversal, "forward");
+  assert.equal(plan.phrases[0].cycles, 3);
+  assert.deepEqual(plan.phrases[0].sourceWindow, { startSeconds: 0, endSeconds: 4 });
+  assert.equal(plan.phrases[0].digestion[0].operatorId, "clip-motion-mask-v1");
+  assert.equal(plan.legacy.samplingPolicyId, "loop-source-clip-v1");
+});
+
+test("#277 Play once lowers to source-rate finite phrase then native release", () => {
+  const plan = phrasePlanForLegacyBinding({
+    videoBinding: {
+      ...binding("C:/legacy.mp4"),
+      digestOperatorId: "clip-luma-mask-v1",
+      samplingPolicyId: "play-source-once-v1",
+    },
+    timeline: { durationTicks: 12000, timebase: 1000 },
+  });
+  assert.equal(plan.phrases[0].startTick, 0);
+  assert.equal(plan.phrases[0].endTick, 4000);
+  assert.equal(plan.phrases[0].playbackRate, 1);
+  assert.equal(plan.phrases[0].cycles, 1);
+  assert.equal(plan.phrases[0].release, "native");
+  assert.equal(plan.legacy.samplingPolicyId, "play-source-once-v1");
+});
+
+test("#277 Stretch lowers to one full-span retimed phrase", () => {
+  const plan = phrasePlanForLegacyBinding({
+    videoBinding: {
+      ...binding("C:/legacy.mp4"),
+      digestOperatorId: "clip-luma-texture-v1",
+      samplingPolicyId: "stretch-source-clip-v1",
+    },
+    timeline: { durationTicks: 12000, timebase: 1000 },
+  });
+  assert.equal(plan.phrases[0].endTick, 12000);
+  assert.equal(plan.phrases[0].playbackRate, 1 / 3);
+  assert.equal(plan.phrases[0].cycles, 1);
+  assert.equal(plan.phrases[0].release, "hold");
+  assert.equal(plan.phrases[0].digestion[0].operatorId, "clip-luma-texture-v1");
+  assert.equal(plan.legacy.samplingPolicyId, "stretch-source-clip-v1");
 });
