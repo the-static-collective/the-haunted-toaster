@@ -1,9 +1,12 @@
 const crypto = require("node:crypto");
 const path = require("node:path");
 const { deriveFrameReservoir } = require("../video-pantry/frame-reservoir.cjs");
+const { normalizeVideoPhrasePlan } = require("./video-phrase-plan.cjs");
 
 const FOREIGN_MATERIAL_SCHEMA = "haunted-toaster/foreign-material/v1";
 const FOREIGN_MATERIAL_POLICY_VERSION = "foreign-material-v1";
+const FOREIGN_MATERIAL_PHRASE_SCHEMA = "haunted-toaster/foreign-material-phrase/v1";
+const FOREIGN_MATERIAL_PHRASE_POLICY_VERSION = "foreign-material-phrase-v1";
 const FOREIGN_MATERIAL_ANALYSIS_SCHEMA = "haunted-toaster/foreign-material-analysis/v1";
 const FOREIGN_MATERIAL_OPERATOR_ID = "clip-luma-texture-v1";
 const FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID = "clip-luma-mask-v1";
@@ -15,6 +18,7 @@ const FOREIGN_MATERIAL_ONCE_POLICY = "play-source-once-v1";
 const FOREIGN_MATERIAL_STRETCH_POLICY = "stretch-source-clip-v1";
 const FOREIGN_MATERIAL_PLACEMENT_POLICY = "accepted-timeline-span-v1";
 const FOREIGN_MATERIAL_COMPILER_EVIDENCE_SCHEMA = "haunted-toaster/foreign-material-compiler-evidence/v1";
+const FOREIGN_MATERIAL_PHRASE_COMPILER_EVIDENCE_SCHEMA = "haunted-toaster/foreign-material-phrase-compiler-evidence/v1";
 const DEFAULT_BLEND_MODE = "softlight";
 const DEFAULT_OPACITY = 0.28;
 const SUPPORTED_DIGEST_OPERATORS = new Set([
@@ -154,6 +158,18 @@ function normalizeDigestOperatorId(value, { fallback = FOREIGN_MATERIAL_OPERATOR
   return normalized;
 }
 
+function clipAnalysisForReservoir(reservoir) {
+  return Object.freeze({
+    schema: FOREIGN_MATERIAL_ANALYSIS_SCHEMA,
+    policyVersion: reservoir.policyVersion,
+    basis: "frame-reservoir-v1",
+    representativeFrameCount: reservoir.representativeFrames.length,
+    representativeFrameIds: reservoir.representativeFrames.map((frame) => frame.frameId),
+    frameRate: reservoir.frameRate,
+    frameCount: reservoir.frameCount,
+  });
+}
+
 function createForeignMaterialPlan({
   videoBinding,
   timeline,
@@ -166,15 +182,7 @@ function createForeignMaterialPlan({
   );
   const reservoir = deriveFrameReservoir(videoBinding, { representativeCount: 9 });
   const normalizedTimeline = normalizeRenderDuration({ timeline, analysisDurationSeconds });
-  const analysis = Object.freeze({
-    schema: FOREIGN_MATERIAL_ANALYSIS_SCHEMA,
-    policyVersion: reservoir.policyVersion,
-    basis: "frame-reservoir-v1",
-    representativeFrameCount: reservoir.representativeFrames.length,
-    representativeFrameIds: reservoir.representativeFrames.map((frame) => frame.frameId),
-    frameRate: reservoir.frameRate,
-    frameCount: reservoir.frameCount,
-  });
+  const analysis = clipAnalysisForReservoir(reservoir);
   const analysisHash = hashJson(analysis);
   const canonicalPlan = {
     schema: FOREIGN_MATERIAL_SCHEMA,
@@ -196,6 +204,56 @@ function createForeignMaterialPlan({
     },
     sampling: samplingForBinding(videoBinding, reservoir, normalizedTimeline.renderDurationSeconds),
     assimilationPolicy: assimilationPolicyForOperator(normalizedOperatorId),
+  };
+  return Object.freeze({
+    ...canonicalPlan,
+    sourceFilename: String(videoBinding.filename || path.basename(videoBinding.path || "")).trim() || null,
+    sourcePath: String(videoBinding.path || "").trim() || null,
+    planHash: hashJson(canonicalPlan),
+  });
+}
+
+function createForeignMaterialPhrasePlan({
+  videoBinding,
+  videoPhrasePlan,
+  timeline,
+  analysisDurationSeconds = null,
+} = {}) {
+  if (!videoBinding) return null;
+  const phrasePlan = normalizeVideoPhrasePlan(videoPhrasePlan);
+  const reservoir = deriveFrameReservoir(videoBinding, { representativeCount: 9 });
+  const normalizedTimeline = normalizeRenderDuration({ timeline, analysisDurationSeconds });
+  if (phrasePlan.source.specimenId !== reservoir.specimenId
+      || phrasePlan.source.sourceSha256 !== reservoir.sourceSha256
+      || phrasePlan.source.byteLength !== Number(videoBinding.byteLength)) {
+    throw new TypeError("VideoPhrasePlan source identity does not match admitted Video material.");
+  }
+  if (phrasePlan.timeline.durationTicks !== normalizedTimeline.durationTicks
+      || phrasePlan.timeline.timebase !== normalizedTimeline.timebase) {
+    throw new TypeError("VideoPhrasePlan timeline does not match accepted render timeline.");
+  }
+  const analysis = clipAnalysisForReservoir(reservoir);
+  const analysisHash = hashJson(analysis);
+  const canonicalPlan = {
+    schema: FOREIGN_MATERIAL_PHRASE_SCHEMA,
+    policyVersion: FOREIGN_MATERIAL_PHRASE_POLICY_VERSION,
+    sourceSpecimenId: reservoir.specimenId,
+    sourceSha256: reservoir.sourceSha256,
+    sourceByteLength: Number(videoBinding.byteLength),
+    sourceProbe: structuredClone(videoBinding.probe),
+    clipAnalysisHash: analysisHash,
+    clipAnalysis: analysis,
+    frameReservoir: reservoir,
+    placement: {
+      policyVersion: FOREIGN_MATERIAL_PLACEMENT_POLICY,
+      startTick: 0,
+      endTick: normalizedTimeline.durationTicks,
+      durationTicks: normalizedTimeline.durationTicks,
+      timebase: normalizedTimeline.timebase,
+      renderDurationSeconds: normalizedTimeline.renderDurationSeconds,
+    },
+    videoPhrasePlanHash: phrasePlan.planHash,
+    videoPhrasePlan: phrasePlan,
   };
   return Object.freeze({
     ...canonicalPlan,
@@ -247,11 +305,16 @@ function createForeignMaterialDigestFamily({
   });
 }
 
+function isPhraseForeignMaterial(plan) {
+  return plan?.schema === FOREIGN_MATERIAL_PHRASE_SCHEMA;
+}
+
 function ffmpegInputArgsForForeignMaterial(plan) {
   if (!plan) return [];
   if (!plan.sourcePath) {
     throw new TypeError("Foreign material plan requires a sourcePath for renderer input wiring.");
   }
+  if (isPhraseForeignMaterial(plan)) return ["-i", plan.sourcePath];
   const sampling = samplingExecution(plan);
   return sampling.policyVersion === FOREIGN_MATERIAL_SAMPLING_POLICY
     ? ["-stream_loop", "-1", "-i", plan.sourcePath]
@@ -356,6 +419,195 @@ function compileTopologyMaskAssimilation({
   };
 }
 
+function seconds(value) {
+  return Number(Number(value).toFixed(6));
+}
+
+function phraseEffectiveEndSeconds(phrase, timebase) {
+  const declaredEnd = phrase.endTick / timebase;
+  if (phrase.release === "hold") return declaredEnd;
+  const sourceDuration = phrase.sourceWindow.endSeconds - phrase.sourceWindow.startSeconds;
+  const traversalMultiplier = phrase.traversal === "ping-pong" ? 2 : 1;
+  const materialDuration = (sourceDuration * traversalMultiplier * phrase.cycles) / phrase.playbackRate;
+  return Math.min(declaredEnd, (phrase.startTick / timebase) + materialDuration);
+}
+
+function phraseTransformFilters(phrase, width, height) {
+  const filters = [];
+  if (phrase.transforms.mirrorX) filters.push("hflip");
+  if (phrase.transforms.mirrorY) filters.push("vflip");
+  if (phrase.transforms.rotationDegrees === 90) filters.push("transpose=clock");
+  if (phrase.transforms.rotationDegrees === 180) filters.push("hflip", "vflip");
+  if (phrase.transforms.rotationDegrees === 270) filters.push("transpose=cclock");
+  const crop = phrase.transforms.crop;
+  if (crop) {
+    filters.push(`crop=iw*${crop.width}:ih*${crop.height}:iw*${crop.x}:ih*${crop.y}`);
+  }
+  if (phrase.transforms.zoom > 1) {
+    const zoom = phrase.transforms.zoom;
+    filters.push(`crop=iw/${zoom}:ih/${zoom}:(iw-iw/${zoom})/2:(ih-ih/${zoom})/2`);
+  }
+  filters.push(`scale=${width}:${height}:force_original_aspect_ratio=increase`, `crop=${width}:${height}`);
+  return filters;
+}
+
+function compilePhraseTraversal(filters, sourceLabel, phrase, index) {
+  const trimmed = `phrase${index}Trimmed`;
+  filters.push(
+    `[${sourceLabel}]trim=start=${seconds(phrase.sourceWindow.startSeconds)}:end=${seconds(phrase.sourceWindow.endSeconds)},setpts=PTS-STARTPTS[${trimmed}]`,
+  );
+  let current = trimmed;
+  if (phrase.traversal === "reverse") {
+    const reversed = `phrase${index}Reverse`;
+    filters.push(`[${current}]reverse,setpts=PTS-STARTPTS[${reversed}]`);
+    current = reversed;
+  } else if (phrase.traversal === "ping-pong") {
+    const forward = `phrase${index}Forward`;
+    const reverseInput = `phrase${index}ReverseInput`;
+    const reverse = `phrase${index}Reverse`;
+    const pingPong = `phrase${index}PingPong`;
+    filters.push(`[${current}]split=2[${forward}][${reverseInput}]`);
+    filters.push(`[${reverseInput}]reverse,setpts=PTS-STARTPTS[${reverse}]`);
+    filters.push(`[${forward}][${reverse}]concat=n=2:v=1:a=0[${pingPong}]`);
+    current = pingPong;
+  }
+  if (phrase.cycles > 1) {
+    const labels = Array.from({ length: phrase.cycles }, (_, cycle) => `phrase${index}Cycle${cycle}`);
+    const cycled = `phrase${index}Cycled`;
+    filters.push(`[${current}]split=${phrase.cycles}${labels.map((label) => `[${label}]`).join("")}`);
+    filters.push(`${labels.map((label) => `[${label}]`).join("")}concat=n=${phrase.cycles}:v=1:a=0[${cycled}]`);
+    current = cycled;
+  }
+  return current;
+}
+
+function compilePhraseSource(filters, sourceLabel, phrase, index, width, height, fps, renderDurationSeconds, timebase) {
+  let current = compilePhraseTraversal(filters, sourceLabel, phrase, index);
+  const transformed = `phrase${index}Transformed`;
+  const startSeconds = phrase.startTick / timebase;
+  const endSeconds = phrase.endTick / timebase;
+  const phraseDuration = endSeconds - startSeconds;
+  const transformFilters = phraseTransformFilters(phrase, width, height);
+  filters.push(
+    `[${current}]setpts=(PTS-STARTPTS)/${phrase.playbackRate},fps=${fps},${transformFilters.join(",")},trim=duration=${seconds(phraseDuration)},setpts=PTS-STARTPTS,tpad=start_mode=clone:start_duration=${seconds(startSeconds)}:stop_mode=clone:stop_duration=${seconds(renderDurationSeconds)},trim=duration=${seconds(renderDurationSeconds)},setpts=PTS-STARTPTS[${transformed}]`,
+  );
+  return transformed;
+}
+
+function compilePhraseTexture(filters, baseLabel, sourceLabel, phrase, atom, index, atomIndex, timebase) {
+  const texture = `phrase${index}Atom${atomIndex}Texture`;
+  const output = `phrase${index}Atom${atomIndex}Out`;
+  const start = seconds(phrase.startTick / timebase);
+  const end = seconds(phraseEffectiveEndSeconds(phrase, timebase));
+  const opacity = Number((DEFAULT_OPACITY * atom.weight * phrase.transforms.opacity).toFixed(4));
+  filters.push(`[${sourceLabel}]format=gray,eq=contrast=1.18:brightness=0.015,boxblur=2:1,format=rgba[${texture}]`);
+  filters.push(`[${baseLabel}][${texture}]blend=all_mode=${DEFAULT_BLEND_MODE}:all_opacity=${opacity}:shortest=0:repeatlast=0:eof_action=pass:enable='between(t,${start},${end})'[${output}]`);
+  return output;
+}
+
+function compilePhraseMask(filters, baseLabel, sourceLabel, phrase, atom, index, atomIndex, timebase) {
+  const nativeBase = `phrase${index}Atom${atomIndex}NativeBase`;
+  const nativeAltSource = `phrase${index}Atom${atomIndex}AltSource`;
+  const nativeAlt = `phrase${index}Atom${atomIndex}Alt`;
+  const mask = `phrase${index}Atom${atomIndex}Mask`;
+  const output = `phrase${index}Atom${atomIndex}Out`;
+  const start = seconds(phrase.startTick / timebase);
+  const end = seconds(phraseEffectiveEndSeconds(phrase, timebase));
+  const motion = atom.operatorId === FOREIGN_MATERIAL_MOTION_OPERATOR_ID;
+  const maskFilters = motion
+    ? "format=yuv444p,lutyuv=u=128:v=128,tpad=start=1:start_mode=clone,tblend=all_mode=difference,lut=y='min(255,val*4)':u=0:v=0,boxblur=2:1"
+    : "format=gray,eq=contrast=1.30:brightness=-0.04,boxblur=2:1";
+  filters.push(`[${baseLabel}]split=2[${nativeBase}][${nativeAltSource}]`);
+  filters.push(`[${nativeAltSource}]eq=contrast=1.16:saturation=0.78,unsharp=5:5:0.35:5:5:0[${nativeAlt}]`);
+  filters.push(`[${sourceLabel}]${maskFilters}[${mask}]`);
+  filters.push(`[${nativeBase}][${nativeAlt}][${mask}]maskedmerge=enable='between(t,${start},${end})'[${output}]`);
+  return output;
+}
+
+function compilePhraseForeignMaterial({
+  graph,
+  foreignMaterialPlan,
+  foreignMaterialInputIndex,
+  width,
+  height,
+  fps,
+}) {
+  const normalizedPhrasePlan = normalizeVideoPhrasePlan(foreignMaterialPlan.videoPhrasePlan);
+  if (normalizedPhrasePlan.planHash !== foreignMaterialPlan.videoPhrasePlanHash) {
+    throw new TypeError("Foreign material VideoPhrasePlan hash does not match the accepted plan.");
+  }
+  const timebase = normalizedPhrasePlan.timeline.timebase;
+  const renderDurationSeconds = Number(foreignMaterialPlan.placement?.renderDurationSeconds);
+  if (!Number.isFinite(renderDurationSeconds) || renderDurationSeconds <= 0) {
+    throw new TypeError("Phrase-aware foreign material requires a positive render duration.");
+  }
+  const filters = [];
+  const baseLabel = "foreignPhraseBase";
+  const nextGraph = replaceTerminalVout(graph, baseLabel);
+  const sourceLabels = normalizedPhrasePlan.phrases.map((_, index) => `phrase${index}Input`);
+  if (sourceLabels.length === 1) {
+    filters.push(`[${foreignMaterialInputIndex}:v]null[${sourceLabels[0]}]`);
+  } else {
+    filters.push(`[${foreignMaterialInputIndex}:v]split=${sourceLabels.length}${sourceLabels.map((label) => `[${label}]`).join("")}`);
+  }
+  let currentBase = baseLabel;
+  const phraseEvidence = [];
+  normalizedPhrasePlan.phrases.forEach((phrase, index) => {
+    const source = compilePhraseSource(
+      filters,
+      sourceLabels[index],
+      phrase,
+      index,
+      width,
+      height,
+      fps,
+      renderDurationSeconds,
+      timebase,
+    );
+    const atomLabels = phrase.digestion.map((_, atomIndex) => `phrase${index}Atom${atomIndex}Source`);
+    if (atomLabels.length === 1) {
+      filters.push(`[${source}]null[${atomLabels[0]}]`);
+    } else {
+      filters.push(`[${source}]split=${atomLabels.length}${atomLabels.map((label) => `[${label}]`).join("")}`);
+    }
+    phrase.digestion.forEach((atom, atomIndex) => {
+      currentBase = atom.operatorId === FOREIGN_MATERIAL_OPERATOR_ID
+        ? compilePhraseTexture(filters, currentBase, atomLabels[atomIndex], phrase, atom, index, atomIndex, timebase)
+        : compilePhraseMask(filters, currentBase, atomLabels[atomIndex], phrase, atom, index, atomIndex, timebase);
+    });
+    phraseEvidence.push(Object.freeze({
+      phraseId: phrase.phraseId,
+      startTick: phrase.startTick,
+      endTick: phrase.endTick,
+      effectiveEndTick: Math.round(phraseEffectiveEndSeconds(phrase, timebase) * timebase),
+      sourceWindow: structuredClone(phrase.sourceWindow),
+      traversal: phrase.traversal,
+      cycles: phrase.cycles,
+      playbackRate: phrase.playbackRate,
+      operatorIds: phrase.digestion.map((atom) => atom.operatorId),
+      transforms: structuredClone(phrase.transforms),
+      release: phrase.release,
+    }));
+  });
+  filters.push(`[${currentBase}]null[vout]`);
+  return {
+    graph: `${nextGraph};\n${filters.join(";\n")}`,
+    evidence: Object.freeze({
+      schema: FOREIGN_MATERIAL_PHRASE_COMPILER_EVIDENCE_SCHEMA,
+      policyVersion: FOREIGN_MATERIAL_PHRASE_POLICY_VERSION,
+      planHash: foreignMaterialPlan.planHash,
+      videoPhrasePlanHash: normalizedPhrasePlan.planHash,
+      sourceSpecimenId: foreignMaterialPlan.sourceSpecimenId,
+      clipAnalysisHash: foreignMaterialPlan.clipAnalysisHash,
+      spectrum: normalizedPhrasePlan.spectrum,
+      phraseCount: phraseEvidence.length,
+      phrases: Object.freeze(phraseEvidence),
+      inputIndex: foreignMaterialInputIndex,
+      renderDurationSeconds,
+    }),
+  };
+}
+
 function applyForeignMaterialToGraph({
   graph,
   foreignMaterialPlan = null,
@@ -369,6 +621,16 @@ function applyForeignMaterialToGraph({
   }
   if (!Number.isSafeInteger(foreignMaterialInputIndex) || foreignMaterialInputIndex < 0) {
     throw new TypeError("Foreign material requires a non-negative video input index.");
+  }
+  if (isPhraseForeignMaterial(foreignMaterialPlan)) {
+    return compilePhraseForeignMaterial({
+      graph,
+      foreignMaterialPlan,
+      foreignMaterialInputIndex,
+      width,
+      height,
+      fps,
+    });
   }
   const operatorId = String(foreignMaterialPlan.assimilationPolicy?.operatorId || "").trim();
   if (!SUPPORTED_DIGEST_OPERATORS.has(operatorId)) {
@@ -412,12 +674,16 @@ module.exports = {
   FOREIGN_MATERIAL_ONCE_POLICY,
   FOREIGN_MATERIAL_STRETCH_POLICY,
   FOREIGN_MATERIAL_PLACEMENT_POLICY,
+  FOREIGN_MATERIAL_PHRASE_COMPILER_EVIDENCE_SCHEMA,
+  FOREIGN_MATERIAL_PHRASE_POLICY_VERSION,
+  FOREIGN_MATERIAL_PHRASE_SCHEMA,
   FOREIGN_MATERIAL_POLICY_VERSION,
   FOREIGN_MATERIAL_SAMPLING_POLICY,
   FOREIGN_MATERIAL_SCHEMA,
   FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID,
   applyForeignMaterialToGraph,
   createForeignMaterialDigestFamily,
+  createForeignMaterialPhrasePlan,
   createForeignMaterialPlan,
   ffmpegInputArgsForForeignMaterial,
   normalizeDigestOperatorId,
