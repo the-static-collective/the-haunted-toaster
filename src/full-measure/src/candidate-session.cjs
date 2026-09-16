@@ -7,6 +7,7 @@ const { analyzeSpecimenMaterial } = require("./video-pantry/material-analysis.cj
 const { admitLabProposal, parseLabProposalTransfer } = require("./lab-proposal.cjs");
 const { renderCandidateFamilyPreviews } = require("./render/candidate-preview.cjs");
 const { createForeignMaterialPlan, normalizeDigestOperatorId, normalizeSamplingPolicyId } = require("./render/foreign-material.cjs");
+const { createVideoPhrasePlan } = require("./render/video-phrase-plan.cjs");
 const { createLyricTrack } = require("./render/lyrics.cjs");
 const { getToastFeel } = require("./toast-feels.cjs");
 const { registerVideoPantryIpc } = require("./video-pantry/electron-ipc.cjs");
@@ -283,6 +284,39 @@ function createCandidateSession({
     return timedLyricTrack(config.lyrics, Number(mediaAnalysis.duration));
   }
 
+  function candidateVideoPhraseSeed(sourceFamily, candidate) {
+    return generation.hashCanonical({
+      policyVersion: "candidate-video-phrase-seed-v1",
+      familyPolicy: sourceFamily.policy || null,
+      phase: sourceFamily.phase || null,
+      rootSeed: sourceFamily.rootSeed || null,
+      candidateIndex: candidate.index,
+      scoreAddress: candidate.scoreAddress,
+      timelineHash: candidate.timelineHash,
+    }, "HauntedToaster-CandidateVideoPhraseSeed-v1");
+  }
+
+  function attachVideoPhrasePlans(sourceFamily) {
+    if (!video) return sourceFamily;
+    const videoBinding = structuredClone(video);
+    const candidates = sourceFamily.candidates.map((candidate) => {
+      const videoPhrasePlan = createVideoPhrasePlan({
+        videoBinding,
+        timeline: candidate.timeline,
+        seed: candidateVideoPhraseSeed(sourceFamily, candidate),
+      });
+      return Object.freeze({
+        ...candidate,
+        videoPhrasePlan,
+        videoPhrasePlanHash: videoPhrasePlan.planHash,
+      });
+    });
+    return Object.freeze({
+      ...sourceFamily,
+      candidates: Object.freeze(candidates),
+    });
+  }
+
   function admitPostWalkAxisFamily(sourceFamily, { responseWitness, lyricTrack }) {
     const birthFamily = generation.attachTopologyEventAuthorities(sourceFamily);
     const laneBank = generation.buildLaneBank({ responseWitness, lyricTrack });
@@ -396,6 +430,7 @@ function createCandidateSession({
       throw new Error("Candidate family Toast Feel does not match the requested appliance state.");
     }
     const feel = requestedFeel || familyFeel;
+    const materializedFamily = attachVideoPhrasePlans(nextFamily);
     const observedAnalysis = mediaAnalysis;
     const observedImagePath = imagePath;
     const observedAudioPath = audioPath;
@@ -434,20 +469,20 @@ function createCandidateSession({
         artist: config.artist,
         lyrics: config.lyrics,
       },
-      nextFamily,
+      materializedFamily,
       { signal },
     );
     candidateEcologyEntered = true;
-    family = nextFamily;
+    family = materializedFamily;
     familyBinding = {
       audioPath,
       audioSourceSha256: normalizeSourceSha256(mediaAnalysis?.sourceSha256),
       imagePath,
       presetId: config.presetId,
       toastFeelId: feel?.id || null,
-      toastFeel: feel ? structuredClone(nextFamily.toastFeel || feel) : null,
-      toastmoodField: nextFamily.toastmoodField ? structuredClone(nextFamily.toastmoodField) : null,
-      cross: nextFamily.cross ? structuredClone(nextFamily.cross) : null,
+      toastFeel: feel ? structuredClone(materializedFamily.toastFeel || feel) : null,
+      toastmoodField: materializedFamily.toastmoodField ? structuredClone(materializedFamily.toastmoodField) : null,
+      cross: materializedFamily.cross ? structuredClone(materializedFamily.cross) : null,
       labInfluence: influence,
       archaeologyObservation,
     };
@@ -455,13 +490,13 @@ function createCandidateSession({
     keptSelection = null;
     return {
       ...previewView,
-      schema: nextFamily.schema,
-      policy: nextFamily.policy,
-      forcedWitness: nextFamily.forcedWitness === true,
-      fixtureFamily: nextFamily.fixtureFamily || null,
-      toastFeel: feel ? structuredClone(nextFamily.toastFeel || feel) : null,
-      toastmoodField: nextFamily.toastmoodField ? structuredClone(nextFamily.toastmoodField) : null,
-      cross: nextFamily.cross ? structuredClone(nextFamily.cross) : null,
+      schema: materializedFamily.schema,
+      policy: materializedFamily.policy,
+      forcedWitness: materializedFamily.forcedWitness === true,
+      fixtureFamily: materializedFamily.fixtureFamily || null,
+      toastFeel: feel ? structuredClone(materializedFamily.toastFeel || feel) : null,
+      toastmoodField: materializedFamily.toastmoodField ? structuredClone(materializedFamily.toastmoodField) : null,
+      cross: materializedFamily.cross ? structuredClone(materializedFamily.cross) : null,
       labInfluence: influence,
       archaeologyObservation,
     };
