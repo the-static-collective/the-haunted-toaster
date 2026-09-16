@@ -13,6 +13,11 @@ const DIGEST_OPERATORS = Object.freeze([
 ]);
 const TRAVERSALS = Object.freeze(["forward", "reverse", "ping-pong"]);
 const RELEASES = Object.freeze(["native", "hold"]);
+const LEGACY_SAMPLING_POLICIES = Object.freeze([
+  "loop-source-clip-v1",
+  "play-source-once-v1",
+  "stretch-source-clip-v1",
+]);
 
 function requiredString(value, label) {
   const text = String(value || "").trim();
@@ -261,6 +266,17 @@ function normalizeVideoPhrasePlan(plan) {
   return Object.freeze({ ...payload, planHash });
 }
 
+function identityTransforms() {
+  return {
+    mirrorX: false,
+    mirrorY: false,
+    rotationDegrees: 0,
+    crop: null,
+    zoom: 1,
+    opacity: 1,
+  };
+}
+
 function createVideoPhrasePlan(input = {}) {
   const normalized = canonicalInputs(input);
   const seedMaterial = JSON.stringify({
@@ -292,21 +308,88 @@ function createVideoPhrasePlan(input = {}) {
       cycles: 1,
       playbackRate: 1,
       digestion: [{ operatorId, weight: 1 }],
-      transforms: {
-        mirrorX: false,
-        mirrorY: false,
-        rotationDegrees: 0,
-        crop: null,
-        zoom: 1,
-        opacity: 1,
-      },
+      transforms: identityTransforms(),
       release: "native",
     }],
   });
 }
 
+function phrasePlanForLegacyBinding({ videoBinding, timeline } = {}) {
+  if (!videoBinding || typeof videoBinding !== "object" || Array.isArray(videoBinding)) {
+    throw new TypeError("Legacy Video phrase lowering requires an admitted Video binding.");
+  }
+  const source = canonicalSource({
+    specimenId: videoBinding.specimenId,
+    sourceSha256: videoBinding.sourceSha256,
+    byteLength: videoBinding.byteLength,
+    durationSeconds: videoBinding.probe?.durationSeconds,
+  });
+  const normalizedTimeline = canonicalTimeline(timeline);
+  const digestOperatorId = oneOf(
+    videoBinding.digestOperatorId || DIGEST_OPERATORS[0],
+    "Legacy Video digestion operator",
+    DIGEST_OPERATORS,
+  );
+  const samplingPolicyId = oneOf(
+    videoBinding.samplingPolicyId || LEGACY_SAMPLING_POLICIES[0],
+    "Legacy Video sampling policy",
+    LEGACY_SAMPLING_POLICIES,
+  );
+  const renderDurationSeconds = normalizedTimeline.durationTicks / normalizedTimeline.timebase;
+  let endTick = normalizedTimeline.durationTicks;
+  let cycles = 1;
+  let playbackRate = 1;
+  let release = "hold";
+
+  if (samplingPolicyId === "loop-source-clip-v1") {
+    cycles = Math.ceil(renderDurationSeconds / source.durationSeconds);
+    if (cycles > MAX_CYCLES) {
+      throw new RangeError(
+        `Legacy loop requires ${cycles} cycles, exceeding VideoPhrasePlan v1 bound ${MAX_CYCLES}.`,
+      );
+    }
+  } else if (samplingPolicyId === "play-source-once-v1") {
+    endTick = Math.min(
+      normalizedTimeline.durationTicks,
+      Math.max(1, Math.round(source.durationSeconds * normalizedTimeline.timebase)),
+    );
+    release = "native";
+  } else {
+    playbackRate = source.durationSeconds / renderDurationSeconds;
+  }
+
+  const canonical = normalizeVideoPhrasePlan({
+    schema: VIDEO_PHRASE_PLAN_SCHEMA,
+    policyVersion: VIDEO_PHRASE_PLAN_POLICY,
+    source,
+    timeline: normalizedTimeline,
+    spectrum: 0,
+    phrases: [{
+      phraseId: "legacy-phrase-1",
+      startTick: 0,
+      endTick,
+      sourceWindow: { startSeconds: 0, endSeconds: source.durationSeconds },
+      traversal: "forward",
+      cycles,
+      playbackRate,
+      digestion: [{ operatorId: digestOperatorId, weight: 1 }],
+      transforms: identityTransforms(),
+      release,
+    }],
+  });
+
+  return Object.freeze({
+    ...canonical,
+    legacy: Object.freeze({
+      digestOperatorId,
+      samplingPolicyId,
+    }),
+  });
+}
+
 module.exports = {
   DIGEST_OPERATORS,
+  LEGACY_SAMPLING_POLICIES,
   MAX_CYCLES,
   MAX_OVERLAPS,
   MAX_PHRASES,
@@ -318,4 +401,5 @@ module.exports = {
   createVideoPhrasePlan,
   hashVideoPhrasePlan,
   normalizeVideoPhrasePlan,
+  phrasePlanForLegacyBinding,
 };
