@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { JSDOM } = require("jsdom");
+const generation = require("../src/generation/index.cjs");
 const { installVideoSourceControls } = require("../src/renderer/video-source-ui.js");
 const { candidatePreviewPlan } = require("../src/render/candidate-preview.cjs");
 
@@ -12,29 +13,21 @@ function source(relativePath) {
   return fs.readFileSync(path.join(root, relativePath), "utf8");
 }
 
+function readJson(relativePath) {
+  return JSON.parse(source(relativePath));
+}
+
 function candidateWithPhrasePlan() {
-  const timeline = {
-    schema: "haunted-toaster/resolved-timeline/v1",
-    scoreAddress: "score-video-phrase-ui",
-    durationTicks: 4000,
-    timebase: 1000,
-    patches: [],
-  };
+  const candidate = generation.generateCandidateSet({
+    analysis: readJson("fixtures/analysis/sectional.v1.json"),
+    garmentConstraints: readJson("constraints/wire-orchard.v1.json"),
+    rendererProfile: readJson("profiles/toaster-raster-1.json"),
+    rootSeed: "video-phrase-ui-contract",
+    count: 1,
+  }).candidates[0];
+
   return {
-    index: 0,
-    role: "baseline",
-    scoreAddress: "score-video-phrase-ui",
-    timelineHash: "timeline-video-phrase-ui",
-    timeline,
-    scoreArtifact: {
-      score: {
-        topology: "linear",
-        motion: { grammar: "drift" },
-        palette: { logic: "native" },
-        material: { texture: "grain" },
-      },
-    },
-    changedAxes: [],
+    ...candidate,
     videoPhrasePlanHash: "phrase-plan-ui-hash",
     videoPhrasePlan: {
       planHash: "phrase-plan-ui-hash",
