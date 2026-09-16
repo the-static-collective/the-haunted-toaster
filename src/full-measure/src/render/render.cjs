@@ -94,6 +94,33 @@ function compactForcedWitnessEvidence(evidence) {
 
 function compactForeignMaterialEvidence(plan, compilerEvidence) {
   if (!plan) return null;
+  if (plan.schema === "haunted-toaster/foreign-material-phrase/v1") {
+    const phrasePlan = plan.videoPhrasePlan;
+    return {
+      schema: plan.schema,
+      policyVersion: plan.policyVersion,
+      sourceSpecimenId: plan.sourceSpecimenId,
+      sourceSha256: plan.sourceSha256,
+      clipAnalysisHash: plan.clipAnalysisHash,
+      spectrum: phrasePlan.spectrum,
+      phraseCount: phrasePlan.phrases.length,
+      videoPhrasePlanHash: plan.videoPhrasePlanHash,
+      phrases: phrasePlan.phrases.map((phrase) => ({
+        phraseId: phrase.phraseId,
+        startTick: phrase.startTick,
+        endTick: phrase.endTick,
+        sourceWindow: structuredClone(phrase.sourceWindow),
+        traversal: phrase.traversal,
+        cycles: phrase.cycles,
+        playbackRate: phrase.playbackRate,
+        digestion: structuredClone(phrase.digestion),
+        transforms: structuredClone(phrase.transforms),
+        release: phrase.release,
+      })),
+      placement: structuredClone(plan.placement),
+      compiledOperator: compilerEvidence ? structuredClone(compilerEvidence) : null,
+    };
+  }
   return {
     sourceSpecimenId: plan.sourceSpecimenId,
     sourceSha256: plan.sourceSha256,
