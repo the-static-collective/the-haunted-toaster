@@ -30,14 +30,16 @@ test('candidate session stores and clears a Video source binding', () => {
   assert.equal(session.state().video, null);
 });
 
-test('WALK A crosses Video into render only as a derived foreign-material plan', () => {
+test('WALK A crosses Video into render only as candidate-owned or legacy derived foreign-material evidence', () => {
   const source = read(candidateSessionPath);
   const start = source.indexOf('function executionForRender');
   const end = source.indexOf('function registerIpc', start);
   assert.notEqual(start, -1);
   assert.notEqual(end, -1);
   const executionSource = source.slice(start, end);
-  assert.match(executionSource, /foreignVisualMaterial:\s*createForeignMaterialPlan\(\{/);
+  assert.match(executionSource, /keptSelection\.videoPhrasePlan[\s\S]*createForeignMaterialPhrasePlan\(\{/);
+  assert.match(executionSource, /videoPhrasePlan:\s*keptSelection\.videoPhrasePlan/);
+  assert.match(executionSource, /:\s*createForeignMaterialPlan\(\{/);
   assert.match(executionSource, /videoBinding:\s*video \? structuredClone\(video\) : null/);
   assert.doesNotMatch(executionSource, /\n\s+video:\s/);
   assert.doesNotMatch(executionSource, /\n\s+videoPath:\s/);
