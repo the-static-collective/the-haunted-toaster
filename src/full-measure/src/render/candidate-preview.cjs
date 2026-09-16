@@ -10,6 +10,7 @@ const {
   typographyContextForTimeline,
 } = require("./haunted-typography-render.cjs");
 const {
+  createForeignMaterialPhrasePlan,
   createForeignMaterialPlan,
   ffmpegInputArgsForForeignMaterial,
 } = require("./foreign-material.cjs");
@@ -135,6 +136,7 @@ function candidatePreviewPlan(candidate, typography = null, foreignMaterial = nu
     fixturePolicyVersion: candidate.fixtureReceipt?.policyVersion || null,
     scoreAddress: candidate.scoreAddress,
     timelineHash: candidate.timelineHash,
+    videoPhrasePlanHash: candidate.videoPhrasePlanHash || null,
     changedAxes: Object.freeze([...(candidate.changedAxes || [])]),
     signature: previewSignature(score),
     baseIdentity: baseIdentityForScore(score),
@@ -181,11 +183,18 @@ async function renderCandidateFamilyPreviews(config, family, hooks = {}) {
         candidate.scoreAddress,
         candidate.timeline,
       );
-      const foreignMaterialPlan = createForeignMaterialPlan({
-        videoBinding: config.video || null,
-        timeline: candidate.timeline,
-        analysisDurationSeconds: Number(analysis.duration),
-      });
+      const foreignMaterialPlan = candidate.videoPhrasePlan
+        ? createForeignMaterialPhrasePlan({
+            videoBinding: config.video || null,
+            videoPhrasePlan: candidate.videoPhrasePlan,
+            timeline: candidate.timeline,
+            analysisDurationSeconds: Number(analysis.duration),
+          })
+        : createForeignMaterialPlan({
+            videoBinding: config.video || null,
+            timeline: candidate.timeline,
+            analysisDurationSeconds: Number(analysis.duration),
+          });
       const foreignMaterialInputIndex = foreignMaterialPlan
         ? imagePath
           ? 3
@@ -204,14 +213,14 @@ async function renderCandidateFamilyPreviews(config, family, hooks = {}) {
         fps,
         atmosphereResolutionScale:
           candidate.timeline?.renderConfig?.atmosphereResolutionScale ?? null,
-      foreignMaterialPlan,
-      foreignMaterialInputIndex,
+        foreignMaterialPlan,
+        foreignMaterialInputIndex,
         ...typographyContext,
       });
       const plan = candidatePreviewPlan(
         candidate,
         baseFilter.typographyEvidence,
-      baseFilter.foreignMaterialEvidence,
+        baseFilter.foreignMaterialEvidence,
       );
       const execution = createTimelineExecution(candidate.timeline);
       assertTimelineDuration(execution.timeline, analysis.duration);
