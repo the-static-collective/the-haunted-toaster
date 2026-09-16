@@ -36,20 +36,41 @@ function previewStub(_config, family) {
   });
 }
 
-async function generateWitness(rootSeed) {
+function sessionHarness() {
   const session = createCandidateSession({ renderCandidateFamilyPreviews: previewStub });
-  session.noteAudio(path.resolve("/tmp/video-phrase-candidate.wav"), {
+  const audioPath = path.resolve("/tmp/video-phrase-candidate.wav");
+  session.noteAudio(audioPath, {
     duration: 12,
     sections: [{ start: 0, end: 12, energy: 0.5 }],
     energySamples: [],
   });
   session.noteVideo(binding());
+  return {
+    session,
+    audioPath,
+    renderConfig: { presetId: "openField", audioPath, imagePath: null },
+  };
+}
+
+async function generateWitness(rootSeed) {
+  const { session } = sessionHarness();
   return session.generate({
     presetId: "openField",
     toastFeelId: "low-and-slow",
     rootSeed,
     lyrics: "",
   });
+}
+
+async function generateSessionWitness(rootSeed) {
+  const harness = sessionHarness();
+  const view = await harness.session.generate({
+    presetId: "openField",
+    toastFeelId: "low-and-slow",
+    rootSeed,
+    lyrics: "",
+  });
+  return { ...harness, view };
 }
 
 test("six-up candidates own distinct deterministic VideoPhrasePlan identities", async () => {
@@ -72,5 +93,46 @@ test("same family seed replays the same ordered VideoPhrasePlan hashes", async (
   assert.deepEqual(
     second.candidates.map((candidate) => candidate.videoPhrasePlanHash),
     first.candidates.map((candidate) => candidate.videoPhrasePlanHash),
+  );
+});
+
+test("KEEP freezes the exact candidate VideoPhrasePlan into final render authority", async () => {
+  const { session, view, renderConfig } = await generateSessionWitness("candidate-video-phrase-keep");
+  const chosen = view.candidates[2];
+  const kept = session.keep({ familyHash: view.familyHash, index: chosen.index });
+  assert.equal(kept.videoPhrasePlanHash, chosen.videoPhrasePlanHash);
+  assert.equal(kept.receipt.videoPhrasePlanHash, chosen.videoPhrasePlanHash);
+
+  const execution = session.executionForRender(renderConfig);
+  assert.equal(execution.foreignVisualMaterial.videoPhrasePlanHash, chosen.videoPhrasePlanHash);
+  assert.equal(execution.foreignVisualMaterial.videoPhrasePlan.planHash, chosen.videoPhrasePlanHash);
+});
+
+test("same admitted Video source cannot revoke KEEP or rewrite its candidate-owned phrase plan", async () => {
+  const { session, view, renderConfig } = await generateSessionWitness("candidate-video-phrase-source-law");
+  const chosen = view.candidates[1];
+  session.keep({ familyHash: view.familyHash, index: chosen.index });
+
+  session.noteVideo({
+    ...binding(),
+    path: path.resolve("relocated-candidate-phrase-witness.mp4"),
+    filename: "relocated-candidate-phrase-witness.mp4",
+    digestOperatorId: "clip-motion-mask-v1",
+    samplingPolicyId: "play-source-once-v1",
+  });
+  const preserved = session.executionForRender(renderConfig);
+  assert.equal(preserved.foreignVisualMaterial.videoPhrasePlanHash, chosen.videoPhrasePlanHash);
+
+  session.noteVideo({
+    ...binding(),
+    specimenId: `sha256:${"e".repeat(64)}:2048`,
+    sourceSha256: "e".repeat(64),
+    path: path.resolve("replacement-video.mp4"),
+    filename: "replacement-video.mp4",
+  });
+  assert.throws(
+    () => session.executionForRender(renderConfig),
+    { code: "CANDIDATE_RENDER_KEEP_REQUIRED" },
+    "replacing source content must revoke stale KEEP",
   );
 });
