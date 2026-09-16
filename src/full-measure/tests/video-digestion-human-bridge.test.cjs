@@ -158,11 +158,12 @@ test("Video IPC admits bounded digest roles and requires admitted Video", async 
   );
 });
 
-test("#250 legacy controls remain ancestry while phrase plans own preview/final authority", () => {
+test("#250 legacy machinery remains ancestry while phrase plans own preview and final authority", () => {
   const candidateSource = read(candidateSessionPath);
   const previewSource = read(previewPath);
   const foreignSource = read(foreignMaterialPath);
   const ipcSource = read(electronIpcPath);
+  const preloadSource = read(preloadPath);
   const videoSourceUiSource = read(videoSourceUiPath);
 
   assert.match(foreignSource, /videoBinding\.digestOperatorId/);
@@ -170,21 +171,30 @@ test("#250 legacy controls remain ancestry while phrase plans own preview/final 
   assert.match(previewSource, /createForeignMaterialPhrasePlan\(\{[\s\S]*videoPhrasePlan:\s*candidate\.videoPhrasePlan/);
   assert.match(candidateSource, /createForeignMaterialPlan\(\{/);
   assert.match(previewSource, /createForeignMaterialPlan\(\{/);
-  assert.match(ipcSource, /candidateSession\.clearVideo\(\)[\s\S]*candidateSession\.noteVideo\(/);
-  assert.match(videoSourceUiSource, /video-digest-change/);
+  assert.match(ipcSource, /ipcMain\.handle\("video:set-digest-operator"/);
+  assert.match(ipcSource, /ipcMain\.handle\("video:set-sampling-policy"/);
+  assert.doesNotMatch(preloadSource, /setVideoDigestOperator\s*:/);
+  assert.doesNotMatch(preloadSource, /setVideoSamplingPolicy\s*:/);
+  assert.doesNotMatch(videoSourceUiSource, /video-digest-change/);
+  assert.doesNotMatch(videoSourceUiSource, /id="videoDigestOperator"/);
+  assert.doesNotMatch(videoSourceUiSource, /id="videoSamplingPolicy"/);
   assert.doesNotMatch(candidateSource, /let videoDigestOperatorId/);
 });
 
-test("#250 digest mode is a narrow sandbox Video IPC operation rather than renderer authority", () => {
+test("#250 digest and timing IPC remain internal ancestry below ordinary preload authority", () => {
+  const ipcSource = read(electronIpcPath);
   const preloadSource = read(preloadPath);
-  assert.match(
-    preloadSource,
-    /setVideoDigestOperator:\s*\(operatorId\)\s*=>\s*ipcRenderer\.invoke\("video:set-digest-operator", operatorId\)/,
-  );
+
+  assert.match(ipcSource, /"video:set-digest-operator"/);
+  assert.match(ipcSource, /normalizeDigestOperatorId/);
+  assert.match(ipcSource, /"video:set-sampling-policy"/);
+  assert.match(ipcSource, /normalizeSamplingPolicyId/);
+  assert.doesNotMatch(preloadSource, /setVideoDigestOperator\s*:/);
+  assert.doesNotMatch(preloadSource, /setVideoSamplingPolicy\s*:/);
   assert.doesNotMatch(preloadSource, /foreignMaterialPlan/);
 });
 
-test("Video row reveals the three digest roles only after Video admission", async () => {
+test("ordinary Video row stays admission-only when admitted material carries legacy digest metadata", async () => {
   const dom = new JSDOM(`
     <div id="videoSourceMount"></div>
     <section id="videoPantryWindow">
@@ -193,11 +203,14 @@ test("Video row reveals the three digest roles only after Video admission", asyn
     </section>
   `);
   const calls = [];
-  const digestEvents = [];
-  dom.window.addEventListener("video-digest-change", (event) => digestEvents.push(event.detail));
   const api = {
     async listVideoPantry() { return { specimens: [] }; },
-    async chooseVideo() { return { binding: binding(), pantryCount: null }; },
+    async chooseVideo() {
+      return {
+        binding: { ...binding(), digestOperatorId: FOREIGN_MATERIAL_MOTION_OPERATOR_ID },
+        pantryCount: null,
+      };
+    },
     async chooseVideoFolder() { return null; },
     async clearVideo() { calls.push(["clearVideo"]); return true; },
     async setVideoDigestOperator(operatorId) {
@@ -207,79 +220,50 @@ test("Video row reveals the three digest roles only after Video admission", asyn
   };
 
   installVideoSourceControls({ document: dom.window.document, api });
-  const selector = dom.window.document.querySelector("#videoDigestOperator");
-  assert.ok(selector);
-  assert.equal(selector.closest(".video-digest-control").classList.contains("is-hidden"), true);
-  assert.deepEqual(
-    [...selector.options].map((option) => option.value),
-    [FOREIGN_MATERIAL_OPERATOR_ID, FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID, FOREIGN_MATERIAL_MOTION_OPERATOR_ID],
-  );
+  assert.equal(dom.window.document.querySelector("#videoDigestOperator"), null);
+  assert.equal(dom.window.document.querySelector("#videoSamplingPolicy"), null);
 
   dom.window.document.querySelector("#videoDrop").click();
   await flush();
-  assert.equal(selector.closest(".video-digest-control").classList.contains("is-hidden"), false);
-  assert.equal(selector.value, FOREIGN_MATERIAL_OPERATOR_ID);
-
-  selector.value = FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID;
-  selector.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
-  await flush();
-  assert.deepEqual(calls.at(-1), ["setVideoDigestOperator", FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID]);
-  assert.deepEqual(digestEvents.at(-1), { operatorId: FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID });
+  assert.equal(dom.window.document.querySelector("#videoDropTitle").textContent, "digest-witness.mp4");
+  assert.equal(calls.some(([name]) => name === "setVideoDigestOperator"), false);
 
   dom.window.document.querySelector("#removeVideo").click();
   await flush();
-  assert.equal(selector.closest(".video-digest-control").classList.contains("is-hidden"), true);
-  assert.equal(selector.value, FOREIGN_MATERIAL_OPERATOR_ID);
+  assert.deepEqual(calls.at(-1), ["clearVideo"]);
+  dom.window.close();
 });
 
-test("Video timing crosses real IPC, preserves the digest, and rolls back refused UI changes", async () => {
+test("legacy timing IPC remains bounded ancestry after ordinary UI timing authority is removed", async () => {
   const session = createCandidateSession();
   const ipcMain = fakeIpcMain();
   registerVideoPantryIpc({
     app: { getPath: () => "/tmp/toaster-user-data" },
     dialog: { showOpenDialog: async () => ({ canceled: true }) },
-    ipcMain, candidateSession: session,
+    ipcMain,
+    candidateSession: session,
     loadCatalogImpl: async () => ({ specimens: [] }),
   });
+
   const setSampling = ipcMain.handlers.get("video:set-sampling-policy");
   assert.equal(typeof setSampling, "function");
   await assert.rejects(() => setSampling({}, "play-source-once-v1"), /admitted Video/i);
-  const dom = new JSDOM('<div id="videoSourceMount"></div><section id="videoPantryWindow"><strong id="videoPantryStatus"></strong><button id="videoFolderImport">Import</button></section>');
-  const events = [];
-  dom.window.addEventListener("video-digest-change", (event) => events.push(event.detail));
-  let refuse = false;
-  installVideoSourceControls({ document: dom.window.document, api: {
-    listVideoPantry: async () => ({ specimens: [] }),
-    chooseVideo: async () => {
-      session.noteVideo({ ...binding(), digestOperatorId: FOREIGN_MATERIAL_MOTION_OPERATOR_ID });
-      return { binding: session.state().video };
-    },
-    clearVideo: () => ipcMain.handlers.get("video:clear")({}),
-    setVideoSamplingPolicy: (id) => setSampling({}, refuse ? "mystery" : id),
-  } });
-  const selector = dom.window.document.querySelector("#videoSamplingPolicy");
-  assert.ok(selector);
-  assert.equal(selector.disabled, true);
-  dom.window.document.querySelector("#videoDrop").click();
-  await flush();
-  assert.equal(selector.disabled, false);
-  assert.equal(dom.window.document.querySelector("#videoDigestOperator").value, FOREIGN_MATERIAL_MOTION_OPERATOR_ID);
-  selector.value = "play-source-once-v1";
-  selector.dispatchEvent(new dom.window.Event("change"));
-  await flush();
+
+  session.noteVideo({ ...binding(), digestOperatorId: FOREIGN_MATERIAL_MOTION_OPERATOR_ID });
+  const selected = await setSampling({}, "play-source-once-v1");
+  assert.equal(selected.samplingPolicyId, "play-source-once-v1");
+  assert.equal(selected.digestOperatorId, FOREIGN_MATERIAL_MOTION_OPERATOR_ID);
   assert.equal(session.state().video.samplingPolicyId, "play-source-once-v1");
   assert.equal(session.state().video.digestOperatorId, FOREIGN_MATERIAL_MOTION_OPERATOR_ID);
-  assert.equal(events.length, 1, "accepted timing must invalidate displayed candidates");
-  refuse = true;
-  selector.value = "stretch-source-clip-v1";
-  selector.dispatchEvent(new dom.window.Event("change"));
-  await flush();
-  assert.equal(selector.value, "play-source-once-v1");
-  assert.equal(events.length, 1, "refusal must not publish an accepted timing");
-  assert.equal(session.state().video.samplingPolicyId, "play-source-once-v1");
-  dom.window.document.querySelector("#removeVideo").click();
-  await flush();
-  assert.equal(selector.disabled, true);
-  assert.equal(selector.value, "loop-source-clip-v1");
+  await assert.rejects(() => setSampling({}, "mystery"), /Unsupported foreign-material sampling policy/);
+
+  const dom = new JSDOM('<div id="videoSourceMount"></div><section id="videoPantryWindow"><strong id="videoPantryStatus"></strong><button id="videoFolderImport">Import</button></section>');
+  installVideoSourceControls({ document: dom.window.document, api: {
+    listVideoPantry: async () => ({ specimens: [] }),
+    chooseVideo: async () => ({ binding: session.state().video }),
+    clearVideo: () => ipcMain.handlers.get("video:clear")({}),
+  } });
+  assert.equal(dom.window.document.querySelector("#videoSamplingPolicy"), null);
+  assert.equal(dom.window.document.querySelector("#videoDigestOperator"), null);
   dom.window.close();
 });
