@@ -46,6 +46,9 @@ jobs:
       - name: Run consolidated application proof
         run: npm run verify
 
+      - name: Exercise archaeology test mutant
+        run: npm --prefix src/full-measure run archaeology:mutant
+
       - name: Audit runtime dependencies
         run: npm --prefix src/full-measure audit --omit=dev --audit-level=high
 

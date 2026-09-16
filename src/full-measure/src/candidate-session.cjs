@@ -2,6 +2,8 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const generation = require("./generation/index.cjs");
+const { buildArchaeologyContext } = require("./archaeology-context.cjs");
+const { analyzeSpecimenMaterial } = require("./video-pantry/material-analysis.cjs");
 const { admitLabProposal, parseLabProposalTransfer } = require("./lab-proposal.cjs");
 const { renderCandidateFamilyPreviews } = require("./render/candidate-preview.cjs");
 const { createForeignMaterialPlan, normalizeDigestOperatorId, normalizeSamplingPolicyId } = require("./render/foreign-material.cjs");
@@ -170,6 +172,7 @@ function candidateGenealogyEvidence(family, candidate) {
 function createCandidateSession({
   renderCandidateFamilyPreviews: renderPreviews = renderCandidateFamilyPreviews,
   analyzeNativeChromaticProfile: analyzeProfile = defaultAnalyzeNativeChromaticProfile,
+  analyzeMaterial = analyzeSpecimenMaterial,
 } = {}) {
   let audioPath = null;
   let mediaAnalysis = null;
@@ -393,6 +396,33 @@ function createCandidateSession({
       throw new Error("Candidate family Toast Feel does not match the requested appliance state.");
     }
     const feel = requestedFeel || familyFeel;
+    const observedAnalysis = mediaAnalysis;
+    const observedImagePath = imagePath;
+    const observedAudioPath = audioPath;
+    // Mutant-only observational recovery: never feed this evidence into generation.
+    let archaeologyObservation = null;
+    if (config.archaeologyObservation !== false && nextFamily.forcedWitness !== true) {
+      const observedVideo = video ? structuredClone(video) : null;
+      let material = null;
+      if (observedVideo) {
+        try { material = await analyzeMaterial(observedVideo, { signal }); }
+        catch (error) {
+          if (signal?.aborted || error?.name === "AbortError") throw error;
+          // Optional evidence fails unavailable, never becomes invented testimony.
+        }
+      }
+      signal?.throwIfAborted();
+      if (!sameVideoBinding(video, observedVideo) || mediaAnalysis !== observedAnalysis
+          || imagePath !== observedImagePath || audioPath !== observedAudioPath) {
+        throw new Error("Source changed during material observation; generate again.");
+      }
+      const analysis = toGenerationAnalysis(mediaAnalysis);
+      archaeologyObservation = buildArchaeologyContext({
+        analysis, responseWitness: responseWitnessFor(mediaAnalysis, analysis),
+        constraints: currentConstraints(config.presetId), family: nextFamily,
+        material, videoPresent: Boolean(observedVideo),
+      });
+    }
     const previewView = await renderPreviews(
       {
         audioPath,
@@ -419,6 +449,7 @@ function createCandidateSession({
       toastmoodField: nextFamily.toastmoodField ? structuredClone(nextFamily.toastmoodField) : null,
       cross: nextFamily.cross ? structuredClone(nextFamily.cross) : null,
       labInfluence: influence,
+      archaeologyObservation,
     };
     selection = null;
     keptSelection = null;
@@ -432,6 +463,7 @@ function createCandidateSession({
       toastmoodField: nextFamily.toastmoodField ? structuredClone(nextFamily.toastmoodField) : null,
       cross: nextFamily.cross ? structuredClone(nextFamily.cross) : null,
       labInfluence: influence,
+      archaeologyObservation,
     };
   }
 
@@ -973,7 +1005,12 @@ function createCandidateSession({
       ...(forcedRenderConfig || {}),
       visualScore: keptSelection.scoreArtifact.score,
       resolvedTimeline: keptSelection.timeline,
-      candidateGenealogy: candidateGenealogyEvidence(family, keptSelection),
+      candidateGenealogy: {
+        ...candidateGenealogyEvidence(family, keptSelection),
+        ...(familyBinding.archaeologyObservation
+          ? { archaeologyObservation: structuredClone(familyBinding.archaeologyObservation) }
+          : {}),
+      },
       forcedWitnessEvidence: keptSelection.forcedWitnessEvidence
         ? structuredClone(keptSelection.forcedWitnessEvidence)
         : null,

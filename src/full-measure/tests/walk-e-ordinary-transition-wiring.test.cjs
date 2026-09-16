@@ -185,8 +185,17 @@ async function selectAndAssertRenderable(session, family, preferredRole = null) 
     ...candidate,
     timeline: execution.resolvedTimeline,
   });
+  const { archaeologyObservation, ...genealogy } = execution.candidateGenealogy;
+  assert.equal(archaeologyObservation.mode, "observation-only");
+  assert.equal(archaeologyObservation.executionAuthority, "none");
+  assert.equal(archaeologyObservation.familyHash, family.familyHash);
+  const observedCandidate = archaeologyObservation.candidates.find(entry => entry.index === candidate.index);
+  assert.equal(observedCandidate.scoreAddress, candidate.scoreAddress);
+  assert.equal(observedCandidate.timelineHash, candidate.timelineHash);
+  assert.deepEqual(observedCandidate.diet.ate, []);
+  assert.deepEqual(observedCandidate.diet.influenceOnly, []);
   assert.deepEqual(
-    execution.candidateGenealogy,
+    genealogy,
     expectedCandidateGenealogy(family, candidate),
     "render handoff must retain current candidate genealogy separately from authority",
   );
