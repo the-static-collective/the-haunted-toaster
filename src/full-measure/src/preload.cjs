@@ -82,7 +82,7 @@ function normalizeStagedListenerEvidence(evidence = {}) {
         if (!anchor?.lineId || !Number.isFinite(mediaTimeMs) || mediaTimeMs < 0) return [];
         return [{
           lineId: String(anchor.lineId).slice(0, 96),
-          mediaTimeMs: Math.round(anchor.mediaTimeMs),
+          mediaTimeMs: Math.round(mediaTimeMs),
           source: anchor.source === "human-edit" ? "human-edit" : "human-tap",
           anchorVersion: String(anchor.anchorVersion || "lyric-anchor/v1").slice(0, 64),
         }];
@@ -174,8 +174,6 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   chooseVideoFolder: () => ipcRenderer.invoke("dialog:choose-video-folder"),
   listVideoPantry: () => ipcRenderer.invoke("video-pantry:list"),
   clearVideo: () => ipcRenderer.invoke("video:clear"),
-  setVideoDigestOperator: (operatorId) => ipcRenderer.invoke("video:set-digest-operator", operatorId),
-  setVideoSamplingPolicy: (policyId) => ipcRenderer.invoke("video:set-sampling-policy", policyId),
   chooseLyrics: () => ipcRenderer.invoke("dialog:choose-lyrics"),
   chooseOutput: (suggestedName) => ipcRenderer.invoke("dialog:choose-output", suggestedName),
   inspectAudio: (filePath) => ipcRenderer.invoke("media:inspect", filePath),
