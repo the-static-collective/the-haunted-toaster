@@ -6,7 +6,11 @@ const { buildArchaeologyContext } = require("./archaeology-context.cjs");
 const { analyzeSpecimenMaterial } = require("./video-pantry/material-analysis.cjs");
 const { admitLabProposal, parseLabProposalTransfer } = require("./lab-proposal.cjs");
 const { renderCandidateFamilyPreviews } = require("./render/candidate-preview.cjs");
-const { createForeignMaterialPlan, normalizeDigestOperatorId, normalizeSamplingPolicyId } = require("./render/foreign-material.cjs");
+const {
+  createForeignMaterialPhrasePlan,
+  createForeignMaterialPlan,
+} = require("./render/foreign-material.cjs");
+const { createVideoPhrasePlan } = require("./render/video-phrase-plan.cjs");
 const { createLyricTrack } = require("./render/lyrics.cjs");
 const { getToastFeel } = require("./toast-feels.cjs");
 const { registerVideoPantryIpc } = require("./video-pantry/electron-ipc.cjs");
@@ -109,9 +113,14 @@ function sameOptionalPath(left, right) {
 function sameVideoBinding(left, right) {
   if (!left && !right) return true;
   if (!left || !right) return false;
-  if (normalizeDigestOperatorId(left.digestOperatorId) !== normalizeDigestOperatorId(right.digestOperatorId)
-      || normalizeSamplingPolicyId(left.samplingPolicyId) !== normalizeSamplingPolicyId(right.samplingPolicyId)) return false;
-  if (left.specimenId && right.specimenId) return left.specimenId === right.specimenId;
+  const leftSpecimenId = String(left.specimenId || "").trim();
+  const rightSpecimenId = String(right.specimenId || "").trim();
+  if (leftSpecimenId && rightSpecimenId) return leftSpecimenId === rightSpecimenId;
+  const leftSha256 = normalizeSourceSha256(left.sourceSha256);
+  const rightSha256 = normalizeSourceSha256(right.sourceSha256);
+  if (leftSha256 && rightSha256) {
+    return leftSha256 === rightSha256 && Number(left.byteLength) === Number(right.byteLength);
+  }
   if (left.path && right.path) return path.resolve(left.path) === path.resolve(right.path);
   return false;
 }
@@ -283,6 +292,39 @@ function createCandidateSession({
     return timedLyricTrack(config.lyrics, Number(mediaAnalysis.duration));
   }
 
+  function candidateVideoPhraseSeed(sourceFamily, candidate) {
+    return generation.hashCanonical({
+      policyVersion: "candidate-video-phrase-seed-v1",
+      familyPolicy: sourceFamily.policy || null,
+      phase: sourceFamily.phase || null,
+      rootSeed: sourceFamily.rootSeed || null,
+      candidateIndex: candidate.index,
+      scoreAddress: candidate.scoreAddress,
+      timelineHash: candidate.timelineHash,
+    }, "HauntedToaster-CandidateVideoPhraseSeed-v1");
+  }
+
+  function attachVideoPhrasePlans(sourceFamily) {
+    if (!video) return sourceFamily;
+    const videoBinding = structuredClone(video);
+    const candidates = sourceFamily.candidates.map((candidate) => {
+      const videoPhrasePlan = createVideoPhrasePlan({
+        videoBinding,
+        timeline: candidate.timeline,
+        seed: candidateVideoPhraseSeed(sourceFamily, candidate),
+      });
+      return Object.freeze({
+        ...candidate,
+        videoPhrasePlan,
+        videoPhrasePlanHash: videoPhrasePlan.planHash,
+      });
+    });
+    return Object.freeze({
+      ...sourceFamily,
+      candidates: Object.freeze(candidates),
+    });
+  }
+
   function admitPostWalkAxisFamily(sourceFamily, { responseWitness, lyricTrack }) {
     const birthFamily = generation.attachTopologyEventAuthorities(sourceFamily);
     const laneBank = generation.buildLaneBank({ responseWitness, lyricTrack });
@@ -396,6 +438,7 @@ function createCandidateSession({
       throw new Error("Candidate family Toast Feel does not match the requested appliance state.");
     }
     const feel = requestedFeel || familyFeel;
+    const materializedFamily = attachVideoPhrasePlans(nextFamily);
     const observedAnalysis = mediaAnalysis;
     const observedImagePath = imagePath;
     const observedAudioPath = audioPath;
@@ -434,20 +477,20 @@ function createCandidateSession({
         artist: config.artist,
         lyrics: config.lyrics,
       },
-      nextFamily,
+      materializedFamily,
       { signal },
     );
     candidateEcologyEntered = true;
-    family = nextFamily;
+    family = materializedFamily;
     familyBinding = {
       audioPath,
       audioSourceSha256: normalizeSourceSha256(mediaAnalysis?.sourceSha256),
       imagePath,
       presetId: config.presetId,
       toastFeelId: feel?.id || null,
-      toastFeel: feel ? structuredClone(nextFamily.toastFeel || feel) : null,
-      toastmoodField: nextFamily.toastmoodField ? structuredClone(nextFamily.toastmoodField) : null,
-      cross: nextFamily.cross ? structuredClone(nextFamily.cross) : null,
+      toastFeel: feel ? structuredClone(materializedFamily.toastFeel || feel) : null,
+      toastmoodField: materializedFamily.toastmoodField ? structuredClone(materializedFamily.toastmoodField) : null,
+      cross: materializedFamily.cross ? structuredClone(materializedFamily.cross) : null,
       labInfluence: influence,
       archaeologyObservation,
     };
@@ -455,13 +498,13 @@ function createCandidateSession({
     keptSelection = null;
     return {
       ...previewView,
-      schema: nextFamily.schema,
-      policy: nextFamily.policy,
-      forcedWitness: nextFamily.forcedWitness === true,
-      fixtureFamily: nextFamily.fixtureFamily || null,
-      toastFeel: feel ? structuredClone(nextFamily.toastFeel || feel) : null,
-      toastmoodField: nextFamily.toastmoodField ? structuredClone(nextFamily.toastmoodField) : null,
-      cross: nextFamily.cross ? structuredClone(nextFamily.cross) : null,
+      schema: materializedFamily.schema,
+      policy: materializedFamily.policy,
+      forcedWitness: materializedFamily.forcedWitness === true,
+      fixtureFamily: materializedFamily.fixtureFamily || null,
+      toastFeel: feel ? structuredClone(materializedFamily.toastFeel || feel) : null,
+      toastmoodField: materializedFamily.toastmoodField ? structuredClone(materializedFamily.toastmoodField) : null,
+      cross: materializedFamily.cross ? structuredClone(materializedFamily.cross) : null,
       labInfluence: influence,
       archaeologyObservation,
     };
@@ -785,6 +828,7 @@ function createCandidateSession({
       candidateIndex: candidate ? candidate.index : null,
       scoreAddress: candidate ? candidate.scoreAddress : null,
       timelineHash: candidate ? candidate.timelineHash : null,
+      videoPhrasePlanHash: candidate?.videoPhrasePlanHash || null,
       operation: operation ? structuredClone(operation) : null,
       resultFamilyHash,
     };
@@ -805,6 +849,7 @@ function createCandidateSession({
       index: candidate.index,
       scoreAddress: candidate.scoreAddress,
       timelineHash: candidate.timelineHash,
+      videoPhrasePlanHash: candidate.videoPhrasePlanHash || null,
       frontierEvidence: candidate.frontierEvidence || null,
       crossLineage: candidate.crossLineage || null,
       toastmoodLane: candidate.toastmoodLane || null,
@@ -851,6 +896,7 @@ function createCandidateSession({
       index: candidate.index,
       scoreAddress: candidate.scoreAddress,
       timelineHash: candidate.timelineHash,
+      videoPhrasePlanHash: candidate.videoPhrasePlanHash || null,
       frontierEvidence: candidate.frontierEvidence || null,
       crossLineage: candidate.crossLineage || null,
       toastmoodLane: candidate.toastmoodLane || null,
@@ -1001,6 +1047,18 @@ function createCandidateSession({
     const forcedRenderConfig = keptSelection.timeline?.renderConfig
       ? structuredClone(keptSelection.timeline.renderConfig)
       : null;
+    const foreignVisualMaterial = keptSelection.videoPhrasePlan
+      ? createForeignMaterialPhrasePlan({
+          videoBinding: video ? structuredClone(video) : null,
+          videoPhrasePlan: keptSelection.videoPhrasePlan,
+          timeline: keptSelection.timeline,
+          analysisDurationSeconds: Number(mediaAnalysis.duration),
+        })
+      : createForeignMaterialPlan({
+          videoBinding: video ? structuredClone(video) : null,
+          timeline: keptSelection.timeline,
+          analysisDurationSeconds: Number(mediaAnalysis.duration),
+        });
     return {
       ...(forcedRenderConfig || {}),
       visualScore: keptSelection.scoreArtifact.score,
@@ -1016,11 +1074,7 @@ function createCandidateSession({
         : null,
       forcedRenderConfig,
       analysis: mediaAnalysis,
-      foreignVisualMaterial: createForeignMaterialPlan({
-        videoBinding: video ? structuredClone(video) : null,
-        timeline: keptSelection.timeline,
-        analysisDurationSeconds: Number(mediaAnalysis.duration),
-      }),
+      foreignVisualMaterial,
       labInfluence: familyBinding.labInfluence || { enabled: false },
       toastFeel: familyBinding.toastFeel ? structuredClone(familyBinding.toastFeel) : null,
       nativeChromaticProfile: nativeChromaticProfile
