@@ -20,7 +20,7 @@ function binding(overrides = {}) {
     },
     persisted: false,
     digestOperatorId: "clip-motion-mask-v1",
-    samplingPolicyId: "loop-source-clip-v1",
+    samplingPolicyId: "play-source-once-v1",
     ...overrides,
   };
 }
@@ -29,7 +29,7 @@ function flush() {
   return new Promise((resolve) => setImmediate(resolve));
 }
 
-test("Video Phrase Stamp names the full accepted digestion × timing coordinate after either axis changes", async () => {
+test("ordinary Video admission does not present legacy digest × timing coordinates as phrase authority", async () => {
   const dom = new JSDOM(`
     <div id="videoSourceMount"></div>
     <section id="videoPantryWindow">
@@ -37,20 +37,11 @@ test("Video Phrase Stamp names the full accepted digestion × timing coordinate 
       <button id="videoFolderImport" type="button">Import</button>
     </section>
   `);
-  let current = binding();
   const api = {
     async listVideoPantry() { return { specimens: [] }; },
-    async chooseVideo() { return { binding: current, pantryCount: null }; },
+    async chooseVideo() { return { binding: binding(), pantryCount: null }; },
     async chooseVideoFolder() { return null; },
-    async clearVideo() { current = null; return true; },
-    async setVideoDigestOperator(digestOperatorId) {
-      current = { ...current, digestOperatorId };
-      return current;
-    },
-    async setVideoSamplingPolicy(samplingPolicyId) {
-      current = { ...current, samplingPolicyId };
-      return current;
-    },
+    async clearVideo() { return true; },
   };
 
   installVideoSourceControls({ document: dom.window.document, api });
@@ -58,24 +49,10 @@ test("Video Phrase Stamp names the full accepted digestion × timing coordinate 
   await flush();
 
   const status = dom.window.document.querySelector("#videoPantryStatus");
-  const timing = dom.window.document.querySelector("#videoSamplingPolicy");
-  const digestion = dom.window.document.querySelector("#videoDigestOperator");
-
-  timing.value = "play-source-once-v1";
-  timing.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
-  await flush();
-  assert.equal(
-    status.textContent,
-    "Video phrase · Motion mask × Play once → release · generate six again",
-  );
-
-  digestion.value = "clip-luma-texture-v1";
-  digestion.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
-  await flush();
-  assert.equal(
-    status.textContent,
-    "Video phrase · Texture × Play once → release · generate six again",
-  );
+  assert.equal(dom.window.document.querySelector("#videoSamplingPolicy"), null);
+  assert.equal(dom.window.document.querySelector("#videoDigestOperator"), null);
+  assert.equal(status.textContent, "Current video is session only · VSPantry unchanged");
+  assert.doesNotMatch(status.textContent, /Video phrase|Motion mask|Play once|Texture/);
 
   dom.window.close();
 });
