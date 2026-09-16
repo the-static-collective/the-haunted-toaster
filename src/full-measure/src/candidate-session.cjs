@@ -6,7 +6,10 @@ const { buildArchaeologyContext } = require("./archaeology-context.cjs");
 const { analyzeSpecimenMaterial } = require("./video-pantry/material-analysis.cjs");
 const { admitLabProposal, parseLabProposalTransfer } = require("./lab-proposal.cjs");
 const { renderCandidateFamilyPreviews } = require("./render/candidate-preview.cjs");
-const { createForeignMaterialPlan, normalizeDigestOperatorId, normalizeSamplingPolicyId } = require("./render/foreign-material.cjs");
+const {
+  createForeignMaterialPhrasePlan,
+  createForeignMaterialPlan,
+} = require("./render/foreign-material.cjs");
 const { createVideoPhrasePlan } = require("./render/video-phrase-plan.cjs");
 const { createLyricTrack } = require("./render/lyrics.cjs");
 const { getToastFeel } = require("./toast-feels.cjs");
@@ -110,9 +113,14 @@ function sameOptionalPath(left, right) {
 function sameVideoBinding(left, right) {
   if (!left && !right) return true;
   if (!left || !right) return false;
-  if (normalizeDigestOperatorId(left.digestOperatorId) !== normalizeDigestOperatorId(right.digestOperatorId)
-      || normalizeSamplingPolicyId(left.samplingPolicyId) !== normalizeSamplingPolicyId(right.samplingPolicyId)) return false;
-  if (left.specimenId && right.specimenId) return left.specimenId === right.specimenId;
+  const leftSpecimenId = String(left.specimenId || "").trim();
+  const rightSpecimenId = String(right.specimenId || "").trim();
+  if (leftSpecimenId && rightSpecimenId) return leftSpecimenId === rightSpecimenId;
+  const leftSha256 = normalizeSourceSha256(left.sourceSha256);
+  const rightSha256 = normalizeSourceSha256(right.sourceSha256);
+  if (leftSha256 && rightSha256) {
+    return leftSha256 === rightSha256 && Number(left.byteLength) === Number(right.byteLength);
+  }
   if (left.path && right.path) return path.resolve(left.path) === path.resolve(right.path);
   return false;
 }
@@ -820,6 +828,7 @@ function createCandidateSession({
       candidateIndex: candidate ? candidate.index : null,
       scoreAddress: candidate ? candidate.scoreAddress : null,
       timelineHash: candidate ? candidate.timelineHash : null,
+      videoPhrasePlanHash: candidate?.videoPhrasePlanHash || null,
       operation: operation ? structuredClone(operation) : null,
       resultFamilyHash,
     };
@@ -840,6 +849,7 @@ function createCandidateSession({
       index: candidate.index,
       scoreAddress: candidate.scoreAddress,
       timelineHash: candidate.timelineHash,
+      videoPhrasePlanHash: candidate.videoPhrasePlanHash || null,
       frontierEvidence: candidate.frontierEvidence || null,
       crossLineage: candidate.crossLineage || null,
       toastmoodLane: candidate.toastmoodLane || null,
@@ -886,6 +896,7 @@ function createCandidateSession({
       index: candidate.index,
       scoreAddress: candidate.scoreAddress,
       timelineHash: candidate.timelineHash,
+      videoPhrasePlanHash: candidate.videoPhrasePlanHash || null,
       frontierEvidence: candidate.frontierEvidence || null,
       crossLineage: candidate.crossLineage || null,
       toastmoodLane: candidate.toastmoodLane || null,
@@ -1036,6 +1047,18 @@ function createCandidateSession({
     const forcedRenderConfig = keptSelection.timeline?.renderConfig
       ? structuredClone(keptSelection.timeline.renderConfig)
       : null;
+    const foreignVisualMaterial = keptSelection.videoPhrasePlan
+      ? createForeignMaterialPhrasePlan({
+          videoBinding: video ? structuredClone(video) : null,
+          videoPhrasePlan: keptSelection.videoPhrasePlan,
+          timeline: keptSelection.timeline,
+          analysisDurationSeconds: Number(mediaAnalysis.duration),
+        })
+      : createForeignMaterialPlan({
+          videoBinding: video ? structuredClone(video) : null,
+          timeline: keptSelection.timeline,
+          analysisDurationSeconds: Number(mediaAnalysis.duration),
+        });
     return {
       ...(forcedRenderConfig || {}),
       visualScore: keptSelection.scoreArtifact.score,
@@ -1051,11 +1074,7 @@ function createCandidateSession({
         : null,
       forcedRenderConfig,
       analysis: mediaAnalysis,
-      foreignVisualMaterial: createForeignMaterialPlan({
-        videoBinding: video ? structuredClone(video) : null,
-        timeline: keptSelection.timeline,
-        analysisDurationSeconds: Number(mediaAnalysis.duration),
-      }),
+      foreignVisualMaterial,
       labInfluence: familyBinding.labInfluence || { enabled: false },
       toastFeel: familyBinding.toastFeel ? structuredClone(familyBinding.toastFeel) : null,
       nativeChromaticProfile: nativeChromaticProfile
