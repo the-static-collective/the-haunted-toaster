@@ -122,10 +122,55 @@ function postWalkAxisRecipeForCandidate(candidate) {
   });
 }
 
+function videoPhraseSummaryForCandidate(candidate) {
+  const plan = candidate?.videoPhrasePlan;
+  const phrases = Array.isArray(plan?.phrases) ? plan.phrases : [];
+  if (!plan || !phrases.length) return null;
+
+  const digestion = [];
+  const traversals = [];
+  let hasMirror = false;
+  let hasRotate = false;
+  let hasCropZoom = false;
+
+  const addUnique = (list, value) => {
+    if (value && !list.includes(value)) list.push(value);
+  };
+
+  for (const phrase of phrases) {
+    for (const atom of Array.isArray(phrase?.digestion) ? phrase.digestion : []) {
+      const operatorId = String(atom?.operatorId || "");
+      if (operatorId === "clip-luma-texture-v1") addUnique(digestion, "texture");
+      if (operatorId === "clip-luma-mask-v1") addUnique(digestion, "topology");
+      if (operatorId === "clip-motion-mask-v1") addUnique(digestion, "motion");
+    }
+    addUnique(traversals, phrase?.timeMap?.traversal || null);
+    const spatial = phrase?.spatial || {};
+    hasMirror ||= spatial.mirrorX === true || spatial.mirrorY === true;
+    hasRotate ||= Number.isFinite(Number(spatial.rotateDeg)) && Number(spatial.rotateDeg) % 360 !== 0;
+    hasCropZoom ||= Number.isFinite(Number(spatial.cropZoom)) && Number(spatial.cropZoom) !== 1;
+  }
+
+  const transforms = [];
+  if (hasMirror) transforms.push("mirror");
+  if (hasRotate) transforms.push("rotate");
+  if (hasCropZoom) transforms.push("crop/zoom");
+
+  return Object.freeze({
+    planHash: candidate.videoPhrasePlanHash || plan.planHash || null,
+    phraseCount: phrases.length,
+    digestion: Object.freeze(digestion),
+    traversals: Object.freeze(traversals),
+    transforms: Object.freeze(transforms),
+    candidateOwned: true,
+  });
+}
+
 function candidatePreviewPlan(candidate, typography = null, foreignMaterial = null) {
   const sample = previewSampleFor(candidate);
   const score = candidate.scoreArtifact.score;
   const postWalkAxisRecipe = postWalkAxisRecipeForCandidate(candidate);
+  const videoPhraseSummary = videoPhraseSummaryForCandidate(candidate);
   return Object.freeze({
     index: candidate.index,
     role: candidate.role,
@@ -137,6 +182,7 @@ function candidatePreviewPlan(candidate, typography = null, foreignMaterial = nu
     scoreAddress: candidate.scoreAddress,
     timelineHash: candidate.timelineHash,
     videoPhrasePlanHash: candidate.videoPhrasePlanHash || null,
+    ...(videoPhraseSummary ? { videoPhraseSummary } : {}),
     changedAxes: Object.freeze([...(candidate.changedAxes || [])]),
     signature: previewSignature(score),
     baseIdentity: baseIdentityForScore(score),
@@ -312,4 +358,5 @@ module.exports = {
   previewSignature,
   renderCandidateFamilyPreviews,
   semanticSignature,
+  videoPhraseSummaryForCandidate,
 };
