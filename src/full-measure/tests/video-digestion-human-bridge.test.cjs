@@ -19,7 +19,6 @@ const previewPath = path.join(root, "src", "render", "candidate-preview.cjs");
 const foreignMaterialPath = path.join(root, "src", "render", "foreign-material.cjs");
 const electronIpcPath = path.join(root, "src", "video-pantry", "electron-ipc.cjs");
 const preloadPath = path.join(root, "src", "preload.cjs");
-const candidateUiPath = path.join(root, "src", "renderer", "candidate-ui.js");
 const videoSourceUiPath = path.join(root, "src", "renderer", "video-source-ui.js");
 
 function read(filePath) {
@@ -66,28 +65,50 @@ function flush() {
   return new Promise((resolve) => setImmediate(resolve));
 }
 
-test("re-admitting the same clip with different timing or digest revokes KEEP", async () => {
+test("re-admitting the same clip with legacy timing or digest preserves kept phrase authority", async () => {
   for (const changed of [
     { samplingPolicyId: "play-source-once-v1" },
     { digestOperatorId: FOREIGN_MATERIAL_MOTION_OPERATOR_ID },
   ]) {
     const session = createCandidateSession({
       async renderCandidateFamilyPreviews(_config, family) {
-        return { familyHash: family.familyHash, candidates: family.candidates.map(({ index, scoreAddress, timelineHash }) => ({ index, scoreAddress, timelineHash })) };
+        return {
+          familyHash: family.familyHash,
+          candidates: family.candidates.map(({ index, scoreAddress, timelineHash }) => ({
+            index,
+            scoreAddress,
+            timelineHash,
+          })),
+        };
       },
     });
     const audioPath = path.resolve("/tmp/video-phrasing.wav");
-    session.noteAudio(audioPath, { duration: 3, sections: [{ start: 0, end: 3, energy: 0.5 }], energySamples: [] });
-    session.noteVideo({ ...binding(), ...changed });
-    const config = { presetId: "openField", toastFeelId: "low-and-slow", rootSeed: "video-re-admission", lyrics: "" };
-    const view = await session.generate(config);
-    session.keep({ familyHash: view.familyHash, index: 0 });
-    const renderConfig = { ...config, audioPath, imagePath: null };
-    assert.ok(session.executionForRender(renderConfig));
-    session.noteVideo({ ...binding(), ...changed });
-    assert.ok(session.executionForRender(renderConfig), "unchanged binding preserves KEEP");
+    session.noteAudio(audioPath, {
+      duration: 3,
+      sections: [{ start: 0, end: 3, energy: 0.5 }],
+      energySamples: [],
+    });
     session.noteVideo(binding());
-    assert.throws(() => session.executionForRender(renderConfig), { code: "CANDIDATE_RENDER_KEEP_REQUIRED" });
+    const config = {
+      presetId: "openField",
+      toastFeelId: "low-and-slow",
+      rootSeed: "video-re-admission",
+      lyrics: "",
+    };
+    const view = await session.generate(config);
+    const kept = session.keep({ familyHash: view.familyHash, index: 0 });
+    const renderConfig = { ...config, audioPath, imagePath: null };
+    const before = session.executionForRender(renderConfig);
+    assert.ok(kept.videoPhrasePlanHash);
+    assert.equal(before.foreignVisualMaterial.videoPhrasePlanHash, kept.videoPhrasePlanHash);
+
+    session.noteVideo({ ...binding(), ...changed });
+    const after = session.executionForRender(renderConfig);
+    assert.equal(
+      after.foreignVisualMaterial.videoPhrasePlanHash,
+      kept.videoPhrasePlanHash,
+      "legacy knob changes on identical admitted bytes cannot rewrite kept phrase authority",
+    );
   }
 });
 
@@ -137,21 +158,20 @@ test("Video IPC admits bounded digest roles and requires admitted Video", async 
   );
 });
 
-test("#250 digest role rides the existing Video binding through preview/final and visibly revokes stale six-up", () => {
+test("#250 legacy controls remain ancestry while phrase plans own preview/final authority", () => {
   const candidateSource = read(candidateSessionPath);
   const previewSource = read(previewPath);
   const foreignSource = read(foreignMaterialPath);
   const ipcSource = read(electronIpcPath);
-  const candidateUiSource = read(candidateUiPath);
   const videoSourceUiSource = read(videoSourceUiPath);
 
   assert.match(foreignSource, /videoBinding\.digestOperatorId/);
-  assert.match(candidateSource, /video:\s*video \? structuredClone\(video\) : null/);
-  assert.match(candidateSource, /foreignVisualMaterial:\s*createForeignMaterialPlan\(\{[\s\S]*videoBinding:\s*video \? structuredClone\(video\) : null/);
-  assert.match(previewSource, /createForeignMaterialPlan\(\{[\s\S]*videoBinding:\s*config\.video \|\| null/);
+  assert.match(candidateSource, /createForeignMaterialPhrasePlan\(\{[\s\S]*videoPhrasePlan:\s*keptSelection\.videoPhrasePlan/);
+  assert.match(previewSource, /createForeignMaterialPhrasePlan\(\{[\s\S]*videoPhrasePlan:\s*candidate\.videoPhrasePlan/);
+  assert.match(candidateSource, /createForeignMaterialPlan\(\{/);
+  assert.match(previewSource, /createForeignMaterialPlan\(\{/);
   assert.match(ipcSource, /candidateSession\.clearVideo\(\)[\s\S]*candidateSession\.noteVideo\(/);
   assert.match(videoSourceUiSource, /video-digest-change/);
-  assert.match(candidateUiSource, /window\.addEventListener\("video-digest-change"[\s\S]*clearUi\(\{ notifyMain: false \}\)/);
   assert.doesNotMatch(candidateSource, /let videoDigestOperatorId/);
 });
 
