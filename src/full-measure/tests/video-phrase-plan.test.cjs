@@ -194,3 +194,23 @@ test("#277 Stretch lowers to one full-span retimed phrase", () => {
   assert.equal(plan.phrases[0].digestion[0].operatorId, "clip-luma-texture-v1");
   assert.equal(plan.legacy.samplingPolicyId, "stretch-source-clip-v1");
 });
+
+test("Toaster spectrum makes candidate seeds into bounded multi-phrase composition rather than one global mode", () => {
+  const plans = Array.from({ length: 6 }, (_, index) => createVideoPhrasePlan({
+    videoBinding: binding("C:/clips/a.mp4"),
+    timeline,
+    seed: `candidate-${index}`,
+  }));
+  assert.equal(new Set(plans.map((plan) => plan.planHash)).size, 6);
+  assert.ok(plans.every((plan) => plan.phrases.length >= 2 && plan.phrases.length <= MAX_PHRASES));
+
+  const phrases = plans.flatMap((plan) => plan.phrases);
+  const traversals = new Set(phrases.map((item) => item.traversal));
+  assert.ok(traversals.has("reverse"));
+  assert.ok(traversals.has("ping-pong"));
+  assert.ok(phrases.some((item) => item.digestion.length > 1), "at least one phrase must combine digestion atoms");
+  assert.ok(phrases.some((item) =>
+    item.transforms.mirrorX || item.transforms.mirrorY || item.transforms.rotationDegrees !== 0 || item.transforms.zoom !== 1
+  ), "at least one phrase must use a spatial transform");
+  assert.ok(phrases.some((item) => item.startTick > 0), "video must be able to leave and return later in the song");
+});
