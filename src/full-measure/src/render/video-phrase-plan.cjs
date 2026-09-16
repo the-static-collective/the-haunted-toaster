@@ -287,8 +287,62 @@ function createVideoPhrasePlan(input = {}) {
   });
   const seedHash = digestHex(seedMaterial);
   const spectrum = Number(unitFromHex(seedHash, 0).toFixed(6));
-  const traversal = TRAVERSALS[Number.parseInt(seedHash.slice(13, 15), 16) % TRAVERSALS.length];
-  const operatorId = DIGEST_OPERATORS[Number.parseInt(seedHash.slice(15, 17), 16) % DIGEST_OPERATORS.length];
+  const phraseCount = Math.min(
+    MAX_PHRASES,
+    2 + Math.floor(spectrum * (MAX_PHRASES - 1)),
+  );
+  const zooms = [1, 1.1, 1.25, 1.5];
+  const phrases = Array.from({ length: phraseCount }, (_, index) => {
+    const phraseHash = digestHex(`${seedHash}:phrase:${index}`);
+    const cellStart = Math.floor((index * normalized.timeline.durationTicks) / phraseCount);
+    const cellEnd = Math.floor(((index + 1) * normalized.timeline.durationTicks) / phraseCount);
+    const cellSpan = Math.max(1, cellEnd - cellStart);
+    const startTick = index === 0
+      ? cellStart
+      : Math.min(
+          cellEnd - 1,
+          cellStart + Math.floor(cellSpan * (0.04 + 0.12 * unitFromHex(phraseHash, 0))),
+        );
+    const tailTicks = Math.floor(cellSpan * (0.08 + 0.18 * unitFromHex(phraseHash, 13)));
+    const endTick = Math.max(startTick + 1, cellEnd - tailTicks);
+    const traversal = TRAVERSALS[
+      (Number.parseInt(phraseHash.slice(26, 28), 16) + index) % TRAVERSALS.length
+    ];
+    const digestionCount = 1
+      + (Number.parseInt(phraseHash.slice(28, 30), 16) % DIGEST_OPERATORS.length);
+    const operatorStart = Number.parseInt(phraseHash.slice(30, 32), 16) % DIGEST_OPERATORS.length;
+    const digestion = Array.from({ length: digestionCount }, (_, atomIndex) => ({
+      operatorId: DIGEST_OPERATORS[(operatorStart + atomIndex) % DIGEST_OPERATORS.length],
+      weight: Number((1 / (atomIndex + 1)).toFixed(3)),
+    }));
+    const windowFraction = 0.35 + 0.55 * unitFromHex(phraseHash, 39);
+    const windowDuration = normalized.source.durationSeconds * windowFraction;
+    const sourceStart = (normalized.source.durationSeconds - windowDuration)
+      * unitFromHex(phraseHash, 51);
+
+    return {
+      phraseId: `phrase-${index + 1}`,
+      startTick,
+      endTick,
+      sourceWindow: {
+        startSeconds: sourceStart,
+        endSeconds: sourceStart + windowDuration,
+      },
+      traversal,
+      cycles: 1 + (Number.parseInt(phraseHash.slice(40, 42), 16) % MAX_CYCLES),
+      playbackRate: Number((0.75 + 0.75 * unitFromHex(phraseHash, 42)).toFixed(3)),
+      digestion,
+      transforms: {
+        mirrorX: Number.parseInt(phraseHash.slice(32, 34), 16) % 3 === 0,
+        mirrorY: Number.parseInt(phraseHash.slice(34, 36), 16) % 5 === 0,
+        rotationDegrees: ROTATIONS[Number.parseInt(phraseHash.slice(36, 38), 16) % ROTATIONS.length],
+        crop: null,
+        zoom: zooms[Number.parseInt(phraseHash.slice(38, 40), 16) % zooms.length],
+        opacity: Number((0.65 + 0.35 * unitFromHex(phraseHash, 27)).toFixed(3)),
+      },
+      release: "native",
+    };
+  });
 
   return normalizeVideoPhrasePlan({
     schema: VIDEO_PHRASE_PLAN_SCHEMA,
@@ -296,21 +350,7 @@ function createVideoPhrasePlan(input = {}) {
     source: normalized.source,
     timeline: normalized.timeline,
     spectrum,
-    phrases: [{
-      phraseId: "phrase-1",
-      startTick: 0,
-      endTick: normalized.timeline.durationTicks,
-      sourceWindow: {
-        startSeconds: 0,
-        endSeconds: normalized.source.durationSeconds,
-      },
-      traversal,
-      cycles: 1,
-      playbackRate: 1,
-      digestion: [{ operatorId, weight: 1 }],
-      transforms: identityTransforms(),
-      release: "native",
-    }],
+    phrases,
   });
 }
 
