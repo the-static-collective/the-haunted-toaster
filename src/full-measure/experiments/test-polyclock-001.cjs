@@ -1,0 +1,13 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {clockFrame,lineageFrames}=require('../polyclock-001.cjs');
+assert.equal(clockFrame(960,'seed-a').sharedReturn,true);
+assert.equal(clockFrame(60,'seed-a').sharedReturn,false);
+assert.equal(clockFrame(960,'seed-a').percussionStep,0);
+assert.equal(clockFrame(960,'seed-a').visualStep,0);
+const frames=lineageFrames(962,step=>'recording:at-'+step);
+assert.equal(frames[959].sampleRef,'initial');
+assert.equal(frames[960].sampleRef,'recording:at-960');
+assert.equal(frames[961].sampleRef,'recording:at-960');
+assert.throws(()=>lineageFrames(10001,()=> 'x'));
+console.log('POLYCLOCK-001: 8 tests passed; no actual media rendering attempted');
