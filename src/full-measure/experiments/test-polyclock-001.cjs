@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict');
-const {clockFrame,lineageFrames}=require('../polyclock-001.cjs');
+const {clockFrame,lineageFrames}=require('./polyclock-001.cjs');
 assert.equal(clockFrame(960,'seed-a').sharedReturn,true);
 assert.equal(clockFrame(60,'seed-a').sharedReturn,false);
 assert.equal(clockFrame(960,'seed-a').percussionStep,0);
