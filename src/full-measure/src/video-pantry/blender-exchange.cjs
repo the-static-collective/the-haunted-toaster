@@ -108,7 +108,12 @@ function validateProducerReceipt(receipt, manifest) {
     asset_id: item.assetId,
     rendered_sha256: item.renderedSha256,
   }));
-  if (JSON.stringify(receipt.segments) !== JSON.stringify(expectedSegments)) {
+  if (receipt.segments.length !== expectedSegments.length || receipt.segments.some((segment, index) => {
+    if (!segment || typeof segment !== "object" || Array.isArray(segment)) return true;
+    const expected = expectedSegments[index];
+    return Object.keys(segment).sort().join("|") !== Object.keys(expected).sort().join("|")
+      || Object.keys(expected).some((key) => segment[key] !== expected[key]);
+  })) {
     throw new TypeError("Producer receipt segment ancestry mismatch.");
   }
 }
