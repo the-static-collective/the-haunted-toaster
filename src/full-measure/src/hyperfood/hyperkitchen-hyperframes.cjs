@@ -198,7 +198,7 @@ function renderHyperFramesHtml(model) {
     "layer.className='layer';const img=document.createElement('img');img.alt='';",
     "layer.appendChild(img);host.appendChild(layer);views.push({layer,img});}",
     "function draw(timeSec){const t=Math.max(0,Math.min(model.durationMs,Math.round(timeSec*1000)));",
-    "const index=Math.min(model.frames.length-1,Math.floor(t*model.fps/1000));",
+    "const index=Math.min(model.frames.length-1,Math.round(t*model.fps/1000));",
     "const state=model.frames[index];for(const v of views){v.layer.style.display='none';}",
     "for(let k=0;k<state.frameEatFrame.levels.length;k++){const level=state.frameEatFrame.levels[k];",
     "const v=views[k];v.layer.style.display='block';v.img.src=state.asset;",
