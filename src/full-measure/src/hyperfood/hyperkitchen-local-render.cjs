@@ -120,7 +120,13 @@ async function renderHyperKitchen({
   }
 
   const prior = await previousIfIntact();
-  if (prior) return { receipt: prior, path: path.join(dest, "render.mp4"), reused: true };
+  if (prior) {
+    const already = await admitVideo(path.join(dest, "render.mp4"), {
+      catalogPath: input.catalogPath, persist: true,
+    });
+    return { receipt: prior, path: path.join(dest, "render.mp4"),
+      childSpecimenId: already.binding.specimenId, reused: true };
+  }
 
   const tempBase = path.join(home, "HyperKitchen", "tmp");
   await fs.mkdir(tempBase, { recursive: true });
