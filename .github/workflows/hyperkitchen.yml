@@ -1,0 +1,58 @@
+name: HYPERKITCHEN-001 local HyperFrames-style projection proof
+
+on:
+  pull_request:
+    paths:
+      - 'src/full-measure/src/hyperfood/hyperkitchen-*'
+      - 'src/full-measure/scripts/hyperkitchen-local.cjs'
+      - 'src/full-measure/scripts/smoke-hyperkitchen-blender.py'
+      - 'src/full-measure/tests/hyperkitchen-hyperframes.test.cjs'
+      - '.github/workflows/hyperkitchen.yml'
+  push:
+    branches:
+      - experimental/hyperkitchen-001-hyperframes-projection
+
+permissions:
+  contents: read
+
+jobs:
+  hyperkitchen:
+    name: Real Blender clip to local HTML projection to VSPantry
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout pinned Toaster HyperFood mutant child
+        uses: actions/checkout@v4
+      - name: Checkout pinned Blender alchemy and exchange producer
+        uses: actions/checkout@v4
+        with:
+          repository: the-static-collective/the-haunted-blender
+          ref: 42162d7e55edeeb0328b1572f1b89ee85e0baa3d
+          path: external/blender
+          persist-credentials: false
+      - name: Checkout pinned Toaster exchange consumer, without merging it
+        uses: actions/checkout@v4
+        with:
+          repository: the-static-collective/the-haunted-toaster
+          ref: fccce085382debb9018883a05c08df3461e5d82d
+          path: external/toaster-exchange
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: src/full-measure/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install locked Toaster dependencies
+        run: npm --prefix src/full-measure ci
+      - name: Install local Chromium capture and FFmpeg tools
+        run: |
+          npx --prefix src/full-measure playwright install --with-deps chromium
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+      - name: HyperFood identity, frame trace and HTML authoring proofs
+        run: node --test src/full-measure/tests/hyperkitchen-hyperframes.test.cjs
+      - name: Real synthetic Blender MP4 through exchange, HyperKitchen HTML, local Chromium, FFmpeg and new VSPantry specimen
+        run: python src/full-measure/scripts/smoke-hyperkitchen-blender.py --blender-repo external/blender --exchange-repo external/toaster-exchange
