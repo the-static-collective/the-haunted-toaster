@@ -83,7 +83,7 @@ test("Blender manifest reaches existing VSPantry with honest lineage and recursi
   assert.equal(first.exchange.manifestSha256, sha(await fs.readFile(f.manifestPath)));
   assert.equal(first.exchange.producerReceiptSha256, sha(await fs.readFile(f.producerReceiptPath)));
   assert.equal(first.exchange.sourceByteVerification, "producer-claimed-not-consumer-verified");
-  assert.equal(first.exchange.rendererAuthority, "none");
+  assert.equal(first.exchange.renderAuthority, "none");
   assert.equal(first.rendererAuthorityGranted, false);
   const catalog = await loadCatalog(path.join(f.rootDir, "VSPantry", "catalog", "video-pantry.v1.json"));
   assert.equal(catalog.specimens.length, 1);
