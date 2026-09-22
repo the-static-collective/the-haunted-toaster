@@ -1,0 +1,44 @@
+name: Cross-project Nuklear Pantry Exchange proof
+
+on:
+  pull_request:
+    paths:
+      - 'src/full-measure/src/video-pantry/blender-exchange.cjs'
+      - 'src/full-measure/scripts/smoke-blender-exchange.py'
+      - 'src/full-measure/scripts/import-blender-exchange.cjs'
+      - '.github/workflows/blender-pantry-exchange.yml'
+  push:
+    branches:
+      - feat/nuklear-pantry-exchange-001
+
+permissions:
+  contents: read
+
+jobs:
+  real-cross-app-exchange:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out current Toaster exchange branch
+        uses: actions/checkout@v4
+      - name: Check out pinned experimental Blender producer
+        uses: actions/checkout@v4
+        with:
+          repository: the-static-collective/the-haunted-blender
+          ref: 42162d7e55edeeb0328b1572f1b89ee85e0baa3d
+          path: blender
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: src/full-measure/package-lock.json
+      - name: Install locked Toaster dependencies
+        run: npm --prefix src/full-measure ci
+      - name: Install FFmpeg for Blender source render
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - name: Prove real Blender MP4 → transferred bytes → existing Toaster VSPantry → recursive recipe
+        run: python src/full-measure/scripts/smoke-blender-exchange.py --blender-repo blender
