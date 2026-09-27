@@ -365,6 +365,51 @@ Topology Season should deliberately test these existing capabilities as topology
 
 No subsystem gains new authority because Topology Season reads it.
 
+## Pirate Law — creative law is bendable
+
+Not every sentence that looks like a law has the same authority.
+
+For provenance, identity, consent, source attribution, receipt truth, replay identity, and authority boundaries:
+
+```text
+HARD LAW
+= do not silently bend
+```
+
+For creative exploration, composition, mutation, metaphor, aesthetic grammar, topology play, and “what if this clicks?” work:
+
+```text
+PIRATE LAW
+= strong inherited guideline
+= useful frame
+= bendable on purpose
+```
+
+The purpose of a creative law is to preserve a fruitful pressure, not to imprison the next organism.
+
+If a creative bend works:
+
+1. keep the old frame addressable;
+2. make the bend visible;
+3. test what became possible;
+4. keep the strange result if it earns its life;
+5. do not retroactively pretend the old guideline always meant the new thing.
+
+```text
+CREATIVE LAW != AUTHORITY LAW
+BENDING THE FRAME != BREAKING PROVENANCE
+EXCEPTION != RETCON
+PLAY MAY DISCOVER THE NEXT LAW
+```
+
+Examples:
+
+- “two lines is the floor” is a strong Linear design pressure, not a metaphysical prohibition against a future specimen proving something stranger;
+- “same structure != same geometry” is a Native Anatomy compass, not a ban on experiments that temporarily violate recognizability to discover a better grammar;
+- “Topology is the #1 juice” is permission to over-investigate the medium, not an authority claim over every other subsystem.
+
+Creative law should make the Toaster bolder, not more obedient.
+
 ## Mutation objective
 
 The target is not a giant preset catalogue.
