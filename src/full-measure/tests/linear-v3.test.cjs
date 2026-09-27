@@ -52,7 +52,7 @@ test("raster-4 Linear has a dedicated v3 native-anatomy compiler", () => {
     productionGraph(),
     execution(generation.MUTATION_LATTICE_RENDERER_POLICY, "scope"),
   );
-  assert.equal(compiled.topologyCompiler, "linear-v3");
+  assert.equal(compiled.topologyCompiler, "linear_v3");
   assert.match(compiled.graph, /linearSeed/);
   assert.match(compiled.graph, /linearRail/);
   assert.notEqual(compiled.graph, productionGraph());
@@ -67,8 +67,8 @@ test("Linear v3 primitive structures produce materially distinct native anatomy"
       execution(generation.MUTATION_LATTICE_RENDERER_POLICY, structure),
     );
     graphs.set(structure, compiled.graph);
-    assert.equal(compiled.topologyCompiler, "linear-v3");
-    assert.match(compiled.graph, new RegExp(`linear-${structure}`, "i"));
+    assert.equal(compiled.topologyCompiler, "linear_v3");
+    assert.match(compiled.graph, new RegExp(`linear_${structure}`, "i"));
   }
   assert.equal(new Set(graphs.values()).size, structures.length);
   assert.match(graphs.get("scope"), /linearRail[^\n]*linearRail/s);
@@ -91,18 +91,18 @@ test("Linear v3 consumes primitive structure as anatomy instead of decorating it
   assert.doesNotMatch(prepared.graph, /primitiveBranch0/);
 
   const compiled = compileProductionTopology(prepared.graph, exec);
-  assert.equal(compiled.topologyCompiler, "linear-v3");
+  assert.equal(compiled.topologyCompiler, "linear_v3");
   assert.match(compiled.graph, /linearBranch/);
 });
 
-test("historical Linear policies remain exact linear-v1 no-ops", () => {
+test("historical Linear policies remain exact linear_v1 no-ops", () => {
   for (const policy of [
     generation.VISUAL_LANGUAGE_RENDERER_POLICY,
     generation.EXPRESSIVE_RENDERER_POLICY,
   ]) {
     const graph = productionGraph();
     const compiled = compileProductionTopology(graph, execution(policy, "branches"));
-    assert.equal(compiled.topologyCompiler, "linear-v1");
+    assert.equal(compiled.topologyCompiler, "linear_v1");
     assert.equal(compiled.graph, graph);
   }
 });
