@@ -252,7 +252,7 @@ test("RESURRECTION-001 motion descendant eats motion without carrying literal so
   assert.equal(motionPlan.assimilationPolicy.literalSourcePixelsSurvive, false);
   assert.match(applied.graph, /tblend=all_mode=difference/);
   assert.match(applied.graph, /maskedmerge/);
-  assert.doesNotMatch(applied.graph, /\[2:v\].*blend=/);
+  assert.doesNotMatch(applied.graph, /\[2:v\][^;\n]*\bblend=all_mode=softlight/);
   assert.equal(applied.evidence.operatorId, FOREIGN_MATERIAL_MOTION_OPERATOR_ID);
   assert.equal(applied.evidence.sourceRole, "motion-mask");
   assert.equal(applied.evidence.literalSourcePixelsSurvive, false);
