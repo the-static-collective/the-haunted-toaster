@@ -101,7 +101,11 @@ function applyPrimitiveFieldToGraph({ graph, timeline, width, height }) {
   if (!evidence) return Object.freeze({ graph, evidence: null });
   if (!String(graph || "").includes(WAVE_CONSUMER_SEAM)) throw new Error("Production filter graph is missing the canonical wave consumer seam.");
   const w = dimension(width, "Primitive field width"), h = dimension(height, "Primitive field height"), response = responseForTimeline(timeline);
-  const program = [structureProgram(evidence.structure.value, w, h), dynamicsProgram(evidence.dynamics.value, w, h, response), "[spectral][primitiveField]overlay=0:0:shortest=1[stage0]"].join(";\n");
+  const nativeLinearAnatomy = timeline?.rendererPolicy === MUTATION_LATTICE_RENDERER_POLICY && timeline?.baseState?.topology === "linear";
+  const structure = nativeLinearAnatomy
+    ? "[waveFull]null[primitiveStructure]"
+    : structureProgram(evidence.structure.value, w, h);
+  const program = [structure, dynamicsProgram(evidence.dynamics.value, w, h, response), "[spectral][primitiveField]overlay=0:0:shortest=1[stage0]"].join(";\n");
   return Object.freeze({ graph: String(graph).replace(WAVE_CONSUMER_SEAM, program), evidence });
 }
 
