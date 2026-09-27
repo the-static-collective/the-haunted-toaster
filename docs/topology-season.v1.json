@@ -31,6 +31,15 @@
   },
   "epochs": [
     {
+      "version": "v000",
+      "name": "Reliable test floor",
+      "sealedBranch": "topology/v000-test-floor",
+      "sealedSha": "de38bbec26be83660a2ff4a1f41800250def4b28",
+      "sourcePr": 282,
+      "status": "SEALED",
+      "proofLaw": "Known packaged test carrier before Topology Season."
+    },
+    {
       "version": "v001",
       "name": "Linear v3",
       "issue": 176,
@@ -39,10 +48,10 @@
       "proposedSealBranch": "topology/v001-linear-v3",
       "status": "WORKING_UNSEALED",
       "ancestor": {
-        "pr": 282,
-        "branch": "design/video-phrase-grammar-v1",
+        "version": "v000",
+        "branch": "topology/v000-test-floor",
         "sha": "de38bbec26be83660a2ff4a1f41800250def4b28",
-        "note": "packaged test-build carrier"
+        "sourcePr": 282
       },
       "proofLaw": "Make Linear a family, not a pose."
     },
