@@ -90,6 +90,24 @@ Reconcile the latest season body to `main` only when:
 
 The merge to `main` is a **release event**, not housekeeping.
 
+## Epoch 000 — reliable test floor
+
+The pre-season packaged test carrier is sealed as:
+
+```text
+topology/v000-test-floor
+```
+
+Exact SHA:
+
+```text
+de38bbec26be83660a2ff4a1f41800250def4b28
+```
+
+This is the known working floor inherited from #282. It is not a new feature release. It exists so Topology Season has an explicit ancestral body instead of an unnamed moving branch.
+
+Do not develop on v000.
+
 ## Epoch 001 — Linear v3
 
 Issue: #176  
