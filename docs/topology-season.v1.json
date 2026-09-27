@@ -73,5 +73,32 @@
     "mutation ancestry",
     "receipted topology brush specimens"
   ],
-  "compression": "The Toaster grows body hair so it can make new brushes out of itself."
+  "compression": "The Toaster grows body hair so it can make new brushes out of itself.",
+  "creativeLawPosture": {
+    "name": "PIRATE_LAW",
+    "scope": [
+      "ideation",
+      "composition",
+      "mutation",
+      "aesthetic grammar",
+      "topology play",
+      "creative experiments"
+    ],
+    "hardLawScope": [
+      "provenance",
+      "identity",
+      "consent",
+      "source attribution",
+      "receipt truth",
+      "replay identity",
+      "authority boundaries"
+    ],
+    "laws": [
+      "CREATIVE_LAW != AUTHORITY_LAW",
+      "BENDING_THE_FRAME != BREAKING_PROVENANCE",
+      "EXCEPTION != RETCON",
+      "PLAY_MAY_DISCOVER_THE_NEXT_LAW"
+    ],
+    "rule": "Creative laws are strong inherited guidelines that may be bent deliberately; bends must remain attributable and must not rewrite provenance."
+  }
 }
