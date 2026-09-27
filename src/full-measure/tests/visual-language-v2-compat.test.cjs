@@ -101,6 +101,7 @@ test("raster-3 spiral and quad-mirror remain exact visual-language-v2 ancestors"
 test("Build Info capability claims are derived from the active profile and registries", () => {
   const derived = deriveBuildCapabilities();
   assert.equal(derived.rendererProfileGeneration, rendererProfile.id);
+  assert.equal(derived.topologyCompilers.linear, "linear-v3");
   assert.equal(derived.topologyCompilers.spiral, "spiral-polar-v2");
   assert.equal(derived.topologyCompilers["quad-mirror"], "quad-mirror-v2");
   assert.equal(derived.topologyCompilers["elastic-spine"], "elastic-spine-v3");
@@ -115,5 +116,6 @@ test("Build Info capability claims are derived from the active profile and regis
   assert.ok(derived.capabilities.includes("toastFeelV2"));
   assert.ok(derived.capabilities.includes("mutationLatticeV1"));
   assert.ok(derived.capabilities.includes("shapePackV1"));
+  assert.ok(derived.capabilities.includes("linearV3"));
   assert.ok(derived.capabilities.includes("topologyArcV1"));
 });

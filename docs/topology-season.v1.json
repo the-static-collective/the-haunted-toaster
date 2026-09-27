@@ -1,0 +1,104 @@
+{
+  "schema": "haunted-toaster/topology-season/v1",
+  "season": "TOPOLOGY-SEASON-001",
+  "parentIssue": 302,
+  "posture": "top-down-topology-development",
+  "laws": [
+    "TOPOLOGY_IS_PRIMARY_MUTABLE_BODY",
+    "NUMBERED_BRANCH_IS_PROVEN_GROWTH_PHASE",
+    "SEALED_VERSION_IS_EXACTLY_WHAT_WAS_PROVEN_THEN",
+    "BUILD_FORWARD_AFTER_SEAL",
+    "MAIN_IS_RELEASE_FLOOR_NOT_DAILY_DEVELOPMENT_AUTHORITY",
+    "MUTATION_DOES_NOT_EQUAL_BRUSH",
+    "KEEP_DOES_NOT_EQUAL_CANON",
+    "RECEIPT_DOES_NOT_EQUAL_AUTHORITY"
+  ],
+  "branchProtocol": {
+    "workingBranches": "free-form proof branches are allowed before seal",
+    "sealedPattern": "topology/vNNN-slug",
+    "nextVersion": "cut from exact SHA of prior sealed numbered branch",
+    "afterSeal": "do not rewrite or continue ordinary development on prior numbered branch",
+    "bugPosture": "fix forward in next body unless reproducing old body is explicit task",
+    "main": "release/reconciliation landing zone only during season",
+    "releaseTrigger": [
+      "desired current work integrated",
+      "full machine proof green",
+      "package green",
+      "human field witness acceptable",
+      "body merits actual release",
+      "no obvious immediate mutation should reshape same carrier first"
+    ]
+  },
+  "epochs": [
+    {
+      "version": "v000",
+      "name": "Reliable test floor",
+      "sealedBranch": "topology/v000-test-floor",
+      "sealedSha": "de38bbec26be83660a2ff4a1f41800250def4b28",
+      "sourcePr": 282,
+      "status": "SEALED",
+      "proofLaw": "Known packaged test carrier before Topology Season."
+    },
+    {
+      "version": "v001",
+      "name": "Linear v3",
+      "issue": 176,
+      "implementationPr": 301,
+      "workingBranch": "feat/linear-v3-test-build",
+      "proposedSealBranch": "topology/v001-linear-v3",
+      "status": "WORKING_UNSEALED",
+      "ancestor": {
+        "version": "v000",
+        "branch": "topology/v000-test-floor",
+        "sha": "de38bbec26be83660a2ff4a1f41800250def4b28",
+        "sourcePr": 282
+      },
+      "proofLaw": "Make Linear a family, not a pose."
+    },
+    {
+      "version": "v002",
+      "name": "Native Anatomy",
+      "issue": 246,
+      "proposedSealBranch": "topology/v002-native-anatomy",
+      "status": "PLANNED_AFTER_V001_SEAL",
+      "proofLaw": "same structure != same geometry; same structure ~= recognizable structural pressure"
+    }
+  ],
+  "frontier": [
+    "topology-native body",
+    "behavior over body",
+    "local topology actions",
+    "time and structural memory",
+    "foreign-material pressure",
+    "mutation ancestry",
+    "receipted topology brush specimens"
+  ],
+  "compression": "The Toaster grows body hair so it can make new brushes out of itself.",
+  "creativeLawPosture": {
+    "name": "PIRATE_LAW",
+    "scope": [
+      "ideation",
+      "composition",
+      "mutation",
+      "aesthetic grammar",
+      "topology play",
+      "creative experiments"
+    ],
+    "hardLawScope": [
+      "provenance",
+      "identity",
+      "consent",
+      "source attribution",
+      "receipt truth",
+      "replay identity",
+      "authority boundaries"
+    ],
+    "laws": [
+      "CREATIVE_LAW != AUTHORITY_LAW",
+      "BENDING_THE_FRAME != BREAKING_PROVENANCE",
+      "EXCEPTION != RETCON",
+      "PLAY_MAY_DISCOVER_THE_NEXT_LAW"
+    ],
+    "rule": "Creative laws are strong inherited guidelines that may be bent deliberately; bends must remain attributable and must not rewrite provenance."
+  }
+}

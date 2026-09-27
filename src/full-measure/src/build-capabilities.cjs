@@ -98,6 +98,9 @@ function deriveBuildCapabilities() {
       SHAPE_PACK_TOPOLOGIES.every((name) => registries.topology[name]?.id?.endsWith("-v3"))
       ? "shapePackV1"
       : null,
+    mutationLatticeActive && registries.topology.linear?.id === "linear-v3"
+      ? "linearV3"
+      : null,
     mutationLatticeActive && TOPOLOGY_ARC_POLICY === "topology-arc-v1"
       ? "topologyArcV1"
       : null,
