@@ -138,10 +138,14 @@ function candidateWithMemorySeat(candidate, seat, prism, options, baseFamily) {
   const timeline = applied.application.applied
     ? resolveMemoryTimeline(candidate, scoreArtifact, options, baseFamily)
     : candidate.timeline;
+  const changedAxes = applied.application.applied && applied.application.axis
+    ? [...new Set([...(candidate.changedAxes || []), applied.application.axis])]
+    : [...(candidate.changedAxes || [])];
   const next = {
     ...candidate,
     scoreAddress: scoreArtifact.address,
     scoreArtifact,
+    changedAxes,
     timeline,
     timelineHash: timeline.timelineHash,
     memoryPrismSeat: deepFreeze({
