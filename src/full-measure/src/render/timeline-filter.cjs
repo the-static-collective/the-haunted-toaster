@@ -54,7 +54,7 @@ function compileTimelineFilterGraph(graph, execution) {
 
   let topologyResponse = null;
   const topology = execution?.timeline?.baseState?.topology;
-  if (execution?.timeline?.nestedResponse && topology && topology !== "linear") {
+  if (execution?.timeline?.nestedResponse && topology) {
     topologyResponse = compactTopologyResponseEvidence(
       compileTopologyResponse(execution.timeline, topology).evidence,
     );
