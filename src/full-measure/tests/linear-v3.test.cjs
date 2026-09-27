@@ -71,7 +71,7 @@ test("Linear v3 primitive structures produce materially distinct native anatomy"
     assert.match(compiled.graph, new RegExp(`linear_${structure}`, "i"));
   }
   assert.equal(new Set(graphs.values()).size, structures.length);
-  assert.match(graphs.get("scope"), /linearRail[^\n]*linearRail/s);
+  assert.match(graphs.get("scope"), /linearRailA[\s\S]*linearRailB/);
   assert.match(graphs.get("ribs"), /linearRib/);
   assert.match(graphs.get("lattice"), /linearLattice/);
   assert.match(graphs.get("branches"), /linearBranch/);
