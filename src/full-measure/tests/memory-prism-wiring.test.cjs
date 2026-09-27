@@ -28,7 +28,7 @@ test("MEMORY-001 app wiring closes successful render -> archive -> future genera
 test("MEMORY-001 candidate-session uses memory only as proposal-time influence evidence", () => {
   assert.match(candidateSession, /memoryProvider\.contextForGeneration/);
   assert.match(candidateSession, /memoryPrism: memoryContext\?\.prism \|\| null/);
-  assert.match(candidateSession, /memoryPrism: candidate\.memoryPrismSeat/);
+  assert.match(candidateSession, /memoryPrism:\s*structuredClone\(candidate\.memoryPrismSeat\)/);
   assert.match(candidateSession, /buildInfluenceTrace\(\{/);
 });
 
