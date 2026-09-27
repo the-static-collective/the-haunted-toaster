@@ -3,6 +3,7 @@ const { EXPRESSIVE_RENDERER_POLICY, MUTATION_LATTICE_RENDERER_POLICY, isExpressi
 const { effectiveInternalEnergy, effectiveInternalEnergyV3 } = require("./response-shaping.cjs");
 const { resolveFieldEnvelope } = require("./field-envelope.cjs");
 const { compileTopologyResponse } = require("./topology-response.cjs");
+const { compileLinearV3 } = require("./linear-v3.cjs");
 
 const PRODUCTION_WAVE_SEAM = /\[waveAudio\]showwaves=s=(\d+)x(\d+):mode=cline:rate=([0-9.]+):[^;\n]+\[wave\];\n\[wave\]pad=(\d+):(\d+):0:(\d+):color=black@0\.0\[waveFull\]/;
 const SHAPE_PACK_TOPOLOGIES = Object.freeze(["elastic-spine", "split-horizon", "cathedral-fan", "echo-tunnel"]);
@@ -403,6 +404,7 @@ const EXPRESSIVE_TOPOLOGY_COMPILERS = Object.freeze({
 
 const MUTATION_LATTICE_TOPOLOGY_COMPILERS = Object.freeze({
   ...EXPRESSIVE_TOPOLOGY_COMPILERS,
+  linear: Object.freeze({ id: "linear-v3", compile: compileLinearV3 }),
   "elastic-spine": Object.freeze({ id: "elastic-spine-v3", compile: compileElasticSpine }),
   "split-horizon": Object.freeze({ id: "split-horizon-v3", compile: compileSplitHorizon }),
   "cathedral-fan": Object.freeze({ id: "cathedral-fan-v3", compile: compileCathedralFan }),
@@ -421,7 +423,7 @@ function topologyRegistryForExecution(execution) {
 function replacementForTopology(topology, context, registry) {
   const entry = registry[topology];
   if (!entry) throw new TypeError(`No topology compiler is registered for ${topology}.`);
-  if (topology === "linear") return context.match[0];
+  if (!entry.compile) return context.match[0];
   return entry.compile(responseContextForTopology(context, topology)).replacement;
 }
 
@@ -499,7 +501,7 @@ function compileProductionTopology(graph, execution) {
   const entry = registry[topology];
   if (!entry) throw new TypeError(`No topology compiler is registered for ${topology}.`);
 
-  const requiresContext = topology !== "linear" || execution?.timeline?.topologyArc?.windows?.length;
+  const requiresContext = Boolean(entry.compile) || execution?.timeline?.topologyArc?.windows?.length;
   if (!requiresContext) {
     const result = {
       graph,
