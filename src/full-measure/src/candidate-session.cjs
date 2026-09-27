@@ -442,6 +442,12 @@ function createCandidateSession({
 
   function bindMemoryContext(nextFamily, memoryContext) {
     if (!memoryContext?.capsule) return memoryContext ? structuredClone(memoryContext) : null;
+    if (!memoryContext.prism) {
+      return {
+        ...structuredClone(memoryContext),
+        influenceTrace: null,
+      };
+    }
     const influenceTrace = buildInfluenceTrace({
       capsule: memoryContext.capsule,
       prism: memoryContext.prism || null,
