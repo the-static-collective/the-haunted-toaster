@@ -75,3 +75,36 @@ test('verdict weight keeps human affection separate from repetition', () => {
   assert.equal(verdictWeight({ rating: 1, disposition: 'compost', wouldReToast: false }), -1.5);
   assert.equal(verdictWeight(null), 0);
 });
+
+
+test('MEMORY-001 score sidecars reconstruct all six prism feature classes', () => {
+  const item = render('d'.repeat(64), '2026-08-17T22:00:00.000Z', 0.6, 'linear');
+  item.score = {
+    topology: 'linear',
+    motion: { grammar: 'pulse' },
+    material: { texture: 'grain' },
+    palette: { logic: 'duotone' },
+    camera: { grammar: 'push' },
+    temporalDensity: 'phrase',
+  };
+  const features = extractReceiptFeatures(item.receipt, item.score);
+  assert.ok(features.includes('topology:linear'));
+  assert.ok(features.includes('motionGrammar:pulse'));
+  assert.ok(features.includes('materialTexture:grain'));
+  assert.ok(features.includes('paletteLogic:duotone'));
+  assert.ok(features.includes('cameraGrammar:push'));
+  assert.ok(features.includes('temporalDensity:phrase'));
+
+  const memory = buildMemoryProjection({ renders: [item], verdicts: [] });
+  for (const feature of [
+    'topology:linear',
+    'motionGrammar:pulse',
+    'materialTexture:grain',
+    'paletteLogic:duotone',
+    'cameraGrammar:push',
+    'temporalDensity:phrase',
+  ]) {
+    assert.equal(memory.featureCounts[feature], 1);
+    assert.equal(memory.recentFeatureCounts[feature], 1);
+  }
+});
