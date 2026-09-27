@@ -96,15 +96,16 @@ test("raster-4 Echo Tunnel moves its vanishing axis with accepted response", () 
   assert.doesNotMatch(compiled.graph, /blend=all_mode=screen/);
 });
 
-test("Linear stays the current positive control even with response evidence", () => {
+test("raster-4 Linear now consumes response through linear-v3 while older policies stay historical", () => {
   const graph = productionGraph();
   const compiled = compileProductionTopology(
     graph,
     execution(generation.MUTATION_LATTICE_RENDERER_POLICY, "linear"),
   );
-  assert.equal(compiled.topologyCompiler, "linear-v1");
-  assert.equal(compiled.topologyResponse, null);
-  assert.equal(compiled.graph, graph);
+  assert.equal(compiled.topologyCompiler, "linear-v3");
+  assert.equal(compiled.topologyResponse.policyVersion, "elastic-topology-response-v1");
+  assert.notEqual(compiled.graph, graph);
+  assert.match(compiled.graph, /linearRail/);
 });
 
 test("nested response cannot reinterpret raster-2 or raster-3 topology graphs", () => {
