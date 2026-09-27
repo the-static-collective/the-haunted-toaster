@@ -541,10 +541,12 @@ function createCandidateSession({
       toastmoodField: materializedFamily.toastmoodField ? structuredClone(materializedFamily.toastmoodField) : null,
       cross: materializedFamily.cross ? structuredClone(materializedFamily.cross) : null,
       labInfluence: influence,
-      memoryPrism: materializedFamily.memoryPrism ? structuredClone(materializedFamily.memoryPrism) : null,
-      influenceTrace: boundMemoryContext?.influenceTrace
-        ? structuredClone(boundMemoryContext.influenceTrace)
-        : null,
+      ...(materializedFamily.memoryPrism
+        ? { memoryPrism: structuredClone(materializedFamily.memoryPrism) }
+        : {}),
+      ...(boundMemoryContext?.influenceTrace
+        ? { influenceTrace: structuredClone(boundMemoryContext.influenceTrace) }
+        : {}),
       archaeologyObservation,
     };
   }
