@@ -1,5 +1,7 @@
 # The Haunted Toaster
 
+> **Static Collective compass:** [Front Room](https://github.com/the-static-collective/What-is-the-static-collective-) · [Living Git Map](https://github.com/the-static-collective/What-is-the-static-collective-/tree/main/atlas)
+
 [![Haunted Toaster proof and package](https://github.com/the-static-collective/the-haunted-toaster/actions/workflows/haunted-toaster.yml/badge.svg)](https://github.com/the-static-collective/the-haunted-toaster/actions/workflows/haunted-toaster.yml)
 
 > **SONG IN → FINISHED VIDEO OUT**
