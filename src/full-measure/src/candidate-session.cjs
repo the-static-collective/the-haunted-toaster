@@ -175,7 +175,9 @@ function candidateGenealogyEvidence(family, candidate) {
     toastmoodLane: candidate.toastmoodLane ? structuredClone(candidate.toastmoodLane) : null,
     crossLineage: candidate.crossLineage ? structuredClone(candidate.crossLineage) : null,
     frontierEvidence: candidate.frontierEvidence ? structuredClone(candidate.frontierEvidence) : null,
-    memoryPrism: candidate.memoryPrismSeat ? structuredClone(candidate.memoryPrismSeat) : null,
+    ...(candidate.memoryPrismSeat
+      ? { memoryPrism: structuredClone(candidate.memoryPrismSeat) }
+      : {}),
     stomp,
   };
 }
