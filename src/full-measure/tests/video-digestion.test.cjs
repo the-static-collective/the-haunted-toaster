@@ -16,6 +16,7 @@ const {
   createForeignMaterialMutationFamily,
   createForeignMaterialPlan,
 } = require("../src/render/foreign-material.cjs");
+const { DIGEST_OPERATORS } = require("../src/render/video-phrase-plan.cjs");
 const { resolveFfmpeg, runProcess } = require("../src/render/tooling.cjs");
 
 function sampleVideoBinding(overrides = {}) {
@@ -276,5 +277,19 @@ test("RESURRECTION-001 mutation-family identity follows bytes rather than local 
   assert.deepEqual(
     first.descendants.map((plan) => plan.planHash),
     moved.descendants.map((plan) => plan.planHash),
+  );
+});
+
+
+test("RESURRECTION-001 material descendants are exactly the current Video Phrase mixer vocabulary", () => {
+  const family = createForeignMaterialMutationFamily({
+    videoBinding: sampleVideoBinding(),
+    timeline: sampleTimeline(),
+    analysisDurationSeconds: 8,
+  });
+
+  assert.deepEqual(
+    family.descendants.map((plan) => plan.assimilationPolicy.operatorId),
+    DIGEST_OPERATORS,
   );
 });
