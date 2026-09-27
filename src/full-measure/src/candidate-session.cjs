@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const generation = require("./generation/index.cjs");
 const { buildArchaeologyContext } = require("./archaeology-context.cjs");
+const { buildInfluenceTrace } = require("./memory/influence-trace.cjs");
 const { analyzeSpecimenMaterial } = require("./video-pantry/material-analysis.cjs");
 const { admitLabProposal, parseLabProposalTransfer } = require("./lab-proposal.cjs");
 const { renderCandidateFamilyPreviews } = require("./render/candidate-preview.cjs");
@@ -174,6 +175,9 @@ function candidateGenealogyEvidence(family, candidate) {
     toastmoodLane: candidate.toastmoodLane ? structuredClone(candidate.toastmoodLane) : null,
     crossLineage: candidate.crossLineage ? structuredClone(candidate.crossLineage) : null,
     frontierEvidence: candidate.frontierEvidence ? structuredClone(candidate.frontierEvidence) : null,
+    ...(candidate.memoryPrismSeat
+      ? { memoryPrism: structuredClone(candidate.memoryPrismSeat) }
+      : {}),
     stomp,
   };
 }
@@ -182,6 +186,7 @@ function createCandidateSession({
   renderCandidateFamilyPreviews: renderPreviews = renderCandidateFamilyPreviews,
   analyzeNativeChromaticProfile: analyzeProfile = defaultAnalyzeNativeChromaticProfile,
   analyzeMaterial = analyzeSpecimenMaterial,
+  memoryProvider = null,
 } = {}) {
   let audioPath = null;
   let mediaAnalysis = null;
@@ -429,7 +434,35 @@ function createCandidateSession({
     });
   }
 
-  async function materialize(nextFamily, config, signal, influence = null) {
+  async function generationMemoryContext(constraints) {
+    if (!memoryProvider?.contextForGeneration) return null;
+    return memoryProvider.contextForGeneration({
+      mediaAnalysis,
+      constraints,
+    });
+  }
+
+  function bindMemoryContext(nextFamily, memoryContext) {
+    if (!memoryContext?.capsule) return memoryContext ? structuredClone(memoryContext) : null;
+    if (!memoryContext.prism) {
+      return {
+        ...structuredClone(memoryContext),
+        influenceTrace: null,
+      };
+    }
+    const influenceTrace = buildInfluenceTrace({
+      capsule: memoryContext.capsule,
+      prism: memoryContext.prism || null,
+      familyHash: nextFamily.familyHash,
+      candidates: nextFamily.candidates,
+    });
+    return {
+      ...structuredClone(memoryContext),
+      influenceTrace,
+    };
+  }
+
+  async function materialize(nextFamily, config, signal, influence = null, memoryContext = null) {
     const requestedFeel = currentToastFeel(config.toastFeelId, { optional: true });
     const familyFeel = nextFamily.toastFeel?.id
       ? currentToastFeel(nextFamily.toastFeel.id)
@@ -480,6 +513,7 @@ function createCandidateSession({
       materializedFamily,
       { signal },
     );
+    const boundMemoryContext = bindMemoryContext(materializedFamily, memoryContext);
     candidateEcologyEntered = true;
     family = materializedFamily;
     familyBinding = {
@@ -492,6 +526,7 @@ function createCandidateSession({
       toastmoodField: materializedFamily.toastmoodField ? structuredClone(materializedFamily.toastmoodField) : null,
       cross: materializedFamily.cross ? structuredClone(materializedFamily.cross) : null,
       labInfluence: influence,
+      memoryContext: boundMemoryContext,
       archaeologyObservation,
     };
     selection = null;
@@ -506,6 +541,12 @@ function createCandidateSession({
       toastmoodField: materializedFamily.toastmoodField ? structuredClone(materializedFamily.toastmoodField) : null,
       cross: materializedFamily.cross ? structuredClone(materializedFamily.cross) : null,
       labInfluence: influence,
+      ...(materializedFamily.memoryPrism
+        ? { memoryPrism: structuredClone(materializedFamily.memoryPrism) }
+        : {}),
+      ...(boundMemoryContext?.influenceTrace
+        ? { influenceTrace: structuredClone(boundMemoryContext.influenceTrace) }
+        : {}),
       archaeologyObservation,
     };
   }
@@ -536,6 +577,7 @@ function createCandidateSession({
             admittedScoreAddress: admitted.scoreArtifact.address,
           }
         : { enabled: false };
+      const memoryContext = await generationMemoryContext(constraints);
       const sourceFamily = generation.generateCandidateSet({
         analysis,
         responseWitness,
@@ -548,6 +590,7 @@ function createCandidateSession({
         lyricTrack,
         toastFeelId: feel?.id || null,
         nativeChromaticProfile: profile,
+        memoryPrism: memoryContext?.prism || null,
       });
       const nextFamily = enrichOrdinaryFamily(sourceFamily, {
         analysis,
@@ -562,6 +605,7 @@ function createCandidateSession({
         config,
         signal,
         { ...influence, forcedWitness: false },
+        memoryContext,
       );
     } finally {
       busy = false;

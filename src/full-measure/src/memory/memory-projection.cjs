@@ -24,7 +24,7 @@ function stableToken(value) {
   return `hash-${hashCanonical(value, 'HauntedToaster-MemoryFeature-v1').slice(0, 12)}`;
 }
 
-function extractReceiptFeatures(receipt = {}) {
+function extractReceiptFeatures(receipt = {}, score = null) {
   const features = [];
   features.push(`songEnergy:${songEnergyClass(receipt.treatment?.sections || [])}`);
 
@@ -32,7 +32,12 @@ function extractReceiptFeatures(receipt = {}) {
     ['garment', receipt.treatment?.garment?.id],
     ['toastFeel', receipt.treatment?.toastFeel?.id],
     ['nativeColor', receipt.treatment?.nativeColor?.relationship],
-    ['topology', receipt.render?.visualCompiler?.topology],
+    ['topology', score?.topology || receipt.render?.visualCompiler?.topology],
+    ['motionGrammar', score?.motion?.grammar],
+    ['materialTexture', score?.material?.texture],
+    ['paletteLogic', score?.palette?.logic],
+    ['cameraGrammar', score?.camera?.grammar],
+    ['temporalDensity', score?.temporalDensity],
     ['witnessWindow', receipt.render?.witnessWindow?.policyVersion],
   ];
   for (const [prefix, value] of simple) {
@@ -103,17 +108,17 @@ function buildMemoryProjection({ renders = [], verdicts = [], witnessEncounters 
 
   const featureCounts = {};
   for (const render of orderedRenders) {
-    for (const feature of extractReceiptFeatures(render.receipt)) increment(featureCounts, feature);
+    for (const feature of extractReceiptFeatures(render.receipt, render.score || null)) increment(featureCounts, feature);
   }
 
   const recentFeatureCounts = {};
   for (const render of orderedRenders.slice(-RECENT_RENDER_WINDOW)) {
-    for (const feature of extractReceiptFeatures(render.receipt)) increment(recentFeatureCounts, feature);
+    for (const feature of extractReceiptFeatures(render.receipt, render.score || null)) increment(recentFeatureCounts, feature);
   }
 
   const relationshipWeights = {};
   for (const render of orderedRenders) {
-    const features = extractReceiptFeatures(render.receipt);
+    const features = extractReceiptFeatures(render.receipt, render.score || null);
     const songEnergy = features.find((feature) => feature.startsWith('songEnergy:'));
     if (!songEnergy) continue;
     const weight = verdictWeight(latestVerdicts[render.receiptSha256]);
@@ -155,7 +160,15 @@ async function rebuildMemoryProjection({ rootDir }) {
   const renders = [];
   for (const entry of archived) {
     const receipt = JSON.parse(await fs.readFile(entry.artifacts.receipt.path, 'utf8'));
-    renders.push({ ...entry, receipt });
+    let score = null;
+    if (entry.artifacts?.score?.path) {
+      try {
+        score = JSON.parse(await fs.readFile(entry.artifacts.score.path, 'utf8'));
+      } catch {
+        score = null;
+      }
+    }
+    renders.push({ ...entry, receipt, score });
   }
   const verdicts = await listHumanVerdicts({ rootDir });
   return buildMemoryProjection({ renders, verdicts });

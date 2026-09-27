@@ -26,12 +26,24 @@ function nodeId(kind, value) {
   return `${kind}:${hashCanonical({ value }, 'HauntedToaster-InfluenceNode-v1').slice(0, 16)}`;
 }
 
-function buildInfluenceTrace({ capsule, familyHash = null, candidates = [] }) {
+function buildInfluenceTrace({ capsule, prism = null, familyHash = null, candidates = [] }) {
   if (!capsule?.capsuleSha256) {
     throw new TypeError('Influence Trace requires a MemoryCapsule.');
   }
 
-  const pressures = (capsule.pressures || []).slice(0, 8);
+  const prismSeats = Array.isArray(prism?.seats) ? prism.seats.slice(0, 6) : [];
+  const pressures = prismSeats.length
+    ? prismSeats
+        .map((seat) => seat?.influence)
+        .filter(Boolean)
+        .map((influence) => ({
+          kind: influence.reason,
+          target: influence.target,
+          avoids: influence.avoids || null,
+          weight: influence.weight,
+          evidenceRefs: [...(influence.evidenceRefs || [])],
+        }))
+    : (capsule.pressures || []).slice(0, 8);
   const candidateList = (candidates || []).slice(0, 6);
   const evidenceValues = [];
   for (const pressure of pressures) evidenceValues.push(...(pressure.evidenceRefs || []));
@@ -59,12 +71,12 @@ function buildInfluenceTrace({ capsule, familyHash = null, candidates = [] }) {
     }
   }
 
-  const candidateNodeIds = [];
+  const candidateNodeIds = new Map();
   for (const candidate of candidateList) {
     const ref = String(candidate.scoreAddress || `candidate-${candidate.index}`);
     const id = nodeId('candidate', ref);
     if (addNode({ id, type: 'candidate', label: ref, candidateIndex: candidate.index ?? null })) {
-      candidateNodeIds.push(id);
+      candidateNodeIds.set(Number(candidate.index), id);
     }
   }
 
@@ -100,8 +112,13 @@ function buildInfluenceTrace({ capsule, familyHash = null, candidates = [] }) {
       if (!evidenceId) continue;
       addEdge({ from: evidenceId, to: pressureId, relation, evidenceRefs: [ref] });
     }
-    const targetCandidate = candidateNodeIds[candidateNodeIds.length - 1];
-    if (targetCandidate) {
+    const assignedSeats = prismSeats.filter((seat) =>
+      seat?.influence?.target === pressure.target &&
+      seat?.influence?.reason === pressure.kind);
+    const targetCandidates = assignedSeats.length
+      ? assignedSeats.map((seat) => candidateNodeIds.get(Number(seat.seatIndex))).filter(Boolean)
+      : [...candidateNodeIds.values()].slice(-1);
+    for (const targetCandidate of targetCandidates) {
       addEdge({
         from: pressureId,
         to: targetCandidate,
@@ -121,7 +138,7 @@ function buildInfluenceTrace({ capsule, familyHash = null, candidates = [] }) {
       }
     }
     if (nodes.some((node) => node.id === ancestorId)) {
-      for (const candidateId of candidateNodeIds) {
+      for (const candidateId of candidateNodeIds.values()) {
         addEdge({ from: ancestorId, to: candidateId, relation: 'inherited', evidenceRefs: [ancestorRef] });
       }
     }
@@ -131,6 +148,7 @@ function buildInfluenceTrace({ capsule, familyHash = null, candidates = [] }) {
     schema: TRACE_SCHEMA,
     policy: TRACE_POLICY,
     capsuleSha256: capsule.capsuleSha256,
+    prismSha256: prism?.prismSha256 || null,
     familyHash,
     nodes,
     edges,

@@ -26,6 +26,7 @@ const {
   listenerPackStatus,
 } = require("./align/listener-pack.cjs");
 const { createCandidateSession } = require("./candidate-session.cjs");
+const { createMemoryService } = require("./memory/memory-service.cjs");
 const { inspectAudio } = require("./render/analyze.cjs");
 const {
   MAX_CUES,
@@ -59,7 +60,10 @@ let mainWindow = null;
 let activeRender = null;
 let activeListen = null;
 let activeListenerInstall = null;
-const candidateSession = createCandidateSession();
+const memoryService = createMemoryService({
+  rootProvider: () => path.join(app.getPath("userData"), "toaster-memory-v1"),
+});
+const candidateSession = createCandidateSession({ memoryProvider: memoryService });
 
 function listenerRoot() {
   return path.join(app.getPath("userData"), "listener");
@@ -451,7 +455,7 @@ function registerIpc() {
     activeRender = controller;
 
     try {
-      return await renderVideo(
+      const renderResult = await renderVideo(
         {
           ...config,
           ...(selectedExecution || {}),
@@ -473,6 +477,21 @@ function registerIpc() {
           },
         },
       );
+
+      let memoryArchive;
+      try {
+        const archived = await memoryService.archiveSuccessfulRender(renderResult);
+        memoryArchive = {
+          ok: true,
+          receiptSha256: archived.receiptSha256,
+        };
+      } catch (error) {
+        memoryArchive = {
+          ok: false,
+          error: String(error?.message || error || "memory archive failed"),
+        };
+      }
+      return { ...renderResult, memoryArchive };
     } finally {
       activeRender = null;
     }
