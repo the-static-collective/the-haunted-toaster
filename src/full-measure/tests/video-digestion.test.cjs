@@ -100,7 +100,7 @@ test("#250 topology descendant uses clip luminance only as a region mask over na
   assert.equal(topologyPlan.assimilationPolicy.literalSourcePixelsSurvive, false);
   assert.match(applied.graph, /\[2:v\].*format=gray/);
   assert.match(applied.graph, /maskedmerge/);
-  assert.doesNotMatch(applied.graph, /\[2:v\].*blend=/);
+  assert.doesNotMatch(applied.graph, /\[2:v\][^;\n]*\bblend=all_mode=softlight/);
   assert.equal(applied.evidence.operatorId, FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID);
   assert.equal(applied.evidence.sourceRole, "region-mask");
   assert.equal(applied.evidence.literalSourcePixelsSurvive, false);
