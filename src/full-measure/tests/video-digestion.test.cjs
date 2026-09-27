@@ -7,11 +7,16 @@ const {
   FOREIGN_MATERIAL_DIGEST_FAMILY_SCHEMA,
   FOREIGN_MATERIAL_DIGEST_POLICY_VERSION,
   FOREIGN_MATERIAL_OPERATOR_ID,
+  FOREIGN_MATERIAL_MOTION_OPERATOR_ID,
+  FOREIGN_MATERIAL_MUTATION_FAMILY_SCHEMA,
+  FOREIGN_MATERIAL_MUTATION_POLICY_VERSION,
   FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID,
   applyForeignMaterialToGraph,
   createForeignMaterialDigestFamily,
+  createForeignMaterialMutationFamily,
   createForeignMaterialPlan,
 } = require("../src/render/foreign-material.cjs");
+const { DIGEST_OPERATORS } = require("../src/render/video-phrase-plan.cjs");
 const { resolveFfmpeg, runProcess } = require("../src/render/tooling.cjs");
 
 function sampleVideoBinding(overrides = {}) {
@@ -95,7 +100,7 @@ test("#250 topology descendant uses clip luminance only as a region mask over na
   assert.equal(topologyPlan.assimilationPolicy.literalSourcePixelsSurvive, false);
   assert.match(applied.graph, /\[2:v\].*format=gray/);
   assert.match(applied.graph, /maskedmerge/);
-  assert.doesNotMatch(applied.graph, /\[2:v\].*blend=/);
+  assert.doesNotMatch(applied.graph, /\[2:v\][^;\n]*\bblend=all_mode=softlight/);
   assert.equal(applied.evidence.operatorId, FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID);
   assert.equal(applied.evidence.sourceRole, "region-mask");
   assert.equal(applied.evidence.literalSourcePixelsSurvive, false);
@@ -171,5 +176,120 @@ test("#250 refuses an unknown digest operator rather than falling back to textur
       operatorId: "clip-mystery-v99",
     }),
     /Unsupported foreign-material digest operator/,
+  );
+});
+
+
+test("RESURRECTION-001 yields three deterministic material descendants from one admitted clip", () => {
+  const first = createForeignMaterialMutationFamily({
+    videoBinding: sampleVideoBinding(),
+    timeline: sampleTimeline(),
+    analysisDurationSeconds: 8,
+  });
+  const replay = createForeignMaterialMutationFamily({
+    videoBinding: sampleVideoBinding(),
+    timeline: sampleTimeline(),
+    analysisDurationSeconds: 8,
+  });
+
+  assert.equal(first.schema, FOREIGN_MATERIAL_MUTATION_FAMILY_SCHEMA);
+  assert.equal(first.policyVersion, FOREIGN_MATERIAL_MUTATION_POLICY_VERSION);
+  assert.equal(first.descendants.length, 3);
+  assert.deepEqual(
+    first.descendants.map((plan) => plan.assimilationPolicy.operatorId),
+    [
+      FOREIGN_MATERIAL_OPERATOR_ID,
+      FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID,
+      FOREIGN_MATERIAL_MOTION_OPERATOR_ID,
+    ],
+  );
+  assert.equal(new Set(first.descendants.map((plan) => plan.planHash)).size, 3);
+  assert.ok(first.descendants.every((plan) => plan.sourceSpecimenId === first.sourceSpecimenId));
+  assert.ok(first.descendants.every((plan) => plan.sourceSha256 === first.sourceSha256));
+  assert.ok(first.descendants.every((plan) => plan.clipAnalysisHash === first.clipAnalysisHash));
+  assert.equal(first.familyHash, replay.familyHash);
+  assert.deepEqual(first, replay);
+});
+
+test("RESURRECTION-001 preserves the historical texture eater as exact control ancestry", () => {
+  const binding = sampleVideoBinding();
+  const historicalControl = createForeignMaterialPlan({
+    videoBinding: binding,
+    timeline: sampleTimeline(),
+    analysisDurationSeconds: 8,
+    operatorId: FOREIGN_MATERIAL_OPERATOR_ID,
+  });
+  const family = createForeignMaterialMutationFamily({
+    videoBinding: binding,
+    timeline: sampleTimeline(),
+    analysisDurationSeconds: 8,
+  });
+
+  assert.equal(family.controlOperatorId, FOREIGN_MATERIAL_OPERATOR_ID);
+  assert.equal(family.descendants[0].planHash, historicalControl.planHash);
+  assert.deepEqual(family.descendants[0], historicalControl);
+});
+
+test("RESURRECTION-001 motion descendant eats motion without carrying literal source pixels", () => {
+  const family = createForeignMaterialMutationFamily({
+    videoBinding: sampleVideoBinding(),
+    timeline: sampleTimeline(),
+    analysisDurationSeconds: 8,
+  });
+  const motionPlan = family.descendants[2];
+  const applied = applyForeignMaterialToGraph({
+    graph: "color=c=black:s=320x180,format=rgba[vout]",
+    foreignMaterialPlan: motionPlan,
+    foreignMaterialInputIndex: 2,
+    width: 320,
+    height: 180,
+    fps: 30,
+  });
+
+  assert.equal(motionPlan.assimilationPolicy.operatorId, FOREIGN_MATERIAL_MOTION_OPERATOR_ID);
+  assert.equal(motionPlan.assimilationPolicy.family, "motion-mask-assimilation");
+  assert.equal(motionPlan.assimilationPolicy.sourceRole, "motion-mask");
+  assert.equal(motionPlan.assimilationPolicy.literalSourcePixelsSurvive, false);
+  assert.match(applied.graph, /tblend=all_mode=difference/);
+  assert.match(applied.graph, /maskedmerge/);
+  assert.doesNotMatch(applied.graph, /\[2:v\][^;\n]*\bblend=all_mode=softlight/);
+  assert.equal(applied.evidence.operatorId, FOREIGN_MATERIAL_MOTION_OPERATOR_ID);
+  assert.equal(applied.evidence.sourceRole, "motion-mask");
+  assert.equal(applied.evidence.literalSourcePixelsSurvive, false);
+});
+
+test("RESURRECTION-001 mutation-family identity follows bytes rather than local path", () => {
+  const first = createForeignMaterialMutationFamily({
+    videoBinding: sampleVideoBinding(),
+    timeline: sampleTimeline(),
+    analysisDurationSeconds: 8,
+  });
+  const moved = createForeignMaterialMutationFamily({
+    videoBinding: sampleVideoBinding({
+      path: "/somewhere/else/same-content.mov",
+      filename: "same-content.mov",
+    }),
+    timeline: sampleTimeline(),
+    analysisDurationSeconds: 8,
+  });
+
+  assert.equal(first.familyHash, moved.familyHash);
+  assert.deepEqual(
+    first.descendants.map((plan) => plan.planHash),
+    moved.descendants.map((plan) => plan.planHash),
+  );
+});
+
+
+test("RESURRECTION-001 material descendants are exactly the current Video Phrase mixer vocabulary", () => {
+  const family = createForeignMaterialMutationFamily({
+    videoBinding: sampleVideoBinding(),
+    timeline: sampleTimeline(),
+    analysisDurationSeconds: 8,
+  });
+
+  assert.deepEqual(
+    family.descendants.map((plan) => plan.assimilationPolicy.operatorId),
+    DIGEST_OPERATORS,
   );
 });

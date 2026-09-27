@@ -13,6 +13,8 @@ const FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID = "clip-luma-mask-v1";
 const FOREIGN_MATERIAL_MOTION_OPERATOR_ID = "clip-motion-mask-v1";
 const FOREIGN_MATERIAL_DIGEST_FAMILY_SCHEMA = "haunted-toaster/foreign-material-digest-family/v1";
 const FOREIGN_MATERIAL_DIGEST_POLICY_VERSION = "video-digestion-v1";
+const FOREIGN_MATERIAL_MUTATION_FAMILY_SCHEMA = "haunted-toaster/foreign-material-mutation-family/v1";
+const FOREIGN_MATERIAL_MUTATION_POLICY_VERSION = "resurrection-video-eating-v1";
 const FOREIGN_MATERIAL_SAMPLING_POLICY = "loop-source-clip-v1";
 const FOREIGN_MATERIAL_ONCE_POLICY = "play-source-once-v1";
 const FOREIGN_MATERIAL_STRETCH_POLICY = "stretch-source-clip-v1";
@@ -301,6 +303,60 @@ function createForeignMaterialDigestFamily({
   return Object.freeze({
     ...canonicalFamily,
     descendants: Object.freeze([texturePlan, topologyPlan]),
+    familyHash: hashJson(canonicalFamily),
+  });
+}
+
+function createForeignMaterialMutationFamily({
+  videoBinding,
+  timeline,
+  analysisDurationSeconds = null,
+} = {}) {
+  if (!videoBinding) return null;
+
+  const operatorIds = [
+    FOREIGN_MATERIAL_OPERATOR_ID,
+    FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID,
+    FOREIGN_MATERIAL_MOTION_OPERATOR_ID,
+  ];
+  const descendants = operatorIds.map((operatorId) => createForeignMaterialPlan({
+    videoBinding,
+    timeline,
+    analysisDurationSeconds,
+    operatorId,
+  }));
+  const [control] = descendants;
+
+  for (const plan of descendants) {
+    if (
+      plan.sourceSpecimenId !== control.sourceSpecimenId ||
+      plan.sourceSha256 !== control.sourceSha256 ||
+      plan.clipAnalysisHash !== control.clipAnalysisHash
+    ) {
+      throw new Error("Foreign-material mutation descendants must retain common admitted ancestry.");
+    }
+  }
+
+  const canonicalFamily = {
+    schema: FOREIGN_MATERIAL_MUTATION_FAMILY_SCHEMA,
+    policyVersion: FOREIGN_MATERIAL_MUTATION_POLICY_VERSION,
+    sourceSpecimenId: control.sourceSpecimenId,
+    sourceSha256: control.sourceSha256,
+    clipAnalysisHash: control.clipAnalysisHash,
+    controlOperatorId: FOREIGN_MATERIAL_OPERATOR_ID,
+    descendants: descendants.map((plan) => ({
+      operatorId: plan.assimilationPolicy.operatorId,
+      planHash: plan.planHash,
+      family: plan.assimilationPolicy.family,
+      sourceRole: plan.assimilationPolicy.sourceRole || "texture",
+      literalSourcePixelsSurvive:
+        plan.assimilationPolicy.literalSourcePixelsSurvive !== false,
+    })),
+  };
+
+  return Object.freeze({
+    ...canonicalFamily,
+    descendants: Object.freeze(descendants),
     familyHash: hashJson(canonicalFamily),
   });
 }
@@ -671,6 +727,8 @@ module.exports = {
   FOREIGN_MATERIAL_DIGEST_POLICY_VERSION,
   FOREIGN_MATERIAL_OPERATOR_ID,
   FOREIGN_MATERIAL_MOTION_OPERATOR_ID,
+  FOREIGN_MATERIAL_MUTATION_FAMILY_SCHEMA,
+  FOREIGN_MATERIAL_MUTATION_POLICY_VERSION,
   FOREIGN_MATERIAL_ONCE_POLICY,
   FOREIGN_MATERIAL_STRETCH_POLICY,
   FOREIGN_MATERIAL_PLACEMENT_POLICY,
@@ -683,6 +741,7 @@ module.exports = {
   FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID,
   applyForeignMaterialToGraph,
   createForeignMaterialDigestFamily,
+  createForeignMaterialMutationFamily,
   createForeignMaterialPhrasePlan,
   createForeignMaterialPlan,
   ffmpegInputArgsForForeignMaterial,
