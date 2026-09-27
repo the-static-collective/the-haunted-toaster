@@ -42,4 +42,6 @@ module.exports = {
   ...require("./sigil-utterance-family.cjs"),
   ...require("./l-branch.cjs"),
   ...require("./post-walk-axis-grammar.cjs"),
+  ...require("./memory-influence.cjs"),
+  ...require("./memory-prism-generation.cjs"),
 };
