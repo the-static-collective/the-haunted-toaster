@@ -2,8 +2,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   allowedFeatureUniverse,
+  allowedPrismFeatureUniverse,
   deriveGenerationPressure,
   deriveMemoryCapsule,
+  deriveMemoryPrism,
   summarizeCurrentSongEvidence,
 } = require('../src/memory/memory-capsule.cjs');
 const { deriveWitnessDisposition } = require('../src/memory/witness-disposition.cjs');
@@ -14,6 +16,7 @@ const constraints = {
   material: { texture: { allowed: ['clean', 'photocopy'] } },
   camera: { grammar: { allowed: ['locked', 'push'] } },
   palette: { logic: { allowed: ['garment', 'duotone'] } },
+  temporalDensity: { allowed: ['frozen', 'section', 'phrase', 'transient'] },
 };
 
 function projection(overrides = {}) {
@@ -138,4 +141,63 @@ test('current song evidence is deterministic from bounded analysis facts', () =>
   const second = summarizeCurrentSongEvidence(structuredClone(analysis));
   assert.equal(first.energyClass, 'dense');
   assert.equal(first.evidenceHash, second.evidenceHash);
+});
+
+
+test('MEMORY-001 prism exposes six distinct apertures without changing capsule-v1 universe', () => {
+  const capsule = deriveMemoryCapsule({
+    projection: projection(),
+    currentSongEvidence: { energyClass: 'dense', evidenceHash: 'song-hash' },
+    allowedFeatures: allowedFeatureUniverse(constraints),
+    explicitAncestorReceiptSha256: null,
+  });
+  const prismUniverse = allowedPrismFeatureUniverse(constraints);
+  assert.ok(prismUniverse.includes('temporalDensity:transient'));
+  assert.equal(allowedFeatureUniverse(constraints).some((item) => item.startsWith('temporalDensity:')), false);
+
+  const prism = deriveMemoryPrism({
+    projection: projection(),
+    currentSongEvidence: { energyClass: 'dense', evidenceHash: 'song-hash' },
+    allowedFeatures: prismUniverse,
+    capsuleSha256: capsule.capsuleSha256,
+  });
+  assert.equal(prism.schema, 'haunted-toaster/memory-prism/v1');
+  assert.equal(prism.policy, 'toaster-memory-prism-v1');
+  assert.equal(prism.seats.length, 6);
+  assert.deepEqual(
+    prism.seats.map((seat) => [seat.seatIndex, seat.aperture, seat.targetPrefix]),
+    [
+      [0, 'BODY', 'topology'],
+      [1, 'BEHAVIOR', 'motionGrammar'],
+      [2, 'SKIN', 'materialTexture'],
+      [3, 'COLOR', 'paletteLogic'],
+      [4, 'EYE', 'cameraGrammar'],
+      [5, 'TIME', 'temporalDensity'],
+    ],
+  );
+  assert.ok(prism.seats.every((seat) => seat.influence?.policy === 'toaster-memory-influence-v1'));
+  assert.match(prism.prismSha256, /^[a-f0-9]{64}$/);
+});
+
+test('MEMORY-001 cold start is exactly memory-silent', () => {
+  const empty = projection({
+    renderCount: 0,
+    featureCounts: {},
+    recentFeatureCounts: {},
+    relationshipWeights: {},
+    latestVerdicts: {},
+  });
+  const capsule = deriveMemoryCapsule({
+    projection: empty,
+    currentSongEvidence: { energyClass: 'mixed', evidenceHash: 'cold-song' },
+    allowedFeatures: allowedFeatureUniverse(constraints),
+    explicitAncestorReceiptSha256: null,
+  });
+  const prism = deriveMemoryPrism({
+    projection: empty,
+    currentSongEvidence: { energyClass: 'mixed', evidenceHash: 'cold-song' },
+    allowedFeatures: allowedPrismFeatureUniverse(constraints),
+    capsuleSha256: capsule.capsuleSha256,
+  });
+  assert.equal(prism, null);
 });
