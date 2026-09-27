@@ -10,8 +10,8 @@ function productionGraph() {
     "[0:a]aformat=channel_layouts=stereo[waveAudio]",
     "[waveAudio]showwaves=s=320x64:mode=cline:rate=12:colors=0xFFFFFF:scale=sqrt,format=rgba,colorkey=black:0.08:0.0,colorchannelmixer=aa=0.78[wave]",
     "[wave]pad=320:180:0:105:color=black@0.0[waveFull]",
-    "[1:v]format=rgba[base]",
-    "[base][waveFull]overlay=0:0:shortest=1[stage0]",
+    "[1:v]format=rgba[spectral]",
+    "[spectral][waveFull]overlay=0:0:shortest=1[stage0]",
   ].join(";\n");
 }
 
