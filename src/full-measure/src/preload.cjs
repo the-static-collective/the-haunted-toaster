@@ -174,6 +174,7 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   chooseVideoFolder: () => ipcRenderer.invoke("dialog:choose-video-folder"),
   chooseBatchFolder: () => ipcRenderer.invoke("dialog:choose-batch-folder"),
   getBatchManifest: () => ipcRenderer.invoke("batch:manifest"),
+  primeBatchGenome: () => ipcRenderer.invoke("batch:prime-genome"),
   startBatch: (config) => ipcRenderer.invoke("batch:start", config),
   getBatchContext: () => ipcRenderer.invoke("batch:context"),
   activateBatchTrack: (config) => ipcRenderer.invoke("batch:activate-current", config),
