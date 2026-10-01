@@ -12,6 +12,7 @@ test("BATCH-001 production bridge is registered and exposed through preload", ()
   assert.match(main, /registerFolderBatchIpc/);
   assert.match(main, /videoPantryCatalogPath/);
   assert.match(preload, /chooseBatchFolder/);
+  assert.match(preload, /primeBatchGenome/);
   assert.match(preload, /startBatch/);
   assert.match(preload, /activateBatchTrack/);
   assert.match(preload, /acceptBatchTrack/);
