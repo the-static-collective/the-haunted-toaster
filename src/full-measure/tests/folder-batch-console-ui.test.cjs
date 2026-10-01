@@ -241,7 +241,10 @@ test("Batch Console walks folder -> exact six-up genome -> current track -> acce
 
     assert.equal(view.calls.start.length, 1);
     assert.equal(view.calls.start[0].sixUpSeed.familyHash, view.genome.familyHash);
-    assert.deepEqual(view.calls.start[0].sixUpSeed.scoreAddresses, view.genome.scoreAddresses);
+    assert.deepEqual(
+      Array.from(view.calls.start[0].sixUpSeed.scoreAddresses),
+      Array.from(view.genome.scoreAddresses),
+    );
     assert.equal(view.calls.activate.length, 1);
     assert.equal(view.calls.apply.length, 1);
     assert.equal(view.calls.generated.at(-1), "derived-track-seed");
@@ -269,7 +272,7 @@ test("Batch Console walks folder -> exact six-up genome -> current track -> acce
     assert.equal(view.calls.accept[0].acceptedRenderReceiptSha256, "e".repeat(64));
     assert.equal(view.calls.accept[0].familyHash, "family-track");
     assert.equal(view.calls.accept[0].selectedScoreAddress, "htvs1_track_3");
-    assert.deepEqual(view.calls.accept[0].observedAxes, ["topology", "palette"]);
+    assert.deepEqual(Array.from(view.calls.accept[0].observedAxes), ["topology", "palette"]);
     assert.equal(view.calls.close, 1);
     assert.equal(view.document.querySelector("#batchConsole").classList.contains("is-hidden"), false);
     assert.equal(view.document.querySelector("#batchRetrospective").classList.contains("is-hidden"), false);
