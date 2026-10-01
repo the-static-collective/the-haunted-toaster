@@ -159,4 +159,192 @@ function prophecyForTrack({ track, trackIndex, trackCount, albumGenome, history 
       track,
       trackIndex,
       trackCount,
-      genomeSha256: a
+      genomeSha256: albumGenome.genomeSha256,
+      priorHistorySha256,
+    }),
+    focusApertures: focusForTrack({
+      track,
+      trackIndex,
+      genomeSha256: albumGenome.genomeSha256,
+      priorHistorySha256,
+      history,
+    }),
+    songEvidenceHash: track.songEvidenceHash,
+    energyClass: track.energyClass,
+    priorHistorySha256,
+    authority: 'imagined-non-authoritative',
+    evidenceRefs: [
+      `album-genome:${albumGenome.genomeSha256}`,
+      `song:${track.songEvidenceHash}`,
+      `rearview-history:${priorHistorySha256}`,
+    ].sort(),
+  };
+  return deepFreeze({
+    ...core,
+    prophecySha256: hashCanonical(core, 'HauntedToaster-FutureRearviewProphecy-v1'),
+  });
+}
+
+function buildHorizon({ tracks, cursor, albumGenome, history }) {
+  const horizon = [];
+  for (let index = cursor; index < tracks.length; index += 1) {
+    horizon.push(prophecyForTrack({
+      track: tracks[index],
+      trackIndex: index,
+      trackCount: tracks.length,
+      albumGenome,
+      history,
+    }));
+  }
+  return deepFreeze(horizon);
+}
+
+function finalizeState({ batchIdentitySha256, albumGenome, tracks, cursor, history }) {
+  const horizon = buildHorizon({ tracks, cursor, albumGenome, history });
+  const core = {
+    schema: FUTURE_REARVIEW_SCHEMA,
+    policy: FUTURE_REARVIEW_POLICY,
+    batchIdentitySha256,
+    albumGenome,
+    tracks,
+    cursor,
+    history,
+    historySha256: historySha256(history),
+    horizon,
+    horizonSha256: hashCanonical(horizon, 'HauntedToaster-FutureRearviewHorizon-v1'),
+    complete: cursor >= tracks.length,
+  };
+  return deepFreeze({
+    ...core,
+    stateSha256: hashCanonical(core, 'HauntedToaster-FutureRearviewState-v1'),
+  });
+}
+
+function createFutureRearviewMemoryProphecy({ sixUpSeed, tracks } = {}) {
+  const albumGenome = normalizeSixUpSeed(sixUpSeed);
+  const normalizedTracks = normalizeTracks(tracks);
+  const batchIdentitySha256 = hashCanonical({
+    albumGenomeSha256: albumGenome.genomeSha256,
+    tracks: normalizedTracks.map((track) => ({
+      trackIndex: track.trackIndex,
+      trackId: track.trackId,
+      songEvidenceHash: track.songEvidenceHash,
+      energyClass: track.energyClass,
+    })),
+  }, 'HauntedToaster-FutureRearviewBatch-v1');
+  return finalizeState({
+    batchIdentitySha256,
+    albumGenome,
+    tracks: normalizedTracks,
+    cursor: 0,
+    history: [],
+  });
+}
+
+function sourceEvidenceForSeat({ state, prophecy, aperture, scoreAddress, sourceKind }) {
+  if (sourceKind === 'GENOME') {
+    return [
+      `album-genome:${state.albumGenome.genomeSha256}`,
+      `seed-family:${state.albumGenome.familyHash}`,
+      `seed-score:${scoreAddress}`,
+    ].sort();
+  }
+  if (sourceKind === 'REARVIEW') {
+    const latest = state.history.at(-1);
+    if (!latest) return [`album-genome:${state.albumGenome.genomeSha256}`];
+    return [
+      `receipt:${latest.outcome.acceptedRenderReceiptSha256}`,
+      `learning:${latest.learning.learningSha256}`,
+      `rearview-history:${state.historySha256}`,
+    ].sort();
+  }
+  return [
+    `prophecy:${prophecy.prophecySha256}`,
+    `future-horizon:${state.horizonSha256}`,
+    `song:${prophecy.songEvidenceHash}`,
+    `aperture:${aperture.aperture}`,
+  ].sort();
+}
+
+function buildMutationPrism(state, prophecy) {
+  const sourceCycle = state.history.length > 0
+    ? ['GENOME', 'REARVIEW', 'PROPHECY']
+    : ['GENOME', 'PROPHECY'];
+  const seats = MEMORY_PRISM_APERTURES.map((aperture, seatIndex) => {
+    const sourceKind = sourceCycle[(seatIndex + state.cursor) % sourceCycle.length];
+    const scoreAddress = state.albumGenome.scoreAddresses[seatIndex];
+    const evidenceRefs = sourceEvidenceForSeat({
+      state,
+      prophecy,
+      aperture,
+      scoreAddress,
+      sourceKind,
+    });
+    const seatCore = {
+      seatIndex,
+      aperture: aperture.aperture,
+      targetPrefix: aperture.targetPrefix,
+      sourceKind,
+      evidenceRefs,
+      authority: 'proposal-seed-only',
+    };
+    return deepFreeze({
+      ...seatCore,
+      mutationKey: hashCanonical({
+        batchIdentitySha256: state.batchIdentitySha256,
+        stateSha256: state.stateSha256,
+        trackIndex: state.cursor,
+        seat: seatCore,
+      }, 'HauntedToaster-FutureRearviewMutationSeat-v1'),
+    });
+  });
+  const core = {
+    schema: MUTATION_PRISM_SCHEMA,
+    policy: FUTURE_REARVIEW_POLICY,
+    batchIdentitySha256: state.batchIdentitySha256,
+    stateSha256: state.stateSha256,
+    trackIndex: state.cursor,
+    trackId: prophecy.trackId,
+    horizonSha256: state.horizonSha256,
+    seats,
+    authority: 'proposal-seed-only',
+  };
+  return deepFreeze({
+    ...core,
+    mutationPrismSha256: hashCanonical(core, 'HauntedToaster-FutureRearviewMutationPrism-v1'),
+  });
+}
+
+function contextForCurrentTrack(state) {
+  if (!state || state.schema !== FUTURE_REARVIEW_SCHEMA) {
+    throw new TypeError(`Expected ${FUTURE_REARVIEW_SCHEMA}.`);
+  }
+  if (state.complete || state.cursor >= state.tracks.length) {
+    throw new Error('Future Rearview batch is already complete.');
+  }
+  const prophecy = state.horizon.find((entry) => entry.trackIndex === state.cursor);
+  if (!prophecy) throw new Error('Current track has no prophecy entry.');
+  const mutationPrism = buildMutationPrism(state, prophecy);
+  const core = {
+    schema: TRACK_CONTEXT_SCHEMA,
+    policy: FUTURE_REARVIEW_POLICY,
+    batchIdentitySha256: state.batchIdentitySha256,
+    stateSha256: state.stateSha256,
+    cursor: state.cursor,
+    albumGenome: state.albumGenome,
+    rearview: state.history.map((entry) => ({
+      trackIndex: entry.trackIndex,
+      trackId: entry.trackId,
+      acceptedRenderReceiptSha256: entry.outcome.acceptedRenderReceiptSha256,
+      learningSha256: entry.learning.learningSha256,
+    })),
+    present: {
+      track: state.tracks[state.cursor],
+      prophecy,
+    },
+    forwardHorizon: state.horizon.filter((entry) => entry.trackIndex > state.cursor),
+    mutationPrism,
+    authorityLaw: {
+      receipt: 'fact',
+      learning: 'derived-from-fact',
+      prophecy: 'imagined-non-authoritative'
