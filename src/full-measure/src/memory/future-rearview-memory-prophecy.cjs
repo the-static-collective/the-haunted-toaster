@@ -498,4 +498,59 @@ function closeFutureRearviewLoop(state) {
   }, { confirmed: 0, surprises: 0, unfulfilled: 0 });
 
   const revisitInvitations = [];
-  for (let earlierIndex = 0; earlierIndex < state.history.
+  for (let earlierIndex = 0; earlierIndex < state.history.length; earlierIndex += 1) {
+    const earlier = state.history[earlierIndex];
+    for (const aperture of earlier.learning.unfulfilledFocusApertures) {
+      const later = state.history.slice(earlierIndex + 1)
+        .find((entry) => entry.learning.observedApertures.includes(aperture));
+      if (!later) continue;
+      revisitInvitations.push({
+        earlierTrackIndex: earlier.trackIndex,
+        earlierTrackId: earlier.trackId,
+        laterTrackIndex: later.trackIndex,
+        laterTrackId: later.trackId,
+        aperture,
+        reason: 'later-observation-resolves-earlier-unfulfilled-prophecy',
+        authority: 'invitation-only',
+      });
+      if (revisitInvitations.length >= 12) break;
+    }
+    if (revisitInvitations.length >= 12) break;
+  }
+
+  const core = {
+    schema: RETROSPECTIVE_SCHEMA,
+    policy: FUTURE_REARVIEW_POLICY,
+    batchIdentitySha256: state.batchIdentitySha256,
+    finalStateSha256: state.stateSha256,
+    trackCount: state.tracks.length,
+    prophecyComparison: totals,
+    revisitInvitations,
+    authorityLaw: {
+      retrospective: 'comparison-only',
+      revisitInvitation: 'never-automatic-retoast',
+      pastReceipt: 'immutable',
+    },
+  };
+  return deepFreeze({
+    ...core,
+    retrospectiveSha256: hashCanonical(core, 'HauntedToaster-FutureRearviewRetrospective-v1'),
+  });
+}
+
+module.exports = {
+  AXIS_TO_APERTURE,
+  FUTURE_REARVIEW_POLICY,
+  FUTURE_REARVIEW_SCHEMA,
+  GENERATION_BRIDGE_SCHEMA,
+  LEARNING_SCHEMA,
+  MUTATION_PRISM_SCHEMA,
+  PROPHECY_SCHEMA,
+  RETROSPECTIVE_SCHEMA,
+  TRACK_CONTEXT_SCHEMA,
+  advanceFutureRearviewMemoryProphecy,
+  closeFutureRearviewLoop,
+  contextForCurrentTrack,
+  createFutureRearviewMemoryProphecy,
+  prepareGenerationForCurrentTrack,
+};
