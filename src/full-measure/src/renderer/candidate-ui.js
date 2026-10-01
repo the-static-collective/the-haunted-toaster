@@ -573,6 +573,9 @@
         };
       },
       open: openModal,
+      close() {
+        closeModal(true);
+      },
       clear() {
         clearUi();
       },
