@@ -1,0 +1,348 @@
+.batch-launch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin: 12px 0 2px;
+  padding: 12px 14px;
+  border: 1px solid rgba(131, 209, 191, 0.22);
+  border-radius: 12px;
+  color: var(--paper);
+  background: rgba(131, 209, 191, 0.035);
+  cursor: pointer;
+  text-align: left;
+}
+.batch-launch:hover { border-color: rgba(131, 209, 191, 0.52); }
+.batch-launch:focus-visible,
+.batch-console button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+.batch-launch > span { display: grid; gap: 3px; }
+.batch-launch small {
+  color: var(--mint);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+.batch-launch strong { font-size: 12px; }
+.batch-launch b {
+  color: var(--gold);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 22px;
+  font-weight: 400;
+}
+
+.has-batch-console { overflow: hidden; }
+.batch-console {
+  position: fixed;
+  inset: 0;
+  z-index: 110;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+}
+.batch-console.is-hidden { display: none; }
+.batch-console-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 4, 7, 0.84);
+  backdrop-filter: blur(14px);
+}
+.batch-console-surface {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(1260px, calc(100vw - 56px));
+  max-height: calc(100vh - 56px);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 22px;
+  background: #100d12;
+  box-shadow: 0 30px 110px rgba(0, 0, 0, 0.55);
+}
+.batch-console-header,
+.batch-console-footer,
+.batch-folder-head,
+.batch-evidence-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.batch-console-header {
+  gap: 18px;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.batch-console-header span,
+.batch-panel-kicker {
+  color: var(--gold);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 1.15px;
+  text-transform: uppercase;
+}
+.batch-console-header h2 {
+  margin: 4px 0 3px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 25px;
+  font-weight: 500;
+}
+.batch-console-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+.batch-console-close {
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  color: var(--paper);
+  background: rgba(255,255,255,.025);
+  cursor: pointer;
+  font-size: 21px;
+}
+
+.batch-console-body {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: 340px minmax(0, 1fr);
+  overflow: hidden;
+}
+.batch-spine-panel {
+  min-height: 0;
+  padding: 18px;
+  overflow-y: auto;
+  border-right: 1px solid var(--line);
+  background: rgba(7, 6, 9, 0.48);
+}
+.batch-folder-head { align-items: flex-start; gap: 12px; }
+.batch-folder-head h3 {
+  margin: 4px 0 0;
+  overflow: hidden;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 17px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.batch-folder-head strong {
+  color: var(--faint);
+  font-size: 8px;
+  text-align: right;
+}
+.batch-track-list {
+  display: grid;
+  gap: 4px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.batch-track {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 18px;
+  gap: 8px;
+  align-items: center;
+  min-height: 42px;
+  padding: 7px 8px;
+  border-left: 2px solid transparent;
+  color: var(--muted);
+}
+.batch-track-index {
+  color: var(--faint);
+  font-family: ui-monospace, "Cascadia Mono", monospace;
+  font-size: 9px;
+}
+.batch-track-copy { display: grid; min-width: 0; gap: 2px; }
+.batch-track-copy strong {
+  overflow: hidden;
+  color: inherit;
+  font-size: 10px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.batch-track-copy small {
+  color: var(--faint);
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: .75px;
+}
+.batch-track-mark { color: var(--faint); font-size: 9px; text-align: center; }
+.batch-track.is-current {
+  border-left-color: var(--mint);
+  color: var(--paper);
+  background: rgba(131,209,191,.055);
+}
+.batch-track.is-current .batch-track-mark,
+.batch-track.is-current .batch-track-copy small { color: var(--mint); }
+.batch-track.is-done { color: #beb4bc; }
+.batch-track.is-done .batch-track-mark { color: var(--gold); }
+.batch-track.is-seed { border-left-color: rgba(240,191,104,.45); }
+
+.batch-stage-panel {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 20px 20px;
+}
+.batch-section {
+  padding: 0 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+.batch-section + .batch-section { padding-top: 16px; }
+.batch-section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+.batch-section-heading h3 {
+  margin: 3px 0 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 16px;
+  font-weight: 500;
+}
+.batch-section-heading strong {
+  color: var(--faint);
+  font-family: ui-monospace, "Cascadia Mono", monospace;
+  font-size: 8px;
+}
+.batch-genome-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 7px;
+}
+.batch-genome-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 18px;
+  border: 1px dashed rgba(255,255,255,.1);
+  border-radius: 10px;
+  color: var(--faint);
+  font-size: 10px;
+  line-height: 1.5;
+  text-align: center;
+}
+.batch-genome-cell {
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 9px;
+  background: #070609;
+  cursor: pointer;
+  aspect-ratio: 16 / 9;
+}
+.batch-genome-cell:hover { border-color: rgba(240,191,104,.48); }
+.batch-genome-cell img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.batch-genome-cell b {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 50%;
+  color: #0a090c;
+  background: rgba(246,239,228,.92);
+  font-size: 8px;
+}
+.batch-genome-action {
+  width: 100%;
+  margin-top: 10px;
+  padding: 9px 11px;
+  border: 1px solid rgba(240,191,104,.26);
+  border-radius: 9px;
+  color: var(--paper);
+  background: rgba(240,191,104,.05);
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .45px;
+}
+.batch-evidence-grid {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 1px 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.batch-evidence-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  min-height: 36px;
+  border-bottom: 1px solid var(--line);
+}
+.batch-evidence-row:last-child { border-bottom: 0; }
+.batch-evidence-row span,
+.batch-evidence-row strong {
+  padding: 9px 11px;
+  font-size: 9px;
+}
+.batch-evidence-row span { color: var(--faint); }
+.batch-evidence-row strong { color: var(--paper); font-weight: 650; }
+.batch-retrospective {
+  margin-top: 14px;
+  padding: 12px 13px;
+  border: 1px solid rgba(240,191,104,.2);
+  border-radius: 10px;
+  background: rgba(240,191,104,.035);
+}
+.batch-retrospective.is-hidden { display: none; }
+.batch-retrospective > strong { color: var(--gold); font-size: 8px; letter-spacing: 1px; }
+.batch-retrospective p { margin: 6px 0 8px; color: var(--muted); font-size: 9px; line-height: 1.45; }
+.batch-revisit { padding: 5px 0; border-top: 1px solid var(--line); color: var(--paper); font-size: 8px; }
+
+.batch-console-footer {
+  gap: 16px;
+  padding: 13px 18px;
+  border-top: 1px solid var(--line);
+  background: rgba(11,9,13,.96);
+}
+.batch-status {
+  flex: 1 1 auto;
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+.batch-footer-actions { display: flex; flex: 0 0 auto; gap: 8px; }
+.batch-footer-actions button {
+  padding: 10px 13px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 800;
+}
+.batch-replace-folder {
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: rgba(255,255,255,.025);
+}
+.batch-start {
+  min-width: 160px;
+  border: 1px solid rgba(131,209,191,.4);
+  color: #def6f0;
+  background: rgba(131,209,191,.11);
+  letter-spacing: .7px;
+}
+.batch-console button:disabled { cursor: default; opacity: .42; }
+.batch-console.is-busy .batch-console-body { opacity: .62; pointer-events: none; }
+
+@media (max-width: 1100px) {
+  .batch-console-body { grid-template-columns: 280px minmax(0, 1fr); }
+  .batch-genome-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-height: 760px) {
+  .batch-console { padding: 14px; }
+  .batch-console-surface { max-height: calc(100vh - 28px); }
+  .batch-console-header { padding: 13px 18px 10px; }
+  .batch-spine-panel, .batch-stage-panel { padding-top: 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .batch-launch, .batch-genome-cell { transition: none; }
+}

@@ -161,9 +161,11 @@
       return `local-six-up:openField:${currentCandidateToastFeelId() || "unselected"}:${song}:${kind}:${sequence}`;
     }
 
-    function configFor(kind) {
+    function configFor(kind, rootSeedOverride = null) {
       return {
-        rootSeed: nextRootSeed(kind),
+        rootSeed: typeof rootSeedOverride === "string" && rootSeedOverride.trim()
+          ? rootSeedOverride.trim()
+          : nextRootSeed(kind),
         presetId: "openField",
         toastFeelId: currentCandidateToastFeelId(),
         postWalkAxisGrammar: stageAOptIn.checked === true,
@@ -384,14 +386,34 @@
               : `${view.producedCount} exact previews ready${shortfall}. Inspect freely, then KEEP or SCRAPE.`;
       keep.disabled = true;
       scrape.disabled = busy || !family;
+
+      window.dispatchEvent(new CustomEvent("candidate-family-rendered", {
+        detail: {
+          familyHash: view.familyHash,
+          scoreAddresses: (view.candidates || []).map((candidate) => candidate.scoreAddress),
+          candidates: (view.candidates || []).map((candidate) => ({
+            index: candidate.index,
+            scoreAddress: candidate.scoreAddress,
+            signature: candidate.signature,
+            role: candidate.role || null,
+            changedAxes: Array.isArray(candidate.changedAxes) ? [...candidate.changedAxes] : [],
+            thumbnailDataUrl: candidate.thumbnailDataUrl,
+          })),
+        },
+      }));
     }
 
-    async function generateSix() {
-      if (busy) return;
-      if (!songIsReady()) {
+    async function generateSix(options = {}) {
+      if (busy) return null;
+      const rootSeedOverride =
+        typeof options?.rootSeed === "string" && options.rootSeed.trim()
+          ? options.rootSeed.trim()
+          : null;
+      const batchPrimed = options?.batchPrimed === true;
+      if (!songIsReady() && !batchPrimed) {
         openModal();
         status.textContent = "Choose and inspect a song before generating.";
-        return;
+        return null;
       }
       openModal();
       const pressure = currentCandidateToastFeelId();
@@ -404,7 +426,11 @@
             : "Compiling six exact previews across the Toastmood field…",
       );
       try {
-        renderFamily(await api.generateCandidates(configFor("generate")));
+        const view = await api.generateCandidates(
+          configFor("generate", rootSeedOverride),
+        );
+        renderFamily(view);
+        return view;
       } catch (error) {
         status.textContent = error?.message || String(error);
       } finally {
@@ -484,6 +510,14 @@
         bindElectedFieldFeel(acceptedSelection);
         updateRenderLabel();
         status.textContent = "KEEP recorded. Production render will consume this exact kept timeline.";
+        window.dispatchEvent(new CustomEvent("candidate-kept", {
+          detail: {
+            familyHash: family.familyHash,
+            candidateIndex: selectedIndex,
+            scoreAddress: candidate?.scoreAddress || null,
+            changedAxes: Array.isArray(candidate?.changedAxes) ? [...candidate.changedAxes] : [],
+          },
+        }));
         closeModal(true);
         document.querySelector(".render-panel")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
       } catch (error) {
@@ -514,6 +548,38 @@
         setBusy(false);
       }
     }
+
+    window.candidateSixUp = Object.freeze({
+      generateWithRootSeed(rootSeed, options = {}) {
+        return generateSix({
+          ...options,
+          rootSeed,
+          batchPrimed: options.batchPrimed === true,
+        });
+      },
+      snapshot() {
+        if (!family) return null;
+        return {
+          familyHash: family.familyHash,
+          scoreAddresses: (family.candidates || []).map((candidate) => candidate.scoreAddress),
+          candidates: (family.candidates || []).map((candidate) => ({
+            index: candidate.index,
+            scoreAddress: candidate.scoreAddress,
+            signature: candidate.signature,
+            role: candidate.role || null,
+            changedAxes: Array.isArray(candidate.changedAxes) ? [...candidate.changedAxes] : [],
+            thumbnailDataUrl: candidate.thumbnailDataUrl,
+          })),
+        };
+      },
+      open: openModal,
+      close() {
+        closeModal(true);
+      },
+      clear() {
+        clearUi();
+      },
+    });
 
     launch.addEventListener("click", () => {
       openModal();

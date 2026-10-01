@@ -470,6 +470,71 @@
     if (filePath) loadImage(filePath);
   }
 
+  async function applyBatchPreparedTrack(prepared) {
+    if (state.rendering) throw new Error("Finish the current render before changing batch tracks.");
+    const track = prepared?.track;
+    if (!track?.audioPath || !track?.mediaAnalysis) {
+      throw new TypeError("Batch track handoff requires audioPath and mediaAnalysis.");
+    }
+
+    clearError();
+    state.audioPath = track.audioPath;
+    state.audio = {
+      ...track.mediaAnalysis,
+      filename: track.mediaAnalysis.filename || basename(track.audioPath),
+    };
+    state.imagePath = prepared.imagePath || null;
+    state.result = null;
+    state.alignment = null;
+    state.selectedCueIndex = null;
+    state.lyricProvenance = null;
+
+    elements.syncAudio.src = await api.fileUrl(track.audioPath);
+    elements.audioDrop.classList.add("has-file");
+    elements.audioDropTitle.textContent = state.audio.filename;
+    const sampleRate = Number(state.audio.audio?.sampleRate);
+    const channels = Number(state.audio.audio?.channels);
+    const factParts = [];
+    if (Number.isFinite(Number(state.audio.sizeBytes))) {
+      factParts.push(formatBytes(state.audio.sizeBytes));
+    }
+    if (Number.isFinite(sampleRate)) factParts.push(`${sampleRate / 1000} kHz`);
+    if (Number.isFinite(channels)) factParts.push(`${channels} channel${channels === 1 ? "" : "s"}`);
+    elements.audioDropHint.textContent = factParts.join(" · ") || "Batch track staged";
+    elements.audioChooseChip.textContent = "Batch";
+    elements.songFacts.classList.remove("is-hidden");
+    elements.durationFact.textContent = formatDuration(state.audio.duration);
+    elements.codecFact.textContent = String(state.audio.audio?.codec || "audio").toUpperCase();
+    elements.sectionFact.textContent = `${state.audio.sections?.length || 0} phases`;
+    elements.resultCard.classList.add("is-hidden");
+    elements.titleInput.value = "";
+    elements.titleInput.placeholder = stem(state.audio.filename);
+
+    if (state.imagePath) loadImage(state.imagePath);
+    else clearImage();
+
+    await setLyricsValue("", null);
+    const sidecar = await api.discoverLyricSidecar(track.audioPath).catch(() => null);
+    if (sidecar?.content) {
+      await setLyricsValue(sidecar.content, {
+        mode: "discovered-lrc-sidecar",
+        sidecarFilename: sidecar.filename,
+      });
+    }
+
+    renderTimeline();
+    refreshSlate();
+    window.dispatchEvent(new CustomEvent("batch-track-applied", {
+      detail: {
+        trackIndex: track.trackIndex,
+        trackId: track.trackId,
+        audioPath: track.audioPath,
+        imagePath: state.imagePath,
+      },
+    }));
+    return true;
+  }
+
   async function pickLyrics() {
     if (state.rendering) return;
     clearError();
@@ -1118,6 +1183,14 @@
       elements.resultProof.textContent = `${formatBytes(
         result.receipt.output.sizeBytes,
       )} · ${result.receipt.validation.durationDeltaMilliseconds} ms duration delta · receipt verified`;
+      window.dispatchEvent(new CustomEvent("haunted-render-complete", {
+        detail: {
+          receiptSha256: result.memoryArchive?.ok
+            ? result.memoryArchive.receiptSha256
+            : null,
+          outputPath: result.outputPath,
+        },
+      }));
     } catch (error) {
       if (!String(error?.message || "").toLowerCase().includes("cancel")) {
         setError(error);
@@ -1127,6 +1200,10 @@
       setRenderState(false);
     }
   }
+
+  window.fullMeasureUi = Object.freeze({
+    applyBatchPreparedTrack,
+  });
 
   elements.audioDrop.addEventListener("click", pickAudio);
   elements.imageDrop.addEventListener("click", pickImage);

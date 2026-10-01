@@ -80,6 +80,26 @@ function registerFolderBatchIpc({
 
   ipcMain.handle("batch:manifest", () => summary());
 
+  ipcMain.handle("batch:prime-genome", () => {
+    assertAvailable();
+    assertManifest();
+    const track = manifest.tracks[0];
+    candidateSession.clearCandidates({ resetEcology: true });
+    candidateSession.noteAudio(track.path, structuredClone(track.mediaAnalysis));
+    candidateSession.noteImage(null);
+    candidateSession.clearVideo();
+    prepared = null;
+    return {
+      manifestSha256: manifest.manifestSha256,
+      trackIndex: track.trackIndex,
+      trackId: track.trackId,
+      audioPath: track.path,
+      mediaAnalysis: structuredClone(track.mediaAnalysis),
+      rootSeed: `album-genome:${manifest.manifestSha256}`,
+      authority: "proposal-seed-only",
+    };
+  });
+
   ipcMain.handle("batch:start", (_event, config = {}) => {
     assertAvailable();
     assertManifest();
@@ -125,6 +145,7 @@ function registerFolderBatchIpc({
       materialSelection: config.materialSelection || {},
     });
 
+    candidateSession.clearCandidates({ resetEcology: true });
     candidateSession.noteAudio(
       prepared.track.audioPath,
       prepared.track.mediaAnalysis,

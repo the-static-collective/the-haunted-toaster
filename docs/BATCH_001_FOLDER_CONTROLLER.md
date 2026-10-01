@@ -263,3 +263,109 @@ It also does not:
 - publish, tag, merge, or promote the mutant to `main`.
 
 The backend door is intentionally completed before the visible batch console.
+
+
+## Visible Batch Console — issue #309
+
+BATCH-001 now has a renderer-facing instrument surface layered above the same backend authority path.
+
+The product interaction is deliberately **album transport**, not dashboard:
+
+```text
+CHOOSE ALBUM FOLDER
+       |
+       v
+ORDERED ALBUM SPINE
+       |
+       v
+DREAM SIX ALBUM GENOMES
+       |
+       v
+EXACT SIX-UP FAMILY
+  familyHash + six score addresses
+       |
+       v
+TOAST THE RECORD
+       |
+       v
+CURRENT TRACK
+  ordinary six-up -> human KEEP -> ordinary render
+       |
+       v
+ACCEPTED ARCHIVED RECEIPT
+       |
+       v
+LEARN + RE-DREAM REMAINDER
+       |
+       v
+NEXT TRACK
+```
+
+The console exposes compact evidence for:
+
+- current Future Rearview role;
+- current aperture focus;
+- folder-image reservoir size;
+- currently admitted VSPantry reservoir size;
+- local folder video that remains unadmitted;
+- completed/current/unwritten track state;
+- final revisit invitations.
+
+The visible console does **not** become a second editor or renderer.
+
+### Album genome priming
+
+A narrow privileged verb, `batch:prime-genome`, stages only the first manifest track into the existing candidate session and returns a deterministic root seed addressed by the manifest:
+
+```text
+album-genome:<manifestSha256>
+```
+
+The existing six-up candidate ecology generates the family. The batch controller may adopt a complete family only by recording:
+
+- its exact `familyHash`;
+- all six candidate `scoreAddress` values.
+
+No candidate is automatically KEEP'd.
+
+### Track handoff
+
+After `TOAST THE RECORD`, each current track is prepared by BATCH-001 and handed back into the ordinary renderer presentation state.
+
+The existing candidate surface receives the Future Rearview-derived generation seed.
+
+The user still performs the ordinary crossing:
+
+```text
+six proposals
+   -> human KEEP
+   -> production render
+   -> archived receipt
+```
+
+Only the archived receipt advances the batch cursor.
+
+When a track closes, the console learns from its accepted outcome and automatically stages the **next proposal family**, never the next accepted winner.
+
+### UI authority law
+
+```text
+CONSOLE != RENDER AUTHORITY
+ALBUM GENOME != KEEP
+AUTO-STAGE PROPOSALS != AUTO-SELECT
+AUTO-STAGE PROPOSALS != AUTO-RENDER
+VISIBLE PROPHECY != FACT
+ARCHIVED RECEIPT = BATCH ADVANCE GATE
+```
+
+The renderer remains sandboxed and receives no general filesystem capability. Folder choice and manifest construction remain privileged main-process work through narrow IPC verbs.
+
+### Finish contract
+
+The album spine is the first-read object.
+
+The primary action is:
+
+> **TOAST THE RECORD**
+
+The surface intentionally refuses generic dashboard furniture, equal-weight metric cards, or an arbitrary NLE timeline. It behaves like a compact sequencer/transport around the existing Haunted Toaster ecology.
