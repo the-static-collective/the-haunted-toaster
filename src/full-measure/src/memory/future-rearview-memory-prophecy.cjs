@@ -347,4 +347,155 @@ function contextForCurrentTrack(state) {
     authorityLaw: {
       receipt: 'fact',
       learning: 'derived-from-fact',
-      prophecy: 'imagined-non-authoritative'
+      prophecy: 'imagined-non-authoritative',
+      mutationPrism: 'proposal-seed-only',
+      resolvedTimeline: 'unchanged-authority',
+    },
+  };
+  return deepFreeze({
+    ...core,
+    contextSha256: hashCanonical(core, 'HauntedToaster-FutureRearviewTrackContext-v1'),
+  });
+}
+
+function normalizeOutcome(state, outcome = {}) {
+  const currentTrack = state.tracks[state.cursor];
+  const trackId = assertNonEmptyString(outcome.trackId, 'outcome.trackId');
+  if (trackId !== currentTrack.trackId) {
+    throw new TypeError(`Outcome track ${trackId} does not match current track ${currentTrack.trackId}.`);
+  }
+  if (outcome.accepted !== true) {
+    throw new TypeError('Future Rearview v1 advances only from accepted practical render outcomes.');
+  }
+  const acceptedRenderReceiptSha256 = assertNonEmptyString(
+    outcome.acceptedRenderReceiptSha256,
+    'outcome.acceptedRenderReceiptSha256',
+  );
+  if (!/^[a-f0-9]{64}$/i.test(acceptedRenderReceiptSha256)) {
+    throw new TypeError('outcome.acceptedRenderReceiptSha256 must be a 64-character sha256 hex string.');
+  }
+  const observedAxes = [...new Set((outcome.observedAxes || []).map(String))].sort();
+  for (const axis of observedAxes) {
+    if (!AXIS_TO_APERTURE[axis]) throw new TypeError(`Unsupported observed axis: ${axis}.`);
+  }
+  const featureTokens = [...new Set((outcome.featureTokens || []).map(String).filter(Boolean))].sort();
+  const core = {
+    schema: 'haunted-toaster/future-rearview-outcome/v1',
+    trackIndex: state.cursor,
+    trackId,
+    accepted: true,
+    acceptedRenderReceiptSha256: acceptedRenderReceiptSha256.toLowerCase(),
+    familyHash: outcome.familyHash ? String(outcome.familyHash) : null,
+    selectedScoreAddress: outcome.selectedScoreAddress ? String(outcome.selectedScoreAddress) : null,
+    observedAxes,
+    featureTokens,
+  };
+  return deepFreeze({
+    ...core,
+    outcomeSha256: hashCanonical(core, 'HauntedToaster-FutureRearviewOutcome-v1'),
+  });
+}
+
+function deriveLearning(prophecy, outcome) {
+  const observedApertures = [...new Set(
+    outcome.observedAxes.map((axis) => AXIS_TO_APERTURE[axis]).filter(Boolean),
+  )].sort();
+  const predicted = [...prophecy.focusApertures].sort();
+  const confirmedFocusApertures = predicted.filter((aperture) => observedApertures.includes(aperture));
+  const surpriseApertures = observedApertures.filter((aperture) => !predicted.includes(aperture));
+  const unfulfilledFocusApertures = predicted.filter((aperture) => !observedApertures.includes(aperture));
+  const core = {
+    schema: LEARNING_SCHEMA,
+    policy: FUTURE_REARVIEW_POLICY,
+    trackIndex: outcome.trackIndex,
+    trackId: outcome.trackId,
+    sourceProphecySha256: prophecy.prophecySha256,
+    sourceOutcomeSha256: outcome.outcomeSha256,
+    sourceReceiptSha256: outcome.acceptedRenderReceiptSha256,
+    observedApertures,
+    confirmedFocusApertures,
+    surpriseApertures,
+    unfulfilledFocusApertures,
+    authority: 'derived-from-accepted-receipt',
+  };
+  return deepFreeze({
+    ...core,
+    learningSha256: hashCanonical(core, 'HauntedToaster-FutureRearviewLearning-v1'),
+  });
+}
+
+function advanceFutureRearviewMemoryProphecy(state, outcomeInput) {
+  if (!state || state.schema !== FUTURE_REARVIEW_SCHEMA) {
+    throw new TypeError(`Expected ${FUTURE_REARVIEW_SCHEMA}.`);
+  }
+  if (state.complete) throw new Error('Future Rearview batch is already complete.');
+  const prophecy = state.horizon.find((entry) => entry.trackIndex === state.cursor);
+  if (!prophecy) throw new Error('Current track has no prophecy entry.');
+  const outcome = normalizeOutcome(state, outcomeInput);
+  const learning = deriveLearning(prophecy, outcome);
+  const history = [...state.history, deepFreeze({
+    trackIndex: state.cursor,
+    trackId: outcome.trackId,
+    prophecyAtExecution: prophecy,
+    outcome,
+    learning,
+  })];
+  return finalizeState({
+    batchIdentitySha256: state.batchIdentitySha256,
+    albumGenome: state.albumGenome,
+    tracks: state.tracks,
+    cursor: state.cursor + 1,
+    history,
+  });
+}
+
+function prepareGenerationForCurrentTrack({ state, baseOptions = {} } = {}) {
+  const context = contextForCurrentTrack(state);
+  const baseRootSeed = assertNonEmptyString(baseOptions.rootSeed, 'baseOptions.rootSeed');
+  const derivedRootSeed = hashCanonical({
+    baseRootSeed,
+    batchIdentitySha256: state.batchIdentitySha256,
+    contextSha256: context.contextSha256,
+    mutationPrismSha256: context.mutationPrism.mutationPrismSha256,
+  }, 'HauntedToaster-FutureRearviewGenerationSeed-v1');
+  const generationOptions = {
+    ...structuredClone(baseOptions),
+    rootSeed: derivedRootSeed,
+  };
+  const evidenceCore = {
+    schema: GENERATION_BRIDGE_SCHEMA,
+    policy: FUTURE_REARVIEW_POLICY,
+    trackIndex: state.cursor,
+    trackId: state.tracks[state.cursor].trackId,
+    batchIdentitySha256: state.batchIdentitySha256,
+    contextSha256: context.contextSha256,
+    mutationPrismSha256: context.mutationPrism.mutationPrismSha256,
+    baseRootSeed,
+    derivedRootSeed,
+    memoryPrismPreserved: Object.prototype.hasOwnProperty.call(baseOptions, 'memoryPrism'),
+    authority: 'generation-seed-only',
+  };
+  return deepFreeze({
+    generationOptions,
+    evidence: {
+      ...evidenceCore,
+      evidenceSha256: hashCanonical(evidenceCore, 'HauntedToaster-FutureRearviewGenerationBridge-v1'),
+    },
+  });
+}
+
+function closeFutureRearviewLoop(state) {
+  if (!state || state.schema !== FUTURE_REARVIEW_SCHEMA) {
+    throw new TypeError(`Expected ${FUTURE_REARVIEW_SCHEMA}.`);
+  }
+  if (!state.complete) throw new Error('Future Rearview batch cannot close before every track has an accepted outcome.');
+
+  const totals = state.history.reduce((acc, entry) => {
+    acc.confirmed += entry.learning.confirmedFocusApertures.length;
+    acc.surprises += entry.learning.surpriseApertures.length;
+    acc.unfulfilled += entry.learning.unfulfilledFocusApertures.length;
+    return acc;
+  }, { confirmed: 0, surprises: 0, unfulfilled: 0 });
+
+  const revisitInvitations = [];
+  for (let earlierIndex = 0; earlierIndex < state.history.
