@@ -58,8 +58,8 @@
     close.focus();
   }
 
-  function closeConsole() {
-    if (state.busy) return;
+  function closeConsole(force = false) {
+    if (state.busy && !force) return;
     modal.classList.add("is-hidden");
     document.body.classList.remove("has-batch-console");
     launch.focus();
@@ -263,7 +263,7 @@
     await window.fullMeasureUi?.applyBatchPreparedTrack?.(prepared);
     state.context = await api.getBatchContext();
     render();
-    closeConsole();
+    closeConsole(true);
     await window.candidateSixUp?.generateWithRootSeed?.(
       prepared.generationOptions.rootSeed,
       { batchPrimed: true },
