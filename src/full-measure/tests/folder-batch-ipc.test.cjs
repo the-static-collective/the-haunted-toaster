@@ -97,6 +97,7 @@ test("BATCH-001 IPC stages the current track/materials and advances only after a
   };
   const calls = [];
   const candidateSession = {
+    clearCandidates(options = {}) { calls.push(["candidate-clear", options]); },
     noteAudio(audioPath, analysis) { calls.push(["audio", audioPath, analysis]); },
     noteImage(imagePath) { calls.push(["image", imagePath]); },
     noteVideo(video) { calls.push(["video", video?.specimenId]); },
@@ -124,6 +125,18 @@ test("BATCH-001 IPC stages the current track/materials and advances only after a
   assert.equal(chosen.imageCount, 1);
   assert.equal(chosen.pantryVideoCount, 1);
 
+  const primed = await handlers.get("batch:prime-genome")();
+  assert.equal(primed.trackId, "01-song.wav");
+  assert.equal(primed.authority, "proposal-seed-only");
+  assert.match(primed.rootSeed, /^album-genome:/);
+  assert.deepEqual(calls.map((entry) => entry[0]), [
+    "candidate-clear",
+    "audio",
+    "image",
+    "video-clear",
+  ]);
+  calls.length = 0;
+
   const started = await handlers.get("batch:start")(null, { sixUpSeed: sixUpSeed() });
   assert.equal(started.cursor, 0);
   assert.equal(started.complete, false);
@@ -142,7 +155,12 @@ test("BATCH-001 IPC stages the current track/materials and advances only after a
   assert.equal(prepared.imagePath, "/album/cover.jpg");
   assert.equal(prepared.videoBinding.specimenId, "video-001");
   assert.notEqual(prepared.generationOptions.rootSeed, "batch-ipc-root");
-  assert.deepEqual(calls.map((entry) => entry[0]), ["audio", "image", "video"]);
+  assert.deepEqual(calls.map((entry) => entry[0]), [
+    "candidate-clear",
+    "audio",
+    "image",
+    "video",
+  ]);
 
   const advanced = await handlers.get("batch:accept-current")(null, {
     acceptedRenderReceiptSha256: "e".repeat(64),
