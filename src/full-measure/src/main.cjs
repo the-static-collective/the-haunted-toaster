@@ -27,6 +27,8 @@ const {
 } = require("./align/listener-pack.cjs");
 const { createCandidateSession } = require("./candidate-session.cjs");
 const { createMemoryService } = require("./memory/memory-service.cjs");
+const { registerFolderBatchIpc } = require("./batch/electron-ipc.cjs");
+const { resolveToasterHome, videoPantryCatalogPath } = require("./toaster-home.cjs");
 const { inspectAudio } = require("./render/analyze.cjs");
 const {
   MAX_CUES,
@@ -126,6 +128,16 @@ function assertCandidateAvailable() {
 
 function registerIpc() {
   candidateSession.registerIpc(ipcMain, assertCandidateAvailable);
+  registerFolderBatchIpc({
+    dialog,
+    ipcMain,
+    getMainWindow: () => mainWindow,
+    candidateSession,
+    catalogPath: () => videoPantryCatalogPath(resolveToasterHome({
+      appDataPath: app.getPath("userData"),
+    })),
+    assertAvailable: assertCandidateAvailable,
+  });
   ipcMain.handle("app:toast-feels", () => listToastFeels());
 
   ipcMain.handle("dialog:choose-audio", async () => {
