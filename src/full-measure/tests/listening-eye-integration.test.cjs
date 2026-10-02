@@ -99,7 +99,7 @@ test("LISTENING-EYE-CROSSING-001 is opt-in, bounded, deterministic, and excisabl
     baselineA.view.candidates.map(({ scoreAddress, timelineHash }) => [scoreAddress, timelineHash]),
     baselineB.view.candidates.map(({ scoreAddress, timelineHash }) => [scoreAddress, timelineHash]),
   );
-  assert.equal(baselineB.view.listeningEye, null);
+  assert.equal(baselineB.view.listeningEye, undefined);
 });
 
 test("Listening Eye family records one distinct art-direction lens per candidate slot", async () => {
