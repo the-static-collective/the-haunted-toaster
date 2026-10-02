@@ -1,25 +1,12 @@
 const {
-  canonicalStringify,
   deepFreeze,
   hashCanonical,
   quantizeNumber,
 } = require("./canonical.cjs");
-const primitiveGeneration = require("./primitive-field-generation.cjs");
-const toastGeneration = require("./toast-feel-generation.cjs");
-const {
-  LISTENING_EYE_POLICY,
-  buildListeningEye,
-} = require("./listening-eye.cjs");
 
-const LISTENING_EYE_RENDER_POLICY = "listening-eye-score-pressure-v0";
+const LISTENING_EYE_SELECTION_POLICY = "listening-eye-candidate-selection-v0";
 const LISTENING_EYE_FAMILY_SCHEMA = "haunted-toaster/listening-eye-family/v0";
 const TEMPORAL_ORDER = Object.freeze(["frozen", "section", "phrase", "transient"]);
-const FRACTION = Object.freeze({
-  amplitude: 0.08,
-  variance: 0.10,
-  imperfection: 0.10,
-  camera: 0.10,
-});
 
 const LENS_AXIS_BIAS = deepFreeze({
   landscape: {
@@ -66,140 +53,100 @@ const LENS_AXIS_BIAS = deepFreeze({
   },
 });
 
-function pressureNumber(current, range, pressure, fraction) {
-  const span = Number(range.max) - Number(range.min);
-  return quantizeNumber(Math.min(
-    Number(range.max),
-    Math.max(Number(range.min), Number(current) + span * Number(pressure) * fraction),
-  ));
+function clamp01(value) {
+  return Math.min(1, Math.max(0, Number(value) || 0));
 }
 
-function pressureTemporal(current, constraints, pressure) {
-  if (Math.abs(Number(pressure)) < 0.24) return current;
-  const legal = TEMPORAL_ORDER.filter((value) => constraints.temporalDensity.allowed.includes(value));
-  const currentIndex = legal.indexOf(current);
-  if (currentIndex < 0) return current;
-  const direction = Number(pressure) > 0 ? 1 : -1;
-  return legal[Math.min(legal.length - 1, Math.max(0, currentIndex + direction))];
+function normalizeNumber(value, range) {
+  const min = Number(range?.min);
+  const max = Number(range?.max);
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) return 0.5;
+  return clamp01((Number(value) - min) / (max - min));
 }
 
-function scaledBias(base, signal, lens) {
-  const albumTilt = 1 + 0.18 * (Number(lens.pressures.arrival) - Number(lens.pressures.foreshadow));
-  const scaled = Number(base) * (0.5 + 0.5 * Number(signal)) * albumTilt;
-  return Math.min(1, Math.max(-1, scaled));
+function normalizeTemporal(value, constraints) {
+  const legal = TEMPORAL_ORDER.filter((item) =>
+    constraints?.temporalDensity?.allowed?.includes(item));
+  const index = legal.indexOf(value);
+  if (index < 0 || legal.length <= 1) return 0.5;
+  return index / (legal.length - 1);
 }
 
-function applyListeningEyePressure(scoreInput, constraints, lens, locks = []) {
+function target(base, signal, lens) {
+  const albumTilt =
+    0.16 * (Number(lens.pressures.arrival) - Number(lens.pressures.foreshadow));
+  return clamp01(0.5 + Number(base) * (0.28 + Number(signal) * 0.18) + albumTilt);
+}
+
+function candidateVector(candidate, constraints) {
+  const score = candidate?.scoreArtifact?.score;
+  if (!score) throw new TypeError("Listening Eye selection requires a scored candidate.");
+  return {
+    amplitude: normalizeNumber(score.motion?.amplitude, constraints.motion?.amplitude),
+    variance: normalizeNumber(score.motion?.variance, constraints.motion?.variance),
+    imperfection: normalizeNumber(
+      score.material?.imperfection,
+      constraints.material?.imperfection,
+    ),
+    camera: normalizeNumber(score.camera?.variance, constraints.camera?.variance),
+    temporal: normalizeTemporal(score.temporalDensity, constraints),
+  };
+}
+
+function targetVector(lens) {
   const bias = LENS_AXIS_BIAS[lens?.id];
   if (!bias) throw new TypeError(`Unknown Listening Eye lens: ${String(lens?.id)}.`);
-  const locked = new Set((locks || []).map(String));
-  const score = structuredClone(scoreInput);
-
-  if (!locked.has("motion")) {
-    score.motion.amplitude = pressureNumber(
-      score.motion.amplitude,
-      constraints.motion.amplitude,
-      scaledBias(bias.amplitude, lens.pressures.motion, lens),
-      FRACTION.amplitude,
-    );
-    score.motion.variance = pressureNumber(
-      score.motion.variance,
-      constraints.motion.variance,
-      scaledBias(bias.variance, lens.pressures.density, lens),
-      FRACTION.variance,
-    );
-  }
-
-  if (!locked.has("material")) {
-    score.material.imperfection = pressureNumber(
-      score.material.imperfection,
-      constraints.material.imperfection,
-      scaledBias(bias.imperfection, lens.pressures.persistence, lens),
-      FRACTION.imperfection,
-    );
-  }
-
-  if (!locked.has("camera")) {
-    score.camera.variance = pressureNumber(
-      score.camera.variance,
-      constraints.camera.variance,
-      scaledBias(bias.camera, lens.pressures.motion, lens),
-      FRACTION.camera,
-    );
-  }
-
-  if (!locked.has("temporalDensity")) {
-    score.temporalDensity = pressureTemporal(
-      score.temporalDensity,
-      constraints,
-      scaledBias(bias.temporal, lens.pressures.density, lens),
-    );
-  }
-
-  return deepFreeze(score);
+  return {
+    amplitude: target(bias.amplitude, lens.pressures.motion, lens),
+    variance: target(bias.variance, lens.pressures.density, lens),
+    imperfection: target(bias.imperfection, lens.pressures.persistence, lens),
+    camera: target(bias.camera, lens.pressures.motion, lens),
+    temporal: target(bias.temporal, lens.pressures.density, lens),
+  };
 }
 
-function changedAxes(before, after) {
-  const axes = [];
-  for (const axis of ["motion", "material", "camera", "temporalDensity"]) {
-    if (canonicalStringify(before[axis]) !== canonicalStringify(after[axis])) axes.push(axis);
-  }
-  return axes;
+function candidateLensMerit(candidate, lens, constraints) {
+  const actual = candidateVector(candidate, constraints);
+  const desired = targetVector(lens);
+  const axes = Object.keys(desired);
+  const distance = axes.reduce(
+    (sum, axis) => sum + Math.abs(Number(actual[axis]) - Number(desired[axis])),
+    0,
+  ) / axes.length;
+  return quantizeNumber((1 - clamp01(distance)) * 40);
 }
 
 function lensHash(lens) {
   return hashCanonical(lens, "HauntedToaster-ListeningEyeLens-v0");
 }
 
-function pressureCandidate(candidate, options, listeningEye, lens) {
-  const constraints = options.garmentConstraints || options.constraints;
-  const locks = options.locks || [];
-  const priorScore = candidate.scoreArtifact.score;
-  const score = applyListeningEyePressure(priorScore, constraints, lens, locks);
-  const changed = changedAxes(priorScore, score);
-  const derivation = structuredClone(candidate.scoreArtifact.derivation || {});
-  derivation.policy = {
-    ...(derivation.policy || {}),
-    listeningEye: {
-      policy: LISTENING_EYE_RENDER_POLICY,
-      authority: "influence-only",
-      listeningEyeSha256: listeningEye.listeningEyeSha256,
-      lensId: lens.id,
-      lensSlotIndex: lens.slotIndex,
-      lensHash: lensHash(lens),
-      changedAxes: [...changed],
-    },
-  };
-  const scoreArtifact = primitiveGeneration.artifact(score, derivation);
-  const timeline = toastGeneration.resolvePressuredTimeline({
-    analysis: options.analysis,
-    score: scoreArtifact.score,
-    constraints,
-    rendererProfile: options.rendererProfile,
-    locks,
-    lyricTrack: options.lyricTrack,
-  });
+function annotateListeningEyeCandidate(candidate, {
+  listeningEye,
+  lens,
+  lensMerit,
+  noveltyMerit,
+  sourceCandidateIndex,
+} = {}) {
   return deepFreeze({
     ...candidate,
-    scoreAddress: scoreArtifact.address,
-    scoreArtifact,
-    timeline,
-    timelineHash: timeline.timelineHash,
     listeningEyeInfluence: {
       schema: "haunted-toaster/listening-eye-influence/v0",
-      policy: LISTENING_EYE_RENDER_POLICY,
+      policy: LISTENING_EYE_SELECTION_POLICY,
       authority: "influence-only",
       listeningEyeSha256: listeningEye.listeningEyeSha256,
       lensId: lens.id,
       lensSlotIndex: lens.slotIndex,
       lensHash: lensHash(lens),
-      changedAxes: [...changed],
+      lensMerit: quantizeNumber(lensMerit),
+      noveltyMerit: quantizeNumber(noveltyMerit),
+      sourceCandidateIndex: Number(sourceCandidateIndex),
+      mode: "selection-pressure",
+      changedAxes: [],
     },
   });
 }
 
-function requestFromOptions(options = {}) {
-  const request = options.listeningEye;
+function normalizeRequest(request) {
   if (!request || request.enabled !== true) return null;
   return deepFreeze({
     enabled: true,
@@ -207,135 +154,48 @@ function requestFromOptions(options = {}) {
   });
 }
 
-function decorateFamilyWithListeningEye(baseFamily, options = {}) {
-  const request = requestFromOptions(options);
-  if (!request) return baseFamily;
-  if (!baseFamily?.candidates?.length) {
-    throw new TypeError("Listening Eye admission requires a CandidateFamily.");
-  }
-  if (baseFamily.candidates.length !== 6) {
-    throw new TypeError("Listening Eye v0 requires exactly six candidate slots.");
-  }
-
-  const listeningEye = buildListeningEye({
-    analysis: options.analysis,
-    rootSeed: options.rootSeed,
-    albumContext: request.albumContext,
-  });
-  const candidates = baseFamily.candidates.map((candidate, index) =>
-    pressureCandidate(candidate, options, listeningEye, listeningEye.lenses[index]));
-
+function buildListeningEyeFamilyEvidence(listeningEye, candidates, request) {
+  const normalizedRequest = normalizeRequest(request);
+  if (!normalizedRequest) return null;
   const candidateLenses = candidates.map((candidate) => ({
     slotIndex: candidate.index,
-    lensId: candidate.listeningEyeInfluence.lensId,
-    lensHash: candidate.listeningEyeInfluence.lensHash,
-    changedAxes: [...candidate.listeningEyeInfluence.changedAxes],
+    lensId: candidate.listeningEyeInfluence?.lensId || null,
+    lensHash: candidate.listeningEyeInfluence?.lensHash || null,
+    lensMerit: candidate.listeningEyeInfluence?.lensMerit ?? null,
+    noveltyMerit: candidate.listeningEyeInfluence?.noveltyMerit ?? null,
+    sourceCandidateIndex: candidate.listeningEyeInfluence?.sourceCandidateIndex ?? null,
+    mode: candidate.listeningEyeInfluence?.mode || null,
   }));
-
-  const familyEvidenceCore = {
+  const core = {
     schema: LISTENING_EYE_FAMILY_SCHEMA,
-    policy: LISTENING_EYE_RENDER_POLICY,
-    sourcePolicy: LISTENING_EYE_POLICY,
+    policy: LISTENING_EYE_SELECTION_POLICY,
+    sourcePolicy: listeningEye.policy,
     authority: "influence-only",
     listeningEyeSha256: listeningEye.listeningEyeSha256,
     analysisHash: listeningEye.analysisHash,
     album: listeningEye.album,
     summary: listeningEye.summary,
     candidateLenses,
-    request,
+    request: normalizedRequest,
   };
-  const familyEvidence = deepFreeze({
-    ...familyEvidenceCore,
+  return deepFreeze({
+    ...core,
     familyEvidenceSha256: hashCanonical(
-      familyEvidenceCore,
+      core,
       "HauntedToaster-ListeningEyeFamily-v0",
     ),
-  });
-
-  const {
-    familyHash: _familyHash,
-    candidates: _candidates,
-    scoreAddresses: _scoreAddresses,
-    timelineHashes: _timelineHashes,
-    listeningEye: _listeningEye,
-    ...stableCore
-  } = baseFamily;
-  const familyCore = {
-    ...structuredClone(stableCore),
-    scoreAddresses: candidates.map((candidate) => candidate.scoreAddress),
-    timelineHashes: candidates.map((candidate) => candidate.timelineHash),
-    listeningEye: familyEvidence,
-  };
-  return deepFreeze({
-    ...familyCore,
-    familyHash: hashCanonical(familyCore, "HauntedToaster-CandidateFamily-v1"),
-    candidates,
-  });
-}
-
-function generateCandidateSet(options = {}) {
-  return decorateFamilyWithListeningEye(
-    toastGeneration.generateCandidateSet(options),
-    options,
-  );
-}
-
-function generateStompCandidateSet(options = {}) {
-  return decorateFamilyWithListeningEye(
-    toastGeneration.generateStompCandidateSet(options),
-    options,
-  );
-}
-
-function replaceFinalCandidateWithConverge(family, options = {}) {
-  const nextOptions = {
-    ...options,
-    listeningEye: options.listeningEye || family?.listeningEye?.request || null,
-  };
-  return decorateFamilyWithListeningEye(
-    toastGeneration.replaceFinalCandidateWithConverge(family, nextOptions),
-    nextOptions,
-  );
-}
-
-function replayCandidateFamily(family, options = {}) {
-  const listeningEye = options.listeningEye || family?.listeningEye?.request || null;
-  const replayed = generateCandidateSet({
-    ...options,
-    listeningEye,
-    toastFeelId: options.toastFeelId || family.toastFeel?.id,
-    locks: family.locks,
-    rootSeed: family.rootSeed,
-    count: family.requestedCount,
-    phase: family.phase,
-  });
-  const addressesMatch =
-    canonicalStringify(replayed.scoreAddresses) === canonicalStringify(family.scoreAddresses);
-  const timelinesMatch =
-    canonicalStringify(replayed.timelineHashes) === canonicalStringify(family.timelineHashes);
-  const familyHashMatches = replayed.familyHash === family.familyHash;
-  return deepFreeze({
-    schema: "haunted-toaster/listening-eye-family-replay/v0",
-    ok: addressesMatch && timelinesMatch && familyHashMatches,
-    addressesMatch,
-    timelinesMatch,
-    familyHashMatches,
-    expectedFamilyHash: family.familyHash,
-    actualFamilyHash: replayed.familyHash,
-    replayed,
   });
 }
 
 module.exports = {
-  FRACTION,
   LENS_AXIS_BIAS,
   LISTENING_EYE_FAMILY_SCHEMA,
-  LISTENING_EYE_RENDER_POLICY,
+  LISTENING_EYE_SELECTION_POLICY,
   TEMPORAL_ORDER,
-  applyListeningEyePressure,
-  decorateFamilyWithListeningEye,
-  generateCandidateSet,
-  generateStompCandidateSet,
-  replaceFinalCandidateWithConverge,
-  replayCandidateFamily,
+  annotateListeningEyeCandidate,
+  buildListeningEyeFamilyEvidence,
+  candidateLensMerit,
+  candidateVector,
+  normalizeRequest,
+  targetVector,
 };
