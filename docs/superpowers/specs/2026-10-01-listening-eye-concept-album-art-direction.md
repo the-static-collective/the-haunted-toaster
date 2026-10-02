@@ -1,6 +1,6 @@
 # Listening Eye v0 — Concept-Album Art Direction from the Song
 
-Status: **experimental executable seam**  
+Status: **experimental executable seam + opt-in final-six selection crossing**  
 Date: **2026-10-01**  
 Authority: **influence-only**
 
@@ -107,33 +107,38 @@ Pressure channels are normalized `0..1`:
 
 The hash makes the art-direction proposal inspectable and replayable.
 
-## Why the first slice does not steer rendering yet
+## The first executable crossing: selection pressure, not score pressure
 
-The existing Toaster already has a strong authority chain:
+Listening Eye now has one bounded opt-in crossing into the ordinary initial six-up.
 
-```text
-analysis
-  -> candidate ecology
-  -> VisualScore
-  -> ResolvedTimeline
-  -> KEEP
-  -> render
-```
-
-v0 deliberately stops before mutating that chain.
-
-The next slice should prove one narrow crossing:
+Each Toastmood lane still generates its existing lawful candidate family first. Listening Eye then evaluates those already-generated possibilities through exactly one art-direction lens for that final slot:
 
 ```text
-Listening Eye lens
-  -> explicit bounded candidate influence
-  -> changed candidate evidence
-  -> exact excision restores baseline
+Toastmood lane
+  -> existing lawful candidate possibilities
+  -> existing novelty merit + Listening Eye lens merit
+  -> one final survivor for that slot
+  -> ordinary downstream topology / L BRANCH / preview / KEEP path
 ```
 
-That crossing should behave more like Scar / Familiar research than like an ambient style preference.
+The lens does **not** rewrite the winning VisualScore or rebuild its ResolvedTimeline. It contributes only selection pressure among possibilities the Toaster already knew how to make.
 
-Until that proof exists, Listening Eye is executable art-direction evidence only.
+The existing diversity pressure remains dominant: candidate merit is currently `2 × novelty + lens merit`. This keeps Listening Eye from collapsing the six into a stylistically homogeneous album mood.
+
+When Listening Eye is disabled, its fields are absent rather than null and the original selection path is preserved.
+
+The family records:
+
+- the exact Listening Eye hash;
+- album context and structural summary;
+- one lens per final slot;
+- lens merit and novelty merit;
+- the source candidate index selected from that lane;
+- `authority: influence-only`.
+
+This is **LISTENING-EYE-CROSSING-001**.
+
+The next proof is perceptual rather than architectural: run real songs through baseline A / directed B / baseline A′ and determine whether the directed six read as materially distinct interpretations of the same song while A and A′ remain exact.
 
 ## Intended concept-album workflow
 
@@ -183,16 +188,16 @@ The useful harvest is the law: for example, “history should remain visible as 
 - no alteration of KEEP / SCRAPE;
 - no album-wide mutation without exact ancestry evidence.
 
-## Next falsifiable crossing
+## Next falsifiable witness
 
-The strongest next experiment is **LISTENING-EYE-CROSSING-001**:
+The strongest next experiment is **LISTENING-EYE-WITNESS-001**:
 
-1. generate a baseline ordinary six;
-2. choose one Listening Eye lens deterministically by slot;
-3. apply one bounded declared influence to each candidate;
-4. receipt the lens hash and changed axes;
-5. prove replay;
-6. excise Listening Eye and recover the exact baseline family;
-7. human-witness whether the six feel materially more like distinct interpretations of one song rather than six unrelated style presets.
+1. generate ordinary baseline A from a real song;
+2. generate directed B from the same seed with Listening Eye enabled;
+3. generate baseline A′ with Listening Eye removed;
+4. prove A = A′ exactly;
+5. confirm B carries six distinct lens receipts;
+6. human-witness whether B reads as six coherent interpretations of one musical world rather than arbitrary style presets;
+7. repeat on neighboring tracks with explicit album positions and inspect whether foreshadow / arrival creates useful continuity without flattening song identity.
 
-If that passes, Listening Eye becomes a real art-direction organ inside the Toaster rather than merely a good idea.
+Only after that witness should album-wide kept ancestry be allowed to feed later tracks.
