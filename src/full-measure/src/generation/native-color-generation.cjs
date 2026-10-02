@@ -1,5 +1,5 @@
 const { canonicalStringify, deepFreeze, hashCanonical } = require("./canonical.cjs");
-const listeningEyeGeneration = require("./listening-eye-generation.cjs");
+const toastGeneration = require("./toast-feel-generation.cjs");
 const schema = require("./schema.cjs");
 const { stripAtmosphere } = require("./atmosphere-score.cjs");
 const { stripPrimitiveField } = require("./primitive-field-score.cjs");
@@ -70,14 +70,14 @@ function decorateFamilyWithNativeColor(baseFamily, options = {}) {
 
 function generateCandidateSet(options = {}) {
   return decorateFamilyWithNativeColor(
-    listeningEyeGeneration.generateCandidateSet(options),
+    toastGeneration.generateCandidateSet(options),
     options,
   );
 }
 
 function generateStompCandidateSet(options = {}) {
   return decorateFamilyWithNativeColor(
-    listeningEyeGeneration.generateStompCandidateSet(options),
+    toastGeneration.generateStompCandidateSet(options),
     options,
   );
 }
@@ -110,10 +110,9 @@ function restoreConvergeSeedParentRef(family, parentScore) {
 function replaceFinalCandidateWithConverge(family, options = {}) {
   const nextOptions = {
     ...options,
-    listeningEye: options.listeningEye || family.listeningEye?.request || null,
     toastFeelId: options.toastFeelId || family.toastFeel?.id,
   };
-  const converged = listeningEyeGeneration.replaceFinalCandidateWithConverge(family, nextOptions);
+  const converged = toastGeneration.replaceFinalCandidateWithConverge(family, nextOptions);
   return decorateFamilyWithNativeColor(
     restoreConvergeSeedParentRef(converged, nextOptions.parentScore),
     nextOptions,
@@ -123,7 +122,6 @@ function replaceFinalCandidateWithConverge(family, options = {}) {
 function replayCandidateFamily(family, options = {}) {
   const replayed = generateCandidateSet({
     ...options,
-    listeningEye: options.listeningEye || family.listeningEye?.request || null,
     toastFeelId: options.toastFeelId || family.toastFeel?.id,
     locks: family.locks,
     rootSeed: family.rootSeed,
