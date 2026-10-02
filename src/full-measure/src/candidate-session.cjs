@@ -161,9 +161,9 @@ function candidateGenealogyEvidence(family, candidate) {
     toastmoodLane: candidate.toastmoodLane ? structuredClone(candidate.toastmoodLane) : null,
     crossLineage: candidate.crossLineage ? structuredClone(candidate.crossLineage) : null,
     frontierEvidence: candidate.frontierEvidence ? structuredClone(candidate.frontierEvidence) : null,
-    listeningEyeInfluence: candidate.listeningEyeInfluence
-      ? structuredClone(candidate.listeningEyeInfluence)
-      : null,
+    ...(candidate.listeningEyeInfluence
+      ? { listeningEyeInfluence: structuredClone(candidate.listeningEyeInfluence) }
+      : {}),
     stomp,
   };
 }
@@ -357,7 +357,7 @@ function createCandidateSession({
         toastFeel: sourceFamily.toastFeel || null,
         toastmoodField: sourceFamily.toastmoodField || null,
         cross: sourceFamily.cross || null,
-        listeningEye: sourceFamily.listeningEye || null,
+        ...(sourceFamily.listeningEye ? { listeningEye: sourceFamily.listeningEye } : {}),
       });
     }
     const projected = generation.projectOrdinaryGrabView(sourceFamily, {
@@ -383,7 +383,7 @@ function createCandidateSession({
       toastFeel: sourceFamily.toastFeel || null,
       toastmoodField: sourceFamily.toastmoodField || null,
       cross: sourceFamily.cross || null,
-      listeningEye: sourceFamily.listeningEye || null,
+      ...(sourceFamily.listeningEye ? { listeningEye: sourceFamily.listeningEye } : {}),
     });
   }
 
@@ -421,7 +421,9 @@ function createCandidateSession({
       toastFeel: feel ? structuredClone(nextFamily.toastFeel || feel) : null,
       toastmoodField: nextFamily.toastmoodField ? structuredClone(nextFamily.toastmoodField) : null,
       cross: nextFamily.cross ? structuredClone(nextFamily.cross) : null,
-      listeningEye: nextFamily.listeningEye ? structuredClone(nextFamily.listeningEye) : null,
+      ...(nextFamily.listeningEye
+        ? { listeningEye: structuredClone(nextFamily.listeningEye) }
+        : {}),
       labInfluence: influence,
     };
     selection = null;
@@ -435,7 +437,9 @@ function createCandidateSession({
       toastFeel: feel ? structuredClone(nextFamily.toastFeel || feel) : null,
       toastmoodField: nextFamily.toastmoodField ? structuredClone(nextFamily.toastmoodField) : null,
       cross: nextFamily.cross ? structuredClone(nextFamily.cross) : null,
-      listeningEye: nextFamily.listeningEye ? structuredClone(nextFamily.listeningEye) : null,
+      ...(nextFamily.listeningEye
+        ? { listeningEye: structuredClone(nextFamily.listeningEye) }
+        : {}),
       labInfluence: influence,
     };
   }
