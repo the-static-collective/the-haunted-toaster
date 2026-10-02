@@ -40,7 +40,8 @@ module.exports = {
   ...require("./sigil-topology-expression.cjs"),
   ...require("./sigil-topology-compiler.cjs"),
   ...require("./sigil-utterance-family.cjs"),
-  ...require("./listening-eye.cjs"),\n  ...require("./listening-eye-generation.cjs"),
+  ...require("./listening-eye.cjs"),
+  ...require("./listening-eye-generation.cjs"),
   ...require("./l-branch.cjs"),
   ...require("./post-walk-axis-grammar.cjs"),
 };
