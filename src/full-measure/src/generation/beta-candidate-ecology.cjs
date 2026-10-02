@@ -4,6 +4,13 @@ const {
   hashCanonical,
 } = require("./canonical.cjs");
 const base = require("./nested-response-generation.cjs");
+const { buildListeningEye } = require("./listening-eye.cjs");
+const {
+  annotateListeningEyeCandidate,
+  buildListeningEyeFamilyEvidence,
+  candidateLensMerit,
+  normalizeRequest: normalizeListeningEyeRequest,
+} = require("./listening-eye-generation.cjs");
 const { listToastFeels } = require("../toast-feels.cjs");
 
 const TOASTMOOD_FIELD_POLICY = "toastmood-field-v1";
@@ -140,22 +147,54 @@ function annotateLane(candidate, lane, sourceFamilyHash, sourceRootSeed) {
   });
 }
 
-function chooseLaneCandidate(sourceFamily, lane, selected, sourceRootSeed) {
+function chooseLaneCandidate(
+  sourceFamily,
+  lane,
+  selected,
+  sourceRootSeed,
+  { listeningEye = null, lens = null, constraints = null } = {},
+) {
   const ranked = sourceFamily.candidates
     .map((candidate) => annotateLane(candidate, lane, sourceFamily.familyHash, sourceRootSeed))
-    .map((candidate) => ({ candidate, merit: candidateNovelty(candidate, selected) }))
+    .map((candidate) => {
+      const noveltyMerit = candidateNovelty(candidate, selected);
+      const lensMerit = lens ? candidateLensMerit(candidate, lens, constraints) : 0;
+      return {
+        candidate,
+        noveltyMerit,
+        lensMerit,
+        merit: noveltyMerit * 2 + lensMerit,
+      };
+    })
     .sort((left, right) => {
       if (left.merit !== right.merit) return right.merit - left.merit;
+      if (left.noveltyMerit !== right.noveltyMerit) {
+        return right.noveltyMerit - left.noveltyMerit;
+      }
       return left.candidate.scoreAddress.localeCompare(right.candidate.scoreAddress);
     });
-  return ranked[0].candidate;
+  const winner = ranked[0];
+  if (!listeningEye || !lens) return winner.candidate;
+  return annotateListeningEyeCandidate(winner.candidate, {
+    listeningEye,
+    lens,
+    lensMerit: winner.lensMerit,
+    noveltyMerit: winner.noveltyMerit,
+    sourceCandidateIndex: winner.candidate.index,
+  });
 }
 
 function reindexCandidate(candidate, index) {
   return deepFreeze({ ...candidate, index });
 }
 
-function familyFromCandidates({ sourceFamilies, candidates, options, fieldEvidence }) {
+function familyFromCandidates({
+  sourceFamilies,
+  candidates,
+  options,
+  fieldEvidence,
+  listeningEyeEvidence = null,
+}) {
   const first = candidates[0];
   const locks = [...new Set((options.locks || []).map(String))].sort();
   const shortfall = candidates.length < Number(options.count || 6)
@@ -186,6 +225,7 @@ function familyFromCandidates({ sourceFamilies, candidates, options, fieldEviden
     shortfall,
     phase: "initial",
     toastmoodField: fieldEvidence,
+    ...(listeningEyeEvidence ? { listeningEye: listeningEyeEvidence } : {}),
   };
   const prePlanFamily = {
     ...core,
@@ -220,19 +260,40 @@ function generateToastmoodFieldCandidateSet(options = {}) {
   if (lanes.length !== 6) {
     throw new Error(`Toastmood Field v1 requires six ordinary canonical Toast Feels; found ${lanes.length}.`);
   }
+  const listeningEyeRequest = normalizeListeningEyeRequest(options.listeningEye);
+  const listeningEye = listeningEyeRequest
+    ? buildListeningEye({
+        analysis: options.analysis,
+        rootSeed: options.rootSeed,
+        albumContext: listeningEyeRequest.albumContext,
+      })
+    : null;
+  const constraints = options.garmentConstraints || options.constraints;
+  const { listeningEye: _listeningEye, ...baseOptions } = options;
   const selected = [];
   const sourceFamilies = [];
-  for (const lane of lanes) {
+  for (let laneIndex = 0; laneIndex < lanes.length; laneIndex += 1) {
+    const lane = lanes[laneIndex];
     const sourceRootSeed = laneSeed(options.rootSeed, lane.id);
     const sourceFamily = base.generateCandidateSet({
-      ...options,
+      ...baseOptions,
       rootSeed: sourceRootSeed,
       count: 6,
       phase: "initial",
       toastFeelId: lane.id,
     });
     sourceFamilies.push(sourceFamily);
-    selected.push(chooseLaneCandidate(sourceFamily, lane, selected, sourceRootSeed));
+    selected.push(chooseLaneCandidate(
+      sourceFamily,
+      lane,
+      selected,
+      sourceRootSeed,
+      {
+        listeningEye,
+        lens: listeningEye?.lenses?.[laneIndex] || null,
+        constraints,
+      },
+    ));
   }
   const candidates = selected.map(reindexCandidate);
   const coverage = toastmoodFieldCoverage(candidates);
@@ -253,7 +314,16 @@ function generateToastmoodFieldCandidateSet(options = {}) {
     ...fieldCore,
     fieldSha256: hashCanonical(fieldCore, FIELD_DOMAIN),
   });
-  return familyFromCandidates({ sourceFamilies, candidates, options, fieldEvidence: toastmoodField });
+  const listeningEyeEvidence = listeningEye
+    ? buildListeningEyeFamilyEvidence(listeningEye, candidates, listeningEyeRequest)
+    : null;
+  return familyFromCandidates({
+    sourceFamilies,
+    candidates,
+    options,
+    fieldEvidence: toastmoodField,
+    listeningEyeEvidence,
+  });
 }
 
 function sameValue(left, right) {
@@ -441,6 +511,7 @@ function replayCandidateFamily(family, options = {}) {
       count: family.requestedCount,
       phase: "initial",
       toastFeelId: null,
+      listeningEye: options.listeningEye || family.listeningEye?.request || null,
     });
     const addressesMatch = canonicalStringify(replayed.scoreAddresses) === canonicalStringify(family.scoreAddresses);
     const timelinesMatch = canonicalStringify(replayed.timelineHashes) === canonicalStringify(family.timelineHashes);
