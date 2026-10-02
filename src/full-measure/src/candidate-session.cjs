@@ -161,6 +161,9 @@ function candidateGenealogyEvidence(family, candidate) {
     toastmoodLane: candidate.toastmoodLane ? structuredClone(candidate.toastmoodLane) : null,
     crossLineage: candidate.crossLineage ? structuredClone(candidate.crossLineage) : null,
     frontierEvidence: candidate.frontierEvidence ? structuredClone(candidate.frontierEvidence) : null,
+    listeningEyeInfluence: candidate.listeningEyeInfluence
+      ? structuredClone(candidate.listeningEyeInfluence)
+      : null,
     stomp,
   };
 }
@@ -354,6 +357,7 @@ function createCandidateSession({
         toastFeel: sourceFamily.toastFeel || null,
         toastmoodField: sourceFamily.toastmoodField || null,
         cross: sourceFamily.cross || null,
+        listeningEye: sourceFamily.listeningEye || null,
       });
     }
     const projected = generation.projectOrdinaryGrabView(sourceFamily, {
@@ -379,6 +383,7 @@ function createCandidateSession({
       toastFeel: sourceFamily.toastFeel || null,
       toastmoodField: sourceFamily.toastmoodField || null,
       cross: sourceFamily.cross || null,
+      listeningEye: sourceFamily.listeningEye || null,
     });
   }
 
@@ -416,6 +421,7 @@ function createCandidateSession({
       toastFeel: feel ? structuredClone(nextFamily.toastFeel || feel) : null,
       toastmoodField: nextFamily.toastmoodField ? structuredClone(nextFamily.toastmoodField) : null,
       cross: nextFamily.cross ? structuredClone(nextFamily.cross) : null,
+      listeningEye: nextFamily.listeningEye ? structuredClone(nextFamily.listeningEye) : null,
       labInfluence: influence,
     };
     selection = null;
@@ -429,6 +435,7 @@ function createCandidateSession({
       toastFeel: feel ? structuredClone(nextFamily.toastFeel || feel) : null,
       toastmoodField: nextFamily.toastmoodField ? structuredClone(nextFamily.toastmoodField) : null,
       cross: nextFamily.cross ? structuredClone(nextFamily.cross) : null,
+      listeningEye: nextFamily.listeningEye ? structuredClone(nextFamily.listeningEye) : null,
       labInfluence: influence,
     };
   }
@@ -470,6 +477,12 @@ function createCandidateSession({
         phase: "initial",
         lyricTrack,
         toastFeelId: feel?.id || null,
+        listeningEye: config.listeningEye?.enabled === true
+          ? {
+              enabled: true,
+              albumContext: structuredClone(config.listeningEye.albumContext || {}),
+            }
+          : null,
         nativeChromaticProfile: profile,
       });
       const nextFamily = enrichOrdinaryFamily(sourceFamily, {
