@@ -23,7 +23,7 @@ It uses the existing canonical witness-sigil implementation rather than duplicat
 Input:
 
 - `digest`: canonical lowercase SHA-256 digest;
-- `output_dir`: requested bounded output directory;
+- `output_dir`: optional bounded output directory; when omitted, the executing body writes beneath its own `GHOT_HOME`;
 - `basename`: safe local filename stem.
 
 Outputs:
@@ -42,3 +42,5 @@ GHOT EXECUTION != TOASTER CONTINUATION VERDICT
 ```
 
 The GHoT bridge executes the Toaster. It does not own the projection semantics.
+
+For remote execution, the adapter also returns the bounded SVG, recipe, and receipt bytes inline with their hashes. A caller therefore does not need shared filesystem access to the executing body.
