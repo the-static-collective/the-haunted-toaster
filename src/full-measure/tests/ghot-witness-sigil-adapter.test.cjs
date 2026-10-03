@@ -31,6 +31,9 @@ test("GHoT adapter uses the canonical Haunted Toaster witness-sigil projector", 
     assert.equal(recipe.digest, DIGEST);
     assert.equal(receipt.outputs.svg.sha256, result.artifact.svg_sha256);
     assert.equal(receipt.outputs.recipe.sha256, result.artifact.recipe_sha256);
+    assert.equal(result.artifact.svg_text, svg);
+    assert.equal(result.artifact.recipe_text, await fs.readFile(result.artifact.recipe_path, "utf8"));
+    assert.equal(result.artifact.receipt_text, await fs.readFile(result.artifact.receipt_path, "utf8"));
   } finally {
     await fs.rm(dir, { recursive: true, force: true });
   }
