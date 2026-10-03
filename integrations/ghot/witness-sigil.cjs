@@ -77,10 +77,13 @@ async function runWitnessSigil(input) {
     artifact: {
       svg_path: svgPath,
       svg_sha256: svgSha256,
+      svg_text: rendered.svgText,
       recipe_path: recipePath,
       recipe_sha256: recipeSha256,
+      recipe_text: rendered.recipeText,
       receipt_path: receiptPath,
-      receipt_sha256: sha256Text(receiptText)
+      receipt_sha256: sha256Text(receiptText),
+      receipt_text: receiptText
     },
     receipt
   };
