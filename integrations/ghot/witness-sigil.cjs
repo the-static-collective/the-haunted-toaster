@@ -25,8 +25,11 @@ async function runWitnessSigil(input) {
     throw new TypeError("input must be an object");
   }
   const digest = String(input.digest || "");
-  const outputDir = path.resolve(String(input.output_dir || ""));
-  if (!input.output_dir || outputDir === path.parse(outputDir).root) {
+  const ghotHome = path.resolve(String(process.env.GHOT_HOME || ".ghot"));
+  const outputDir = input.output_dir
+    ? path.resolve(String(input.output_dir))
+    : path.join(ghotHome, "adapter-artifacts", "haunted-toaster");
+  if (outputDir === path.parse(outputDir).root) {
     throw new TypeError("output_dir must be a bounded directory path");
   }
   const basename = safeBasename(input.basename);
