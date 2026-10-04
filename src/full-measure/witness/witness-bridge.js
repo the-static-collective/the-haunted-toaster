@@ -310,7 +310,31 @@
     chooseFrankenBlenderAcceptance: async () => "/witness/franken/accepted-take.json",
     chooseFrankenBlenderReceipt: async () => "/witness/franken/accepted-take.mp4.receipt.json",
     chooseFrankenBlenderVideo: async () => "/witness/franken/accepted-take.mp4",
-    composeFranken: async () => ({ proposalIdentity: "a".repeat(64), proposal: witnessFrankenProposal() }),
+    composeFranken: async (config = {}) => {
+      const base = witnessFrankenProposal();
+      const proposal = {
+        ...base,
+        movingTakeSceneId: config.edits?.movingTakeSceneId || base.movingTakeSceneId,
+        transitionChoices: {
+          ...base.transitionChoices,
+          ...(config.edits?.transitions || {}),
+        },
+        text: config.edits?.text ?? base.text,
+        variation: Number.isSafeInteger(config.edits?.variation)
+          ? config.edits.variation
+          : base.variation,
+        ...(config.nextGen?.enabled
+          ? {
+              ancestry: {
+                nextGenCrossing: {
+                  crossingIdentity: config.nextGen.expectedCrossingIdentity,
+                },
+              },
+            }
+          : {}),
+      };
+      return { proposalIdentity: "a".repeat(64), proposal };
+    },
     freezeFranken: async () => ({ planHash: "b".repeat(64), plan: { schema: "static-collective/franken-composition/v0" } }),
     writeFrankenProjectionBundle: async () => ({ directory: "/witness/franken/render-bundle", planHash: "b".repeat(64) }),
     chooseLyrics: async () => null,
