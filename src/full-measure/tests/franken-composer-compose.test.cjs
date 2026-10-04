@@ -42,3 +42,12 @@ test('donor world rule survives recomposition when no explicit override is suppl
   const edited=applyFrankenEdits(p,{text:'KEEP DONOR WORLD'});
   assert.equal(edited.worldRule,'flipbook');
 });
+
+
+test('explicit world-rule override produces a visible renderer-neutral topology delta',()=>{
+  const p=composeFrankenProposal({...donors(),seed:'world-visible'});
+  const a=applyFrankenEdits(p,{worldRule:'manga-room'});
+  const b=applyFrankenEdits(p,{worldRule:'wrong-medium'});
+  const topology=proposal=>proposal.scenes.flatMap(s=>s.tracks).filter(t=>t.role==='topology-material').flatMap(t=>t.clips).map(clip=>({transform:clip.transform,opacity:clip.opacity}));
+  assert.notDeepEqual(topology(a),topology(b));
+});
