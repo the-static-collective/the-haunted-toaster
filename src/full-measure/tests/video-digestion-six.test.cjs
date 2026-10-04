@@ -57,7 +57,7 @@ test("all six descendants compile through the shared foreign-material renderer c
     assert.equal(compiled.evidence.planHash, descendant.planHash);
     assert.equal(compiled.evidence.operatorId, descendant.digestOperatorId);
     assert.equal(compiled.evidence.samplingPolicy, descendant.samplingPolicyId);
-    assert.match(compiled.graph, /\\[vout\\]/);
+    assert.match(compiled.graph, /\[vout\]/);
     const args = ffmpegInputArgsForForeignMaterial(descendant.plan);
     assert.equal(args.at(-1), descendant.plan.sourcePath);
   }
