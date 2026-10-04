@@ -9,6 +9,8 @@
   "scripts": {
     "verify": "npm --prefix src/full-measure run check && npm --prefix src/full-measure test && npm --prefix src/full-measure run smoke",
     "start": "npm --prefix src/full-measure start",
-    "dist:win": "npm --prefix src/full-measure run dist -- --win"
+    "dist:win": "npm --prefix src/full-measure run dist -- --win",
+    "franken:remotion:check": "npm --prefix experiments/franken-composer-remotion run check",
+    "franken:remotion:studio": "npm --prefix experiments/franken-composer-remotion run studio"
   }
 }
