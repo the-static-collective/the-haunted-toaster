@@ -1,0 +1,9 @@
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const {adaptAcceptedBlenderTake}=require('../src/franken-composer/adapters/blender-take.cjs');
+const {makeBlenderFixture}=require('./helpers/franken-blender-fixture.cjs');
+test('accepted private Blender take becomes bounded video material',()=>{const f=makeBlenderFixture();const out=adaptAcceptedBlenderTake({acceptance:f.acceptance,admissionReceipt:f.admission,videoPath:f.video});assert.equal(out.material.kind,'video');assert.equal(out.material.digest,f.acceptance.video_sha256);assert.equal(out.material.admissionBasis,'filmmaker_accepted_private_preview');assert.equal(out.material.distributionAuthorized,false);assert.equal(out.ancestry.beat,1);});
+test('candidate-admitted but not filmmaker-accepted receipt refuses',()=>{const f=makeBlenderFixture();assert.throws(()=>adaptAcceptedBlenderTake({acceptance:{...f.acceptance,status:'candidate_admitted_not_filmmaker_accepted'},admissionReceipt:f.admission,videoPath:f.video}),/filmmaker accepted/i);});
+test('changed video bytes acceptance digest or admission receipt digest refuse',()=>{const f=makeBlenderFixture();fs.appendFileSync(f.video,'changed');assert.throws(()=>adaptAcceptedBlenderTake({acceptance:f.acceptance,admissionReceipt:f.admission,videoPath:f.video}),/video.*changed|digest/i);const g=makeBlenderFixture();assert.throws(()=>adaptAcceptedBlenderTake({acceptance:{...g.acceptance,admission_receipt_sha256:'0'.repeat(64)},admissionReceipt:g.admission,videoPath:g.video}),/receipt.*digest/i);});
+test('distribution authorization is never inferred from acceptance',()=>{const f=makeBlenderFixture();const out=adaptAcceptedBlenderTake({acceptance:f.acceptance,admissionReceipt:f.admission,videoPath:f.video});assert.equal(out.material.distributionAuthorized,false);assert.equal(out.authority,'material-only');});
