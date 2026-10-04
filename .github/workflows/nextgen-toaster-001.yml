@@ -161,9 +161,18 @@ jobs:
           python -m compileall -q haunted_blender
           python -m unittest discover -s tests -p "test_franken_cutout_002.py" -v
 
-      - name: Install Playdeck organ
+      - name: Use Node 22 for Playdeck donor parity
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Playdeck organ using donor workflow
         working-directory: _organs/playdeck
-        run: npm ci
+        run: npm install
+
+      - name: Typecheck Playdeck organ
+        working-directory: _organs/playdeck
+        run: npm run typecheck
 
       - name: Prove Playdeck Franken Studio
         working-directory: _organs/playdeck
