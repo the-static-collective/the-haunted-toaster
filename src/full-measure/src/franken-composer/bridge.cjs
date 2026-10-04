@@ -48,7 +48,7 @@ async function blenderInputs(acceptancePath,admissionReceiptPath,videoPath){
   const acceptance=await readJson(acceptancePath,"Blender acceptance JSON");
   const receipt=await readJson(admissionReceiptPath,"Blender admission receipt JSON");
   const video=await assertLocalFile(videoPath,VIDEO_EXTENSIONS,"Blender accepted take");
-  const blenderTake=adaptAcceptedBlenderTake({acceptance:acceptance.value,admissionReceipt:receipt.value,videoPath:video});
+  const blenderTake=adaptAcceptedBlenderTake({acceptance:acceptance.value,acceptancePath:acceptance.resolved,admissionReceipt:receipt.value,videoPath:video});
   return {blenderTake,videoPath:video};
 }
 function publicProposal(proposal){const {_donor,...safe}=proposal;return canonicalize(safe);}
