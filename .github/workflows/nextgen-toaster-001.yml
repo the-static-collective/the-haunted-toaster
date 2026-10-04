@@ -1,0 +1,229 @@
+name: NextGen Toaster 001 organ proof
+
+on:
+  push:
+    branches:
+      - experiment/nextgen-toaster-001
+  pull_request:
+    branches:
+      - experiment/franken-tester-001
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nextgen-toaster-001-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  composed-organ-proof:
+    name: Prove pinned NextGen organ carrier
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out NextGen kernel
+        uses: actions/checkout@v4
+
+      - name: Check out FrankenTester census organ
+        uses: actions/checkout@v4
+        with:
+          repository: the-static-collective/the-haunted-toaster
+          ref: c52f1c26ca80c8676449449abb5133cbcd1f5445
+          path: _organs/census
+
+      - name: Check out Listener Look-Twice organ
+        uses: actions/checkout@v4
+        with:
+          repository: the-static-collective/the-haunted-toaster
+          ref: 2b28002614b119841ca7e639b9be72b0da22987c
+          path: _organs/listener
+
+      - name: Check out pinned AutoDisco listener donor
+        uses: actions/checkout@v4
+        with:
+          repository: the-static-collective/The-AutodiscoV.20.-question-marks-
+          ref: 7ad77a46debc7e8c05fc7434c9091f3e36870651
+          path: _organs/autodisco-v20
+
+      - name: Check out Listening Eye organ
+        uses: actions/checkout@v4
+        with:
+          repository: the-static-collective/the-haunted-toaster
+          ref: fe185abbbfa9d56e613f953f7c92531853a80fb3
+          path: _organs/listening-eye
+
+      - name: Check out Video Digestion organ
+        uses: actions/checkout@v4
+        with:
+          repository: the-static-collective/the-haunted-toaster
+          ref: a93cb6cb8653a0fce81e552028c2813b9c24bd23
+          path: _organs/video-digestion
+
+      - name: Check out Memory Prism organ
+        uses: actions/checkout@v4
+        with:
+          repository: the-static-collective/the-haunted-toaster
+          ref: 17194c34b9b248fd1edfa975c0cd6142d97b658a
+          path: _organs/memory-prism
+
+      - name: Check out Batch Console organ
+        uses: actions/checkout@v4
+        with:
+          repository: the-static-collective/the-haunted-toaster
+          ref: b3b25c5cf99faaf5c7b9fc0ef6809939ecfca7b5
+          path: _organs/batch-console
+
+      - name: Check out Franken Composer organ
+        uses: actions/checkout@v4
+        with:
+          repository: the-static-collective/the-haunted-toaster
+          ref: 0916e1d1dd60d2834682e4bd182f26f15b2d8447
+          path: _organs/franken-composer
+
+      - name: Check out Blender organ
+        uses: actions/checkout@v4
+        with:
+          repository: the-static-collective/the-haunted-blender
+          ref: 7cfdee2b7c823baa9219683f1a9cbfc68b21191b
+          path: _organs/blender
+
+      - name: Check out Playdeck organ
+        uses: actions/checkout@v4
+        with:
+          repository: the-static-collective/playdeck
+          ref: 012186fd67f4c4ef1c6591fc5e29cb559b5a80d0
+          path: _organs/playdeck
+
+      - name: Use Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Use Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install NextGen kernel
+        run: npm --prefix src/full-measure ci
+
+      - name: Prove NextGen kernel contracts
+        run: node --test src/full-measure/tests/nextgen-toaster.test.cjs src/full-measure/tests/franken-tester.test.cjs src/full-measure/tests/franken-*.test.cjs
+
+      - name: Prove branch ecology census
+        run: node --test _organs/census/src/full-measure/tests/franken-tester.test.cjs
+
+      - name: Prove Listener Look-Twice with pinned AutoDisco donor
+        env:
+          AUTODISCO_V20_ROOT: ${{ github.workspace }}/_organs/autodisco-v20
+        run: node --test _organs/listener/experiments/listener-look-twice-001/listener-look-twice.test.mjs
+
+      - name: Install Listening Eye organ
+        run: npm --prefix _organs/listening-eye/src/full-measure ci
+
+      - name: Prove Listening Eye
+        run: node --test _organs/listening-eye/src/full-measure/tests/listening-eye.test.cjs _organs/listening-eye/src/full-measure/tests/listening-eye-integration.test.cjs
+
+      - name: Install Video Digestion organ
+        run: npm --prefix _organs/video-digestion/src/full-measure ci
+
+      - name: Prove Video Digestion six-up
+        run: node --test _organs/video-digestion/src/full-measure/tests/video-digestion-six.test.cjs _organs/video-digestion/src/full-measure/tests/video-digestion-human-bridge.test.cjs _organs/video-digestion/src/full-measure/tests/video-phrasing.test.cjs _organs/video-digestion/src/full-measure/tests/video-phrase-stamp.test.cjs
+
+      - name: Install Memory Prism organ
+        run: npm --prefix _organs/memory-prism/src/full-measure ci
+
+      - name: Prove Memory Prism
+        run: node --test _organs/memory-prism/src/full-measure/tests/memory-*.test.cjs
+
+      - name: Install Batch Console organ
+        run: npm --prefix _organs/batch-console/src/full-measure ci
+
+      - name: Prove Batch Console
+        run: node --test _organs/batch-console/src/full-measure/tests/folder-batch-*.test.cjs
+
+      - name: Install Franken Composer organ
+        run: npm --prefix _organs/franken-composer/src/full-measure ci
+
+      - name: Prove Franken Composer contracts
+        run: node --test _organs/franken-composer/src/full-measure/tests/franken-*.test.cjs
+
+      - name: Install Blender proof dependency
+        run: python -m pip install --upgrade pip "Pillow>=9"
+
+      - name: Prove Blender cutout and bridge descendant
+        working-directory: _organs/blender
+        run: |
+          python -m compileall -q haunted_blender
+          python -m unittest discover -s tests -p "test_franken_cutout_002.py" -v
+
+      - name: Install Playdeck organ
+        working-directory: _organs/playdeck
+        run: npm ci
+
+      - name: Prove Playdeck Franken Studio
+        working-directory: _organs/playdeck
+        run: npm --workspace @playdeck/studio run franken:proof
+
+      - name: Build exact runtime evidence
+        run: |
+          mkdir -p test-artifacts/nextgen
+          node <<'NODE'
+          const fs = require("node:fs");
+          const cp = require("node:child_process");
+          const {ORGANS, PIPELINE} = require("./src/full-measure/src/nextgen/profile.cjs");
+          const dirs = {
+            census:"_organs/census",
+            listener:"_organs/listener",
+            listeningEye:"_organs/listening-eye",
+            videoDigestion:"_organs/video-digestion",
+            memoryPrism:"_organs/memory-prism",
+            batchConsole:"_organs/batch-console",
+            frankenComposer:"_organs/franken-composer",
+            blender:"_organs/blender",
+            playdeck:"_organs/playdeck",
+          };
+          const proofs = {
+            census:"franken-tester.test.cjs",
+            listener:"listener-look-twice.test.mjs + pinned AutoDisco donor",
+            listeningEye:"listening-eye unit + integration contracts",
+            videoDigestion:"video digestion six-up + phrasing contracts",
+            memoryPrism:"memory prism focused suite",
+            batchConsole:"folder batch console focused suite",
+            frankenComposer:"franken cross-renderer contract suite",
+            blender:"test_franken_cutout_002.py",
+            playdeck:"@playdeck/studio franken:proof",
+          };
+          const evidence = {};
+          for (const key of PIPELINE) {
+            const sha = cp.execFileSync("git", ["-C", dirs[key], "rev-parse", "HEAD"], {encoding:"utf8"}).trim();
+            evidence[key] = {
+              repo:ORGANS[key].repo,
+              ref:ORGANS[key].ref,
+              sha,
+              status:"pass",
+              proof:proofs[key],
+            };
+          }
+          fs.writeFileSync(
+            "test-artifacts/nextgen/runtime-evidence.json",
+            JSON.stringify(evidence, null, 2) + "\n",
+          );
+          NODE
+
+      - name: Materialize pinned profile
+        run: node src/full-measure/scripts/nextgen-toaster.cjs --profile --out test-artifacts/nextgen/nextgen-profile.json
+
+      - name: Seal NextGen runtime proof receipt
+        run: |
+          kernel_sha="$(git rev-parse HEAD)"
+          node src/full-measure/scripts/nextgen-toaster.cjs             --seal             --kernel-sha "$kernel_sha"             --evidence test-artifacts/nextgen/runtime-evidence.json             --out test-artifacts/nextgen/nextgen-proof-receipt.json
+
+      - name: Upload NextGen proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextgen-toaster-001-${{ github.run_id }}
+          path: test-artifacts/nextgen/
+          if-no-files-found: error
