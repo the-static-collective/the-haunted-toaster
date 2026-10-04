@@ -2,6 +2,10 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const generation = require("./generation/index.cjs");
+const {
+  buildNextGenLiveCrossing,
+  publicCrossingView,
+} = require("./nextgen/live-crossings.cjs");
 const { buildArchaeologyContext } = require("./archaeology-context.cjs");
 const { analyzeSpecimenMaterial } = require("./video-pantry/material-analysis.cjs");
 const { admitLabProposal, parseLabProposalTransfer } = require("./lab-proposal.cjs");
@@ -249,6 +253,26 @@ function createCandidateSession({
 
   function state() {
     return { video: video ? structuredClone(video) : null };
+  }
+
+  function nextGenContext(config = {}) {
+    if (!mediaAnalysis) {
+      throw new Error("Choose and inspect a song before crossing NextGen organs.");
+    }
+    const basisCandidate = selection || family?.candidates?.[0] || null;
+    return buildNextGenLiveCrossing({
+      analysis: toGenerationAnalysis(mediaAnalysis),
+      rootSeed: String(config.rootSeed || family?.rootSeed || "nextgen-003"),
+      albumContext: structuredClone(config.albumContext || {}),
+      videoBinding: video ? structuredClone(video) : null,
+      timeline: basisCandidate?.timeline || null,
+      timelineHash: basisCandidate?.timelineHash || null,
+      candidateIndex: Number.isInteger(basisCandidate?.index) ? basisCandidate.index : null,
+    });
+  }
+
+  function nextGenCrossingView(config = {}) {
+    return publicCrossingView(nextGenContext(config));
   }
 
   async function ensureNativeChromaticProfile() {
@@ -1124,6 +1148,10 @@ function createCandidateSession({
       assertAvailable();
       return scrape(config);
     });
+    ipcMain.handle("candidate:nextgen-crossings", (_event, config) => {
+      assertAvailable();
+      return nextGenCrossingView(config);
+    });
     ipcMain.handle("candidate:clear", () => {
       clearCandidates();
       return true;
@@ -1154,6 +1182,8 @@ function createCandidateSession({
     importLabProposal,
     keep,
     mutate,
+    nextGenContext,
+    nextGenCrossingView,
     noteAudio,
     noteImage,
     noteVideo,
