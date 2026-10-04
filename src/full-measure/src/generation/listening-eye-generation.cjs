@@ -165,6 +165,9 @@ function buildListeningEyeFamilyEvidence(listeningEye, candidates, request) {
     noveltyMerit: candidate.listeningEyeInfluence?.noveltyMerit ?? null,
     sourceCandidateIndex: candidate.listeningEyeInfluence?.sourceCandidateIndex ?? null,
     mode: candidate.listeningEyeInfluence?.mode || null,
+    changedAxes: Array.isArray(candidate.listeningEyeInfluence?.changedAxes)
+      ? [...candidate.listeningEyeInfluence.changedAxes]
+      : [],
   }));
   const core = {
     schema: LISTENING_EYE_FAMILY_SCHEMA,
