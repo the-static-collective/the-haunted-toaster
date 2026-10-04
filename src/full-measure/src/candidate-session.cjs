@@ -161,6 +161,9 @@ function candidateGenealogyEvidence(family, candidate) {
     toastmoodLane: candidate.toastmoodLane ? structuredClone(candidate.toastmoodLane) : null,
     crossLineage: candidate.crossLineage ? structuredClone(candidate.crossLineage) : null,
     frontierEvidence: candidate.frontierEvidence ? structuredClone(candidate.frontierEvidence) : null,
+    ...(candidate.listeningEyeInfluence
+      ? { listeningEyeInfluence: structuredClone(candidate.listeningEyeInfluence) }
+      : {}),
     stomp,
   };
 }
@@ -354,6 +357,7 @@ function createCandidateSession({
         toastFeel: sourceFamily.toastFeel || null,
         toastmoodField: sourceFamily.toastmoodField || null,
         cross: sourceFamily.cross || null,
+        ...(sourceFamily.listeningEye ? { listeningEye: sourceFamily.listeningEye } : {}),
       });
     }
     const projected = generation.projectOrdinaryGrabView(sourceFamily, {
@@ -379,6 +383,7 @@ function createCandidateSession({
       toastFeel: sourceFamily.toastFeel || null,
       toastmoodField: sourceFamily.toastmoodField || null,
       cross: sourceFamily.cross || null,
+      ...(sourceFamily.listeningEye ? { listeningEye: sourceFamily.listeningEye } : {}),
     });
   }
 
@@ -416,6 +421,9 @@ function createCandidateSession({
       toastFeel: feel ? structuredClone(nextFamily.toastFeel || feel) : null,
       toastmoodField: nextFamily.toastmoodField ? structuredClone(nextFamily.toastmoodField) : null,
       cross: nextFamily.cross ? structuredClone(nextFamily.cross) : null,
+      ...(nextFamily.listeningEye
+        ? { listeningEye: structuredClone(nextFamily.listeningEye) }
+        : {}),
       labInfluence: influence,
     };
     selection = null;
@@ -429,6 +437,9 @@ function createCandidateSession({
       toastFeel: feel ? structuredClone(nextFamily.toastFeel || feel) : null,
       toastmoodField: nextFamily.toastmoodField ? structuredClone(nextFamily.toastmoodField) : null,
       cross: nextFamily.cross ? structuredClone(nextFamily.cross) : null,
+      ...(nextFamily.listeningEye
+        ? { listeningEye: structuredClone(nextFamily.listeningEye) }
+        : {}),
       labInfluence: influence,
     };
   }
@@ -470,6 +481,12 @@ function createCandidateSession({
         phase: "initial",
         lyricTrack,
         toastFeelId: feel?.id || null,
+        listeningEye: config.listeningEye?.enabled === true
+          ? {
+              enabled: true,
+              albumContext: structuredClone(config.listeningEye.albumContext || {}),
+            }
+          : null,
         nativeChromaticProfile: profile,
       });
       const nextFamily = enrichOrdinaryFamily(sourceFamily, {
