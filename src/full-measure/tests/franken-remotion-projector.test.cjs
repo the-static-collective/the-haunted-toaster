@@ -15,7 +15,7 @@ test('founding Remotion projector refuses video source crops and composition imp
   bad.scenes.flatMap(s=>s.tracks).flatMap(t=>t.clips).find(c=>c.materialId===bad.materials.find(m=>m.kind==='video').materialId).crop={x:0,y:0,width:0.5,height:0.5};
   assert.throws(()=>compileRemotionFranken({plan:bad,planHash:f.planHash,assetBindings:f.assetBindings}),/video crop/i);
   const fs=require('node:fs'),path=require('node:path');
-  const source=fs.readFileSync(path.join(__dirname,'..','..','experiments','franken-composer-remotion','src','FrankenComposition.tsx'),'utf8');
+  const source=fs.readFileSync(path.join(__dirname,'..','..','..','experiments','franken-composer-remotion','src','FrankenComposition.tsx'),'utf8');
   assert.match(source,/clip\.crop/);
   assert.match(source,/overflow:'hidden'/);
   assert.match(source,/100\/clip\.crop\.width/);
