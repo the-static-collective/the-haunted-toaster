@@ -23,7 +23,7 @@ const ORGAN_RULES = Object.freeze([
   {id:"receipt", systems:["toaster"], branch:/receipt/i, files:[/receipt/i]},
   {id:"dogram", systems:["toaster"], branch:/dogram/i, files:[/dogram/i]},
 
-  {id:"accepted-take", systems:["blender"], branch:/accepted[-/]take|take[-/]cut/i, files:[/take_cut\.py$/i,/creative_take\.py$/i]},
+  {id:"accepted-take", systems:["blender"], branch:/accepted[-/]take|take[-/]cut/i, files:[/take_cut\.py$/i]},
   {id:"cutout-stage", systems:["blender"], branch:/cutout/i, files:[/cutout_stage\.py$/i]},
   {id:"flow-pantry", systems:["blender"], branch:/pantry/i, files:[/flow_pantry\.py$/i]},
   {id:"playdeck-bridge", systems:["blender"], branch:/playdeck/i, files:[/playdeck_bridge\.py$/i]},
