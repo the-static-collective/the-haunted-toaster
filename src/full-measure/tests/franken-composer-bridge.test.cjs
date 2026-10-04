@@ -18,3 +18,26 @@ test('compose returns proposal identity but never a frozen plan hash',async()=>{
 test('freeze revalidates source bytes and returns canonical plan hash',async()=>{const f=await configInTemp();const service=createFrankenComposerService({rootDir:path.join(f.dir,'out')});const preview=await service.compose(f.config);const frozen=await service.freeze({...f.config,expectedProposalIdentity:preview.proposalIdentity});assert.match(frozen.planHash,/^[a-f0-9]{64}$/);assert.equal(frozen.plan.receipts.planHash,frozen.planHash);});
 test('freeze refuses stale donor material',async()=>{const f=await configInTemp();const service=createFrankenComposerService({rootDir:path.join(f.dir,'out')});const preview=await service.compose(f.config);fs.appendFileSync(path.join(f.dir,'deck','cards','card-01.svg'),'changed');await assert.rejects(()=>service.freeze({...f.config,expectedProposalIdentity:preview.proposalIdentity}),/digest|stale|proposal/i);});
 test('projection bundle refuses an existing immutable output',async()=>{const f=await configInTemp();const service=createFrankenComposerService({rootDir:path.join(f.dir,'out')});const preview=await service.compose(f.config);const config={...f.config,expectedProposalIdentity:preview.proposalIdentity};const first=await service.writeProjectionBundle(config);assert.ok(fs.existsSync(first.planPath));await assert.rejects(()=>service.writeProjectionBundle(config),/already exists|overwrite/i);});
+
+
+test('compose resolves Playdeck asset URI only through an explicit local asset map',async()=>{
+  const base=await configInTemp();
+  const logicalDir=path.join(base.dir,'logical');
+  await fsp.mkdir(path.join(logicalDir,'cards'),{recursive:true});
+  const source='asset://genesis-001/cosmic-flipbook.png';
+  const sheet=path.join(logicalDir,'cards','cosmic-sheet.svg');
+  await fsp.writeFile(sheet,'<svg xmlns="http://www.w3.org/2000/svg" width="900" height="900"></svg>\n');
+  const cards=Array.from({length:9},(_,i)=>({id:`card-${String(i+1).padStart(2,'0')}`,source,front:{source,crop:{x:(i%3)/3,y:Math.floor(i/3)/3,width:1/3,height:1/3}},traits:['witness'],temperament:['quiet']}));
+  const deckPath=path.join(logicalDir,'deck.json');
+  await fsp.writeFile(deckPath,JSON.stringify({schemaVersion:'0.1',id:'genesis-shape',cards,order:cards.map(card=>card.id)},null,2)+'\n');
+  const mapPath=path.join(logicalDir,'assets.local.json');
+  await fsp.writeFile(mapPath,JSON.stringify({[source]:'cards/cosmic-sheet.svg'},null,2)+'\n');
+  const service=createFrankenComposerService({rootDir:path.join(base.dir,'out-logical')});
+  const config={...base.config,deckPath,playdeckAssetMapPath:mapPath};
+  const result=await service.compose(config);
+  assert.deepEqual(result.proposal.cardOrder,cards.slice(0,6).map(card=>card.id));
+  assert.deepEqual(result.proposal.materials.find(m=>m.materialId==='playdeck:card-05')?.kind,'image');
+  const remoteMap=path.join(logicalDir,'assets.remote.json');
+  await fsp.writeFile(remoteMap,JSON.stringify({[source]:'https://example.com/cosmic.png'},null,2)+'\n');
+  await assert.rejects(()=>service.compose({...config,playdeckAssetMapPath:remoteMap}),/local asset|remote|scheme/i);
+});
