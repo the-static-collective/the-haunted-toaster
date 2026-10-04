@@ -1,0 +1,24 @@
+.franken-composer-window{margin-top:18px;border:1px solid rgba(255,255,255,.14);background:linear-gradient(145deg,rgba(20,17,28,.96),rgba(8,10,18,.96));}
+.franken-composer-window .home-window-heading strong{color:#f4df9c;}
+.franken-source-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0;}
+.franken-source-grid button{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-height:54px;padding:10px 12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.035);color:inherit;border-radius:10px;text-align:left;}
+.franken-source-grid button:last-child{grid-column:1/-1;}
+.franken-source-grid small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted,#aaa);}
+.franken-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0;}
+.franken-controls label{display:grid;gap:5px;font-size:12px;color:var(--muted,#aaa);}
+.franken-controls input,.franken-controls select,.franken-card-row select{min-width:0;padding:8px;border:1px solid rgba(255,255,255,.14);border-radius:8px;background:#0e0d14;color:inherit;}
+.franken-controls .franken-wide{grid-column:1/-1;}
+.franken-lanes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0;}
+.franken-lane{min-height:94px;padding:9px;border:1px solid rgba(255,255,255,.11);border-radius:10px;background:rgba(0,0,0,.22);}
+.franken-lane>strong{display:block;margin-bottom:7px;letter-spacing:.12em;font-size:11px;}
+.franken-lane>small{display:block;margin-top:7px;color:var(--muted,#999);font-size:10px;}
+.franken-card-row{display:grid;grid-template-columns:minmax(0,1fr) 28px 28px 92px;gap:4px;align-items:center;margin:4px 0;font-size:11px;}
+.franken-card-row button{min-height:28px;border:1px solid rgba(255,255,255,.12);border-radius:6px;background:rgba(255,255,255,.05);color:inherit;}
+.franken-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;}
+.franken-actions button{min-height:44px;border-radius:10px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);color:inherit;font-weight:700;}
+.franken-actions #frankenFreeze{background:rgba(244,223,156,.12);}
+.franken-actions #frankenBundle{grid-column:1/-1;}
+.franken-status{display:flex;justify-content:space-between;gap:10px;margin-top:10px;font-size:11px;color:var(--muted,#aaa);}
+#frankenPlanHash{font-family:monospace;max-width:48%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+@media(max-width:1180px){.franken-lanes{grid-template-columns:1fr}.franken-source-grid,.franken-controls{grid-template-columns:1fr}.franken-controls .franken-wide,.franken-source-grid button:last-child{grid-column:auto}}
+@media(prefers-reduced-motion:reduce){.franken-composer-window *{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
