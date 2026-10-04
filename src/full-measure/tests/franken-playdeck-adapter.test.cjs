@@ -13,3 +13,15 @@ test('six-card Playdeck snapshot adapts without importing session authority',()=
 test('changed card bytes or declared digest refuse',()=>{const d=digests();d['cards/card-03.svg']='0'.repeat(64);assert.throws(()=>adaptPlaydeck({deck,worldRule,sourceDigests:d}),/digest/i);});
 test('possibility metadata remains proposal context and never becomes accepted history',()=>{const out=adaptPlaydeck({deck,worldRule,sourceDigests:digests()});assert.deepEqual(out.ancestry.observation.possibilityKeep,{proposalId:'maybe-001'});assert.equal(out.ancestry.authority,'observation-only');});
 test('unknown world rule fields refuse',()=>{assert.throws(()=>adaptPlaydeck({deck,worldRule:{...worldRule,secretSemantic:'bad'},sourceDigests:digests()}),/unknown world rule/i);});
+
+
+test('real Playdeck nine-card shared-sheet shape projects six cards with source crops',()=>{
+  const source='asset://genesis-001/cosmic-flipbook.png';
+  const cards=Array.from({length:9},(_,i)=>({id:`real-card-${String(i+1).padStart(2,'0')}`,source,front:{source,crop:{x:(i%3)/3,y:Math.floor(i/3)/3,width:1/3,height:1/3}},traits:['witness'],temperament:['quiet']}));
+  const realDeck={schemaVersion:'0.1',id:'genesis-shape',cards,order:cards.map(card=>card.id)};
+  const out=adaptPlaydeck({deck:realDeck,worldRule,sourceDigests:{[source]:'a'.repeat(64)}});
+  assert.equal(out.cards.length,6);
+  assert.deepEqual(out.cards.map(card=>card.cardId),cards.slice(0,6).map(card=>card.id));
+  assert.deepEqual(out.cards[4].crop,cards[4].front.crop);
+  assert.equal(out.ancestry.donorCardCount,9);
+});
