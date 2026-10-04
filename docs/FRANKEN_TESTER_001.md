@@ -38,7 +38,7 @@ surface. Even a witnessed file surface is not proof that the branch builds or ru
 Census mode:
 
 ```bash
-node scripts/franken-tester.cjs \
+node src/full-measure/scripts/franken-tester.cjs \
   --repo toaster=/path/to/the-haunted-toaster \
   --repo blender=/path/to/the-haunted-blender \
   --repo playdeck=/path/to/playdeck
@@ -50,7 +50,7 @@ inventory without checkout.
 Tree-probe mode:
 
 ```bash
-node scripts/franken-tester.cjs --probe \
+node src/full-measure/scripts/franken-tester.cjs --probe \
   --repo toaster=/path/to/the-haunted-toaster \
   --repo blender=/path/to/the-haunted-blender \
   --repo playdeck=/path/to/playdeck \
