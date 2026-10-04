@@ -1,0 +1,21 @@
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const crypto=require('node:crypto');
+const {adaptPlaydeck}=require('../src/franken-composer/adapters/playdeck.cjs');
+const {adaptAcceptedBlenderTake}=require('../src/franken-composer/adapters/blender-take.cjs');
+const {composeFrankenProposal,applyFrankenEdits,proposalToComposition}=require('../src/franken-composer/compose.cjs');
+const {freezeFrankenComposition}=require('../src/franken-composer/freeze.cjs');
+const {makeBlenderFixture}=require('./helpers/franken-blender-fixture.cjs');
+const root=path.join(__dirname,'fixtures','franken');
+const deck=JSON.parse(fs.readFileSync(path.join(root,'playdeck-deck.json'),'utf8'));
+const worldRule=JSON.parse(fs.readFileSync(path.join(root,'playdeck-world-rule.json'),'utf8'));
+const sha=p=>crypto.createHash('sha256').update(fs.readFileSync(p)).digest('hex');
+function donors(){const pd=adaptPlaydeck({deck,worldRule,sourceDigests:Object.fromEntries(deck.cards.map(c=>[c.source,sha(path.join(root,c.source))]))});const f=makeBlenderFixture();const bt=adaptAcceptedBlenderTake({acceptance:f.acceptance,admissionReceipt:f.admission,videoPath:f.video});return {playdeck:pd,blenderTake:bt};}
+test('default seed composes ARRIVE CROSS ASSEMBLE at 48 seconds',()=>{const p=composeFrankenProposal({...donors(),seed:'seed-001'});assert.deepEqual(p.scenes.map(s=>[s.sceneId,s.startFrame,s.durationFrames]),[['ARRIVE',0,384],['CROSS',384,384],['ASSEMBLE',768,384]]);const frozen=freezeFrankenComposition(proposalToComposition(p));assert.equal(frozen.plan.durationFrames,1152);assert.equal(frozen.plan.fps,24);});
+test('six cards moving take typography and topology layers are all addressable',()=>{const p=composeFrankenProposal({...donors(),seed:'seed-001'});assert.equal(p.materials.filter(m=>m.kind==='image').length,6);assert.equal(p.materials.filter(m=>m.kind==='video').length,1);assert.equal(p.materials.filter(m=>m.kind==='text').length,1);assert.equal(p.materials.filter(m=>m.kind==='generated-shape').length,1);assert.ok(p.scenes.some(s=>s.tracks.some(t=>t.role==='moving-take')));});
+test('same seed and edit set replay byte-identically before freeze',()=>{const d=donors();const a=applyFrankenEdits(composeFrankenProposal({...d,seed:'seed-001'}),{text:'DOOR',variation:2});const b=applyFrankenEdits(composeFrankenProposal({...d,seed:'seed-001'}),{text:'DOOR',variation:2});assert.deepEqual(a,b);});
+test('card reorder transition edit text edit and variation each create attributable semantic deltas',()=>{const p=composeFrankenProposal({...donors(),seed:'seed-001'});const base=freezeFrankenComposition(proposalToComposition(p)).planHash;for(const edits of [{cardOrder:[...p.cardOrder].reverse()},{transitions:{arriveCross:'cut'}},{text:'CHANGED'},{variation:9}]){const h=freezeFrankenComposition(proposalToComposition(applyFrankenEdits(p,edits))).planHash;assert.notEqual(h,base);}});
+test('stale donor digest between proposal and freeze refuses',()=>{const p=composeFrankenProposal({...donors(),seed:'seed-001'});const forged=JSON.parse(JSON.stringify(p));forged.ancestry.playdeckSnapshot='0'.repeat(64);assert.throws(()=>proposalToComposition(forged),/stale|donor/i);});
+test('unsupported role transition or moving-take placement refuses rather than coercing',()=>{const p=composeFrankenProposal({...donors(),seed:'seed-001'});assert.throws(()=>applyFrankenEdits(p,{transitions:{arriveCross:'liquid-ai'}}),/transition/i);assert.throws(()=>applyFrankenEdits(p,{movingTakeSceneId:'NOWHERE'}),/moving take/i);assert.throws(()=>applyFrankenEdits(p,{sceneRoles:{'card-01':'NOWHERE'}}),/scene role/i);});
