@@ -21,3 +21,13 @@ test('stale donor digest between proposal and freeze refuses',()=>{const p=compo
 test('unsupported role transition or moving-take placement refuses rather than coercing',()=>{const p=composeFrankenProposal({...donors(),seed:'seed-001'});assert.throws(()=>applyFrankenEdits(p,{transitions:{arriveCross:'liquid-ai'}}),/transition/i);assert.throws(()=>applyFrankenEdits(p,{movingTakeSceneId:'NOWHERE'}),/moving take/i);assert.throws(()=>applyFrankenEdits(p,{sceneRoles:{'card-01':'NOWHERE'}}),/scene role/i);assert.throws(()=>applyFrankenEdits(p,{worldRule:'anything-goes'}),/world rule/i);});
 
 test('moving take duration never exceeds its declared source window at 24fps',()=>{const p=composeFrankenProposal({...donors(),seed:'seed-001'});const c=p.scenes.flatMap(s=>s.tracks).find(t=>t.role==='moving-take').clips[0];assert.ok(c.sourceWindow);assert.ok(c.durationFrames <= (c.sourceWindow.endSeconds-c.sourceWindow.startSeconds)*24);});
+
+
+test('Playdeck source crop survives into the composed card clip',()=>{
+  const d=donors();
+  const playdeck=JSON.parse(JSON.stringify(d.playdeck));
+  playdeck.cards[0].crop={x:0.25,y:0.25,width:0.5,height:0.5};
+  const p=composeFrankenProposal({playdeck,blenderTake:d.blenderTake,seed:'crop-seed'});
+  const clip=p.scenes.flatMap(s=>s.tracks).flatMap(t=>t.clips).find(c=>c.materialId===playdeck.cards[0].materialId);
+  assert.deepEqual(clip.crop,playdeck.cards[0].crop);
+});
