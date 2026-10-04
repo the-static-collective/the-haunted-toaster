@@ -1,0 +1,5 @@
+"use strict";
+const {canonicalize,deepFreeze}=require("../generation/canonical.cjs");
+function clipTrace(c){return {clipId:c.clipId,materialId:c.materialId,startFrame:c.startFrame,durationFrames:c.durationFrames,sourceWindow:c.sourceWindow,transform:c.transform,crop:c.crop,opacity:c.opacity,blend:c.blend,entrance:c.entrance,transitionRelation:c.transitionRelation};}
+function semanticTrace(plan){return deepFreeze(canonicalize({planHash:plan.receipts?.planHash??null,fps:plan.fps,durationFrames:plan.durationFrames,scenes:plan.scenes.map(s=>({sceneId:s.sceneId,startFrame:s.startFrame,durationFrames:s.durationFrames,worldRule:s.worldRule,tracks:s.tracks.map(t=>({trackId:t.trackId,layer:t.layer,role:t.role,clips:t.clips.map(clipTrace)}))})),transitions:plan.transitions.map(t=>({transitionId:t.transitionId,fromSceneId:t.fromSceneId,toSceneId:t.toSceneId,kind:t.kind,durationFrames:t.durationFrames,parameters:t.parameters}))}));}
+module.exports={semanticTrace};
