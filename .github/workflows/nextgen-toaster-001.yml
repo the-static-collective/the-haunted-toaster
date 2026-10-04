@@ -25,6 +25,8 @@ jobs:
     steps:
       - name: Check out NextGen kernel
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Check out FrankenTester census organ
         uses: actions/checkout@v4
