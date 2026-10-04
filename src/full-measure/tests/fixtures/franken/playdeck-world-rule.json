@@ -1,0 +1,11 @@
+{
+  "schemaVersion":"0.1",
+  "id":"manga-room",
+  "physical":"comic-page",
+  "surface":"halftone",
+  "transition":"panel-wipe",
+  "awakening":"portal",
+  "bridge":{"worldRule":"wrong-medium","dialect":["teletext","ink"]},
+  "laws":["CARD != IMAGE"],
+  "metadata":{"note":"proposal context only"}
+}
