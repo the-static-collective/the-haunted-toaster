@@ -51,7 +51,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: the-static-collective/the-haunted-toaster
-          ref: fe185abbbfa9d56e613f953f7c92531853a80fb3
+          ref: 8d83d678221e28e7f81bb619fd9834fe28147f97
           path: _organs/listening-eye
 
       - name: Check out Video Digestion organ
