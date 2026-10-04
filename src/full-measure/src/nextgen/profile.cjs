@@ -34,8 +34,8 @@ const ORGANS = Object.freeze({
   videoDigestion: Object.freeze({
     phase:"multiply",
     repo:"the-static-collective/the-haunted-toaster",
-    ref:"video/digestion-six-001-current",
-    sha:"a93cb6cb8653a0fce81e552028c2813b9c24bd23",
+    ref:"fix/video-digestion-vout-contract-001",
+    sha:"fce507efbe2381fcae4189a0f6b3689e0bf5c880",
     authority:"proposal-only",
     purpose:"One admitted video source becomes six deterministic composition descendants.",
   }),
