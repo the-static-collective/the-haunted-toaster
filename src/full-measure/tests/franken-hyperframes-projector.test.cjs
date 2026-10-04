@@ -34,3 +34,13 @@ test('HyperFrames clip elements emit exactly one class attribute',()=>{
   assert.ok(tags.length>0);
   for(const tag of tags)assert.equal((tag.match(/\bclass=/g)||[]).length,1,tag);
 });
+
+
+test('HyperFrames timed elements are clip-owned and typography has no unbundled font dependency',()=>{
+  const f=frozenFixture();
+  const out=compileHyperFramesFranken({plan:f.plan,planHash:f.planHash,assetBindings:f.assetBindings});
+  const timed=[...out.html.matchAll(/<(?:img|video|div)\b[^>]*(?:data-clip-id|data-transition-id)="[^"]+"[^>]*>/g)].map(m=>m[0]);
+  assert.ok(timed.length>0);
+  for(const tag of timed)assert.match(tag,/class="[^"]*\bclip\b[^"]*"/);
+  assert.doesNotMatch(out.html,/Bowlby One SC/i);
+});
