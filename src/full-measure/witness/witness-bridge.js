@@ -262,6 +262,7 @@
     },
     chooseFrankenPlaydeckDeck: async () => "/witness/franken/playdeck-deck.json",
     chooseFrankenWorldRule: async () => "/witness/franken/playdeck-world-rule.json",
+    chooseFrankenPlaydeckAssetMap: async () => "/witness/franken/playdeck-assets.local.json",
     chooseFrankenBlenderAcceptance: async () => "/witness/franken/accepted-take.json",
     chooseFrankenBlenderReceipt: async () => "/witness/franken/accepted-take.mp4.receipt.json",
     chooseFrankenBlenderVideo: async () => "/witness/franken/accepted-take.mp4",
