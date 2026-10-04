@@ -5,6 +5,7 @@ const crypto=require("node:crypto");
 const {canonicalBytes,canonicalize,hashCanonical}=require("../generation/canonical.cjs");
 const {adaptPlaydeck}=require("./adapters/playdeck.cjs");
 const {adaptAcceptedBlenderTake}=require("./adapters/blender-take.cjs");
+const {frankenVideoDigestionReservoir}=require("../nextgen/live-crossings.cjs");
 const {composeFrankenProposal,applyFrankenEdits,proposalToComposition}=require("./compose.cjs");
 const {freezeFrankenComposition}=require("./freeze.cjs");
 
@@ -70,23 +71,48 @@ async function blenderInputs(acceptancePath,admissionReceiptPath,videoPath){
 }
 function publicProposal(proposal){const {_donor,...safe}=proposal;return canonicalize(safe);}
 function proposalIdentity(proposal){return hashCanonical(publicProposal(proposal),"HauntedToaster-FrankenProposalPreview-v0");}
-async function buildProposal(config){
+async function buildProposal(config,{getNextGenContext=null}={}){
   const {playdeck,sourcePaths}=await playdeckInputs(config?.deckPath,config?.worldRulePath,config?.playdeckAssetMapPath);
   const {blenderTake,videoPath}=await blenderInputs(config?.blenderAcceptancePath,config?.blenderReceiptPath,config?.blenderVideoPath);
-  let proposal=composeFrankenProposal({playdeck,blenderTake,seed:String(config?.seed||"franken-001")});
+  let nextGenContext=null;
+  if(config?.nextGen?.enabled===true){
+    if(typeof getNextGenContext!=="function")throw new TypeError("NextGen organ crossing is unavailable in this Franken service.");
+    nextGenContext=await getNextGenContext({
+      rootSeed:String(config?.seed||"franken-001"),
+      albumContext:structuredClone(config.nextGen.albumContext||{}),
+    });
+    const expected=String(config.nextGen.expectedCrossingIdentity||"").trim();
+    if(!expected||expected!==nextGenContext.crossingIdentity){
+      throw new TypeError("Franken composition refuses stale or unreviewed NextGen organ crossing identity.");
+    }
+  }
+  let proposal=composeFrankenProposal({
+    playdeck,
+    blenderTake,
+    seed:String(config?.seed||"franken-001"),
+    nextGenContext,
+  });
   if(config?.edits)proposal=applyFrankenEdits(proposal,config.edits);
-  return {proposal,assetBindings:{...sourcePaths,[blenderTake.material.materialId]:videoPath}};
+  const reservoir=nextGenContext?frankenVideoDigestionReservoir(nextGenContext):{bindings:{}};
+  return {
+    proposal,
+    assetBindings:{
+      ...sourcePaths,
+      [blenderTake.material.materialId]:videoPath,
+      ...reservoir.bindings,
+    },
+  };
 }
-function createFrankenComposerService({rootDir}={}){
+function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
   const outputRoot=path.resolve(rootDir||path.join(process.cwd(),"FrankenComposer"));
   return Object.freeze({
-    async compose(config){const {proposal}=await buildProposal(config);return {proposalIdentity:proposalIdentity(proposal),proposal:publicProposal(proposal)};},
-    async freeze(config){const {proposal,assetBindings}=await buildProposal(config);const identity=proposalIdentity(proposal);if(typeof config?.expectedProposalIdentity!=="string"||config.expectedProposalIdentity!==identity)throw new TypeError("Franken freeze refuses stale or unreviewed proposal identity.");const frozen=freezeFrankenComposition(proposalToComposition(proposal));return {...frozen,assetBindings};},
+    async compose(config){const {proposal}=await buildProposal(config,{getNextGenContext});return {proposalIdentity:proposalIdentity(proposal),proposal:publicProposal(proposal)};},
+    async freeze(config){const {proposal,assetBindings}=await buildProposal(config,{getNextGenContext});const identity=proposalIdentity(proposal);if(typeof config?.expectedProposalIdentity!=="string"||config.expectedProposalIdentity!==identity)throw new TypeError("Franken freeze refuses stale or unreviewed proposal identity.");const frozen=freezeFrankenComposition(proposalToComposition(proposal));return {...frozen,assetBindings};},
     async writeProjectionBundle(config){const frozen=await this.freeze(config);const dir=path.join(outputRoot,frozen.planHash);await fs.mkdir(dir,{recursive:true});const planPath=path.join(dir,"franken-composition.json"),bindingsPath=path.join(dir,"asset-bindings.json");for(const [file,bytes] of [[planPath,canonicalBytes(frozen.plan)],[bindingsPath,Buffer.from(JSON.stringify(frozen.assetBindings,null,2)+"\n","utf8")]]){try{await fs.writeFile(file,bytes,{flag:"wx"});}catch(error){if(error?.code==="EEXIST")throw new Error("Franken projection bundle already exists; refusing overwrite.");throw error;}}return {directory:dir,planPath,assetBindingsPath:bindingsPath,planHash:frozen.planHash};}
   });
 }
-function registerFrankenComposerIpc(ipcMain,{dialog,getWindow,rootDir,assertAvailable=()=>{}}={}){
-  const service=createFrankenComposerService({rootDir});
+function registerFrankenComposerIpc(ipcMain,{dialog,getWindow,rootDir,assertAvailable=()=>{},getNextGenContext=null}={}){
+  const service=createFrankenComposerService({rootDir,getNextGenContext});
   const choose=async(title,extensions)=>{assertAvailable();const result=await dialog.showOpenDialog(getWindow(),{title,properties:["openFile"],filters:[{name:title,extensions}]});return result.canceled?null:result.filePaths[0];};
   ipcMain.handle("franken:choose-deck",()=>choose("Choose Playdeck deck JSON",["json"]));
   ipcMain.handle("franken:choose-world-rule",()=>choose("Choose Playdeck world-rule JSON",["json"]));
