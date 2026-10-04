@@ -39,7 +39,12 @@ const ClipBody:React.FC<{bundle:FrankenBundle;clip:Clip;material:Material;name:s
     maxWidth:'70%',
     maxHeight:'80%',
   };
-  if(material.kind==='image')return <Img name={name} src={staticFile(material.binding!)} style={style}/>;
+  if(material.kind==='image'){
+    if(clip.crop)return <Interactive.Div name={name} style={{...style,width:420,height:420,overflow:'hidden'}}>
+      <Img name={name+' source'} src={staticFile(material.binding!)} style={{position:'absolute',width:`${100/clip.crop.width}%`,height:`${100/clip.crop.height}%`,left:`${-(clip.crop.x/clip.crop.width)*100}%`,top:`${-(clip.crop.y/clip.crop.height)*100}%`,maxWidth:'none',maxHeight:'none'}}/>
+    </Interactive.Div>;
+    return <Img name={name} src={staticFile(material.binding!)} style={style}/>;
+  }
   if(material.kind==='video')return <Video src={staticFile(material.binding!)} muted trimBefore={Math.round((clip.sourceWindow?.startSeconds??0)*bundle.composition.fps)} trimAfter={Math.round((clip.sourceWindow?.endSeconds??clip.durationFrames/bundle.composition.fps)*bundle.composition.fps)} style={style}/>;
   if(material.kind==='text'){
     const text=material.sourceIdentity.split(':').slice(2).join(':');
