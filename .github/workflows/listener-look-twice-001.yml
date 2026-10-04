@@ -1,0 +1,35 @@
+name: listener-look-twice-001
+
+on:
+  pull_request:
+    paths:
+      - "experiments/listener-look-twice-001/**"
+      - ".github/workflows/listener-look-twice-001.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Haunted Toaster
+        uses: actions/checkout@v4
+
+      - name: Check out pinned AutoDisco v20 donor
+        uses: actions/checkout@v4
+        with:
+          repository: the-static-collective/The-AutodiscoV.20.-question-marks-
+          ref: 7ad77a46debc7e8c05fc7434c9091f3e36870651
+          path: _donor/autodisco-v20
+
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Prove Listener × Look-Twice contract
+        env:
+          AUTODISCO_V20_ROOT: ${{ github.workspace }}/_donor/autodisco-v20
+        run: node --test experiments/listener-look-twice-001/listener-look-twice.test.mjs
