@@ -129,6 +129,7 @@ function registerIpc() {
     getWindow: () => mainWindow,
     rootDir: path.join(app.getPath("userData"), "franken-composer"),
     assertAvailable: assertCandidateAvailable,
+    getNextGenContext: (config) => candidateSession.nextGenContext(config),
   });
   ipcMain.handle("nextgen:profile", () => createNextGenProfile());
   ipcMain.handle("app:toast-feels", () => listToastFeels());
