@@ -325,9 +325,9 @@ Run:
 ```bash
 node --test src/full-measure/tests/franken-hyperframes-projector.test.cjs
 node src/full-measure/scripts/franken-hyperframes.cjs --fixture
-npx hyperframes lint <generated-dir>
-npx hyperframes validate <generated-dir>
-npx hyperframes inspect <generated-dir>
+(cd <generated-dir> && npx hyperframes lint)
+(cd <generated-dir> && npx hyperframes validate)
+(cd <generated-dir> && npx hyperframes inspect)
 ```
 
 Expected: all commands succeed. If the local HyperFrames CLI is unavailable, record that environment blocker and do not mark the validation evidence as passed.
@@ -347,6 +347,7 @@ git commit -m "feat: project Franken plans into HyperFrames"
 - Create: `src/full-measure/src/franken-composer/projectors/remotion.cjs`
 - Create: `src/full-measure/tests/franken-remotion-projector.test.cjs`
 - Create: `experiments/franken-composer-remotion/package.json`
+- Create: `experiments/franken-composer-remotion/package-lock.json` (generated from the pinned manifest and committed for reproducible `npm ci`)
 - Create: `experiments/franken-composer-remotion/tsconfig.json`
 - Create: `experiments/franken-composer-remotion/src/index.ts`
 - Create: `experiments/franken-composer-remotion/src/Root.tsx`
@@ -384,7 +385,7 @@ Expected: FAIL because projector/runtime files are missing.
 
 - [ ] **Step 3: Implement the Node projector and isolated Remotion package**
 
-Pin compatible Remotion/React versions in the experiment package. Keep the Toaster app manifest free of React/Remotion dependencies. Give every independently editable/rendered clip its own JSX node; use Remotion sequencing only to realize frozen plan spans. Renderer code must not compute creative choices.
+Pin compatible Remotion/React versions in the experiment package. Define experiment scripts exactly as `check: "tsc --noEmit && remotion compositions src/index.ts"` and `studio: "remotion studio src/index.ts"`. Define root facade scripts exactly as `franken:remotion:check: "npm --prefix experiments/franken-composer-remotion run check"` and `franken:remotion:studio: "npm --prefix experiments/franken-composer-remotion run studio"`. Keep the Toaster app manifest free of React/Remotion dependencies. Give every independently editable/rendered clip its own JSX node; use Remotion sequencing only to realize frozen plan spans. Renderer code must not compute creative choices.
 
 - [ ] **Step 4: Verify the Remotion composition is loadable**
 
@@ -587,9 +588,9 @@ npm run dist:win
 Then run the HyperFrames local proof from Task 5 against the exact frozen witness package:
 
 ```bash
-npx hyperframes lint <generated-dir>
-npx hyperframes validate <generated-dir>
-npx hyperframes inspect <generated-dir>
+(cd <generated-dir> && npx hyperframes lint)
+(cd <generated-dir> && npx hyperframes validate)
+(cd <generated-dir> && npx hyperframes inspect)
 ```
 
 Expected: all available required commands pass on the exact head. Any unavailable environment capability is recorded as a blocker, never converted into PASS.
