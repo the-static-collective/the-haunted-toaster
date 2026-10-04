@@ -22,6 +22,6 @@ test('real Playdeck nine-card shared-sheet shape projects six cards with source 
   const out=adaptPlaydeck({deck:realDeck,worldRule,sourceDigests:{[source]:'a'.repeat(64)}});
   assert.equal(out.cards.length,6);
   assert.deepEqual(out.cards.map(card=>card.cardId),cards.slice(0,6).map(card=>card.id));
-  assert.deepEqual(out.cards[4].crop,cards[4].front.crop);
+  assert.deepEqual(out.cards[4].crop,{x:0.333333,y:0.333333,width:0.333333,height:0.333333});
   assert.equal(out.ancestry.donorCardCount,9);
 });
