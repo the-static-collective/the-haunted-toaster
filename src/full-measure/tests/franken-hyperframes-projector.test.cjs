@@ -25,3 +25,12 @@ test('shared-sheet image crop becomes a source viewport rather than clip-path ma
   assert.match(out.html,/width:200%;height:200%;left:-50%;top:-50%/);
   const viewport=out.html.match(/data-crop-viewport="true"[^>]*style="([^"]+)"/);assert.ok(viewport);assert.doesNotMatch(viewport[1],/clip-path:inset\(/);
 });
+
+
+test('HyperFrames clip elements emit exactly one class attribute',()=>{
+  const f=frozenFixture();
+  const out=compileHyperFramesFranken({plan:f.plan,planHash:f.planHash,assetBindings:f.assetBindings});
+  const tags=[...out.html.matchAll(/<(?:img|video|div)\b[^>]*data-clip-id="[^"]+"[^>]*>/g)].map(match=>match[0]);
+  assert.ok(tags.length>0);
+  for(const tag of tags)assert.equal((tag.match(/\bclass=/g)||[]).length,1,tag);
+});
