@@ -1,0 +1,9 @@
+"use strict";
+const fs=require('node:fs');
+const path=require('node:path');
+const os=require('node:os');
+const crypto=require('node:crypto');
+function shaBytes(bytes){return crypto.createHash('sha256').update(bytes).digest('hex');}
+function canonicalJson(value){if(Array.isArray(value))return '['+value.map(canonicalJson).join(',')+']';if(value&&typeof value==='object'){return '{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+canonicalJson(value[k])).join(',')+'}';}return JSON.stringify(value);}
+function makeBlenderFixture(){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'franken-blender-'));const video=path.join(dir,'accepted.mp4');fs.writeFileSync(video,Buffer.from('synthetic-franken-video-v0'));const videoSha=shaBytes(fs.readFileSync(video));const admission={schema:'haunted-blender/creative-claw-take-receipt/v0',status:'candidate_admitted_not_filmmaker_accepted',request_sha256:'1'.repeat(64),artifact_sha256:'2'.repeat(64),beat:1,frame_sha256:'3'.repeat(64),provider:'Creative Claw',model:'video/gemini-omni-flash',provider_job_id_reported:'job_123456',provider_execution_independently_verified:false,output_sha256:videoSha,distribution_authorized:false,nonclaims:['fixture']};const admissionBytes=Buffer.from(canonicalJson(admission)+'\n','utf8');const receipt=path.join(dir,'accepted.mp4.receipt.json');fs.writeFileSync(receipt,admissionBytes);const acceptance={schema:'haunted-blender/accepted-creative-take/v0',request_sha256:admission.request_sha256,admission_receipt_sha256:shaBytes(admissionBytes),artifact_sha256:admission.artifact_sha256,beat:1,video_sha256:videoSha,status:'filmmaker_accepted_private_preview',distribution_authorized:false,nonclaims:['Acceptance is not a release']};return {dir,video,receipt,admission,acceptance};}
+module.exports={makeBlenderFixture,shaBytes,canonicalJson};
