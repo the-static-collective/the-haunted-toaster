@@ -60,7 +60,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: the-static-collective/the-haunted-toaster
-          ref: a93cb6cb8653a0fce81e552028c2813b9c24bd23
+          ref: fce507efbe2381fcae4189a0f6b3689e0bf5c880
           path: _organs/video-digestion
 
       - name: Check out Memory Prism organ
