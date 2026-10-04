@@ -2,6 +2,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const {compileHyperFramesFranken}=require('../src/franken-composer/projectors/hyperframes.cjs');
 const {createProjectionReceipt}=require('../src/franken-composer/projection-receipt.cjs');
+const {freezeFrankenComposition}=require('../src/franken-composer/freeze.cjs');
 const {frozenFixture}=require('./helpers/franken-plan-fixture.cjs');
 test('HyperFrames projection carries exact canonical plan hash and semantic trace',()=>{const f=frozenFixture();const out=compileHyperFramesFranken({plan:f.plan,planHash:f.planHash,assetBindings:f.assetBindings});assert.equal(out.manifest.planHash,f.planHash);assert.equal(out.semanticTrace.planHash,f.planHash);assert.match(out.html,new RegExp(`data-composition-id="hf-franken-${f.planHash.slice(0,12)}`));});
 test('every clip receives explicit timing track and deterministic entrance semantics',()=>{const f=frozenFixture();const out=compileHyperFramesFranken({plan:f.plan,planHash:f.planHash,assetBindings:f.assetBindings});const clips=f.plan.scenes.flatMap(s=>s.tracks.flatMap(t=>t.clips));assert.equal((out.html.match(/data-clip-id=/g)||[]).length,clips.length);assert.equal((out.html.match(/data-entrance=/g)||[]).length,clips.length);for(const clip of clips){const timing='data-clip-id="'+clip.clipId+'" data-start="'+(clip.startFrame/f.plan.fps)+'" data-duration="'+(clip.durationFrames/f.plan.fps)+'"';assert.ok(out.html.includes(timing));}});
@@ -10,3 +11,17 @@ test('unsupported transform or transition refuses before HTML generation',()=>{c
 test('projection receipt cannot claim success without required validation evidence',()=>{const f=frozenFixture();assert.throws(()=>createProjectionReceipt({renderer:'hyperframes',planHash:f.planHash,projectionIdentity:'hf-test',checks:{lint:true,validate:true}}),/inspect/i);const r=createProjectionReceipt({renderer:'hyperframes',planHash:f.planHash,projectionIdentity:'hf-test',checks:{lint:true,validate:true,inspect:true}});assert.equal(r.status,'projection-validated');assert.equal(r.planHash,f.planHash);});
 
 test('HyperFrames refuses jump cuts and unsupported CSS hinge transitions',()=>{const f=frozenFixture();for(const kind of ['cut','hinge']){const bad=JSON.parse(JSON.stringify(f.plan));bad.transitions[0].kind=kind;assert.throws(()=>compileHyperFramesFranken({plan:bad,planHash:f.planHash,assetBindings:f.assetBindings}),/unsupported transition/i);}});
+
+
+test('shared-sheet image crop becomes a source viewport rather than clip-path masking',()=>{
+  const f=frozenFixture();
+  const input=JSON.parse(JSON.stringify(f.plan));
+  delete input.receipts.planHash;
+  const clip=input.scenes.flatMap(s=>s.tracks).flatMap(t=>t.clips).find(c=>c.materialId==='playdeck:card-01');
+  clip.crop={x:0.25,y:0.25,width:0.5,height:0.5};
+  const cropped=freezeFrankenComposition(input);
+  const out=compileHyperFramesFranken({plan:cropped.plan,planHash:cropped.planHash,assetBindings:f.assetBindings});
+  assert.match(out.html,/data-crop-viewport="true"/);
+  assert.match(out.html,/width:200%;height:200%;left:-50%;top:-50%/);
+  assert.doesNotMatch(out.html,/clip-path:inset\(/);
+});
