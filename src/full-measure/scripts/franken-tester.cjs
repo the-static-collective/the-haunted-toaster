@@ -115,7 +115,7 @@ function main() {
         "Haunted Toaster FrankenTester 001",
         "",
         "Usage:",
-        "  node scripts/franken-tester.cjs [--probe] [--repo system=/path]...",
+        "  node src/full-measure/scripts/franken-tester.cjs [--probe] [--repo system=/path]...",
         "                                  [--max-branches N] [--output report.json]",
         "",
         "Without --probe, performs a remote branch census and records name hints only.",
