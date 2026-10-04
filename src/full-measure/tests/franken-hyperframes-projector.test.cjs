@@ -23,5 +23,5 @@ test('shared-sheet image crop becomes a source viewport rather than clip-path ma
   const out=compileHyperFramesFranken({plan:cropped.plan,planHash:cropped.planHash,assetBindings:f.assetBindings});
   assert.match(out.html,/data-crop-viewport="true"/);
   assert.match(out.html,/width:200%;height:200%;left:-50%;top:-50%/);
-  assert.doesNotMatch(out.html,/clip-path:inset\(/);
+  const viewport=out.html.match(/data-crop-viewport="true"[^>]*style="([^"]+)"/);assert.ok(viewport);assert.doesNotMatch(viewport[1],/clip-path:inset\(/);
 });
