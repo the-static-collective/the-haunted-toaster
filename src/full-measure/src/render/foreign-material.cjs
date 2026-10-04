@@ -7,9 +7,12 @@ const FOREIGN_MATERIAL_POLICY_VERSION = "foreign-material-v1";
 const FOREIGN_MATERIAL_ANALYSIS_SCHEMA = "haunted-toaster/foreign-material-analysis/v1";
 const FOREIGN_MATERIAL_OPERATOR_ID = "clip-luma-texture-v1";
 const FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID = "clip-luma-mask-v1";
+const FOREIGN_MATERIAL_MOTION_OPERATOR_ID = "clip-motion-mask-v1";
 const FOREIGN_MATERIAL_DIGEST_FAMILY_SCHEMA = "haunted-toaster/foreign-material-digest-family/v1";
 const FOREIGN_MATERIAL_DIGEST_POLICY_VERSION = "video-digestion-v1";
 const FOREIGN_MATERIAL_SAMPLING_POLICY = "loop-source-clip-v1";
+const FOREIGN_MATERIAL_ONCE_POLICY = "play-source-once-v1";
+const FOREIGN_MATERIAL_STRETCH_POLICY = "stretch-source-clip-v1";
 const FOREIGN_MATERIAL_PLACEMENT_POLICY = "accepted-timeline-span-v1";
 const FOREIGN_MATERIAL_COMPILER_EVIDENCE_SCHEMA = "haunted-toaster/foreign-material-compiler-evidence/v1";
 const DEFAULT_BLEND_MODE = "softlight";
@@ -17,7 +20,63 @@ const DEFAULT_OPACITY = 0.28;
 const SUPPORTED_DIGEST_OPERATORS = new Set([
   FOREIGN_MATERIAL_OPERATOR_ID,
   FOREIGN_MATERIAL_TOPOLOGY_OPERATOR_ID,
+  FOREIGN_MATERIAL_MOTION_OPERATOR_ID,
 ]);
+const SUPPORTED_SAMPLING_POLICIES = new Set([
+  FOREIGN_MATERIAL_SAMPLING_POLICY,
+  FOREIGN_MATERIAL_ONCE_POLICY,
+  FOREIGN_MATERIAL_STRETCH_POLICY,
+]);
+
+function normalizeSamplingPolicyId(value = FOREIGN_MATERIAL_SAMPLING_POLICY) {
+  const id = String(value ?? FOREIGN_MATERIAL_SAMPLING_POLICY).trim();
+  if (!SUPPORTED_SAMPLING_POLICIES.has(id)) {
+    throw new TypeError(`Unsupported foreign-material sampling policy: ${id || "(empty)"}.`);
+  }
+  return id;
+}
+
+function samplingForBinding(videoBinding, reservoir, renderDurationSeconds) {
+  const policyVersion = normalizeSamplingPolicyId(videoBinding.samplingPolicyId);
+  const sampling = {
+    policyVersion,
+    mode: "stream-loop",
+    sourceFrameRate: reservoir.frameRate,
+    sourceFrameCount: reservoir.frameCount,
+    extendsBeyondSourceDuration: renderDurationSeconds > reservoir.durationSeconds,
+  };
+  // Preserve the historical loop plan byte-for-byte, including its property order.
+  if (policyVersion === FOREIGN_MATERIAL_SAMPLING_POLICY) return sampling;
+  return {
+    ...sampling,
+    mode: policyVersion === FOREIGN_MATERIAL_ONCE_POLICY ? "play-once" : "stretch",
+    sourceDurationSeconds: reservoir.durationSeconds,
+    timeScale: policyVersion === FOREIGN_MATERIAL_STRETCH_POLICY
+      ? renderDurationSeconds / reservoir.durationSeconds : 1,
+    endBehavior: policyVersion === FOREIGN_MATERIAL_ONCE_POLICY ? "return-native" : "hold-to-render-end",
+  };
+}
+
+function samplingExecution(plan, fps = null) {
+  const policyVersion = normalizeSamplingPolicyId(plan.sampling?.policyVersion);
+  if (policyVersion === FOREIGN_MATERIAL_SAMPLING_POLICY) {
+    return { policyVersion, prefix: "", padding: "", enable: "" };
+  }
+  const { sourceDurationSeconds, timeScale } = plan.sampling;
+  if (!Number.isFinite(sourceDurationSeconds) || sourceDurationSeconds <= 0
+      || !Number.isFinite(timeScale) || timeScale <= 0) {
+    throw new TypeError("Foreign-material sampling requires positive source duration and time scale.");
+  }
+  return {
+    policyVersion,
+    prefix: `setpts=(PTS-STARTPTS)*${timeScale},`,
+    // setpts clears frame-rate metadata in FFmpeg 7; restore it before tpad
+    // calculates timestamps for its finite, constant-memory tail.
+    padding: fps === null ? "" : `,fps=${fps},tpad=stop_mode=clone:stop_duration=${plan.placement.renderDurationSeconds},trim=duration=${plan.placement.renderDurationSeconds}`,
+    enable: policyVersion === FOREIGN_MATERIAL_ONCE_POLICY
+      ? `:enable='lt(t,${sourceDurationSeconds})'` : "",
+  };
+}
 
 function hashJson(value) {
   return crypto.createHash("sha256").update(JSON.stringify(value), "utf8").digest("hex");
@@ -74,6 +133,16 @@ function assimilationPolicyForOperator(operatorId) {
       prefilter: "luma-region-mask-v1",
     };
   }
+  if (operatorId === FOREIGN_MATERIAL_MOTION_OPERATOR_ID) {
+    return {
+      operatorId,
+      family: "motion-mask-assimilation",
+      sourceRole: "motion-mask",
+      literalSourcePixelsSurvive: false,
+      nativeTreatment: "bounded-native-contrast-v1",
+      prefilter: "adjacent-frame-luma-difference-v1",
+    };
+  }
   throw new TypeError(`Unsupported foreign-material digest operator: ${operatorId}.`);
 }
 
@@ -125,14 +194,7 @@ function createForeignMaterialPlan({
       timebase: normalizedTimeline.timebase,
       renderDurationSeconds: normalizedTimeline.renderDurationSeconds,
     },
-    sampling: {
-      policyVersion: FOREIGN_MATERIAL_SAMPLING_POLICY,
-      mode: "stream-loop",
-      sourceFrameRate: reservoir.frameRate,
-      sourceFrameCount: reservoir.frameCount,
-      extendsBeyondSourceDuration:
-        normalizedTimeline.renderDurationSeconds > reservoir.durationSeconds,
-    },
+    sampling: samplingForBinding(videoBinding, reservoir, normalizedTimeline.renderDurationSeconds),
     assimilationPolicy: assimilationPolicyForOperator(normalizedOperatorId),
   };
   return Object.freeze({
@@ -190,7 +252,10 @@ function ffmpegInputArgsForForeignMaterial(plan) {
   if (!plan.sourcePath) {
     throw new TypeError("Foreign material plan requires a sourcePath for renderer input wiring.");
   }
-  return ["-stream_loop", "-1", "-i", plan.sourcePath];
+  const sampling = samplingExecution(plan);
+  return sampling.policyVersion === FOREIGN_MATERIAL_SAMPLING_POLICY
+    ? ["-stream_loop", "-1", "-i", plan.sourcePath]
+    : ["-i", plan.sourcePath];
 }
 
 function replaceTerminalVout(graph, replacementLabel) {
@@ -210,6 +275,7 @@ function compileTextureAssimilation({
   height,
   fps,
   clipDuration,
+  sampling,
 }) {
   const textureLabel = "foreignTexture";
   const blendMode =
@@ -220,8 +286,8 @@ function compileTextureAssimilation({
     Math.min(1, Number(foreignMaterialPlan.assimilationPolicy?.opacity) || DEFAULT_OPACITY),
   );
   const filters = [
-    `[${foreignMaterialInputIndex}:v]fps=${fps},scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},trim=duration=${clipDuration},setpts=PTS-STARTPTS,format=gray,eq=contrast=1.18:brightness=0.015,boxblur=2:1,format=rgba[${textureLabel}]`,
-    `[${baseLabel}][${textureLabel}]blend=all_mode=${blendMode}:all_opacity=${opacity.toFixed(2)}:shortest=1[vout]`,
+    `[${foreignMaterialInputIndex}:v]${sampling.prefix}fps=${fps},scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},trim=duration=${clipDuration},setpts=PTS-STARTPTS,format=gray,eq=contrast=1.18:brightness=0.015,boxblur=2:1,format=rgba${sampling.padding}[${textureLabel}]`,
+    `[${baseLabel}][${textureLabel}]blend=all_mode=${blendMode}:all_opacity=${opacity.toFixed(2)}:shortest=1${sampling.enable}[vout]`,
   ];
   return {
     graph: `${nextGraph};\n${filters.join(";\n")}`,
@@ -251,16 +317,23 @@ function compileTopologyMaskAssimilation({
   height,
   fps,
   clipDuration,
+  sampling,
 }) {
   const nativeBaseLabel = "foreignNativeBase";
   const nativeAltSourceLabel = "foreignNativeAltSource";
   const nativeAltLabel = "foreignNativeAlt";
   const maskLabel = "foreignRegionMask";
+  const motion = foreignMaterialPlan.assimilationPolicy.operatorId === FOREIGN_MATERIAL_MOTION_OPERATOR_ID;
+  // Difference is measured between decoded source frames, before output-rate
+  // duplication. The cloned first frame makes the initial motion exactly zero.
+  const maskInput = motion
+    ? `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},format=yuv444p,lutyuv=u=128:v=128,tpad=start=1:start_mode=clone,tblend=all_mode=difference,setpts=PTS-STARTPTS,${sampling.prefix}fps=${fps},trim=duration=${clipDuration},lut=y='min(255,val*4)':u=0:v=0,boxblur=2:1`
+    : `${sampling.prefix}fps=${fps},scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},trim=duration=${clipDuration},setpts=PTS-STARTPTS,format=gray,eq=contrast=1.30:brightness=-0.04,boxblur=2:1`;
   const filters = [
     `[${baseLabel}]split=2[${nativeBaseLabel}][${nativeAltSourceLabel}]`,
     `[${nativeAltSourceLabel}]eq=contrast=1.16:saturation=0.78,unsharp=5:5:0.35:5:5:0[${nativeAltLabel}]`,
-    `[${foreignMaterialInputIndex}:v]fps=${fps},scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},trim=duration=${clipDuration},setpts=PTS-STARTPTS,format=gray,eq=contrast=1.30:brightness=-0.04,boxblur=2:1[${maskLabel}]`,
-    `[${nativeBaseLabel}][${nativeAltLabel}][${maskLabel}]maskedmerge[vout]`,
+    `[${foreignMaterialInputIndex}:v]${maskInput}${sampling.padding}[${maskLabel}]`,
+    `[${nativeBaseLabel}][${nativeAltLabel}][${maskLabel}]maskedmerge${sampling.enable ? `=${sampling.enable.slice(1)}` : ""}[vout]`,
   ];
   return {
     graph: `${nextGraph};\n${filters.join(";\n")}`,
@@ -273,7 +346,8 @@ function compileTopologyMaskAssimilation({
       operatorId: foreignMaterialPlan.assimilationPolicy.operatorId,
       placementPolicy: foreignMaterialPlan.placement.policyVersion,
       samplingPolicy: foreignMaterialPlan.sampling.policyVersion,
-      sourceRole: "region-mask",
+      sourceRole: motion ? "motion-mask" : "region-mask",
+      ...(motion ? { prefilter: foreignMaterialPlan.assimilationPolicy.prefilter } : {}),
       literalSourcePixelsSurvive: false,
       nativeTreatment: foreignMaterialPlan.assimilationPolicy.nativeTreatment,
       inputIndex: foreignMaterialInputIndex,
@@ -301,6 +375,7 @@ function applyForeignMaterialToGraph({
     throw new TypeError(`Unsupported foreign-material digest operator: ${operatorId || "(empty)"}.`);
   }
   const baseLabel = "foreignMaterialBase";
+  const sampling = samplingExecution(foreignMaterialPlan, fps);
   const nextGraph = replaceTerminalVout(graph, baseLabel);
   const renderDurationSeconds = Number(
     foreignMaterialPlan.placement?.renderDurationSeconds,
@@ -317,6 +392,7 @@ function applyForeignMaterialToGraph({
     height,
     fps,
     clipDuration,
+    sampling,
   };
   if (operatorId === FOREIGN_MATERIAL_OPERATOR_ID) {
     return compileTextureAssimilation(compileArgs);
@@ -332,6 +408,9 @@ module.exports = {
   FOREIGN_MATERIAL_DIGEST_FAMILY_SCHEMA,
   FOREIGN_MATERIAL_DIGEST_POLICY_VERSION,
   FOREIGN_MATERIAL_OPERATOR_ID,
+  FOREIGN_MATERIAL_MOTION_OPERATOR_ID,
+  FOREIGN_MATERIAL_ONCE_POLICY,
+  FOREIGN_MATERIAL_STRETCH_POLICY,
   FOREIGN_MATERIAL_PLACEMENT_POLICY,
   FOREIGN_MATERIAL_POLICY_VERSION,
   FOREIGN_MATERIAL_SAMPLING_POLICY,
@@ -342,4 +421,5 @@ module.exports = {
   createForeignMaterialPlan,
   ffmpegInputArgsForForeignMaterial,
   normalizeDigestOperatorId,
+  normalizeSamplingPolicyId,
 };

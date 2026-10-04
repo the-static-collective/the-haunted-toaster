@@ -217,6 +217,22 @@
       currentVideo = null;
       return true;
     },
+    setVideoDigestOperator: async (digestOperatorId) => {
+      if (!currentVideo) throw new Error("Video digestion requires an admitted Video specimen.");
+      if (!["clip-luma-texture-v1", "clip-luma-mask-v1", "clip-motion-mask-v1"].includes(digestOperatorId)) {
+        throw new Error("Unsupported video digestion.");
+      }
+      currentVideo = { ...currentVideo, digestOperatorId };
+      return structuredClone(currentVideo);
+    },
+    setVideoSamplingPolicy: async (samplingPolicyId) => {
+      if (!currentVideo) throw new Error("Video timing requires an admitted Video specimen.");
+      if (!["loop-source-clip-v1", "play-source-once-v1", "stretch-source-clip-v1"].includes(samplingPolicyId)) {
+        throw new Error("Unsupported video timing.");
+      }
+      currentVideo = { ...currentVideo, samplingPolicyId };
+      return structuredClone(currentVideo);
+    },
     chooseLyrics: async () => null,
     chooseOutput: async () => "/witness/Dreamstate-Divide-alpha8.mp4",
     inspectAudio: async () => ({

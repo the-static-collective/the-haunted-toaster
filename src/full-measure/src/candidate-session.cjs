@@ -4,7 +4,7 @@ const path = require("node:path");
 const generation = require("./generation/index.cjs");
 const { admitLabProposal, parseLabProposalTransfer } = require("./lab-proposal.cjs");
 const { renderCandidateFamilyPreviews } = require("./render/candidate-preview.cjs");
-const { createForeignMaterialPlan } = require("./render/foreign-material.cjs");
+const { createForeignMaterialPlan, normalizeDigestOperatorId, normalizeSamplingPolicyId } = require("./render/foreign-material.cjs");
 const { createLyricTrack } = require("./render/lyrics.cjs");
 const { getToastFeel } = require("./toast-feels.cjs");
 const { registerVideoPantryIpc } = require("./video-pantry/electron-ipc.cjs");
@@ -107,6 +107,8 @@ function sameOptionalPath(left, right) {
 function sameVideoBinding(left, right) {
   if (!left && !right) return true;
   if (!left || !right) return false;
+  if (normalizeDigestOperatorId(left.digestOperatorId) !== normalizeDigestOperatorId(right.digestOperatorId)
+      || normalizeSamplingPolicyId(left.samplingPolicyId) !== normalizeSamplingPolicyId(right.samplingPolicyId)) return false;
   if (left.specimenId && right.specimenId) return left.specimenId === right.specimenId;
   if (left.path && right.path) return path.resolve(left.path) === path.resolve(right.path);
   return false;
