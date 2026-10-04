@@ -320,6 +320,9 @@ test("Franken bench keeps proposal separate from freeze", async ({ page }, testI
   await page.goto("/?state=empty&franken=1");
   const bench = page.locator("#frankenComposerWindow");
   await expect(bench).toBeVisible();
+  const benchBox = await bench.boundingBox();
+  expect(benchBox.width).toBeGreaterThan(1000);
+  expect(benchBox.height).toBeGreaterThan(600);
   for (const key of ["deckPath", "worldRulePath", "blenderAcceptancePath", "blenderReceiptPath", "blenderVideoPath"]) {
     await bench.locator(`[data-franken-choose="${key}"]`).click();
   }
