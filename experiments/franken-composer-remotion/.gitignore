@@ -1,0 +1,4 @@
+node_modules/
+public/assets/
+src/bundle.json
+out/
