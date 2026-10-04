@@ -147,7 +147,7 @@ for (const state of ALPHA_STATES) {
     });
     // Video/VSPantry is additive beta furniture with a dedicated witness below.
     // Keep long-running alpha images scoped to their ancestral state machine.
-    for (const selector of ["#videoSourceMount", "#videoPantryWindow"]) {
+    for (const selector of ["#videoSourceMount", "#videoPantryWindow", "#nextgenLabToggle", "#nextgenLab"]) {
       const surface = page.locator(selector);
       if (await surface.count()) {
         await surface.evaluate((element) => {
@@ -340,4 +340,48 @@ test("Franken bench keeps proposal separate from freeze", async ({ page }, testI
   await expect(page.locator("#frankenPlanHash")).toHaveText("b".repeat(64));
   await expect(page.locator("#frankenBundle")).toBeEnabled();
   await bench.screenshot({ path: testInfo.outputPath("franken-composer.png") });
+});
+
+
+test("NextGen lab follows real Home → Composer witnesses", async ({ page }, testInfo) => {
+  await page.goto("/?state=beta-home&nextgen=1");
+  await expect(page.locator("html")).toHaveAttribute("data-witness-ready", "true");
+  expect(await page.evaluate(() => window.__consoleErrors)).toEqual([]);
+
+  const lab = page.locator("#nextgenLab");
+  await expect(lab).toBeVisible();
+  await expect(page.locator("#nextgenPhases .nextgen-phase")).toHaveCount(4);
+  await expect(page.locator('[data-phase="hear"]')).toHaveAttribute("data-state", "complete");
+  await expect(page.locator('[data-phase="dream"]')).toHaveAttribute("data-state", "complete");
+  await expect(page.locator('[data-phase="compose"]')).toHaveAttribute("data-state", "current");
+  await expect(page.locator("#nextgenStatus")).toContainText("COMPOSE");
+
+  await page.locator("#nextgenProfileToggle").click();
+  await expect(page.locator("#nextgenProfilePanel")).toBeVisible();
+  await expect(page.locator("#nextgenOrgans li")).toHaveCount(9);
+  await expect(page.locator("#nextgenOrgans")).toContainText("listener");
+  await expect(page.locator("#nextgenOrgans")).toContainText("frankenComposer");
+  await expect(page.locator("#nextgenOrgans")).toContainText("playdeck");
+
+  await page.locator('[data-phase="compose"]').click();
+  const bench = page.locator("#frankenComposerWindow");
+  await expect(bench).toBeVisible();
+  for (const key of ["deckPath", "worldRulePath", "blenderAcceptancePath", "blenderReceiptPath", "blenderVideoPath"]) {
+    await bench.locator(`[data-franken-choose="${key}"]`).click();
+  }
+  await page.locator("#frankenRecompose").click();
+  await expect(page.locator("#frankenFreeze")).toBeEnabled();
+  await page.locator("#frankenFreeze").click();
+  await expect(page.locator("#frankenPlanHash")).toHaveText("b".repeat(64));
+  await page.locator("#frankenClose").click();
+
+  await expect(page.locator('[data-phase="compose"]')).toHaveAttribute("data-state", "complete");
+  await expect(page.locator('[data-phase="render"]')).toHaveAttribute("data-state", "current");
+  await expect(page.locator("#nextgenStatus")).toContainText("RENDER");
+
+  await lab.screenshot({
+    animations: "disabled",
+    caret: "hide",
+    path: testInfo.outputPath("nextgen-lab.png"),
+  });
 });
