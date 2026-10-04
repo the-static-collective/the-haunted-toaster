@@ -95,6 +95,7 @@ test('reviewed NextGen crossing enters proposal pressure and frozen material res
   assert.equal(preview.proposal.ancestry.nextGenCrossing.crossingIdentity,observed.crossingIdentity);
   assert.equal(preview.proposal.materials.filter(m=>m.derivation?.schema==='static-collective/franken-video-digestion-material/v0').length,6);
   assert.equal(preview.proposal.movingTakeSceneId,observed.frankenPressure.edits.movingTakeSceneId);
+  assert.equal(preview.proposal.variation,3,'explicit editor variation must override Listening Eye pressure');
   const frozen=await service.freeze({...config,expectedProposalIdentity:preview.proposalIdentity});
   assert.equal(frozen.plan.receipts.nextGenCrossingIdentity,observed.crossingIdentity);
   assert.equal(frozen.plan.materials.filter(m=>m.derivation?.familyHash===observed.videoDigestion.familyHash).length,6);
