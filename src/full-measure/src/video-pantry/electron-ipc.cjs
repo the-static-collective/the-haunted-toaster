@@ -1,6 +1,6 @@
 const path = require("node:path");
 const { resolveToasterHome, videoPantryCatalogPath } = require("../toaster-home.cjs");
-const { normalizeDigestOperatorId } = require("../render/foreign-material.cjs");
+const { normalizeDigestOperatorId, normalizeSamplingPolicyId } = require("../render/foreign-material.cjs");
 const { admitVideo } = require("./admit.cjs");
 const { admitVideoFolder } = require("./import-folder.cjs");
 const { loadCatalog } = require("./catalog.cjs");
@@ -81,6 +81,23 @@ function registerVideoPantryIpc({
     currentVideo = null;
     candidateSession.clearVideo();
     return true;
+  });
+
+  ipcMain.handle("video:set-sampling-policy", async (_event, policyId) => {
+    const admittedVideo = candidateSession.state?.().video || currentVideo;
+    if (!admittedVideo) {
+      const error = new Error("Video timing requires an admitted Video specimen.");
+      error.code = "VIDEO_SAMPLING_REQUIRES_SOURCE";
+      throw error;
+    }
+    const samplingPolicyId = normalizeSamplingPolicyId(policyId);
+    const nextBinding = { ...structuredClone(admittedVideo), samplingPolicyId };
+    if (samplingPolicyId !== normalizeSamplingPolicyId(admittedVideo.samplingPolicyId)) {
+      candidateSession.clearVideo();
+      candidateSession.noteVideo(nextBinding);
+    }
+    currentVideo = structuredClone(nextBinding);
+    return structuredClone(nextBinding);
   });
 
   return { catalogPath: catalogPath() };
