@@ -152,6 +152,33 @@
   window.addEventListener("error", (event) => window.__consoleErrors.push(String(event.error?.message || event.message)));
   window.addEventListener("unhandledrejection", (event) => window.__consoleErrors.push(String(event.reason?.message || event.reason)));
 
+
+  function witnessFrankenProposal() {
+    const cardOrder = ["card-01", "card-02", "card-03", "card-04", "card-05", "card-06"];
+    const sceneRoles = {
+      "card-01": "ARRIVE", "card-02": "ARRIVE",
+      "card-03": "CROSS", "card-04": "CROSS",
+      "card-05": "ASSEMBLE", "card-06": "ASSEMBLE",
+    };
+    return {
+      proposalSchema: "static-collective/franken-proposal/v0",
+      authority: "proposal-only",
+      seed: "witness-franken-001",
+      cardOrder,
+      sceneRoles,
+      worldRule: "manga-room",
+      movingTakeSceneId: "CROSS",
+      transitionChoices: { arriveCross: "panel-wipe", crossAssemble: "radial-reveal" },
+      text: "THE ROOM REMEMBERS",
+      variation: 0,
+      scenes: [
+        { sceneId: "ARRIVE", tracks: [{ role: "card" }, { role: "typography" }] },
+        { sceneId: "CROSS", tracks: [{ role: "card" }, { role: "moving-take" }, { role: "typography" }, { role: "topology-material" }] },
+        { sceneId: "ASSEMBLE", tracks: [{ role: "card" }, { role: "typography" }, { role: "topology-material" }] },
+      ],
+    };
+  }
+
   window.fullMeasure = Object.freeze({
     chooseAudio: async () => "/witness/Dreamstate Divide.wav",
     chooseImage: async () => "/witness/native-color-specimen.png",
@@ -233,6 +260,15 @@
       currentVideo = { ...currentVideo, samplingPolicyId };
       return structuredClone(currentVideo);
     },
+    chooseFrankenPlaydeckDeck: async () => "/witness/franken/playdeck-deck.json",
+    chooseFrankenWorldRule: async () => "/witness/franken/playdeck-world-rule.json",
+    chooseFrankenPlaydeckAssetMap: async () => "/witness/franken/playdeck-assets.local.json",
+    chooseFrankenBlenderAcceptance: async () => "/witness/franken/accepted-take.json",
+    chooseFrankenBlenderReceipt: async () => "/witness/franken/accepted-take.mp4.receipt.json",
+    chooseFrankenBlenderVideo: async () => "/witness/franken/accepted-take.mp4",
+    composeFranken: async () => ({ proposalIdentity: "a".repeat(64), proposal: witnessFrankenProposal() }),
+    freezeFranken: async () => ({ planHash: "b".repeat(64), plan: { schema: "static-collective/franken-composition/v0" } }),
+    writeFrankenProjectionBundle: async () => ({ directory: "/witness/franken/render-bundle", planHash: "b".repeat(64) }),
     chooseLyrics: async () => null,
     chooseOutput: async () => "/witness/Dreamstate-Divide-alpha8.mp4",
     inspectAudio: async () => ({

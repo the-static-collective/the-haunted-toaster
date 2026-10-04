@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "0.1",
+  "id": "franken-deck-001",
+  "title": "Six Witnesses",
+  "cards": [
+    {"id":"card-01","source":"cards/card-01.svg","traits":["door"],"temperament":["quiet"],"permissions":{"flip":true},"metadata":{"sha256":"66a1d68d0d652d81264dd0a1d3d822f7ab935dd2d270493a7c67a3d86af6478a"}},
+    {"id":"card-02","source":"cards/card-02.svg","traits":["weather"],"temperament":["answering"],"metadata":{"sha256":"217b293646312ea67c085a05dc4b0b8003f532c47aa909e3e0ebb1931b071e13"}},
+    {"id":"card-03","source":"cards/card-03.svg","traits":["witness"],"temperament":["chorus-bound"],"metadata":{"sha256":"6f2a61f0eb93cab5772f317e5c77b51b75f70f1dbded8adc3d659fd8d6a04d6d"}},
+    {"id":"card-04","source":"cards/card-04.svg","traits":["threshold"],"temperament":["restless"],"metadata":{"sha256":"70cd7d337f363a1df364162a7f54d1ac7015d3a4fecdf7167d030b45eccb7329"}},
+    {"id":"card-05","source":"cards/card-05.svg","traits":["handwritten"],"temperament":["held"],"metadata":{"sha256":"7074b0e46e79d66e55fc19ca76a70c4951a28da18a4ac6f78f47fd43cfa68b88"}},
+    {"id":"card-06","source":"cards/card-06.svg","traits":["room"],"temperament":["awake"],"permissions":{"awaken":true},"metadata":{"sha256":"f417f487604ba56cb16f5539625f6e915f36a6c3866b96cd449c0958fcb0ad2f"}}
+  ],
+  "order":["card-01","card-02","card-03","card-04","card-05","card-06"],
+  "inheritedReceipt":"receipt-parent-001",
+  "metadata":{"possibilityKeep":{"proposalId":"maybe-001"},"branchRelation":"sibling-future"}
+}

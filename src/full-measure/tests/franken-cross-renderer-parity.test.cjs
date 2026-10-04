@@ -1,0 +1,9 @@
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const {compileHyperFramesFranken}=require('../src/franken-composer/projectors/hyperframes.cjs');
+const {compileRemotionFranken}=require('../src/franken-composer/projectors/remotion.cjs');
+const {frozenFixture}=require('./helpers/franken-plan-fixture.cjs');
+const {createCompositionReceipt}=require('../src/franken-composer/receipt.cjs');
+test('one frozen witness yields equal Remotion and HyperFrames semantic traces',()=>{const f=frozenFixture();const hyper=compileHyperFramesFranken({plan:f.plan,planHash:f.planHash,assetBindings:f.assetBindings});const remotion=compileRemotionFranken({plan:f.plan,planHash:f.planHash,assetBindings:f.assetBindings});assert.deepEqual(hyper.semanticTrace,remotion.semanticTrace);assert.equal(hyper.semanticTrace.planHash,f.planHash);assert.equal(hyper.semanticTrace.fps,24);assert.equal(hyper.semanticTrace.durationFrames,1152);assert.deepEqual(hyper.semanticTrace.scenes.map(s=>[s.sceneId,s.startFrame,s.durationFrames]),[['ARRIVE',0,384],['CROSS',384,384],['ASSEMBLE',768,384]]);const text=hyper.semanticTrace.materials.find(m=>m.materialId==='franken:text');assert.ok(text);assert.match(text.sourceIdentity,/THE ROOM REMEMBERS/);assert.equal(hyper.semanticTrace.transitions.length,2);assert.ok(hyper.semanticTrace.scenes.flatMap(s=>s.tracks).some(t=>t.role==='moving-take'));});
+
+test('composition receipt binds frozen plan without gaining renderer authority',()=>{const f=frozenFixture();const r=createCompositionReceipt({plan:f.plan,planHash:f.planHash});assert.equal(r.schema,'static-collective/franken-composition-receipt/v0');assert.equal(r.planHash,f.planHash);assert.equal(r.status,'frozen-composition');assert.equal(r.authority,'composition-evidence-only');assert.equal(r.sceneCount,3);assert.equal(r.materialCount,9);});

@@ -32,6 +32,8 @@ test("UI witness is generated from production renderer assets", (t) => {
   assert.match(generated, /video-source-ui\.js/);
   assert.match(generated, /beta-home-ui\.css/);
   assert.match(generated, /recent-toasts-ui\.js/);
+  assert.match(generated, /franken-composer-ui\.css/);
+  assert.match(generated, /franken-composer-ui\.js/);
   assert.ok(generated.indexOf("witness-bridge.js") < generated.indexOf("toast-feel-controller.js"));
   assert.ok(generated.indexOf("video-source-ui.js") < generated.indexOf("toast-feel-controller.js"));
   for (const method of ["chooseVideo", "chooseVideoFolder", "listVideoPantry", "clearVideo"]) {
@@ -50,7 +52,7 @@ test("UI witness is generated from production renderer assets", (t) => {
   ]) {
     assert.match(generated, new RegExp(`"${capability}"`));
   }
-  for (const filename of ["styles.css", "beta-home-ui.css", "video-source-ui.js", "recent-toasts-ui.js"]) {
+  for (const filename of ["styles.css", "beta-home-ui.css", "franken-composer-ui.css", "video-source-ui.js", "franken-composer-ui.js", "recent-toasts-ui.js"]) {
     assert.equal(
       fs.readFileSync(path.join(outputDir, filename), "utf8"),
       fs.readFileSync(path.join(rendererDir, filename), "utf8"),

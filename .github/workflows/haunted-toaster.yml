@@ -59,6 +59,65 @@ jobs:
           path: src/full-measure/test-artifacts/
           if-no-files-found: error
 
+  franken-composer:
+    name: Verify Franken cross-renderer bench
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            src/full-measure/package-lock.json
+            experiments/franken-composer-remotion/package-lock.json
+
+      - name: Install Toaster dependencies
+        run: npm --prefix src/full-measure ci
+
+      - name: Run focused Franken contracts
+        run: node --test src/full-measure/tests/franken-*.test.cjs
+
+      - name: Generate HyperFrames witness project
+        run: node src/full-measure/scripts/franken-hyperframes.cjs --fixture --out "$RUNNER_TEMP/franken-hyperframes"
+
+      - name: Record HyperFrames environment
+        run: (cd "$RUNNER_TEMP/franken-hyperframes" && npx --yes hyperframes info) | tee "$RUNNER_TEMP/franken-hyperframes/hyperframes-info.txt"
+
+      - name: Lint HyperFrames witness
+        run: npx --yes hyperframes lint "$RUNNER_TEMP/franken-hyperframes"
+
+      - name: Validate HyperFrames witness
+        run: npx --yes hyperframes validate "$RUNNER_TEMP/franken-hyperframes"
+
+      - name: Inspect HyperFrames witness
+        run: npx --yes hyperframes inspect "$RUNNER_TEMP/franken-hyperframes" --json > "$RUNNER_TEMP/franken-hyperframes/hyperframes-inspect.json"
+
+      - name: Install isolated Remotion experiment
+        run: npm --prefix experiments/franken-composer-remotion ci --ignore-scripts
+
+      - name: Discover Remotion composition
+        run: npm run franken:remotion:check
+
+      - name: Seal validated cross-renderer witness
+        run: node src/full-measure/scripts/smoke-franken-composer.cjs --out "$RUNNER_TEMP/franken-validated" --validated
+
+      - name: Upload Franken witness
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: franken-composer-witness-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/franken-hyperframes/
+            ${{ runner.temp }}/franken-validated/
+            experiments/franken-composer-remotion/package-lock.json
+          if-no-files-found: error
+
   ui-witness:
     name: Verify renderer witness
     needs: verify
@@ -102,6 +161,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     needs:
       - verify
+      - franken-composer
       - ui-witness
     runs-on: windows-latest
     timeout-minutes: 35
@@ -146,7 +206,7 @@ jobs:
 
   verify-package-handoff:
     name: Verify Windows package handoff
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     needs: package-windows
     runs-on: ubuntu-latest
     steps:
