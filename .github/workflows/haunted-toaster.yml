@@ -85,7 +85,7 @@ jobs:
         run: node src/full-measure/scripts/franken-hyperframes.cjs --fixture --out "$RUNNER_TEMP/franken-hyperframes"
 
       - name: Record HyperFrames environment
-        run: npx --yes hyperframes info | tee "$RUNNER_TEMP/franken-hyperframes/hyperframes-info.txt"
+        run: (cd "$RUNNER_TEMP/franken-hyperframes" && npx --yes hyperframes info) | tee "$RUNNER_TEMP/franken-hyperframes/hyperframes-info.txt"
 
       - name: Lint HyperFrames witness
         run: npx --yes hyperframes lint "$RUNNER_TEMP/franken-hyperframes"
