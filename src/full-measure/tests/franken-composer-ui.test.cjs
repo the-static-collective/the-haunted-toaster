@@ -15,3 +15,16 @@ test('compose config carries an optional local Playdeck asset map',()=>{
   assert.equal(config.playdeckAssetMapPath,'/assets.local.json');
   assert.equal(ui.canCompose(s),true);
 });
+
+
+test('bench leaves world rule unset until the human explicitly overrides the donor rule',()=>{
+  let s=ui.createBenchState();
+  assert.equal(s.edits.worldRule,null);
+  const before=ui.composeConfig(s);
+  assert.equal(before.edits.worldRule,undefined);
+  s=ui.reduceBenchState(s,{type:'proposal',result:{proposalIdentity:'a'.repeat(64),proposal:{...proposal,worldRule:'flipbook'}}});
+  assert.equal(s.edits.worldRule,null);
+  assert.equal(ui.composeConfig(s).edits.worldRule,undefined);
+  s=ui.reduceBenchState(s,{type:'edit',key:'worldRule',value:'manga-room'});
+  assert.equal(ui.composeConfig(s).edits.worldRule,'manga-room');
+});
