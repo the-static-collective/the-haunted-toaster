@@ -26,8 +26,8 @@ const ORGANS = Object.freeze({
   listeningEye: Object.freeze({
     phase:"orient",
     repo:"the-static-collective/the-haunted-toaster",
-    ref:"feature/listening-eye-v0",
-    sha:"fe185abbbfa9d56e613f953f7c92531853a80fb3",
+    ref:"fix/listening-eye-family-evidence-001",
+    sha:"8d83d678221e28e7f81bb619fd9834fe28147f97",
     authority:"influence-only",
     purpose:"Six complementary song-derived art-direction lenses.",
   }),
