@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: haunted-toaster-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.head.sha || github.sha }}
+  group: haunted-toaster-${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: true
 
 permissions:
@@ -62,8 +62,6 @@ jobs:
   franken-composer:
     name: Verify Franken cross-renderer bench
     needs: verify
-    permissions:
-      contents: write
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -75,23 +73,9 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: src/full-measure/package-lock.json
-
-      - name: Bootstrap isolated Remotion lockfile
-        if: github.event_name == 'push' && github.ref_name == 'experimental/franken-composer-001'
-        run: npm --prefix experiments/franken-composer-remotion install --package-lock-only --ignore-scripts
-
-      - name: Persist isolated Remotion lockfile
-        if: github.event_name == 'push' && github.ref_name == 'experimental/franken-composer-001'
-        run: |
-          if [ -z "$(git status --porcelain -- experiments/franken-composer-remotion/package-lock.json)" ]; then
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add experiments/franken-composer-remotion/package-lock.json
-          git commit -m "build: lock Franken Remotion dependencies [skip ci]"
-          git push origin "HEAD:${GITHUB_REF_NAME}"
+          cache-dependency-path: |
+            src/full-measure/package-lock.json
+            experiments/franken-composer-remotion/package-lock.json
 
       - name: Install Toaster dependencies
         run: npm --prefix src/full-measure ci
@@ -115,7 +99,7 @@ jobs:
         run: npx --yes hyperframes inspect "$RUNNER_TEMP/franken-hyperframes" --json > "$RUNNER_TEMP/franken-hyperframes/hyperframes-inspect.json"
 
       - name: Install isolated Remotion experiment
-        run: npm --prefix experiments/franken-composer-remotion install --ignore-scripts
+        run: npm --prefix experiments/franken-composer-remotion ci --ignore-scripts
 
       - name: Discover Remotion composition
         run: npm run franken:remotion:check
