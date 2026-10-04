@@ -176,6 +176,7 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   clearVideo: () => ipcRenderer.invoke("video:clear"),
   chooseFrankenPlaydeckDeck: () => ipcRenderer.invoke("franken:choose-deck"),
   chooseFrankenWorldRule: () => ipcRenderer.invoke("franken:choose-world-rule"),
+  chooseFrankenPlaydeckAssetMap: () => ipcRenderer.invoke("franken:choose-playdeck-asset-map"),
   chooseFrankenBlenderAcceptance: () => ipcRenderer.invoke("franken:choose-blender-acceptance"),
   chooseFrankenBlenderReceipt: () => ipcRenderer.invoke("franken:choose-blender-receipt"),
   chooseFrankenBlenderVideo: () => ipcRenderer.invoke("franken:choose-blender-video"),
