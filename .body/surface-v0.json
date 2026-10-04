@@ -1,0 +1,49 @@
+{
+  "schema": "body.surface/v0",
+  "organ": "haunted-toaster",
+  "owner": "the-static-collective/the-haunted-toaster",
+  "publication": {
+    "status": "owner-published",
+    "standard": "static-collective/body-surface/v0",
+    "scope": "interface-declaration"
+  },
+  "provides": [],
+  "needs": [],
+  "interfaces": [],
+  "measure": {
+    "declared": [
+      {
+        "dimension": "product-law",
+        "value": "song-in-finished-video-out",
+        "unit": "state"
+      },
+      {
+        "dimension": "authority-mode",
+        "value": "human-continuation",
+        "unit": "state"
+      }
+    ],
+    "observed": []
+  },
+  "receipts": [
+    {
+      "kind": "owner-contract",
+      "coordinate": "README.md"
+    }
+  ],
+  "residual_fog": [
+    "The Toaster has witnessed render receipts and sidecars, but this surface leaves protocol declarations empty until the accepted BETA receipt/timeline contracts are nominated as cross-project interfaces."
+  ],
+  "non_authorities": [
+    "focus != verdict",
+    "receipt != original event",
+    "surface != KEEP authority"
+  ],
+  "evidence": [
+    {
+      "kind": "owner-readme",
+      "coordinate": "README.md"
+    }
+  ],
+  "authority": "none"
+}
