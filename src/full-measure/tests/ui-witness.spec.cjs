@@ -317,7 +317,7 @@ test("beta Home remains horizontally usable at 1080x720", async ({ page }, testI
 
 
 test("Franken bench keeps proposal separate from freeze", async ({ page }, testInfo) => {
-  await page.goto("/?state=empty");
+  await page.goto("/?state=empty&franken=1");
   const bench = page.locator("#frankenComposerWindow");
   await expect(bench).toBeVisible();
   for (const key of ["deckPath", "worldRulePath", "blenderAcceptancePath", "blenderReceiptPath", "blenderVideoPath"]) {
