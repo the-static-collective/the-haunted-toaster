@@ -29,6 +29,7 @@
   function moveCard(order,id,delta){const next=[...order];const i=next.indexOf(id),j=i+delta;if(i<0||j<0||j>=next.length)return next;[next[i],next[j]]=[next[j],next[i]];return next;}
   function filename(value){if(!value)return 'Not chosen';return String(value).split(/[\\/]/).pop();}
   function mount(document,bridge){const root=document.getElementById('frankenComposerWindow');if(!root||!bridge)return;
+    if(root.parentElement!==document.body)document.body.append(root);
     const view=document.defaultView;let state=createBenchState();
     const setOpen=(open)=>{root.hidden=!open;document.body.classList.toggle('franken-open',open);};
     const search=new URLSearchParams(view?.location?.search||'');setOpen(search.get('franken')==='1');
