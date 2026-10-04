@@ -13,6 +13,18 @@ const NEXTGEN_LIVE_CROSSING_SCHEMA = "static-collective/nextgen-live-crossing/v0
 const NEXTGEN_LIVE_CROSSING_POLICY = "nextgen-live-crossings-003";
 const PRESSURE_SCHEMA = "static-collective/franken-listening-eye-pressure/v0";
 const MATERIAL_DERIVATION_SCHEMA = "static-collective/franken-video-digestion-material/v0";
+const DONOR_PINS = deepFreeze({
+  listeningEye: {
+    repo: "the-static-collective/the-haunted-toaster",
+    ref: "fix/listening-eye-family-evidence-001",
+    sha: "8d83d678221e28e7f81bb619fd9834fe28147f97",
+  },
+  videoDigestion: {
+    repo: "the-static-collective/the-haunted-toaster",
+    ref: "fix/video-digestion-vout-contract-001",
+    sha: "fce507efbe2381fcae4189a0f6b3689e0bf5c880",
+  },
+});
 
 function scoreLens(lens) {
   const p = lens?.pressures || {};
@@ -108,6 +120,7 @@ function buildNextGenLiveCrossing({
     schema: NEXTGEN_LIVE_CROSSING_SCHEMA,
     policy: NEXTGEN_LIVE_CROSSING_POLICY,
     authority: "proposal-pressure-and-material-reservoir-only",
+    donorPins: DONOR_PINS,
     basis: {
       candidateIndex: Number.isInteger(candidateIndex) ? candidateIndex : null,
       timelineHash: timelineHash || null,
@@ -192,6 +205,7 @@ function frankenVideoDigestionReservoir(context) {
 }
 
 module.exports = {
+  DONOR_PINS,
   MATERIAL_DERIVATION_SCHEMA,
   NEXTGEN_LIVE_CROSSING_POLICY,
   NEXTGEN_LIVE_CROSSING_SCHEMA,
