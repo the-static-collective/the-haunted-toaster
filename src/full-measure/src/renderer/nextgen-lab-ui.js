@@ -95,7 +95,7 @@
         target?.scrollIntoView({behavior:"smooth",block:"center"});
         target?.focus?.();
       }else if(phase==="compose"){
-        document.dispatchEvent(new CustomEvent("fullmeasure:open-franken"));
+        document.dispatchEvent(new CustomEvent("fullmeasure:open-franken",{detail:{liveOrgans:true}}));
       }else if(phase==="render"){
         const target=document.getElementById("renderButton");
         target?.scrollIntoView({behavior:"smooth",block:"center"});
