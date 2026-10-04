@@ -1,7 +1,8 @@
 "use strict";
 const {canonicalize}=require("../generation/canonical.cjs");
 const SCENES=new Set(["ARRIVE","CROSS","ASSEMBLE"]);
-const TRANSITIONS=new Set(["panel-wipe","radial-reveal","cut","hinge"]);\nconst WORLD_RULES=new Set(["manga-room","comic-page","wrong-medium"]);
+const TRANSITIONS=new Set(["panel-wipe","radial-reveal","cut","hinge"]);
+const WORLD_RULES=new Set(["manga-room","comic-page","wrong-medium"]);
 function normalizeEdits(base,edits={}){
  const out={...base};
  if(edits.cardOrder!==undefined){if(!Array.isArray(edits.cardOrder)||edits.cardOrder.length!==6||new Set(edits.cardOrder).size!==6)throw new TypeError("cardOrder must contain six unique card ids.");out.cardOrder=[...edits.cardOrder];}
