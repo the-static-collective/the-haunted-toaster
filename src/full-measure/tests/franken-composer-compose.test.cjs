@@ -31,3 +31,14 @@ test('Playdeck source crop survives into the composed card clip',()=>{
   const clip=p.scenes.flatMap(s=>s.tracks).flatMap(t=>t.clips).find(c=>c.materialId===playdeck.cards[0].materialId);
   assert.deepEqual(clip.crop,playdeck.cards[0].crop);
 });
+
+
+test('donor world rule survives recomposition when no explicit override is supplied',()=>{
+  const d=donors();
+  const playdeck=JSON.parse(JSON.stringify(d.playdeck));
+  playdeck.worldRule.id='flipbook';
+  const p=composeFrankenProposal({playdeck,blenderTake:d.blenderTake,seed:'donor-world'});
+  assert.equal(p.worldRule,'flipbook');
+  const edited=applyFrankenEdits(p,{text:'KEEP DONOR WORLD'});
+  assert.equal(edited.worldRule,'flipbook');
+});
