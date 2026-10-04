@@ -64,7 +64,7 @@ function listBranches(repoPath) {
   return parseLsRemote(remote);
 }
 
-function probeFiles(repoPath, branch) {
+function probeFiles(repoPath, branch, expectedSha) {
   git(repoPath, [
     "fetch",
     "--quiet",
@@ -73,6 +73,12 @@ function probeFiles(repoPath, branch) {
     "origin",
     `refs/heads/${branch}`,
   ]);
+  const fetchedSha = git(repoPath, ["rev-parse","FETCH_HEAD"]).trim();
+  if (fetchedSha !== expectedSha) {
+    throw new Error(
+      `Branch moved during scan: ${branch} was ${expectedSha} and fetched as ${fetchedSha}. Rerun the census.`,
+    );
+  }
   return git(repoPath, ["ls-tree","-r","--name-only","FETCH_HEAD"])
     .split(/\r?\n/)
     .filter(Boolean)
@@ -88,7 +94,7 @@ function scanRepo({system, repoPath}, {probe, maxBranches}) {
       process.stderr.write(
         `[${system}] ${index + 1}/${selected.length} probe ${branch}\n`,
       );
-      files = probeFiles(repoPath, branch);
+      files = probeFiles(repoPath, branch, sha);
     }
     return classifySpecimen({system, branch, sha, files});
   });
