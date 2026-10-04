@@ -49,10 +49,10 @@ function parseArgs(argv) {
 }
 
 function defaultRepos() {
-  const cwd = process.cwd();
-  const parent = path.dirname(cwd);
+  const toasterRoot = path.resolve(__dirname, "../../..");
+  const parent = path.dirname(toasterRoot);
   const candidates = [
-    {system:"toaster", repoPath:cwd},
+    {system:"toaster", repoPath:toasterRoot},
     {system:"blender", repoPath:path.join(parent, "the-haunted-blender")},
     {system:"playdeck", repoPath:path.join(parent, "playdeck")},
   ];
