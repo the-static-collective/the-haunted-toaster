@@ -195,6 +195,7 @@ function sealNextGenProfile({kernelSha, evidence} = {}) {
       "This receipt does not merge donor branches.",
       "This receipt does not grant publication authority.",
       "This receipt does not prove perceptual superiority.",
+      "Playdeck proof follows its donor npm install workflow and is not lockfile-hermetic.",
       "This receipt does not graduate NextGen Toaster to main.",
     ],
   });
