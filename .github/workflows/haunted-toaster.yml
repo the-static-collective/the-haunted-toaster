@@ -113,6 +113,7 @@ jobs:
           path: |
             ${{ runner.temp }}/franken-hyperframes/
             ${{ runner.temp }}/franken-validated/
+            experiments/franken-composer-remotion/package-lock.json
           if-no-files-found: error
 
   ui-witness:
