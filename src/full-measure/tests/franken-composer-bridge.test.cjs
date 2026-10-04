@@ -11,9 +11,7 @@ async function configInTemp(){
   const dir=await fsp.mkdtemp(path.join(os.tmpdir(),'franken-bridge-'));
   await fsp.cp(fixtureRoot,path.join(dir,'deck'),{recursive:true});
   const blender=makeBlenderFixture();
-  const acceptancePath=path.join(blender.dir,'acceptance.json');
-  await fsp.writeFile(acceptancePath,JSON.stringify(blender.acceptance,null,2)+'\n');
-  return {dir,config:{deckPath:path.join(dir,'deck','playdeck-deck.json'),worldRulePath:path.join(dir,'deck','playdeck-world-rule.json'),blenderAcceptancePath:acceptancePath,blenderReceiptPath:blender.receipt,blenderVideoPath:blender.video,seed:'bridge-seed',edits:{text:'OPEN THE ROOM',variation:3}}};
+  return {dir,config:{deckPath:path.join(dir,'deck','playdeck-deck.json'),worldRulePath:path.join(dir,'deck','playdeck-world-rule.json'),blenderAcceptancePath:blender.acceptancePath,blenderReceiptPath:blender.receipt,blenderVideoPath:blender.video,seed:'bridge-seed',edits:{text:'OPEN THE ROOM',variation:3}}};
 }
 test('franken local-file validator accepts expected JSON and MP4 surfaces only',async()=>{const f=await configInTemp();assert.match(await assertLocalFile(f.config.deckPath,new Set(['.json']),'deck'),/playdeck-deck\.json$/);await assert.rejects(()=>assertLocalFile(f.config.deckPath,new Set(['.mp4']),'video'),/format/i);});
 test('compose returns proposal identity but never a frozen plan hash',async()=>{const f=await configInTemp();const service=createFrankenComposerService({rootDir:path.join(f.dir,'out')});const result=await service.compose(f.config);assert.match(result.proposalIdentity,/^[a-f0-9]{64}$/);assert.equal(result.planHash,undefined);assert.equal(result.proposal.authority,'proposal-only');assert.equal(result.proposal._donor,undefined);});
