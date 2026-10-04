@@ -6,6 +6,7 @@ const path=require('node:path');
 const os=require('node:os');
 const {assertLocalFile,createFrankenComposerService}=require('../src/franken-composer/bridge.cjs');
 const {makeBlenderFixture}=require('./helpers/franken-blender-fixture.cjs');
+const {buildNextGenLiveCrossing}=require('../src/nextgen/live-crossings.cjs');
 const fixtureRoot=path.join(__dirname,'fixtures','franken');
 async function configInTemp(){
   const dir=await fsp.mkdtemp(path.join(os.tmpdir(),'franken-bridge-'));
@@ -40,4 +41,77 @@ test('compose resolves Playdeck asset URI only through an explicit local asset m
   const remoteMap=path.join(logicalDir,'assets.remote.json');
   await fsp.writeFile(remoteMap,JSON.stringify({[source]:'https://example.com/cosmic.png'},null,2)+'\n');
   await assert.rejects(()=>service.compose({...config,playdeckAssetMapPath:remoteMap}),/local asset|remote|scheme/i);
+});
+
+
+function nextGenProvider(){
+  const analysis={
+    durationSeconds:3,
+    sections:[
+      {startSeconds:0,endSeconds:1,energy:0.25,label:'opening'},
+      {startSeconds:1,endSeconds:2,energy:0.8,label:'lift'},
+      {startSeconds:2,endSeconds:3,energy:0.55,label:'arrival'},
+    ],
+    phrases:[],
+    transients:[],
+  };
+  const videoBinding={
+    schema:'haunted-toaster/video-source/v1',
+    specimenId:`sha256:${'a'.repeat(64)}:4096`,
+    sourceSha256:'a'.repeat(64),
+    byteLength:4096,
+    path:'/tmp/nextgen-reservoir.mp4',
+    filename:'nextgen-reservoir.mp4',
+    probe:{durationSeconds:1,width:64,height:36,frameRate:'8/1'},
+  };
+  return ({rootSeed,albumContext})=>buildNextGenLiveCrossing({
+    analysis,
+    rootSeed,
+    albumContext,
+    videoBinding,
+    timeline:{durationTicks:24,timebase:8},
+    timelineHash:'b'.repeat(64),
+    candidateIndex:0,
+  });
+}
+
+test('reviewed NextGen crossing enters proposal pressure and frozen material reservoir',async()=>{
+  const f=await configInTemp();
+  const provider=nextGenProvider();
+  const observed=provider({rootSeed:f.config.seed,albumContext:{}});
+  const service=createFrankenComposerService({
+    rootDir:path.join(f.dir,'out-nextgen'),
+    getNextGenContext:provider,
+  });
+  const config={
+    ...f.config,
+    nextGen:{
+      enabled:true,
+      expectedCrossingIdentity:observed.crossingIdentity,
+      albumContext:{},
+    },
+  };
+  const preview=await service.compose(config);
+  assert.equal(preview.proposal.ancestry.nextGenCrossing.crossingIdentity,observed.crossingIdentity);
+  assert.equal(preview.proposal.materials.filter(m=>m.derivation?.schema==='static-collective/franken-video-digestion-material/v0').length,6);
+  assert.equal(preview.proposal.movingTakeSceneId,observed.frankenPressure.edits.movingTakeSceneId);
+  assert.equal(preview.proposal.variation,3,'explicit editor variation must override Listening Eye pressure');
+  const frozen=await service.freeze({...config,expectedProposalIdentity:preview.proposalIdentity});
+  assert.equal(frozen.plan.receipts.nextGenCrossingIdentity,observed.crossingIdentity);
+  assert.equal(frozen.plan.materials.filter(m=>m.derivation?.familyHash===observed.videoDigestion.familyHash).length,6);
+});
+
+test('Franken service refuses a stale NextGen crossing identity',async()=>{
+  const f=await configInTemp();
+  const service=createFrankenComposerService({
+    rootDir:path.join(f.dir,'out-nextgen-stale'),
+    getNextGenContext:nextGenProvider(),
+  });
+  await assert.rejects(
+    ()=>service.compose({
+      ...f.config,
+      nextGen:{enabled:true,expectedCrossingIdentity:'0'.repeat(64),albumContext:{}},
+    }),
+    /stale|unreviewed NextGen/i,
+  );
 });

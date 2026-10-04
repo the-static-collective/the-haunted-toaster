@@ -385,3 +385,41 @@ test("NextGen lab follows real Home → Composer witnesses", async ({ page }, te
     path: testInfo.outputPath("nextgen-lab.png"),
   });
 });
+
+
+test("NextGen 003 loads visible Listening Eye pressure and six-up video reservoir", async ({ page }, testInfo) => {
+  await page.goto("/?state=beta-home&nextgen=1");
+  await expect(page.locator("html")).toHaveAttribute("data-witness-ready", "true");
+  expect(await page.evaluate(() => window.__consoleErrors)).toEqual([]);
+
+  await page.locator('[data-phase="compose"]').click();
+  const bench = page.locator("#frankenComposerWindow");
+  await expect(bench).toBeVisible();
+  await expect(page.locator("#frankenNextGenStatus")).toContainText("Loaded Architecture pressure");
+  await expect(page.locator("#frankenPressureReadout")).toBeVisible();
+  await expect(page.locator("#frankenPressureReadout span")).toHaveCount(5);
+  await expect(page.locator("#frankenDigestionReservoir")).toBeVisible();
+  await expect(page.locator("#frankenDigestionReservoir span")).toHaveCount(6);
+  await expect(page.locator("#frankenMovingTake")).toHaveValue("ASSEMBLE");
+  await expect(page.locator("#frankenTransitionA")).toHaveValue("radial-reveal");
+  await expect(page.locator("#frankenTransitionB")).toHaveValue("panel-wipe");
+  await expect(page.locator("#frankenVariation")).toHaveValue("7");
+  await expect(page.locator("#frankenFreeze")).toBeDisabled();
+
+  for (const key of ["deckPath", "worldRulePath", "blenderAcceptancePath", "blenderReceiptPath", "blenderVideoPath"]) {
+    await bench.locator(`[data-franken-choose="${key}"]`).click();
+  }
+  await page.locator("#frankenRecompose").click();
+  await expect(page.locator("#frankenFreeze")).toBeEnabled();
+  await expect(page.locator("#frankenMovingTake")).toHaveValue("ASSEMBLE");
+  await expect(page.locator("#frankenVariation")).toHaveValue("7");
+
+  await bench.screenshot({
+    animations: "disabled",
+    caret: "hide",
+    path: testInfo.outputPath("nextgen-003-live-crossing-before-freeze.png"),
+  });
+
+  await page.locator("#frankenFreeze").click();
+  await expect(page.locator("#frankenPlanHash")).toHaveText("b".repeat(64));
+});

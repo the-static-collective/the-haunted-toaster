@@ -240,6 +240,7 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   getVersion: () => ipcRenderer.invoke("app:version"),
   getBuildInfo: () => ipcRenderer.invoke("app:build-info"),
   getNextGenProfile: () => ipcRenderer.invoke("nextgen:profile"),
+  inspectNextGenCrossings: (config = {}) => ipcRenderer.invoke("candidate:nextgen-crossings", config),
   getToastFeels: () => ipcRenderer.invoke("app:toast-feels"),
   pathForFile: (file) => webUtils.getPathForFile(file),
   onProgress: (callback) => subscribe("render:progress", callback),

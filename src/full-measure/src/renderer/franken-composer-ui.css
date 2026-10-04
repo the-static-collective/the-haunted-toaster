@@ -27,3 +27,16 @@ body.franken-open{overflow:hidden}
 #frankenPlanHash{font-family:monospace;max-width:58%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media(max-width:980px){.franken-composer-window{inset:10px;padding:14px}.franken-composer-window .home-window-heading{top:-14px;margin:-14px -14px 14px;padding:14px}.franken-source-grid,.franken-controls,.franken-lanes,.franken-actions{grid-template-columns:1fr}.franken-controls .franken-wide{grid-column:auto}}
 @media(prefers-reduced-motion:reduce){.franken-composer-window *{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+.franken-organ-crossing{margin:16px 0;padding:14px;border:1px solid rgba(244,223,156,.24);border-radius:12px;background:rgba(244,223,156,.045)}
+.franken-organ-heading{display:flex;justify-content:space-between;gap:14px;align-items:center}
+.franken-organ-heading span{display:block;color:#f4df9c;font-size:9px;letter-spacing:.14em}
+.franken-organ-heading h4{margin:4px 0 0;font-size:15px}
+#frankenNextGenLoad{min-height:38px;padding:0 13px;border:1px solid rgba(244,223,156,.32);border-radius:9px;background:rgba(244,223,156,.1);color:inherit;font-weight:700}
+#frankenNextGenStatus{margin:10px 0 0;color:var(--muted,#aaa);font-size:11px}
+.franken-pressure-readout{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:11px}
+.franken-pressure-readout span,.franken-digestion-reservoir span{padding:8px;border:1px solid rgba(255,255,255,.08);border-radius:8px;background:rgba(0,0,0,.18);font-size:10px}
+.franken-digestion-reservoir{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:8px}
+.franken-digestion-reservoir span b{display:block;margin-bottom:3px;font-size:10px}
+.franken-digestion-reservoir span small{color:var(--muted,#999);font-size:9px}
+@media(max-width:980px){.franken-organ-heading{align-items:flex-start;flex-direction:column}.franken-pressure-readout,.franken-digestion-reservoir{grid-template-columns:1fr 1fr}}

@@ -153,6 +153,50 @@
   window.addEventListener("unhandledrejection", (event) => window.__consoleErrors.push(String(event.reason?.message || event.reason)));
 
 
+  function witnessNextGenCrossing() {
+    const roles = [
+      ["texture-loop", "derived-texture"],
+      ["texture-release", "derived-texture"],
+      ["topology-loop", "derived-mask"],
+      ["topology-stretch", "derived-mask"],
+      ["motion-release", "derived-motion"],
+      ["motion-stretch", "derived-motion"],
+    ];
+    return {
+      schema: "static-collective/nextgen-live-crossing/v0",
+      policy: "nextgen-live-crossings-003",
+      authority: "proposal-pressure-and-material-reservoir-only",
+      crossingIdentity: "c".repeat(64),
+      basis: { candidateIndex: 0, timelineHash: "d".repeat(64) },
+      listeningEye: {
+        authority: "influence-only",
+        listeningEyeSha256: "e".repeat(64),
+        album: { trackIndex: 1, trackCount: 1 },
+      },
+      frankenPressure: {
+        authority: "influence-only",
+        pressureHash: "f".repeat(64),
+        dominantLens: { id: "architecture", name: "Architecture", slotIndex: 1, score: 4.2 },
+        edits: {
+          movingTakeSceneId: "ASSEMBLE",
+          transitions: { arriveCross: "radial-reveal", crossAssemble: "panel-wipe" },
+          variation: 7,
+        },
+      },
+      videoDigestion: {
+        schema: "haunted-toaster/video-digestion-six/v0",
+        authority: "proposal-only",
+        familyHash: "a".repeat(64),
+        descendants: roles.map(([roleId, projectionClass], index) => ({
+          slot: index + 1,
+          roleId,
+          projectionClass,
+          planHash: String(index + 1).repeat(64),
+        })),
+      },
+    };
+  }
+
   function witnessFrankenProposal() {
     const cardOrder = ["card-01", "card-02", "card-03", "card-04", "card-05", "card-06"];
     const sceneRoles = {
@@ -266,7 +310,31 @@
     chooseFrankenBlenderAcceptance: async () => "/witness/franken/accepted-take.json",
     chooseFrankenBlenderReceipt: async () => "/witness/franken/accepted-take.mp4.receipt.json",
     chooseFrankenBlenderVideo: async () => "/witness/franken/accepted-take.mp4",
-    composeFranken: async () => ({ proposalIdentity: "a".repeat(64), proposal: witnessFrankenProposal() }),
+    composeFranken: async (config = {}) => {
+      const base = witnessFrankenProposal();
+      const proposal = {
+        ...base,
+        movingTakeSceneId: config.edits?.movingTakeSceneId || base.movingTakeSceneId,
+        transitionChoices: {
+          ...base.transitionChoices,
+          ...(config.edits?.transitions || {}),
+        },
+        text: config.edits?.text ?? base.text,
+        variation: Number.isSafeInteger(config.edits?.variation)
+          ? config.edits.variation
+          : base.variation,
+        ...(config.nextGen?.enabled
+          ? {
+              ancestry: {
+                nextGenCrossing: {
+                  crossingIdentity: config.nextGen.expectedCrossingIdentity,
+                },
+              },
+            }
+          : {}),
+      };
+      return { proposalIdentity: "a".repeat(64), proposal };
+    },
     freezeFranken: async () => ({ planHash: "b".repeat(64), plan: { schema: "static-collective/franken-composition/v0" } }),
     writeFrankenProjectionBundle: async () => ({ directory: "/witness/franken/render-bundle", planHash: "b".repeat(64) }),
     chooseLyrics: async () => null,
@@ -331,6 +399,7 @@
     getVersion: async () => buildInfo.version,
     getBuildInfo: async () => witnessBuildInfo(),
     getNextGenProfile: async () => structuredClone(window.__uiWitnessNextGenProfile || null),
+    inspectNextGenCrossings: async () => structuredClone(witnessNextGenCrossing()),
     getToastFeels: async () => structuredClone(window.__uiWitnessToastFeels || []),
     ...(betaHistoryState ? {
       listPastToasts: async ({ limit = 3 } = {}) => structuredClone(RECENT_TOASTS.slice(0, Math.min(3, Number(limit) || 3))),

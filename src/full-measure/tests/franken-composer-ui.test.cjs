@@ -28,3 +28,44 @@ test('bench leaves world rule unset until the human explicitly overrides the don
   s=ui.reduceBenchState(s,{type:'edit',key:'worldRule',value:'manga-room'});
   assert.equal(ui.composeConfig(s).edits.worldRule,'manga-room');
 });
+
+
+test('live organ pressure changes visible defaults but never freezes by itself',()=>{
+  let s=ui.createBenchState();
+  const crossing={
+    crossingIdentity:'c'.repeat(64),
+    frankenPressure:{
+      authority:'influence-only',
+      edits:{
+        movingTakeSceneId:'ASSEMBLE',
+        transitions:{arriveCross:'radial-reveal',crossAssemble:'panel-wipe'},
+        variation:7,
+      },
+    },
+    videoDigestion:{descendants:Array.from({length:6},(_,i)=>({slot:i+1,roleId:`role-${i+1}`,planHash:String(i+1).repeat(64)}))},
+  };
+  s=ui.reduceBenchState(s,{type:'nextgen',value:crossing});
+  assert.equal(s.edits.movingTakeSceneId,'ASSEMBLE');
+  assert.deepEqual(s.edits.transitions,{arriveCross:'radial-reveal',crossAssemble:'panel-wipe'});
+  assert.equal(s.edits.variation,7);
+  assert.equal(s.frozen,null);
+  assert.equal(ui.canFreeze(s),false);
+  const config=ui.composeConfig(s);
+  assert.equal(config.nextGen.enabled,true);
+  assert.equal(config.nextGen.expectedCrossingIdentity,crossing.crossingIdentity);
+
+  s=ui.reduceBenchState(s,{type:'edit',key:'movingTakeSceneId',value:'ARRIVE'});
+  assert.equal(ui.composeConfig(s).edits.movingTakeSceneId,'ARRIVE');
+});
+
+test('changing seed revokes loaded organ crossing identity',()=>{
+  let s=ui.createBenchState();
+  s=ui.reduceBenchState(s,{type:'nextgen',value:{
+    crossingIdentity:'c'.repeat(64),
+    frankenPressure:{edits:{movingTakeSceneId:'ASSEMBLE',transitions:{},variation:2}},
+  }});
+  assert.ok(s.nextGen);
+  s=ui.reduceBenchState(s,{type:'seed',value:'different-seed'});
+  assert.equal(s.nextGen,null);
+  assert.equal(ui.composeConfig(s).nextGen,null);
+});
