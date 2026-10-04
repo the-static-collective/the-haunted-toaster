@@ -566,3 +566,10 @@ Stop the experiment when it can truthfully say:
 > One frozen composition can contain several kinds of addressable media, can be intentionally rearranged by a human, can survive projection through two different renderers, and can still answer exactly what changed and where every material came from.
 
 That is enough to prove the compositional seam. Everything beyond it becomes a descendant experiment.
+
+
+## Implementation Evidence — 2026-10-04
+
+The approved design has been implemented on `experimental/franken-composer-001` / PR #315. The implementation preserves this document's authority split: Toaster owns the frozen `FrankenCompositionV0`; Playdeck and Blender cross through bounded read-only adapters; HyperFrames and Remotion remain projections.
+
+Validated evidence is recorded in `docs/reconciliation/2026-10-03-franken-composer-001-witness.md`. At the reconciliation checkpoint, consolidated Toaster verification, focused Franken contracts, HyperFrames lint/validate/inspect, Remotion composition discovery, semantic parity sealing, and the browser witness all pass. The Windows package handoff remains intentionally deferred to the ready-for-review CI gate so it can run on the exact review head.
