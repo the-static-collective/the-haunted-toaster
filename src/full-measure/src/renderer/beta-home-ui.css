@@ -24,10 +24,28 @@
 
 .video-source-meta {
   display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   align-items: center;
   justify-content: space-between;
   min-height: 22px;
   margin: 4px 4px 0;
+}
+
+.video-digest-control,
+.video-timing-control {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 100%;
+  color: var(--faint);
+  font-size: 10px;
+}
+
+.video-digest-control select,
+.video-timing-control select {
+  width: 100%;
+  min-width: 0;
 }
 
 .video-pantry-toggle {

@@ -175,6 +175,7 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   listVideoPantry: () => ipcRenderer.invoke("video-pantry:list"),
   clearVideo: () => ipcRenderer.invoke("video:clear"),
   setVideoDigestOperator: (operatorId) => ipcRenderer.invoke("video:set-digest-operator", operatorId),
+  setVideoSamplingPolicy: (policyId) => ipcRenderer.invoke("video:set-sampling-policy", policyId),
   chooseLyrics: () => ipcRenderer.invoke("dialog:choose-lyrics"),
   chooseOutput: (suggestedName) => ipcRenderer.invoke("dialog:choose-output", suggestedName),
   inspectAudio: (filePath) => ipcRenderer.invoke("media:inspect", filePath),

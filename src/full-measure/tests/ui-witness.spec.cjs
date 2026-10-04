@@ -195,6 +195,24 @@ test("witness Video source and VSPantry", async ({ page }, testInfo) => {
   await expect(page.locator("#videoDropHint")).toContainText("in VSPantry");
   await expect(status).toContainText("1 specimen");
 
+  const digest = page.locator("#videoDigestOperator");
+  const timing = page.locator("#videoSamplingPolicy");
+  await expect(digest).toBeVisible();
+  await expect(timing).toHaveValue("loop-source-clip-v1");
+  await digest.selectOption("clip-motion-mask-v1");
+  await expect(status).toContainText("Motion mask");
+  await timing.selectOption("play-source-once-v1");
+  await expect(status).toHaveText("Video phrase · Motion mask × Play once → release · generate six again");
+  await expect(digest).toHaveValue("clip-motion-mask-v1");
+  await expect(timing).toHaveValue("play-source-once-v1");
+  for (const selector of [digest, timing]) {
+    expect(await selector.evaluate((element) => {
+      const context = document.createElement("canvas").getContext("2d");
+      context.font = getComputedStyle(element).font;
+      return context.measureText(element.selectedOptions[0].textContent).width <= element.clientWidth - 24;
+    }), "selected video policy must remain readable").toBe(true);
+  }
+
   await importFolder.click();
   await expect(importFolder).toBeDisabled();
   await expect(importFolder).toHaveAttribute("aria-busy", "true");
@@ -228,6 +246,8 @@ test("witness Video source and VSPantry", async ({ page }, testInfo) => {
 
   await page.locator("#removeVideo").click();
   await expect(page.locator("#videoDropTitle")).toHaveText("Add one video");
+  await expect(timing).toBeHidden();
+  await expect(timing).toHaveValue("loop-source-clip-v1");
 });
 
 for (const state of ["beta-home", "beta-history"]) {
