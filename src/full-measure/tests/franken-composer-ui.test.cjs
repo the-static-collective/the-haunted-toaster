@@ -6,3 +6,12 @@ test('bench model exposes ARRIVE CROSS ASSEMBLE and six addressable cards',()=>{
 test('reorder role transition text and variation edits dirty proposal without freezing',()=>{let s=ui.createBenchState();s=ui.reduceBenchState(s,{type:'proposal',result:{proposalIdentity:'a'.repeat(64),proposal}});assert.equal(ui.canFreeze(s),true);s=ui.reduceBenchState(s,{type:'card-order',value:ui.moveCard(s.edits.cardOrder,'card-03',-1)});s=ui.reduceBenchState(s,{type:'scene-role',cardId:'card-01',sceneId:'CROSS'});s=ui.reduceBenchState(s,{type:'transition',key:'arriveCross',value:'hinge'});s=ui.reduceBenchState(s,{type:'edit',key:'text',value:'CHANGED'});s=ui.reduceBenchState(s,{type:'edit',key:'variation',value:4});assert.equal(s.dirty,true);assert.equal(s.frozen,null);assert.equal(ui.canFreeze(s),false);});
 test('freeze action is the only state transition that creates accepted plan identity',()=>{let s=ui.createBenchState();for(const action of [{type:'seed',value:'x'},{type:'edit',key:'text',value:'x'},{type:'path',key:'deckPath',value:'/x.json'}]){s=ui.reduceBenchState(s,action);assert.equal(s.frozen,null);}s=ui.reduceBenchState(s,{type:'proposal',result:{proposalIdentity:'a'.repeat(64),proposal}});assert.equal(s.frozen,null);s=ui.reduceBenchState(s,{type:'frozen',planHash:'b'.repeat(64)});assert.equal(s.frozen.planHash,'b'.repeat(64));});
 test('compose config preserves bounded editor controls',()=>{let s=ui.createBenchState();for(const [key,value] of Object.entries({deckPath:'/deck.json',worldRulePath:'/world.json',blenderAcceptancePath:'/accept.json',blenderReceiptPath:'/receipt.json',blenderVideoPath:'/take.mp4'}))s=ui.reduceBenchState(s,{type:'path',key,value});s=ui.reduceBenchState(s,{type:'proposal',result:{proposalIdentity:'a'.repeat(64),proposal}});const c=ui.composeConfig(s);assert.equal(c.edits.worldRule,'manga-room');assert.equal(c.edits.movingTakeSceneId,'CROSS');assert.deepEqual(c.edits.transitions,{arriveCross:'panel-wipe',crossAssemble:'radial-reveal'});assert.equal(ui.canCompose(s),true);});
+
+
+test('compose config carries an optional local Playdeck asset map',()=>{
+  let s=ui.createBenchState();
+  for(const [key,value] of Object.entries({deckPath:'/deck.json',worldRulePath:'/world.json',playdeckAssetMapPath:'/assets.local.json',blenderAcceptancePath:'/accept.json',blenderReceiptPath:'/receipt.json',blenderVideoPath:'/take.mp4'}))s=ui.reduceBenchState(s,{type:'path',key,value});
+  const config=ui.composeConfig(s);
+  assert.equal(config.playdeckAssetMapPath,'/assets.local.json');
+  assert.equal(ui.canCompose(s),true);
+});
