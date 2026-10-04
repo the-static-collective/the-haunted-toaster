@@ -330,6 +330,7 @@
     openFile: async () => {},
     getVersion: async () => buildInfo.version,
     getBuildInfo: async () => witnessBuildInfo(),
+    getNextGenProfile: async () => structuredClone(window.__uiWitnessNextGenProfile || null),
     getToastFeels: async () => structuredClone(window.__uiWitnessToastFeels || []),
     ...(betaHistoryState ? {
       listPastToasts: async ({ limit = 3 } = {}) => structuredClone(RECENT_TOASTS.slice(0, Math.min(3, Number(limit) || 3))),

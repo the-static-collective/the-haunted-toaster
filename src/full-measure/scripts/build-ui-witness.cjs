@@ -10,12 +10,14 @@ const RENDERER_FILES = Object.freeze([
   "listener-transport.css",
   "beta-home-ui.css",
   "franken-composer-ui.css",
+  "nextgen-lab-ui.css",
   "video-source-ui.js",
   "toast-feel-controller.js",
   "app.js",
   "candidate-move-deck.js",
   "candidate-ui.js",
   "franken-composer-ui.js",
+  "nextgen-lab-ui.js",
   "recent-toasts-ui.js",
   "lyric-foundry-ui.js",
   "sync-keyboard.js",
@@ -42,6 +44,9 @@ function buildUiWitness({ rootDir, outputDir, commit }) {
   const safeCommit = attributeValue(commit);
   const toastFeels = JSON.stringify(require("../src/toast-feels.cjs").listToastFeels())
     .replace(/</g, "\\u003c");
+  const nextGenProfile = JSON.stringify(
+    require("../src/nextgen/profile.cjs").createNextGenProfile(),
+  ).replace(/</g, "\\u003c");
   const derived = deriveBuildCapabilities();
   const buildInfo = JSON.stringify({
     version: packageInfo.version,
@@ -55,7 +60,7 @@ function buildUiWitness({ rootDir, outputDir, commit }) {
     .replace("<body>", `<body data-ui-witness-commit="${safeCommit}">`)
     .replace(
       firstRendererScript,
-      `<script>window.__uiWitnessToastFeels = ${toastFeels}; window.__uiWitnessBuildInfo = ${buildInfo};</script>\n    <script src="./witness-bridge.js"></script>\n    <script src="./witness-controller.js"></script>\n    <script src="./video-source-ui.js"></script>\n    ${firstRendererScript}`,
+      `<script>window.__uiWitnessToastFeels = ${toastFeels}; window.__uiWitnessBuildInfo = ${buildInfo}; window.__uiWitnessNextGenProfile = ${nextGenProfile};</script>\n    <script src="./witness-bridge.js"></script>\n    <script src="./witness-controller.js"></script>\n    <script src="./video-source-ui.js"></script>\n    ${firstRendererScript}`,
     );
 
   fs.rmSync(outputDir, { recursive: true, force: true });

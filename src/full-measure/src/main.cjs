@@ -27,6 +27,7 @@ const {
 } = require("./align/listener-pack.cjs");
 const { createCandidateSession } = require("./candidate-session.cjs");
 const { registerFrankenComposerIpc } = require("./franken-composer/bridge.cjs");
+const { createNextGenProfile } = require("./nextgen/profile.cjs");
 const { inspectAudio } = require("./render/analyze.cjs");
 const {
   MAX_CUES,
@@ -129,6 +130,7 @@ function registerIpc() {
     rootDir: path.join(app.getPath("userData"), "franken-composer"),
     assertAvailable: assertCandidateAvailable,
   });
+  ipcMain.handle("nextgen:profile", () => createNextGenProfile());
   ipcMain.handle("app:toast-feels", () => listToastFeels());
 
   ipcMain.handle("dialog:choose-audio", async () => {

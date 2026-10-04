@@ -239,6 +239,7 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   openFile: (filePath) => ipcRenderer.invoke("shell:open", filePath),
   getVersion: () => ipcRenderer.invoke("app:version"),
   getBuildInfo: () => ipcRenderer.invoke("app:build-info"),
+  getNextGenProfile: () => ipcRenderer.invoke("nextgen:profile"),
   getToastFeels: () => ipcRenderer.invoke("app:toast-feels"),
   pathForFile: (file) => webUtils.getPathForFile(file),
   onProgress: (callback) => subscribe("render:progress", callback),
