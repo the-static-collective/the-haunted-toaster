@@ -314,3 +314,27 @@ test("beta Home remains horizontally usable at 1080x720", async ({ page }, testI
     path: testInfo.outputPath("beta-home-1080x720.png"),
   });
 });
+
+
+test("Franken bench keeps proposal separate from freeze", async ({ page }, testInfo) => {
+  await page.goto("/?state=empty");
+  const bench = page.locator("#frankenComposerWindow");
+  await expect(bench).toBeVisible();
+  for (const key of ["deckPath", "worldRulePath", "blenderAcceptancePath", "blenderReceiptPath", "blenderVideoPath"]) {
+    await bench.locator(`[data-franken-choose="${key}"]`).click();
+  }
+  await expect(page.locator("#frankenRecompose")).toBeEnabled();
+  await page.locator("#frankenRecompose").click();
+  await expect(page.locator(".franken-lane > strong")).toHaveText(["ARRIVE", "CROSS", "ASSEMBLE"]);
+  await expect(page.locator(".franken-card-row")).toHaveCount(6);
+  await expect(page.locator("#frankenFreeze")).toBeEnabled();
+  await page.locator("#frankenText").fill("THE ROOM CHANGED");
+  await expect(page.locator("#frankenFreeze")).toBeDisabled();
+  await expect(page.locator("#frankenStatus")).toContainText("RECOMPOSE required");
+  await page.locator("#frankenRecompose").click();
+  await expect(page.locator("#frankenFreeze")).toBeEnabled();
+  await page.locator("#frankenFreeze").click();
+  await expect(page.locator("#frankenPlanHash")).toHaveText("b".repeat(64));
+  await expect(page.locator("#frankenBundle")).toBeEnabled();
+  await bench.screenshot({ path: testInfo.outputPath("franken-composer.png") });
+});
