@@ -10,6 +10,7 @@ const {freezeFrankenComposition}=require("./freeze.cjs");
 
 const JSON_EXTENSIONS=new Set([".json"]);
 const VIDEO_EXTENSIONS=new Set([".mp4"]);
+const URI_SCHEME=/^[a-z][a-z0-9+.-]*:\/\//i;
 
 function sha256(bytes){return crypto.createHash("sha256").update(bytes).digest("hex");}
 async function assertLocalFile(filePath,extensions,label){
@@ -27,22 +28,38 @@ async function readJson(filePath,label){
   return {resolved,value:JSON.parse(await fs.readFile(resolved,"utf8"))};
 }
 function inside(base,target){const relative=path.relative(base,target);return relative!==""&&!relative.startsWith("..")&&!path.isAbsolute(relative);}
-async function playdeckInputs(deckPath,worldRulePath){
+async function playdeckInputs(deckPath,worldRulePath,assetMapPath=null){
   const deckRecord=await readJson(deckPath,"Playdeck deck JSON");
   const worldRecord=await readJson(worldRulePath,"Playdeck world-rule JSON");
+  const assetRecord=assetMapPath?await readJson(assetMapPath,"Playdeck local asset map JSON"):null;
+  if(assetRecord&&(!assetRecord.value||typeof assetRecord.value!=="object"||Array.isArray(assetRecord.value)))throw new TypeError("Playdeck local asset map must be a JSON object.");
   const deckDir=path.dirname(deckRecord.resolved);
+  const assetDir=assetRecord?path.dirname(assetRecord.resolved):null;
   const sourceDigests={};
-  const sourcePaths={};
+  const sourcePathByIdentity={};
   for(const card of deckRecord.value.cards||[]){
-    if(typeof card?.source!=="string"||!card.source.trim())throw new TypeError("Every Playdeck card requires a local source path.");
-    const source=path.resolve(deckDir,card.source);
-    if(!inside(deckDir,source))throw new TypeError("Playdeck card sources must stay inside the selected deck folder.");
+    if(typeof card?.source!=="string"||!card.source.trim())throw new TypeError("Every Playdeck card requires a source identity.");
+    if(sourcePathByIdentity[card.source])continue;
+    let source;
+    if(card.source.startsWith("asset://")){
+      if(!assetRecord)throw new TypeError("Playdeck logical asset sources require an explicit local asset map.");
+      const binding=assetRecord.value[card.source];
+      if(typeof binding!=="string"||!binding.trim())throw new TypeError(`Local asset map has no binding for ${card.source}.`);
+      if(URI_SCHEME.test(binding.trim()))throw new TypeError("Playdeck local asset map refuses remote or URI-scheme bindings.");
+      source=path.resolve(assetDir,binding.trim());
+      if(!inside(assetDir,source))throw new TypeError("Playdeck local asset bindings must stay inside the selected asset-map folder.");
+    }else{
+      source=path.resolve(deckDir,card.source);
+      if(!inside(deckDir,source))throw new TypeError("Playdeck card sources must stay inside the selected deck folder.");
+    }
     const stat=await fs.stat(source);
     if(!stat.isFile())throw new TypeError(`Playdeck source is not a file: ${card.source}`);
     sourceDigests[card.source]=sha256(await fs.readFile(source));
-    sourcePaths[`playdeck:${card.id}`]=source;
+    sourcePathByIdentity[card.source]=source;
   }
-  return {playdeck:adaptPlaydeck({deck:deckRecord.value,worldRule:worldRecord.value,sourceDigests}),sourcePaths};
+  const playdeck=adaptPlaydeck({deck:deckRecord.value,worldRule:worldRecord.value,sourceDigests});
+  const sourcePaths=Object.fromEntries(playdeck.cards.map(card=>[card.materialId,sourcePathByIdentity[card.source]]));
+  return {playdeck,sourcePaths};
 }
 async function blenderInputs(acceptancePath,admissionReceiptPath,videoPath){
   const acceptance=await readJson(acceptancePath,"Blender acceptance JSON");
@@ -54,7 +71,7 @@ async function blenderInputs(acceptancePath,admissionReceiptPath,videoPath){
 function publicProposal(proposal){const {_donor,...safe}=proposal;return canonicalize(safe);}
 function proposalIdentity(proposal){return hashCanonical(publicProposal(proposal),"HauntedToaster-FrankenProposalPreview-v0");}
 async function buildProposal(config){
-  const {playdeck,sourcePaths}=await playdeckInputs(config?.deckPath,config?.worldRulePath);
+  const {playdeck,sourcePaths}=await playdeckInputs(config?.deckPath,config?.worldRulePath,config?.playdeckAssetMapPath);
   const {blenderTake,videoPath}=await blenderInputs(config?.blenderAcceptancePath,config?.blenderReceiptPath,config?.blenderVideoPath);
   let proposal=composeFrankenProposal({playdeck,blenderTake,seed:String(config?.seed||"franken-001")});
   if(config?.edits)proposal=applyFrankenEdits(proposal,config.edits);
@@ -73,6 +90,7 @@ function registerFrankenComposerIpc(ipcMain,{dialog,getWindow,rootDir,assertAvai
   const choose=async(title,extensions)=>{assertAvailable();const result=await dialog.showOpenDialog(getWindow(),{title,properties:["openFile"],filters:[{name:title,extensions}]});return result.canceled?null:result.filePaths[0];};
   ipcMain.handle("franken:choose-deck",()=>choose("Choose Playdeck deck JSON",["json"]));
   ipcMain.handle("franken:choose-world-rule",()=>choose("Choose Playdeck world-rule JSON",["json"]));
+  ipcMain.handle("franken:choose-playdeck-asset-map",()=>choose("Choose Playdeck local asset map",["json"]));
   ipcMain.handle("franken:choose-blender-acceptance",()=>choose("Choose Blender accepted-take JSON",["json"]));
   ipcMain.handle("franken:choose-blender-receipt",()=>choose("Choose Blender admission receipt JSON",["json"]));
   ipcMain.handle("franken:choose-blender-video",()=>choose("Choose Blender accepted take",["mp4"]));
