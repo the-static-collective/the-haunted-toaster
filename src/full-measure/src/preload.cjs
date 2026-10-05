@@ -181,6 +181,7 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   chooseFrankenBlenderReceipt: () => ipcRenderer.invoke("franken:choose-blender-receipt"),
   chooseFrankenBlenderVideo: () => ipcRenderer.invoke("franken:choose-blender-video"),
   deriveFrankenFullSongForm: (input) => ipcRenderer.invoke("franken:derive-full-song-form", input),
+  deriveFrankenListeningField: (input) => ipcRenderer.invoke("franken:derive-listening-field", input),
   composeFranken: (config) => ipcRenderer.invoke("franken:compose", config),
   freezeFranken: (config) => ipcRenderer.invoke("franken:freeze", config),
   derivePerformanceEcology: (receipt) => ipcRenderer.invoke("franken:derive-performance-ecology", receipt),

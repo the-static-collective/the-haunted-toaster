@@ -393,6 +393,7 @@
       state.result = null;
       state.alignment = null;
       state.selectedCueIndex = null;
+      publishListeningEvidence();
       const audioUrl = await api.fileUrl(filePath);
       elements.syncAudio.src = audioUrl;
       window.dispatchEvent(new CustomEvent("full-measure:audio-ready",{
@@ -400,6 +401,7 @@
           url:audioUrl,
           duration:Number(audio.duration)||0,
           filename:audio.filename||basename(filePath),
+          sourceSha256:String(audio.sourceSha256||""),
           sections:Array.isArray(audio.sections)?audio.sections.map(section=>({
             start:Number(section.start)||0,
             end:Number(section.end)||0,
@@ -493,6 +495,7 @@
       if (!selected) return;
       state.alignment = null;
       state.selectedCueIndex = null;
+      publishListeningEvidence();
       await setLyricsValue(selected.content, {
         mode: "imported-timing-file",
         sidecarFilename: selected.filename,
@@ -581,6 +584,30 @@
     const span = nextIndex - previousIndex;
     const ratio = span > 0 ? (index - previousIndex) / span : 0;
     return Math.max(0, Math.min(duration, previousTime + (nextTime - previousTime) * ratio));
+  }
+
+  function publishListeningEvidence() {
+    const alignment = state.alignment
+      ? {
+          schema: String(state.alignment.schema || "full-measure.lyric-alignment.v1"),
+          cues: (state.alignment.cues || []).map((cue, index) => ({
+            lineId: cue.lineId || `line-${index + 1}`,
+            text: String(cue.text || ""),
+            start: Number.isFinite(Number(cue.start)) ? Number(cue.start) : null,
+            end: Number.isFinite(Number(cue.end)) ? Number(cue.end) : null,
+            status: String(cue.status || "unmatched"),
+            confidence: Number.isFinite(Number(cue.confidence))
+              ? Number(cue.confidence)
+              : 0,
+            humanCorrected: cue.humanCorrected === true,
+          })),
+        }
+      : null;
+    window.dispatchEvent(
+      new CustomEvent("full-measure:listening-evidence", {
+        detail: { alignment },
+      }),
+    );
   }
 
   function currentCueCounts() {
@@ -711,6 +738,7 @@
       cue.humanCorrected = true;
     }
     updateCueRow(index);
+    publishListeningEvidence();
   }
 
   function nudgeCueTime(index, delta) {
@@ -916,6 +944,7 @@
 
   function showAlignmentEditor(alignment) {
     state.alignment = alignment;
+    publishListeningEvidence();
     state.tapMode = false;
     showSyncView("editor");
     drawSyncWaveform();
@@ -1177,6 +1206,7 @@
       state.lyricProvenance = null;
       state.alignment = null;
       state.selectedCueIndex = null;
+      publishListeningEvidence();
     }
     scheduleLyricInspection();
   });
