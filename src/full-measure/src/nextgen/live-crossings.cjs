@@ -179,7 +179,7 @@ function buildNextGenLiveCrossing({
           videoBinding,
           timeline,
           analysisDurationSeconds: Number(analysis.durationSeconds),
-          historyCapsule: videoHistoryCapsule,
+          historyCapsule: videoHistoryCapsule || videoBinding?.historyCapsule || null,
         })
       : null;
   const core = {
