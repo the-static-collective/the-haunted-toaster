@@ -393,7 +393,11 @@
       state.result = null;
       state.alignment = null;
       state.selectedCueIndex = null;
-      elements.syncAudio.src = await api.fileUrl(filePath);
+      const audioUrl = await api.fileUrl(filePath);
+      elements.syncAudio.src = audioUrl;
+      window.dispatchEvent(new CustomEvent("full-measure:audio-ready",{
+        detail:{url:audioUrl,duration:Number(audio.duration)||0,filename:audio.filename||basename(filePath)},
+      }));
 
       elements.audioDrop.classList.add("has-file");
       elements.audioDropTitle.textContent = audio.filename;
@@ -427,6 +431,7 @@
       state.audioPath = null;
       state.audio = null;
       elements.syncAudio.removeAttribute("src");
+      window.dispatchEvent(new CustomEvent("full-measure:audio-ready",{detail:null}));
       elements.audioDrop.classList.remove("has-file");
       elements.audioDropTitle.textContent = "Drop a finished song";
       elements.audioDropHint.textContent = "MP3 or WAV · click to choose";
