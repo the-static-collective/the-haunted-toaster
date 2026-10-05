@@ -384,70 +384,111 @@
         item.dataset.materialId=descendant.materialId;
         item.addEventListener("dragstart",(event)=>{
           event.dataTransfer?.setData("text/x-franken-digest",descendant.materialId);
-          if(event.dataTransfer)event.dataTransfer.effectAllowed="move";
+          if(event.dataTransfer)event.dataTransfer.effectAllowed="copy";
         });
 
         const title=document.createElement("b");
         title.textContent=`#${descendant.slot} · ${descendant.roleId}`;
         const meta=document.createElement("small");
-        meta.textContent=`${descendant.projectionClass} · ${descendant.planHash.slice(0,10)}`;
+        meta.textContent=`${descendant.projectionClass} · ${descendant.planHash.slice(0,10)} · ${descendant.sourceDurationFrames}f source`;
+        const placements=placementsFor(state,descendant.materialId);
+        if(placements.length)item.classList.add("is-placed");
 
-        const placement=placementFor(state,descendant.materialId);
-        const toggle=document.createElement("button");
-        toggle.type="button";
-        toggle.className="franken-digest-toggle";
-        toggle.textContent=placement?"REMOVE":"PLACE";
-        toggle.addEventListener("click",()=>{
-          state=placement
-            ?reduceBenchState(state,{type:"digest-remove",materialId:descendant.materialId})
-            :reduceBenchState(state,{type:"digest-place",placement:defaultDigestPlacement(descendant)});
+        const add=document.createElement("button");
+        add.type="button";
+        add.className="franken-digest-toggle";
+        add.textContent=placements.length?`ADD CLIP · ${placements.length} PLACED`:"ADD CLIP";
+        add.addEventListener("click",()=>{
+          let ordinal=placements.length+1;
+          let candidate=defaultDigestPlacement(descendant,null,ordinal);
+          while(placementFor(state,candidate.placementId)){ordinal+=1;candidate=defaultDigestPlacement(descendant,null,ordinal);}
+          state=reduceBenchState(state,{type:"digest-place",placement:candidate});
           render();
         });
-        item.append(title,meta,toggle);
+        item.append(title,meta,add);
 
-        if(placement){
-          item.classList.add("is-placed");
+        const select=(label,value,options,onChange)=>{
+          const wrap=document.createElement("label");
+          wrap.textContent=label;
+          const node=document.createElement("select");
+          for(const optionValue of options){
+            const option=document.createElement("option");
+            option.value=optionValue;
+            option.textContent=optionValue;
+            option.selected=String(optionValue)===String(value);
+            node.append(option);
+          }
+          node.addEventListener("change",()=>onChange(node.value));
+          wrap.append(node);
+          return wrap;
+        };
+        const number=(label,value,min,max,step,onChange)=>{
+          const wrap=document.createElement("label");
+          wrap.textContent=label;
+          const node=document.createElement("input");
+          node.type="number";
+          node.value=String(value);
+          node.min=String(min);
+          node.max=String(max);
+          node.step=String(step);
+          node.addEventListener("change",()=>onChange(Number(node.value)));
+          wrap.append(node);
+          return wrap;
+        };
+
+        for(const placement of placements){
+          const editor=document.createElement("section");
+          editor.className="franken-placement-editor";
+          editor.dataset.placementId=placement.placementId;
+          const head=document.createElement("div");
+          head.className="franken-placement-head";
+          const name=document.createElement("strong");
+          name.textContent=`${placement.placementId} · ${placement.sceneId}`;
+          const remove=document.createElement("button");
+          remove.type="button";
+          remove.textContent="REMOVE";
+          remove.addEventListener("click",()=>{
+            state=reduceBenchState(state,{type:"digest-remove",placementId:placement.placementId});
+            render();
+          });
+          head.append(name,remove);
+
           const controls=document.createElement("div");
           controls.className="franken-digest-controls";
-
-          const select=(label,value,options,onChange)=>{
-            const wrap=document.createElement("label");
-            wrap.textContent=label;
-            const node=document.createElement("select");
-            for(const optionValue of options){
-              const option=document.createElement("option");
-              option.value=optionValue;
-              option.textContent=optionValue;
-              option.selected=optionValue===value;
-              node.append(option);
-            }
-            node.addEventListener("change",()=>onChange(node.value));
-            wrap.append(node);
-            return wrap;
-          };
-          const number=(label,value,min,max,step,onChange)=>{
-            const wrap=document.createElement("label");
-            wrap.textContent=label;
-            const node=document.createElement("input");
-            node.type="number";
-            node.value=String(value);
-            node.min=String(min);
-            node.max=String(max);
-            node.step=String(step);
-            node.addEventListener("change",()=>onChange(Number(node.value)));
-            wrap.append(node);
-            return wrap;
-          };
-          const patch=(next)=>{state=reduceBenchState(state,{type:"digest-edit",materialId:descendant.materialId,patch:next});render();};
+          const patch=(next)=>{state=reduceBenchState(state,{type:"digest-edit",placementId:placement.placementId,patch:next});render();};
+          const maxSource=Math.max(1,Number(descendant.sourceDurationFrames)||1);
+          const maxDuration=Math.max(1,Math.min(maxSource-placement.sourceStartFrames,384-placement.startOffsetFrames));
 
           controls.append(
             select("Scene",placement.sceneId,SCENES,(value)=>patch({sceneId:value})),
-            number("Start",placement.startOffsetFrames,0,383,1,(value)=>patch({startOffsetFrames:value})),
-            number("Frames",placement.durationFrames,1,Math.max(1,Math.min(Number(descendant.sourceDurationFrames)||384,384-placement.startOffsetFrames)),1,(value)=>patch({durationFrames:value})),
+            number("Timeline",placement.startOffsetFrames,0,383,1,(value)=>patch({startOffsetFrames:value})),
+            number("Source in",placement.sourceStartFrames,0,Math.max(0,maxSource-1),1,(value)=>patch({sourceStartFrames:value})),
+            number("Frames",placement.durationFrames,1,maxDuration,1,(value)=>patch({durationFrames:value})),
+            number("X",placement.transform.x,-1,2,0.01,(value)=>patch({transform:{x:value}})),
+            number("Y",placement.transform.y,-1,2,0.01,(value)=>patch({transform:{y:value}})),
+            number("Scale",placement.transform.scale,0.05,8,0.05,(value)=>patch({transform:{scale:value}})),
+            number("Rotate",placement.transform.rotationDegrees,-720,720,1,(value)=>patch({transform:{rotationDegrees:value}})),
             number("Opacity",placement.opacity,0,1,0.05,(value)=>patch({opacity:value})),
             select("Blend",placement.blend,["normal","screen"],(value)=>patch({blend:value})),
+            number("Stack",placement.stackOrder,0,999,1,(value)=>patch({stackOrder:value})),
           );
-          item.append(controls);
+
+          const cropButton=document.createElement("button");
+          cropButton.type="button";
+          cropButton.className="franken-crop-toggle";
+          cropButton.textContent=placement.crop?"FULL FRAME":"ENABLE CROP";
+          cropButton.addEventListener("click",()=>patch({crop:placement.crop?null:{x:0.1,y:0.1,width:0.8,height:0.8}}));
+          controls.append(cropButton);
+          if(placement.crop){
+            controls.append(
+              number("Crop X",placement.crop.x,0,Math.max(0,1-placement.crop.width),0.01,(value)=>patch({crop:{...placement.crop,x:value}})),
+              number("Crop Y",placement.crop.y,0,Math.max(0,1-placement.crop.height),0.01,(value)=>patch({crop:{...placement.crop,y:value}})),
+              number("Crop W",placement.crop.width,0.01,Math.max(0.01,1-placement.crop.x),0.01,(value)=>patch({crop:{...placement.crop,width:value}})),
+              number("Crop H",placement.crop.height,0.01,Math.max(0.01,1-placement.crop.y),0.01,(value)=>patch({crop:{...placement.crop,height:value}})),
+            );
+          }
+          editor.append(head,controls);
+          item.append(editor);
         }
         reservoirRoot.append(item);
       }
