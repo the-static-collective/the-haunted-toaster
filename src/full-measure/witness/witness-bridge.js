@@ -393,6 +393,7 @@
       return { proposalIdentity: "a".repeat(64), proposal, previewAssets };
     },
     freezeFranken: async () => ({ planHash: "b".repeat(64), plan: { schema: "static-collective/franken-composition/v0" } }),
+    writeOnePassReceipt: async (receipt) => ({ path: `/witness/franken/one-pass/${receipt.performanceHash}.one-pass.json`, performanceHash: receipt.performanceHash, existing: false }),
     writeFrankenProjectionBundle: async () => ({ directory: "/witness/franken/render-bundle", planHash: "b".repeat(64) }),
     chooseLyrics: async () => null,
     chooseOutput: async () => "/witness/Dreamstate-Divide-alpha8.mp4",
