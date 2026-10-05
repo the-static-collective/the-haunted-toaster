@@ -10,7 +10,7 @@ const { buildListeningEye } = require("../generation/listening-eye.cjs");
 const { createVideoDigestionSix } = require("../render/video-digestion-six.cjs");
 
 const NEXTGEN_LIVE_CROSSING_SCHEMA = "static-collective/nextgen-live-crossing/v0";
-const NEXTGEN_LIVE_CROSSING_POLICY = "nextgen-live-crossings-004";
+const NEXTGEN_LIVE_CROSSING_POLICY = "nextgen-live-crossings-006";
 const PRESSURE_SCHEMA = "static-collective/franken-listening-eye-pressure/v0";
 const MATERIAL_DERIVATION_SCHEMA = "static-collective/franken-video-digestion-material/v0";
 const MATERIAL_PROJECTION_TREATMENT_SCHEMA = "static-collective/franken-video-digestion-treatment/v0";
@@ -129,6 +129,38 @@ function projectionTreatmentFor(descendant) {
   });
 }
 
+function deriveSnapLandmarks(analysis) {
+  const durationSeconds=Number(analysis?.durationSeconds);
+  if(!Number.isFinite(durationSeconds)||durationSeconds<=0)throw new TypeError("Snap landmarks require analysis.durationSeconds > 0.");
+  const marks=[];
+  const push=(kind,seconds,label,energy=0)=>{
+    const s=Math.max(0,Math.min(durationSeconds,Number(seconds)||0));
+    marks.push({
+      kind,
+      label:String(label||kind),
+      songSeconds:quantizeNumber(s),
+      compositionFrame:Math.max(0,Math.min(1151,Math.round((s/durationSeconds)*1152))),
+      energy:quantizeNumber(Math.max(0,Math.min(1,Number(energy)||0))),
+    });
+  };
+  for(const [index,section] of (Array.isArray(analysis.sections)?analysis.sections:[]).entries()){
+    push("section",section.startSeconds,section.label||`section-${index+1}`,section.energy);
+  }
+  for(const [index,event] of (Array.isArray(analysis.phrases)?analysis.phrases:[]).entries()){
+    push("phrase",event.atSeconds,`phrase-${index+1}`,event.energy);
+  }
+  for(const [index,event] of (Array.isArray(analysis.transients)?analysis.transients:[]).entries()){
+    push("transient",event.atSeconds,`transient-${index+1}`,event.energy);
+  }
+  push("boundary",durationSeconds,"song-end",0);
+  const unique=new Map();
+  for(const mark of marks.sort((a,b)=>a.compositionFrame-b.compositionFrame||a.kind.localeCompare(b.kind)||a.label.localeCompare(b.label))){
+    const key=`${mark.kind}:${mark.compositionFrame}`;
+    if(!unique.has(key))unique.set(key,mark);
+  }
+  return deepFreeze([...unique.values()].slice(0,96));
+}
+
 function buildNextGenLiveCrossing({
   analysis,
   rootSeed = "nextgen-003",
@@ -167,6 +199,7 @@ function buildNextGenLiveCrossing({
       lenses: listeningEye.lenses,
     },
     frankenPressure,
+    snapLandmarks: deriveSnapLandmarks(analysis),
     videoDigestion: videoDigestion
       ? {
           schema: videoDigestion.schema,
@@ -250,6 +283,7 @@ module.exports = {
   PRESSURE_SCHEMA,
   buildNextGenLiveCrossing,
   deriveFrankenPressure,
+  deriveSnapLandmarks,
   digestionMaterialId,
   frankenVideoDigestionReservoir,
   projectionTreatmentFor,
