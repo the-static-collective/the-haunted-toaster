@@ -1036,7 +1036,10 @@
 
     function pointerPointForCurrentScene(event){
       if(!previewRoot||!event)return null;
-      const sceneId=sceneAtGlobalFrame(playheadFrame).sceneId;
+      const performanceFrame=onePassApi&&onePassSession?.status==="running"
+        ?onePassApi.frameAtMs(onePassSession,(performanceAudio?.currentTime||0)*1000)
+        :playheadFrame;
+      const sceneId=sceneAtGlobalFrame(performanceFrame).sceneId;
       const card=previewRoot.querySelector(`.franken-preview-scene[data-scene-id="${sceneId}"]`);
       const viewport=card?.querySelector(".franken-preview-viewport");
       if(!viewport)return null;
