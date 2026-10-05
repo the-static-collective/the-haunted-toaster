@@ -81,6 +81,31 @@ test("dropping a lyric makes the exact words become the collision geometry",()=>
   assert.equal(session.constructionTrace[0].moodLane,"STRANGE");
 });
 
+test("right-hand mood lanes have distinct stable entry bands on the right side",()=>{
+  const {fullSongForm,listeningField}=fixture();
+  const lyric=listeningField.lanes.find(l=>l.laneId==="lyrics").witnesses[0];
+  const entries={};
+
+  for(const moodLane of Object.keys(MOOD_LANES)){
+    let session=createWordparkSession({fullSongForm,listeningField});
+    session=dropLyric(session,{
+      witnessId:lyric.witnessId,
+      moodLane,
+      frame:lyric.startFrame,
+    });
+    const glyphs=session.wordObjects[0].geometry.glyphs;
+    entries[moodLane]={
+      x:glyphs.reduce((sum,g)=>sum+g.x,0)/glyphs.length,
+      y:glyphs.reduce((sum,g)=>sum+g.y,0)/glyphs.length,
+    };
+  }
+
+  assert.ok(Object.values(entries).every(entry=>entry.x>.65));
+  assert.ok(entries.OPEN.y<entries.TENDER.y);
+  assert.ok(entries.TENDER.y<entries.STRANGE.y);
+  assert.ok(entries.STRANGE.y<entries.HARD.y);
+});
+
 test("the bird-ball can bounce on text and records the lyric contact",()=>{
   const {fullSongForm,listeningField}=fixture();
   let session=createWordparkSession({
