@@ -1,4 +1,5 @@
 const crypto = require("node:crypto");
+const { bindHistoryToVideo } = require("../nextgen/history-capsule.cjs");
 const {
   FOREIGN_MATERIAL_MOTION_OPERATOR_ID,
   FOREIGN_MATERIAL_ONCE_POLICY,
@@ -25,8 +26,11 @@ function hashJson(value) {
   return crypto.createHash("sha256").update(JSON.stringify(value), "utf8").digest("hex");
 }
 
-function createVideoDigestionSix({ videoBinding, timeline, analysisDurationSeconds = null } = {}) {
+function createVideoDigestionSix({ videoBinding, timeline, analysisDurationSeconds = null, historyCapsule = null } = {}) {
   if (!videoBinding) return null;
+  const sourceHistoryRef = historyCapsule
+    ? bindHistoryToVideo({ historyCapsule, sourceSha256: videoBinding.sourceSha256 })
+    : null;
 
   const descendants = SLOT_RECIPES.map((recipe, index) => {
     const plan = createForeignMaterialPlan({
@@ -48,6 +52,7 @@ function createVideoDigestionSix({ videoBinding, timeline, analysisDurationSecon
       sourceSha256: plan.sourceSha256,
       clipAnalysisHash: plan.clipAnalysisHash,
       planHash: plan.planHash,
+      historyRef: sourceHistoryRef,
       plan,
     });
   });
@@ -70,6 +75,7 @@ function createVideoDigestionSix({ videoBinding, timeline, analysisDurationSecon
     sourceSpecimenId: first.sourceSpecimenId,
     sourceSha256: first.sourceSha256,
     clipAnalysisHash: first.clipAnalysisHash,
+    sourceHistoryRef,
     descendants: descendants.map((descendant) => ({
       slot: descendant.slot,
       roleId: descendant.roleId,
@@ -77,11 +83,13 @@ function createVideoDigestionSix({ videoBinding, timeline, analysisDurationSecon
       samplingPolicyId: descendant.samplingPolicyId,
       projectionClass: descendant.projectionClass,
       planHash: descendant.planHash,
+      historyRef: descendant.historyRef,
     })),
   };
 
   return Object.freeze({
     ...canonical,
+    sourceHistoryRef,
     descendants: Object.freeze(descendants),
     familyHash: hashJson(canonical),
   });
