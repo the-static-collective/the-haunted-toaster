@@ -250,6 +250,15 @@
             <label class="franken-wide">Typography<input id="frankenText" maxlength="240" value="THE ROOM REMEMBERS"></label>
           </div>
           <div class="franken-lanes" id="frankenLanes" aria-live="polite"></div>
+          <section class="franken-timeline-shell" aria-labelledby="frankenTimelineHeading">
+            <div class="franken-preview-heading">
+              <div><span>TIME EDITOR · DIRTY STATE</span><h4 id="frankenTimelineHeading">Franken miniature timeline</h4></div>
+              <label class="franken-snap-toggle"><input id="frankenSnapEnabled" type="checkbox" checked /> Snap to song landmarks</label>
+            </div>
+            <div class="franken-timeline-ruler" id="frankenTimelineRuler" aria-label="1152 frame composition timeline"></div>
+            <input class="franken-playhead" id="frankenPlayhead" type="range" min="0" max="1151" step="1" value="0" aria-label="Proposal preview playhead" />
+            <div class="franken-playhead-readout"><span id="frankenPlayheadFrame">Frame 0</span><span>drag clips · resize right edge · RECOMPOSE to update proposal preview</span></div>
+          </section>
           <section class="franken-proposal-preview-shell" aria-labelledby="frankenPreviewHeading">
             <div class="franken-preview-heading">
               <div><span>REVIEW SURFACE · PROPOSAL ONLY</span><h4 id="frankenPreviewHeading">Three-scene geometry preview</h4></div>

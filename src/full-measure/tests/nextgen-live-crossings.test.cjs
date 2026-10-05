@@ -2,6 +2,7 @@ const test=require("node:test");
 const assert=require("node:assert/strict");
 const {
   buildNextGenLiveCrossing,
+  deriveSnapLandmarks,
   frankenVideoDigestionReservoir,
   publicCrossingView,
 }=require("../src/nextgen/live-crossings.cjs");
@@ -91,4 +92,20 @@ test("public crossing view removes private source plans while retaining exact id
   assert.equal(view.videoDigestion.familyHash,crossing.videoDigestion.familyHash);
   assert.equal(view.videoDigestion.descendants.length,6);
   assert.equal(view.videoDigestion.descendants[0].plan,undefined);
+});
+
+
+test("Listening Eye source structure projects to deterministic Franken snap landmarks",()=>{
+  const marks=deriveSnapLandmarks(analysis);
+  assert.deepEqual(marks.map(mark=>[mark.kind,mark.compositionFrame]),[
+    ["section",0],
+    ["phrase",461],
+    ["section",384],
+    ["transient",691],
+    ["section",768],
+    ["boundary",1151],
+  ].sort((a,b)=>a[1]-b[1]||String(a[0]).localeCompare(String(b[0]))));
+  const crossing=buildNextGenLiveCrossing({analysis,rootSeed:"snap-seed"});
+  assert.deepEqual(crossing.snapLandmarks,marks);
+  assert.equal(crossing.frankenPressure.authority,"influence-only");
 });

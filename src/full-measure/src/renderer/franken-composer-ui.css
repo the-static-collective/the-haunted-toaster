@@ -75,3 +75,26 @@ body.franken-open{overflow:hidden}
 .franken-preview-clip.role-topology-material{border-style:dashed;border-color:rgba(217,75,75,.5)}
 .franken-preview-clip[data-cropped="true"]{outline:1px dotted #f4df9c;outline-offset:-3px}
 @media(max-width:980px){.franken-proposal-preview{grid-template-columns:1fr}.franken-preview-heading{align-items:flex-start;flex-direction:column}.franken-preview-heading small{max-width:none;text-align:left}}
+
+.franken-timeline-shell{margin:18px 0;padding:13px;border:1px solid rgba(255,255,255,.11);border-radius:12px;background:rgba(0,0,0,.2)}
+.franken-snap-toggle{display:flex;align-items:center;gap:7px;color:var(--muted,#aaa);font-size:10px}
+.franken-timeline-ruler{position:relative;height:132px;overflow:hidden;border:1px solid rgba(255,255,255,.11);border-radius:9px;background:#0b0b10;user-select:none;touch-action:none}
+.franken-timeline-scene{position:absolute;top:0;bottom:0;border-right:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.018)}
+.franken-timeline-scene>span{position:absolute;top:6px;left:8px;color:rgba(255,255,255,.55);font-size:8px;letter-spacing:.12em}
+.franken-timeline-landmark{position:absolute;top:0;bottom:0;width:1px;background:rgba(244,223,156,.2);pointer-events:none}
+.franken-timeline-landmark[data-kind="section"]{background:rgba(244,223,156,.52)}
+.franken-timeline-landmark[data-kind="phrase"]{background:rgba(217,75,75,.42)}
+.franken-timeline-landmark[data-kind="transient"]{background:rgba(255,255,255,.25)}
+.franken-timeline-clip{position:absolute;top:44px;height:56px;min-width:8px;border:1px solid rgba(244,223,156,.6);border-radius:7px;background:rgba(244,223,156,.15);cursor:grab;touch-action:none;overflow:visible}
+.franken-timeline-clip:active{cursor:grabbing}
+.franken-timeline-clip>span{position:absolute;inset:0 10px 0 6px;display:flex;align-items:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px}
+.franken-timeline-resize{position:absolute;top:-1px;right:-1px;bottom:-1px;width:10px;border:0;border-left:1px solid rgba(244,223,156,.55);border-radius:0 7px 7px 0;background:rgba(244,223,156,.18);cursor:ew-resize;touch-action:none}
+.franken-timeline-playhead-line{position:absolute;top:0;bottom:0;width:2px;background:#f5f1e8;box-shadow:0 0 0 1px rgba(0,0,0,.5);pointer-events:none;z-index:800}
+.franken-playhead{width:100%;margin:9px 0 2px}
+.franken-playhead-readout{display:flex;justify-content:space-between;gap:12px;color:var(--muted,#999);font-size:9px}
+.franken-keyframe-list{display:grid;gap:5px;grid-column:1/-1}
+.franken-keyframe-row{display:grid;grid-template-columns:54px repeat(4,minmax(0,1fr)) 52px;gap:4px;align-items:end;padding:5px;border:1px solid rgba(255,255,255,.07);border-radius:6px}
+.franken-keyframe-row button{min-height:27px;border:1px solid rgba(255,255,255,.1);border-radius:5px;background:rgba(255,255,255,.04);color:inherit;font-size:8px}
+.franken-add-keyframe{grid-column:1/-1;min-height:29px;border:1px dashed rgba(244,223,156,.35);border-radius:6px;background:transparent;color:#f4df9c;font-size:8px;font-weight:700}
+.franken-preview-clip[data-active="false"]{opacity:.13!important}
+@media(max-width:980px){.franken-keyframe-row{grid-template-columns:1fr 1fr}.franken-playhead-readout{flex-direction:column}}

@@ -164,7 +164,7 @@
     ];
     return {
       schema: "static-collective/nextgen-live-crossing/v0",
-      policy: "nextgen-live-crossings-004",
+      policy: "nextgen-live-crossings-006",
       authority: "proposal-pressure-and-material-reservoir-only",
       crossingIdentity: "c".repeat(64),
       basis: { candidateIndex: 0, timelineHash: "d".repeat(64) },
@@ -173,6 +173,14 @@
         listeningEyeSha256: "e".repeat(64),
         album: { trackIndex: 1, trackCount: 1 },
       },
+      snapLandmarks: [
+        {kind:"section",label:"opening",songSeconds:0,compositionFrame:0,energy:0.2},
+        {kind:"phrase",label:"phrase-1",songSeconds:1,compositionFrame:288,energy:0.7},
+        {kind:"section",label:"lift",songSeconds:1.333333,compositionFrame:384,energy:0.8},
+        {kind:"transient",label:"transient-1",songSeconds:2,compositionFrame:576,energy:0.9},
+        {kind:"section",label:"arrival",songSeconds:2.666667,compositionFrame:768,energy:0.55},
+        {kind:"boundary",label:"song-end",songSeconds:4,compositionFrame:1151,energy:0},
+      ],
       frankenPressure: {
         authority: "influence-only",
         pressureHash: "f".repeat(64),
@@ -236,6 +244,7 @@
                 endSeconds:(Number(placement.sourceStartFrames||0)+Number(placement.durationFrames||1))/24,
               },
               transform:structuredClone(placement.transform||{x:0.5,y:0.5,scale:1,rotationDegrees:0}),
+              transformKeyframes:structuredClone(placement.transformKeyframes||[]),
               crop:placement.crop?structuredClone(placement.crop):null,
               opacity:Number(placement.opacity??1),
               blend:placement.blend||"screen",

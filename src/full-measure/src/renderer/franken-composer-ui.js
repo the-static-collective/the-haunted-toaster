@@ -9,6 +9,71 @@
   "use strict";
 
   const SCENES=["ARRIVE","CROSS","ASSEMBLE"];
+  const SCENE_FRAMES=384;
+  const TOTAL_FRAMES=1152;
+  const SCENE_STARTS={ARRIVE:0,CROSS:384,ASSEMBLE:768};
+
+  const clamp=(value,min,max)=>Math.min(max,Math.max(min,Number(value)||0));
+
+  function globalFrameForPlacement(placement){
+    return SCENE_STARTS[placement.sceneId]+Number(placement.startOffsetFrames||0);
+  }
+
+  function sceneAtGlobalFrame(frame){
+    const value=Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(Number(frame)||0)));
+    const index=Math.min(2,Math.floor(value/SCENE_FRAMES));
+    const sceneId=SCENES[index];
+    return {sceneId,startFrame:SCENE_STARTS[sceneId],offsetFrame:value-SCENE_STARTS[sceneId]};
+  }
+
+  function snapFrame(frame,landmarks=[],enabled=true,threshold=14){
+    const value=Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(Number(frame)||0)));
+    if(!enabled)return value;
+    const candidates=[0,384,768,1151,...(Array.isArray(landmarks)?landmarks.map(mark=>Number(mark.compositionFrame)):[])].filter(Number.isFinite);
+    let best=value,bestDistance=threshold+1;
+    for(const candidate of candidates){
+      const distance=Math.abs(candidate-value);
+      if(distance<bestDistance){best=Math.round(candidate);bestDistance=distance;}
+    }
+    return bestDistance<=threshold?Math.max(0,Math.min(TOTAL_FRAMES-1,best)):value;
+  }
+
+  function movePlacementOnTimeline(placement,targetGlobalFrame,landmarks=[],snapEnabled=true){
+    const snapped=snapFrame(targetGlobalFrame,landmarks,snapEnabled);
+    const target=sceneAtGlobalFrame(snapped);
+    const maxStart=Math.max(0,SCENE_FRAMES-Number(placement.durationFrames||1));
+    return {
+      sceneId:target.sceneId,
+      startOffsetFrames:Math.max(0,Math.min(maxStart,target.offsetFrame)),
+    };
+  }
+
+  function resizePlacementOnTimeline(placement,targetGlobalEndFrame,sourceDurationFrames,landmarks=[],snapEnabled=true){
+    const start=globalFrameForPlacement(placement);
+    const sceneEnd=SCENE_STARTS[placement.sceneId]+SCENE_FRAMES;
+    const sourceRemaining=Math.max(1,Number(sourceDurationFrames||1)-Number(placement.sourceStartFrames||0));
+    const snapped=snapFrame(targetGlobalEndFrame,landmarks,snapEnabled);
+    const end=Math.max(start+1,Math.min(sceneEnd,snapped));
+    return {durationFrames:Math.max(1,Math.min(end-start,sourceRemaining))};
+  }
+
+  function interpolateTransformAtFrame(base,keyframes=[],offsetFrame=0){
+    const points=new Map([[0,{...base}]]);
+    for(const keyframe of Array.isArray(keyframes)?keyframes:[])points.set(Number(keyframe.offsetFrames),{...keyframe.transform});
+    const ordered=[...points.entries()].sort((a,b)=>a[0]-b[0]);
+    const frame=Math.max(0,Number(offsetFrame)||0);
+    if(ordered.length===1||frame<=ordered[0][0])return {...ordered[0][1]};
+    if(frame>=ordered.at(-1)[0])return {...ordered.at(-1)[1]};
+    for(let index=1;index<ordered.length;index++){
+      const [rightFrame,right]=ordered[index];
+      const [leftFrame,left]=ordered[index-1];
+      if(frame>rightFrame)continue;
+      const ratio=(frame-leftFrame)/Math.max(1,rightFrame-leftFrame);
+      const lerp=(key)=>Number(left[key])+(Number(right[key])-Number(left[key]))*ratio;
+      return {x:lerp("x"),y:lerp("y"),scale:lerp("scale"),rotationDegrees:lerp("rotationDegrees")};
+    }
+    return {...base};
+  }
   const TRANSITIONS=["panel-wipe","radial-reveal","cut","hinge"];
   const WORLD_RULES=["manga-room","comic-page","wrong-medium"];
 
@@ -99,6 +164,7 @@
       opacity:0.64,
       blend:"screen",
       stackOrder:30+n,
+      transformKeyframes:[],
     };
   }
 
@@ -300,6 +366,13 @@
     const pressureRoot=document.getElementById("frankenPressureReadout");
     const reservoirRoot=document.getElementById("frankenDigestionReservoir");
     const previewRoot=document.getElementById("frankenProposalPreview");
+    const timelineRoot=document.getElementById("frankenTimelineRuler");
+    const playhead=document.getElementById("frankenPlayhead");
+    const playheadReadout=document.getElementById("frankenPlayheadFrame");
+    const snapToggle=document.getElementById("frankenSnapEnabled");
+    let playheadFrame=0;
+    let snapEnabled=true;
+    let timelineGestureActive=false;
 
     const pathMethods={
       deckPath:"chooseFrankenPlaydeckDeck",
@@ -463,8 +536,14 @@
           controls.append(
             select("Scene",placement.sceneId,SCENES,(value)=>patch({sceneId:value})),
             number("Timeline",placement.startOffsetFrames,0,383,1,(value)=>patch({startOffsetFrames:value})),
-            number("Source in",placement.sourceStartFrames,0,Math.max(0,maxSource-1),1,(value)=>patch({sourceStartFrames:value})),
-            number("Frames",placement.durationFrames,1,maxDuration,1,(value)=>patch({durationFrames:value})),
+            number("Source in",placement.sourceStartFrames,0,Math.max(0,maxSource-1),1,(value)=>{
+              const durationFrames=Math.max(1,Math.min(placement.durationFrames,maxSource-value,384-placement.startOffsetFrames));
+              patch({sourceStartFrames:value,durationFrames,transformKeyframes:(placement.transformKeyframes||[]).filter(keyframe=>keyframe.offsetFrames<durationFrames)});
+            }),
+            number("Frames",placement.durationFrames,1,maxDuration,1,(value)=>patch({
+              durationFrames:value,
+              transformKeyframes:(placement.transformKeyframes||[]).filter(keyframe=>keyframe.offsetFrames<value),
+            })),
             number("X",placement.transform.x,-1,2,0.01,(value)=>patch({transform:{x:value}})),
             number("Y",placement.transform.y,-1,2,0.01,(value)=>patch({transform:{y:value}})),
             number("Scale",placement.transform.scale,0.05,8,0.05,(value)=>patch({transform:{scale:value}})),
@@ -488,11 +567,179 @@
               number("Crop H",placement.crop.height,0.01,Math.max(0.01,1-placement.crop.y),0.01,(value)=>patch({crop:{...placement.crop,height:value}})),
             );
           }
+          const keyframeList=document.createElement("div");
+          keyframeList.className="franken-keyframe-list";
+          const replaceKeyframes=(next)=>patch({transformKeyframes:[...next].sort((a,b)=>a.offsetFrames-b.offsetFrames)});
+          for(const [keyIndex,keyframe] of (placement.transformKeyframes||[]).entries()){
+            const row=document.createElement("div");
+            row.className="franken-keyframe-row";
+            const updateKey=(next)=>replaceKeyframes((placement.transformKeyframes||[]).map((item,index)=>index===keyIndex
+              ?{...item,...next,transform:next.transform?{...item.transform,...next.transform}:item.transform}
+              :item));
+            row.append(
+              number("Frame",keyframe.offsetFrames,0,Math.max(0,placement.durationFrames-1),1,(value)=>updateKey({offsetFrames:value})),
+              number("X",keyframe.transform.x,-1,2,0.01,(value)=>updateKey({transform:{x:value}})),
+              number("Y",keyframe.transform.y,-1,2,0.01,(value)=>updateKey({transform:{y:value}})),
+              number("Scale",keyframe.transform.scale,0.05,8,0.05,(value)=>updateKey({transform:{scale:value}})),
+              number("Rotate",keyframe.transform.rotationDegrees,-720,720,1,(value)=>updateKey({transform:{rotationDegrees:value}})),
+            );
+            const removeKey=document.createElement("button");
+            removeKey.type="button";
+            removeKey.textContent="DELETE";
+            removeKey.addEventListener("click",()=>replaceKeyframes((placement.transformKeyframes||[]).filter((_,index)=>index!==keyIndex)));
+            row.append(removeKey);
+            keyframeList.append(row);
+          }
+          const addKey=document.createElement("button");
+          addKey.type="button";
+          addKey.className="franken-add-keyframe";
+          addKey.disabled=(placement.transformKeyframes||[]).length>=4;
+          addKey.textContent="ADD TRANSFORM KEYFRAME @ PLAYHEAD";
+          addKey.addEventListener("click",()=>{
+            const globalStart=globalFrameForPlacement(placement);
+            let offset=Math.round(clamp(playheadFrame-globalStart,0,Math.max(0,placement.durationFrames-1)));
+            const used=new Set((placement.transformKeyframes||[]).map(keyframe=>keyframe.offsetFrames));
+            while(used.has(offset)&&offset<placement.durationFrames-1)offset+=1;
+            while(used.has(offset)&&offset>0)offset-=1;
+            if(used.has(offset))return;
+            const transform=interpolateTransformAtFrame(placement.transform,placement.transformKeyframes,offset);
+            replaceKeyframes([...(placement.transformKeyframes||[]),{offsetFrames:offset,transform}]);
+          });
+          keyframeList.append(addKey);
+          controls.append(keyframeList);
+
           editor.append(head,controls);
           item.append(editor);
         }
         reservoirRoot.append(item);
       }
+    }
+
+    function renderTimeline(){
+      if(!timelineRoot)return;
+      timelineRoot.replaceChildren();
+      const landmarks=state.nextGen?.snapLandmarks||[];
+      const frameFromClientX=(clientX)=>{
+        const rect=timelineRoot.getBoundingClientRect();
+        if(!rect.width)return 0;
+        return Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(((clientX-rect.left)/rect.width)*TOTAL_FRAMES)));
+      };
+      const beginTimelineGesture=(event,finish)=>{
+        if(timelineGestureActive)return;
+        timelineGestureActive=true;
+        event.preventDefault();
+        const complete=(upEvent)=>{
+          if(!timelineGestureActive)return;
+          timelineGestureActive=false;
+          document.removeEventListener("pointerup",complete);
+          document.removeEventListener("mouseup",complete);
+          document.removeEventListener("pointercancel",cancel);
+          finish(upEvent);
+        };
+        const cancel=()=>{
+          timelineGestureActive=false;
+          document.removeEventListener("pointerup",complete);
+          document.removeEventListener("mouseup",complete);
+          document.removeEventListener("pointercancel",cancel);
+        };
+        document.addEventListener("pointerup",complete);
+        document.addEventListener("mouseup",complete);
+        document.addEventListener("pointercancel",cancel,{once:true});
+      };
+      const setPlayhead=(frame)=>{
+        playheadFrame=Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(Number(frame)||0)));
+        if(playhead)playhead.value=String(playheadFrame);
+        if(playheadReadout)playheadReadout.textContent=`Frame ${playheadFrame}`;
+        renderPreview();
+        renderTimeline();
+      };
+
+      for(const sceneId of SCENES){
+        const band=document.createElement("div");
+        band.className="franken-timeline-scene";
+        band.dataset.sceneId=sceneId;
+        band.style.left=`${(SCENE_STARTS[sceneId]/TOTAL_FRAMES)*100}%`;
+        band.style.width=`${(SCENE_FRAMES/TOTAL_FRAMES)*100}%`;
+        const label=document.createElement("span");
+        label.textContent=sceneId;
+        band.append(label);
+        timelineRoot.append(band);
+      }
+
+      for(const mark of landmarks){
+        const line=document.createElement("i");
+        line.className="franken-timeline-landmark";
+        line.dataset.kind=mark.kind;
+        line.dataset.frame=String(mark.compositionFrame);
+        line.style.left=`${(Number(mark.compositionFrame)/TOTAL_FRAMES)*100}%`;
+        line.title=`${mark.kind} · ${mark.label} · frame ${mark.compositionFrame}`;
+        timelineRoot.append(line);
+      }
+
+      const placements=state.edits.digestPlacements||[];
+      for(const [index,placement] of placements.entries()){
+        const descendant=descendantFor(state,placement.materialId);
+        const clip=document.createElement("div");
+        clip.className="franken-timeline-clip";
+        clip.dataset.placementId=placement.placementId;
+        clip.style.left=`${(globalFrameForPlacement(placement)/TOTAL_FRAMES)*100}%`;
+        clip.style.width=`${Math.max(0.8,(Number(placement.durationFrames)/TOTAL_FRAMES)*100)}%`;
+        clip.style.top=`${36+(index%3)*28}px`;
+        clip.style.height="22px";
+        clip.style.zIndex=String(100+index);
+        const label=document.createElement("span");
+        label.textContent=`${placement.placementId} · ${String(placement.materialId).split(":")[1]}`;
+        const resize=document.createElement("button");
+        resize.type="button";
+        resize.className="franken-timeline-resize";
+        resize.setAttribute("aria-label",`Resize ${placement.placementId}`);
+
+        const beginMove=(event)=>{
+          if(event.target===resize)return;
+          const pointerOffset=frameFromClientX(event.clientX)-globalFrameForPlacement(placement);
+          beginTimelineGesture(event,(upEvent)=>{
+            const target=frameFromClientX(upEvent.clientX)-pointerOffset;
+            const patch=movePlacementOnTimeline(placement,target,landmarks,snapEnabled);
+            state=reduceBenchState(state,{type:"digest-edit",placementId:placement.placementId,patch});
+            render();
+          });
+        };
+        clip.addEventListener("pointerdown",beginMove);
+        clip.addEventListener("mousedown",beginMove);
+
+        const beginResize=(event)=>{
+          event.stopPropagation();
+          beginTimelineGesture(event,(upEvent)=>{
+            const patch=resizePlacementOnTimeline(
+              placement,
+              frameFromClientX(upEvent.clientX),
+              descendant?.sourceDurationFrames,
+              landmarks,
+              snapEnabled,
+            );
+            patch.transformKeyframes=(placement.transformKeyframes||[]).filter(keyframe=>keyframe.offsetFrames<patch.durationFrames);
+            state=reduceBenchState(state,{type:"digest-edit",placementId:placement.placementId,patch});
+            render();
+          });
+        };
+        resize.addEventListener("pointerdown",beginResize);
+        resize.addEventListener("mousedown",beginResize);
+        clip.append(label,resize);
+        timelineRoot.append(clip);
+      }
+
+      const line=document.createElement("i");
+      line.className="franken-timeline-playhead-line";
+      line.style.left=`${(playheadFrame/TOTAL_FRAMES)*100}%`;
+      timelineRoot.append(line);
+
+      timelineRoot.onpointerdown=(event)=>{
+        if(event.target.closest?.(".franken-timeline-clip"))return;
+        setPlayhead(frameFromClientX(event.clientX));
+      };
+      if(playhead)playhead.value=String(playheadFrame);
+      if(playheadReadout)playheadReadout.textContent=`Frame ${playheadFrame}`;
+      if(snapToggle)snapToggle.checked=snapEnabled;
     }
 
     function renderPreview(){
@@ -521,20 +768,24 @@
             node.textContent=track.role==="video-digestion-placement"
               ?String(clip.materialId).split(":")[1]
               :track.role;
-            const scale=Math.max(0.15,Math.min(2,Number(clip.transform?.scale)||1));
-            node.style.left=`${(Number(clip.transform?.x)||0.5)*100}%`;
-            node.style.top=`${(Number(clip.transform?.y)||0.5)*100}%`;
+            const active=playheadFrame>=Number(clip.startFrame)&&playheadFrame<Number(clip.startFrame)+Number(clip.durationFrames);
+            const localFrame=clamp(playheadFrame-Number(clip.startFrame),0,Math.max(0,Number(clip.durationFrames)-1));
+            const transform=interpolateTransformAtFrame(clip.transform,clip.transformKeyframes||[],localFrame);
+            const scale=Math.max(0.15,Math.min(2,Number(transform.scale)||1));
+            node.dataset.active=String(active);
+            node.style.left=`${(Number(transform.x)||0.5)*100}%`;
+            node.style.top=`${(Number(transform.y)||0.5)*100}%`;
             node.style.width=`${Math.min(92,26*scale)}%`;
             node.style.height=`${Math.min(92,18*scale)}%`;
-            node.style.opacity=String(Math.max(0.2,Number(clip.opacity)||1));
-            node.style.transform=`translate(-50%,-50%) rotate(${Number(clip.transform?.rotationDegrees)||0}deg)`;
+            node.style.opacity=String(active?Math.max(0.2,Number(clip.opacity)||1):0.13);
+            node.style.transform=`translate(-50%,-50%) rotate(${Number(transform.rotationDegrees)||0}deg)`;
             node.style.zIndex=String(Number(clip.stackOrder)||0);
             if(clip.crop)node.dataset.cropped="true";
             viewport.append(node);
           }
         }
         const meta=document.createElement("small");
-        meta.textContent=`${scene.tracks.reduce((sum,track)=>sum+(track.clips?.length||0),0)} clips · frozen-order preview`;
+        meta.textContent=`${scene.tracks.reduce((sum,track)=>sum+(track.clips?.length||0),0)} clips · proposal @ frame ${playheadFrame}`;
         card.append(title,viewport,meta);
         previewRoot.append(card);
       }
@@ -633,6 +884,7 @@
 
       syncControls();
       renderNextGen();
+      renderTimeline();
       renderPreview();
     }
 
@@ -663,6 +915,12 @@
     });
     close?.addEventListener("click",()=>setOpen(false));
     nextGenLoad?.addEventListener("click",loadNextGen);
+    playhead?.addEventListener("input",()=>{
+      playheadFrame=Math.max(0,Math.min(TOTAL_FRAMES-1,Number(playhead.value)||0));
+      renderTimeline();
+      renderPreview();
+    });
+    snapToggle?.addEventListener("change",()=>{snapEnabled=Boolean(snapToggle.checked);renderTimeline();});
 
     root.querySelectorAll("[data-franken-choose]").forEach((button)=>
       button.addEventListener("click",async()=>{
@@ -739,6 +997,12 @@
     TRANSITIONS,
     WORLD_RULES,
     applyNextGenPressure,
+    globalFrameForPlacement,
+    interpolateTransformAtFrame,
+    movePlacementOnTimeline,
+    resizePlacementOnTimeline,
+    sceneAtGlobalFrame,
+    snapFrame,
     defaultDigestPlacement,
     descendantFor,
     canCompose,
