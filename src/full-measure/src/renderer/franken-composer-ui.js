@@ -225,7 +225,7 @@
           },
         });
       case "digest-place":
-        if((state.edits.digestPlacements||[]).length>=12)throw new Error("Franken editor supports at most twelve digestion placements.");
+        if((state.edits.digestPlacements||[]).length>=96)throw new Error("Franken editor supports at most ninety-six digestion placements.");
         if(placementFor(state,action.placement.placementId))throw new Error("Digestion placement id must be unique.");
         return markDirty({
           ...state,
