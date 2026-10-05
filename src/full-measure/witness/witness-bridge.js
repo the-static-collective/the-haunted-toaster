@@ -220,10 +220,28 @@
       "card-03": "CROSS", "card-04": "CROSS",
       "card-05": "ASSEMBLE", "card-06": "ASSEMBLE",
     };
+    const sceneStarts={ARRIVE:0,CROSS:384,ASSEMBLE:768};
     const sceneTracks=(sceneId,base)=>{
       const placements=digestPlacements.filter((placement)=>placement.sceneId===sceneId);
       return placements.length
-        ?[...base.slice(0,base.length-1),{role:"video-digestion-placement",clips:placements.map((placement)=>({materialId:placement.materialId}))},base.at(-1)]
+        ?[...base.slice(0,base.length-1),{
+            role:"video-digestion-placement",
+            clips:placements.map((placement)=>({
+              clipId:`clip-${sceneId.toLowerCase()}-${placement.placementId||"digest"}`,
+              materialId:placement.materialId,
+              startFrame:sceneStarts[sceneId]+Number(placement.startOffsetFrames||0),
+              durationFrames:Number(placement.durationFrames||1),
+              sourceWindow:{
+                startSeconds:Number(placement.sourceStartFrames||0)/24,
+                endSeconds:(Number(placement.sourceStartFrames||0)+Number(placement.durationFrames||1))/24,
+              },
+              transform:structuredClone(placement.transform||{x:0.5,y:0.5,scale:1,rotationDegrees:0}),
+              crop:placement.crop?structuredClone(placement.crop):null,
+              opacity:Number(placement.opacity??1),
+              blend:placement.blend||"screen",
+              stackOrder:Number(placement.stackOrder??30),
+            })),
+          },base.at(-1)]
         :base;
     };
     return {
