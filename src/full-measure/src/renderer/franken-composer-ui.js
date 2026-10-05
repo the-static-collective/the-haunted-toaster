@@ -366,6 +366,12 @@
     const pressureRoot=document.getElementById("frankenPressureReadout");
     const reservoirRoot=document.getElementById("frankenDigestionReservoir");
     const previewRoot=document.getElementById("frankenProposalPreview");
+    const timelineRoot=document.getElementById("frankenTimelineRuler");
+    const playhead=document.getElementById("frankenPlayhead");
+    const playheadReadout=document.getElementById("frankenPlayheadFrame");
+    const snapToggle=document.getElementById("frankenSnapEnabled");
+    let playheadFrame=0;
+    let snapEnabled=true;
 
     const pathMethods={
       deckPath:"chooseFrankenPlaydeckDeck",
@@ -554,6 +560,47 @@
               number("Crop H",placement.crop.height,0.01,Math.max(0.01,1-placement.crop.y),0.01,(value)=>patch({crop:{...placement.crop,height:value}})),
             );
           }
+          const keyframeList=document.createElement("div");
+          keyframeList.className="franken-keyframe-list";
+          const replaceKeyframes=(next)=>patch({transformKeyframes:[...next].sort((a,b)=>a.offsetFrames-b.offsetFrames)});
+          for(const [keyIndex,keyframe] of (placement.transformKeyframes||[]).entries()){
+            const row=document.createElement("div");
+            row.className="franken-keyframe-row";
+            const updateKey=(next)=>replaceKeyframes((placement.transformKeyframes||[]).map((item,index)=>index===keyIndex
+              ?{...item,...next,transform:next.transform?{...item.transform,...next.transform}:item.transform}
+              :item));
+            row.append(
+              number("Frame",keyframe.offsetFrames,0,Math.max(0,placement.durationFrames-1),1,(value)=>updateKey({offsetFrames:value})),
+              number("X",keyframe.transform.x,-1,2,0.01,(value)=>updateKey({transform:{x:value}})),
+              number("Y",keyframe.transform.y,-1,2,0.01,(value)=>updateKey({transform:{y:value}})),
+              number("Scale",keyframe.transform.scale,0.05,8,0.05,(value)=>updateKey({transform:{scale:value}})),
+              number("Rotate",keyframe.transform.rotationDegrees,-720,720,1,(value)=>updateKey({transform:{rotationDegrees:value}})),
+            );
+            const removeKey=document.createElement("button");
+            removeKey.type="button";
+            removeKey.textContent="DELETE";
+            removeKey.addEventListener("click",()=>replaceKeyframes((placement.transformKeyframes||[]).filter((_,index)=>index!==keyIndex)));
+            row.append(removeKey);
+            keyframeList.append(row);
+          }
+          const addKey=document.createElement("button");
+          addKey.type="button";
+          addKey.className="franken-add-keyframe";
+          addKey.disabled=(placement.transformKeyframes||[]).length>=4;
+          addKey.textContent="ADD TRANSFORM KEYFRAME @ PLAYHEAD";
+          addKey.addEventListener("click",()=>{
+            const globalStart=globalFrameForPlacement(placement);
+            let offset=Math.round(clamp(playheadFrame-globalStart,0,Math.max(0,placement.durationFrames-1)));
+            const used=new Set((placement.transformKeyframes||[]).map(keyframe=>keyframe.offsetFrames));
+            while(used.has(offset)&&offset<placement.durationFrames-1)offset+=1;
+            while(used.has(offset)&&offset>0)offset-=1;
+            if(used.has(offset))return;
+            const transform=interpolateTransformAtFrame(placement.transform,placement.transformKeyframes,offset);
+            replaceKeyframes([...(placement.transformKeyframes||[]),{offsetFrames:offset,transform}]);
+          });
+          keyframeList.append(addKey);
+          controls.append(keyframeList);
+
           editor.append(head,controls);
           item.append(editor);
         }
