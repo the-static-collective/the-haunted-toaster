@@ -384,6 +384,7 @@
     const onePassProgress=document.getElementById("frankenOnePassProgress");
     const onePassLanes=document.getElementById("frankenOnePassLanes");
     const onePassReceipt=document.getElementById("frankenOnePassReceipt");
+    const performanceAudio=document.getElementById("syncAudio");
     const onePassApi=view?.OnePass||null;
     const ONE_PASS_KEYS=["a","s","d","j","k","l"];
     let onePassSession=null;
@@ -815,7 +816,8 @@
       const descendants=state.nextGen?.videoDigestion?.descendants||[];
       const running=onePassSession?.status==="running";
       const finished=onePassSession?.status==="finished";
-      const ready=Boolean(onePassApi)&&descendants.length===6&&!onePassConsumed&&!running;
+      const hasAudio=Boolean(performanceAudio?.src);
+      const ready=Boolean(onePassApi)&&hasAudio&&descendants.length===6&&!onePassConsumed&&!running;
       onePassBegin.disabled=!ready;
       onePassBegin.textContent=running?"TAKE IN MOTION":(finished?"TAKE SEALED":"BEGIN THE TAKE");
       if(!running){
@@ -831,6 +833,9 @@
         onePassReceipt.textContent="Performance is happening. It cannot be repaired from here.";
       }else if(!onePassApi){
         onePassStatus.textContent="ONE PASS simulation module unavailable in this build.";
+        onePassReceipt.textContent="No take sealed";
+      }else if(!hasAudio){
+        onePassStatus.textContent="Load a song first. ONE PASS follows the admitted audio clock.";
         onePassReceipt.textContent="No take sealed";
       }else if(descendants.length!==6){
         onePassStatus.textContent="Load six Video Digestion descendants to arm the take.";
@@ -883,20 +888,21 @@
 
     function pressOnePassLane(index){
       if(!onePassApi||onePassSession?.status!=="running")return;
-      onePassSession=onePassApi.pressLane(onePassSession,index,view.performance.now());
+      onePassSession=onePassApi.pressLane(onePassSession,index,(performanceAudio?.currentTime||0)*1000);
       renderOnePass();
     }
 
     function releaseOnePassLane(index){
       if(!onePassApi||onePassSession?.status!=="running")return;
-      onePassSession=onePassApi.releaseLane(onePassSession,index,view.performance.now());
+      onePassSession=onePassApi.releaseLane(onePassSession,index,(performanceAudio?.currentTime||0)*1000);
       renderOnePass();
     }
 
-    function finishOnePassTake(now=view.performance.now()){
+    function finishOnePassTake(now=(performanceAudio?.currentTime||0)*1000){
       if(!onePassApi||onePassSession?.status!=="running")return;
       if(onePassAnimation)view.cancelAnimationFrame(onePassAnimation);
       onePassAnimation=null;
+      performanceAudio?.pause();
       onePassSession=onePassApi.finishOnePass(onePassSession,now);
       onePassConsumed=true;
       root.classList.remove("one-pass-running");
@@ -906,30 +912,42 @@
 
     function tickOnePass(){
       if(!onePassApi||onePassSession?.status!=="running")return;
-      const now=view.performance.now();
+      const now=(performanceAudio?.currentTime||0)*1000;
       const frame=onePassApi.frameAtMs(onePassSession,now);
       setOnePassPlayhead(frame);
-      if(onePassProgress)onePassProgress.style.width=`${Math.min(100,((frame+1)/TOTAL_FRAMES)*100)}%`;
-      if(onePassStatus)onePassStatus.textContent=`TAKE IN MOTION · frame ${frame} / ${TOTAL_FRAMES-1} · silence is still a move`;
+      if(onePassProgress)onePassProgress.style.width=`${Math.min(100,((frame+1)/onePassSession.totalFrames)*100)}%`;
+      if(onePassStatus)onePassStatus.textContent=`TAKE IN MOTION · frame ${frame} / ${onePassSession.totalFrames-1} · silence is still a move`;
       const elapsed=now-onePassSession.startedAtMs;
-      if(elapsed>=(TOTAL_FRAMES/onePassSession.fps)*1000){
+      if(performanceAudio?.ended||elapsed>=(onePassSession.totalFrames/onePassSession.fps)*1000){
         finishOnePassTake(now);
         return;
       }
       onePassAnimation=view.requestAnimationFrame(tickOnePass);
     }
 
-    function beginOnePassTake(){
-      if(!onePassApi||onePassConsumed||onePassSession?.status==="running")return;
+    async function beginOnePassTake(){
+      if(!onePassApi||!performanceAudio?.src||onePassConsumed||onePassSession?.status==="running")return;
       const descendants=state.nextGen?.videoDigestion?.descendants||[];
       if(descendants.length!==6)return;
+      const audioFrames=Number.isFinite(performanceAudio.duration)&&performanceAudio.duration>0
+        ?Math.max(1,Math.round(performanceAudio.duration*24))
+        :TOTAL_FRAMES;
+      const takeFrames=Math.min(TOTAL_FRAMES,audioFrames);
       state=reduceBenchState(state,{type:"digest-replace",value:[]});
       playheadFrame=0;
+      performanceAudio.pause();
+      performanceAudio.currentTime=0;
+      try{
+        await performanceAudio.play();
+      }catch(error){
+        onePassStatus.textContent=`Could not begin take · ${error?.message||error}`;
+        return;
+      }
       onePassSession=onePassApi.beginOnePass(onePassApi.createOnePassSession({
         materials:descendants,
         fps:24,
-        totalFrames:TOTAL_FRAMES,
-      }),view.performance.now());
+        totalFrames:takeFrames,
+      }),0);
       root.classList.add("one-pass-running");
       render();
       onePassAnimation=view.requestAnimationFrame(tickOnePass);
@@ -1063,7 +1081,8 @@
     });
     close?.addEventListener("click",()=>setOpen(false));
     nextGenLoad?.addEventListener("click",loadNextGen);
-    onePassBegin?.addEventListener("click",beginOnePassTake);
+    onePassBegin?.addEventListener("click",()=>{beginOnePassTake().catch((error)=>{onePassStatus.textContent=error?.message||String(error);});});
+    performanceAudio?.addEventListener("ended",()=>finishOnePassTake((performanceAudio.currentTime||0)*1000));
     view?.addEventListener("keydown",(event)=>{
       if(onePassSession?.status!=="running")return;
       const lane=ONE_PASS_KEYS.indexOf(String(event.key||"").toLowerCase());
