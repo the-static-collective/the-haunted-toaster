@@ -9,12 +9,25 @@ const {adaptAcceptedBlenderTake}=require("./adapters/blender-take.cjs");
 const {frankenVideoDigestionReservoir}=require("../nextgen/live-crossings.cjs");
 const {composeFrankenProposal,applyFrankenEdits,proposalToComposition}=require("./compose.cjs");
 const {freezeFrankenComposition}=require("./freeze.cjs");
+const {fingerprint256,stableStringify}=require("../renderer/one-pass.js");
 
 const JSON_EXTENSIONS=new Set([".json"]);
 const VIDEO_EXTENSIONS=new Set([".mp4"]);
 const URI_SCHEME=/^[a-z][a-z0-9+.-]*:\/\//i;
 
 function sha256(bytes){return crypto.createHash("sha256").update(bytes).digest("hex");}
+function validateOnePassReceipt(receipt){
+  if(!receipt||typeof receipt!=="object"||Array.isArray(receipt))throw new TypeError("ONE PASS receipt must be an object.");
+  if(receipt.schema!=="static-collective/one-pass-performance-receipt/v0")throw new TypeError("Unsupported ONE PASS receipt schema.");
+  if(receipt.authority!=="witness-only")throw new TypeError("ONE PASS receipt must remain witness-only.");
+  if(!/^[a-f0-9]{64}$/.test(String(receipt.performanceHash||"")))throw new TypeError("ONE PASS performance hash must be 64 lowercase hex characters.");
+  const {performanceHash,...witness}=receipt;
+  if(fingerprint256(stableStringify(witness))!==performanceHash)throw new TypeError("ONE PASS receipt fingerprint mismatch.");
+  if(!Array.isArray(receipt.events)||receipt.events.length>192)throw new TypeError("ONE PASS receipt events are outside the bounded performance envelope.");
+  if(!Array.isArray(receipt.placements)||receipt.placements.length>96)throw new TypeError("ONE PASS receipt placements are outside the bounded performance envelope.");
+  if(receipt.eventCount!==receipt.events.length||receipt.placementCount!==receipt.placements.length)throw new TypeError("ONE PASS receipt counts do not match its body.");
+  return canonicalize(receipt);
+}
 async function assertLocalFile(filePath,extensions,label){
   if(typeof filePath!=="string"||!filePath.trim())throw new TypeError(`Choose a ${label} first.`);
   const resolved=path.resolve(filePath);
@@ -120,6 +133,22 @@ function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
   return Object.freeze({
     async compose(config){const {proposal,assetBindings}=await buildProposal(config,{getNextGenContext});return {proposalIdentity:proposalIdentity(proposal),proposal:publicProposal(proposal),previewAssets:previewAssets(proposal,assetBindings)};},
     async freeze(config){const {proposal,assetBindings}=await buildProposal(config,{getNextGenContext});const identity=proposalIdentity(proposal);if(typeof config?.expectedProposalIdentity!=="string"||config.expectedProposalIdentity!==identity)throw new TypeError("Franken freeze refuses stale or unreviewed proposal identity.");const frozen=freezeFrankenComposition(proposalToComposition(proposal));return {...frozen,assetBindings};},
+    async writeOnePassReceipt(receipt){
+      const validated=validateOnePassReceipt(receipt);
+      const dir=path.join(outputRoot,"one-pass");
+      const receiptPath=path.join(dir,`${validated.performanceHash}.one-pass.json`);
+      const bytes=canonicalBytes(validated);
+      await fs.mkdir(dir,{recursive:true});
+      try{
+        await fs.writeFile(receiptPath,bytes,{flag:"wx"});
+        return {path:receiptPath,performanceHash:validated.performanceHash,existing:false};
+      }catch(error){
+        if(error?.code!=="EEXIST")throw error;
+        const existing=await fs.readFile(receiptPath);
+        if(!existing.equals(bytes))throw new Error("Existing ONE PASS receipt bytes do not match the sealed witness.");
+        return {path:receiptPath,performanceHash:validated.performanceHash,existing:true};
+      }
+    },
     async writeProjectionBundle(config){const frozen=await this.freeze(config);const dir=path.join(outputRoot,frozen.planHash);await fs.mkdir(dir,{recursive:true});const planPath=path.join(dir,"franken-composition.json"),bindingsPath=path.join(dir,"asset-bindings.json");for(const [file,bytes] of [[planPath,canonicalBytes(frozen.plan)],[bindingsPath,Buffer.from(JSON.stringify(frozen.assetBindings,null,2)+"\n","utf8")]]){try{await fs.writeFile(file,bytes,{flag:"wx"});}catch(error){if(error?.code==="EEXIST")throw new Error("Franken projection bundle already exists; refusing overwrite.");throw error;}}return {directory:dir,planPath,assetBindingsPath:bindingsPath,planHash:frozen.planHash};}
   });
 }
@@ -134,7 +163,8 @@ function registerFrankenComposerIpc(ipcMain,{dialog,getWindow,rootDir,assertAvai
   ipcMain.handle("franken:choose-blender-video",()=>choose("Choose Blender accepted take",["mp4"]));
   ipcMain.handle("franken:compose",async(_event,config)=>{assertAvailable();return service.compose(config);});
   ipcMain.handle("franken:freeze",async(_event,config)=>{assertAvailable();const result=await service.freeze(config);return {plan:result.plan,planHash:result.planHash};});
+  ipcMain.handle("franken:write-one-pass-receipt",async(_event,receipt)=>{assertAvailable();return service.writeOnePassReceipt(receipt);});
   ipcMain.handle("franken:write-projection-bundle",async(_event,config)=>{assertAvailable();return service.writeProjectionBundle(config);});
   return service;
 }
-module.exports={JSON_EXTENSIONS,VIDEO_EXTENSIONS,assertLocalFile,createFrankenComposerService,previewAssets,proposalIdentity,registerFrankenComposerIpc};
+module.exports={JSON_EXTENSIONS,VIDEO_EXTENSIONS,assertLocalFile,createFrankenComposerService,previewAssets,proposalIdentity,registerFrankenComposerIpc,validateOnePassReceipt};
