@@ -1075,6 +1075,10 @@
     function releaseOnePassLane(index){
       if(!onePassApi||onePassSession?.status!=="running")return;
       onePassSession=onePassApi.releaseLane(onePassSession,index,(performanceAudio?.currentTime||0)*1000);
+      if(!Object.keys(onePassSession.activeLanes||{}).length){
+        delete root.dataset.onePassPainting;
+        delete root.dataset.onePassPaintingLane;
+      }
       renderOnePass();
     }
 
