@@ -231,6 +231,7 @@ function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
               endSeconds: (placement.sourceStartFrames + placement.durationFrames) / FPS,
             },
             transform: placement.transform,
+            transformKeyframes: placement.transformKeyframes || [],
             crop: placement.crop,
             opacity: placement.opacity,
             blend: placement.blend,
