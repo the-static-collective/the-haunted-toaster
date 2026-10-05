@@ -1,6 +1,6 @@
 export type Transform={x:number;y:number;scale:number;rotationDegrees:number};
 export type SourceWindow={startSeconds:number;endSeconds:number}|null;
-export type Clip={clipId:string;materialId:string;startFrame:number;durationFrames:number;sourceWindow:SourceWindow;transform:Transform;crop:null|{x:number;y:number;width:number;height:number};opacity:number;blend:string;entrance:string;transitionRelation:string|null};
+export type Clip={clipId:string;materialId:string;startFrame:number;durationFrames:number;sourceWindow:SourceWindow;transform:Transform;crop:null|{x:number;y:number;width:number;height:number};opacity:number;blend:string;stackOrder:number;entrance:string;transitionRelation:string|null};
 export type Track={trackId:string;layer:string;role:string;clips:Clip[]};
 export type Scene={sceneId:string;startFrame:number;durationFrames:number;worldRule:string;tracks:Track[]};
 export type ProjectionTreatment={schema:string;authority:string;family:string;grayscale:number;contrast:number;saturate:number;brightness:number;blurPx:number};
