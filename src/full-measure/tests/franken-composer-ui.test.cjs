@@ -111,3 +111,43 @@ test('reloading or reseeding live organs clears stale digestion placements',()=>
   s=ui.reduceBenchState(s,{type:'seed',value:'new-seed'});
   assert.equal(s.edits.digestPlacements.length,0);
 });
+
+
+test('time editor snaps moves, bounds resize, and interpolates transform keyframes deterministically',()=>{
+  const placement={
+    placementId:'p1',materialId:'video-digest:texture-loop:'+ '1'.repeat(12),
+    sceneId:'ARRIVE',startOffsetFrames:100,sourceStartFrames:0,durationFrames:48,
+    transform:{x:0,y:0,scale:1,rotationDegrees:0},crop:null,opacity:1,blend:'screen',stackOrder:30,transformKeyframes:[],
+  };
+  const landmarks=[{compositionFrame:390},{compositionFrame:196}];
+  assert.equal(ui.snapFrame(397,landmarks,true,14),390);
+  assert.equal(ui.snapFrame(397,landmarks,false,14),397);
+  assert.deepEqual(ui.movePlacementOnTimeline(placement,397,landmarks,true),{sceneId:'CROSS',startOffsetFrames:6});
+  assert.deepEqual(ui.resizePlacementOnTimeline(placement,201,120,landmarks,true),{durationFrames:96});
+  assert.deepEqual(
+    ui.interpolateTransformAtFrame(
+      placement.transform,
+      [{offsetFrames:20,transform:{x:1,y:0.5,scale:2,rotationDegrees:90}}],
+      10,
+    ),
+    {x:0.5,y:0.25,scale:1.5,rotationDegrees:45},
+  );
+});
+
+test('placement keyframes remain placement-owned editor state and dirty freeze',()=>{
+  let s=ui.createBenchState();
+  const descendant={slot:1,roleId:'texture-loop',materialId:'video-digest:texture-loop:'+ '1'.repeat(12),sourceDurationFrames:96};
+  const crossing={crossingIdentity:'c'.repeat(64),frankenPressure:{edits:{movingTakeSceneId:'CROSS',transitions:{},variation:0}},videoDigestion:{descendants:[descendant]},snapLandmarks:[]};
+  s=ui.reduceBenchState(s,{type:'nextgen',value:crossing});
+  const placement=ui.defaultDigestPlacement(descendant,'CROSS',1);
+  s=ui.reduceBenchState(s,{type:'digest-place',placement});
+  s=ui.reduceBenchState(s,{type:'digest-edit',placementId:placement.placementId,patch:{transformKeyframes:[
+    {offsetFrames:12,transform:{x:0.25,y:0.4,scale:1.2,rotationDegrees:-10}},
+    {offsetFrames:40,transform:{x:0.7,y:0.6,scale:0.8,rotationDegrees:20}},
+  ]}});
+  assert.equal(ui.placementFor(s,placement.placementId).transformKeyframes.length,2);
+  assert.equal(ui.canFreeze(s),false);
+  assert.deepEqual(ui.composeConfig(s).edits.digestPlacements[0].transformKeyframes[1],{
+    offsetFrames:40,transform:{x:0.7,y:0.6,scale:0.8,rotationDegrees:20},
+  });
+});
