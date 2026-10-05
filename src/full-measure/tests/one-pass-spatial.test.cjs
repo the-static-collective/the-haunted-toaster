@@ -59,7 +59,7 @@ test("same-frame samples coalesce instead of inflating the witness",()=>{
   session=beginOnePass(session,0);
   session=pressLane(session,1,1000);
   session=sampleLanePosition(session,1,1100,{x:.1,y:.1});
-  session=sampleLanePosition(session,1,1110,{x:.8,y:.8});
+  session=sampleLanePosition(session,1,1104,{x:.8,y:.8});
   assert.equal(session.spatialSamples.length,1);
   assert.equal(session.spatialSamples[0].x,.8);
   assert.equal(session.spatialSamples[0].y,.8);
