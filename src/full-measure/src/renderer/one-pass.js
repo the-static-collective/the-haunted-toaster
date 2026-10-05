@@ -10,6 +10,7 @@
   const DEFAULT_TOTAL_FRAMES=1152;
   const DEFAULT_FPS=24;
   const MAX_PLACEMENTS=96;
+  const MAX_SPATIAL_SAMPLES=384;
 
   const clamp=(value,min,max)=>Math.min(max,Math.max(min,value));
 
@@ -76,6 +77,7 @@
       materials:normalizeMaterials(materials),
       startedAtMs:null,
       events:[],
+      spatialSamples:[],
       placements:[],
       activeLanes:{},
       receipt:null,
@@ -117,6 +119,77 @@
     };
   }
 
+  function normalizeSpatialPoint(point,lane){
+    if(!point||typeof point!=="object"||Array.isArray(point))throw new TypeError("ONE PASS spatial point must be an object.");
+    const finite=(value,label,min,max)=>{
+      const n=Number(value);
+      if(!Number.isFinite(n)||n<min||n>max)throw new TypeError(`${label} must be finite in [${min}, ${max}].`);
+      return n;
+    };
+    return {
+      x:finite(point.x,"ONE PASS spatial x",0,1),
+      y:finite(point.y,"ONE PASS spatial y",0,1),
+      scale:finite(point.scale??0.86,"ONE PASS spatial scale",0.05,8),
+      rotationDegrees:finite(point.rotationDegrees??((lane-2.5)*2),"ONE PASS spatial rotation",-720,720),
+    };
+  }
+
+  function sampleLanePosition(session,lane,nowMs,point){
+    if(session?.status==="finished")throw new Error("ONE PASS is finished; spatial performance cannot be edited.");
+    assertStatus(session,"running");
+    const laneIndex=Math.floor(Number(lane));
+    if(laneIndex<0||laneIndex>=session.materials.length)throw new RangeError("ONE PASS lane is out of range.");
+    const active=session.activeLanes[laneIndex];
+    if(!active)return session;
+    const frame=frameAtMs(session,nowMs);
+    const normalized=normalizeSpatialPoint(point,laneIndex);
+    const sample={
+      seq:session.spatialSamples.length,
+      gestureSeq:active.eventSeq,
+      lane:laneIndex,
+      materialId:session.materials[laneIndex].materialId,
+      frame,
+      elapsedMs:Math.round(elapsedMs(session,nowMs)*1000)/1000,
+      ...normalized,
+    };
+    const previous=session.spatialSamples.at(-1);
+    if(previous&&previous.gestureSeq===sample.gestureSeq&&previous.lane===laneIndex&&previous.frame===frame){
+      const spatialSamples=[...session.spatialSamples];
+      spatialSamples[spatialSamples.length-1]={...sample,seq:previous.seq};
+      return {...session,spatialSamples};
+    }
+    if(session.spatialSamples.length>=MAX_SPATIAL_SAMPLES)return session;
+    return {...session,spatialSamples:[...session.spatialSamples,sample]};
+  }
+
+  function selectSpatialKeyframes(samples,startFrame,endExclusive,fallback){
+    const byFrame=new Map();
+    for(const sample of samples){
+      if(sample.frame<startFrame||sample.frame>=endExclusive)continue;
+      byFrame.set(sample.frame,sample);
+    }
+    const ordered=[...byFrame.values()].sort((a,b)=>a.frame-b.frame);
+    if(!ordered.length)return {baseTransform:fallback,keyframes:[]};
+    const chosen=ordered.length<=4
+      ?ordered
+      :[0,Math.round((ordered.length-1)/3),Math.round(((ordered.length-1)*2)/3),ordered.length-1]
+        .filter((value,index,array)=>array.indexOf(value)===index)
+        .map(index=>ordered[index]);
+    const transform=(sample)=>({
+      x:sample.x,
+      y:sample.y,
+      scale:sample.scale,
+      rotationDegrees:sample.rotationDegrees,
+    });
+    return {
+      baseTransform:transform(ordered[0]),
+      keyframes:chosen.map(sample=>({
+        offsetFrames:sample.frame-startFrame,
+        transform:transform(sample),
+      })),
+    };
+  }
+
   function sceneForFrame(frame){
     const safe=Math.max(0,Math.floor(Number(frame)||0));
     const index=Math.min(SCENES.length-1,Math.floor(safe/SCENE_FRAMES));
@@ -127,7 +200,7 @@
     };
   }
 
-  function placementChunks({material,lane,startFrame,endExclusive,eventSeq,placementBase}){
+  function placementChunks({material,lane,startFrame,endExclusive,eventSeq,placementBase,spatialSamples=[]}){
     const placements=[];
     let cursor=startFrame;
     let segment=0;
@@ -139,19 +212,23 @@
         const duration=Math.max(1,Math.min(sceneEnd-segmentCursor,material.sourceDurationFrames));
         const laneX=[0.18,0.31,0.44,0.56,0.69,0.82][lane];
         const laneY=lane%2===0?0.42:0.58;
+        const fallback={x:laneX,y:laneY,scale:0.86,rotationDegrees:(lane-2.5)*2};
+        const spatial=selectSpatialKeyframes(spatialSamples,segmentCursor,segmentCursor+duration,fallback);
         placements.push({
           placementId:`onepass-${placementBase}-${eventSeq}-${segment}`,
           materialId:material.materialId,
+          gestureSeq:eventSeq,
+          lane,
           sceneId:scene.sceneId,
           startOffsetFrames:segmentCursor-scene.sceneStart,
           sourceStartFrames:0,
           durationFrames:duration,
-          transform:{x:laneX,y:laneY,scale:0.86,rotationDegrees:(lane-2.5)*2},
+          transform:spatial.baseTransform,
           crop:null,
           opacity:0.72,
           blend:"screen",
           stackOrder:40+lane,
-          transformKeyframes:[],
+          transformKeyframes:spatial.keyframes,
         });
         segmentCursor+=duration;
         segment+=1;
@@ -195,6 +272,7 @@
       endExclusive:Math.min(session.totalFrames,endExclusive),
       eventSeq:active.eventSeq,
       placementBase:String(session.materials[laneIndex].slot||laneIndex+1),
+      spatialSamples:session.spatialSamples.filter(sample=>sample.gestureSeq===active.eventSeq&&sample.lane===laneIndex),
     });
     const activeLanes={...session.activeLanes};
     delete activeLanes[laneIndex];
@@ -225,8 +303,10 @@
       totalFrames:next.totalFrames,
       materials:next.materials,
       events:next.events,
+      spatialSamples:next.spatialSamples,
       placements:next.placements,
       eventCount:next.events.length,
+      spatialSampleCount:next.spatialSamples.length,
       placementCount:next.placements.length,
       laws:[
         "PERFORMANCE != OPTIMIZATION",
@@ -235,6 +315,7 @@
         "EVENT RECEIPT != RENDER AUTHORITY",
         "ONE PASS != ONE PERFECT PASS",
         "PERFORMANCE PLACEMENT != FREEZE",
+        "SPATIAL SAMPLE != KEYFRAME AUTHORITY",
       ],
     };
     const receipt=deepFreeze({
@@ -253,6 +334,7 @@
     DEFAULT_FPS,
     DEFAULT_TOTAL_FRAMES,
     MAX_PLACEMENTS,
+    MAX_SPATIAL_SAMPLES,
     SCENES,
     SCENE_FRAMES,
     beginOnePass,
@@ -262,6 +344,7 @@
     frameAtMs,
     pressLane,
     releaseLane,
+    sampleLanePosition,
     sceneForFrame,
     stableStringify,
   };

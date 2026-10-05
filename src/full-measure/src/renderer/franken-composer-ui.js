@@ -898,6 +898,7 @@
       for(const scene of proposal.scenes||[]){
         const card=document.createElement("section");
         card.className="franken-preview-scene";
+        card.dataset.sceneId=scene.sceneId;
         const title=document.createElement("strong");
         title.textContent=scene.sceneId;
         const viewport=document.createElement("div");
@@ -970,7 +971,7 @@
         const receipt=onePassSession.receipt;
         onePassStatus.textContent=onePassPersistenceError
           ?`Take sealed in memory · receipt save failed · ${onePassPersistenceError}`
-          :`Take sealed · ${receipt.eventCount} gestures · ${receipt.placementCount} lawful clips · RECOMPOSE to review it`;
+          :`Take sealed · ${receipt.eventCount} gestures · ${receipt.spatialSampleCount||0} spatial samples · ${receipt.placementCount} lawful clips · RECOMPOSE to review it`;
         onePassReceipt.textContent=onePassReceiptPath
           ?`PERFORMANCE · ${receipt.performanceHash} · ${filename(onePassReceiptPath)}`
           :`PERFORMANCE · ${receipt.performanceHash}`;
@@ -1033,6 +1034,41 @@
       if(line)line.style.left=`${(playheadFrame/TOTAL_FRAMES)*100}%`;
     }
 
+    function pointerPointForCurrentScene(event){
+      if(!previewRoot||!event)return null;
+      const performanceFrame=onePassApi&&onePassSession?.status==="running"
+        ?onePassApi.frameAtMs(onePassSession,(performanceAudio?.currentTime||0)*1000)
+        :playheadFrame;
+      const sceneId=sceneAtGlobalFrame(performanceFrame).sceneId;
+      const card=previewRoot.querySelector(`.franken-preview-scene[data-scene-id="${sceneId}"]`);
+      const viewport=card?.querySelector(".franken-preview-viewport");
+      if(!viewport)return null;
+      const rect=viewport.getBoundingClientRect();
+      if(!rect.width||!rect.height)return null;
+      if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)return null;
+      return {
+        x:clamp((event.clientX-rect.left)/rect.width,0,1),
+        y:clamp((event.clientY-rect.top)/rect.height,0,1),
+      };
+    }
+
+    function sampleOnePassLane(index,event){
+      if(!onePassApi||typeof onePassApi.sampleLanePosition!=="function"||onePassSession?.status!=="running")return;
+      const point=pointerPointForCurrentScene(event);
+      if(!point)return;
+      onePassSession=onePassApi.sampleLanePosition(
+        onePassSession,
+        index,
+        (performanceAudio?.currentTime||0)*1000,
+        point,
+      );
+      const active=onePassSession?.activeLanes?.[index];
+      if(active){
+        root.dataset.onePassPainting="true";
+        root.dataset.onePassPaintingLane=String(index);
+      }
+    }
+
     function pressOnePassLane(index){
       if(!onePassApi||onePassSession?.status!=="running")return;
       onePassSession=onePassApi.pressLane(onePassSession,index,(performanceAudio?.currentTime||0)*1000);
@@ -1042,6 +1078,10 @@
     function releaseOnePassLane(index){
       if(!onePassApi||onePassSession?.status!=="running")return;
       onePassSession=onePassApi.releaseLane(onePassSession,index,(performanceAudio?.currentTime||0)*1000);
+      if(!Object.keys(onePassSession.activeLanes||{}).length){
+        delete root.dataset.onePassPainting;
+        delete root.dataset.onePassPaintingLane;
+      }
       renderOnePass();
     }
 
@@ -1053,6 +1093,8 @@
       onePassSession=onePassApi.finishOnePass(onePassSession,now);
       onePassConsumed=true;
       root.classList.remove("one-pass-running");
+      delete root.dataset.onePassPainting;
+      delete root.dataset.onePassPaintingLane;
       state=reduceBenchState(state,{type:"digest-replace",value:onePassSession.receipt.placements});
       onePassReceiptPath=null;
       onePassPersistenceError=null;
@@ -1266,6 +1308,20 @@
       if(lane<0)return;
       event.preventDefault();
       releaseOnePassLane(lane);
+    });
+    view?.addEventListener("pointermove",(event)=>{
+      if(onePassSession?.status!=="running")return;
+      const lanes=Object.keys(onePassSession.activeLanes||{}).map(Number).sort((a,b)=>a-b);
+      if(!lanes.length)return;
+      for(const lane of lanes)sampleOnePassLane(lane,event);
+    });
+    view?.addEventListener("pointerup",()=>{
+      delete root.dataset.onePassPainting;
+      delete root.dataset.onePassPaintingLane;
+    });
+    view?.addEventListener("pointercancel",()=>{
+      delete root.dataset.onePassPainting;
+      delete root.dataset.onePassPaintingLane;
     });
     playhead?.addEventListener("input",()=>setPlayhead(Number(playhead.value)||0));
     snapToggle?.addEventListener("change",()=>{snapEnabled=Boolean(snapToggle.checked);renderTimeline();});

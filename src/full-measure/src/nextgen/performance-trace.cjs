@@ -26,7 +26,11 @@ function validatePerformanceReceipt(receipt){
   if(receipt.schema!=="static-collective/one-pass-performance-receipt/v0")throw new TypeError("PerformanceTrace requires ONE PASS receipt v0.");
   if(receipt.authority!=="witness-only")throw new TypeError("ONE PASS receipt must remain witness-only.");
   if(!Array.isArray(receipt.events)||!Array.isArray(receipt.placements))throw new TypeError("ONE PASS receipt requires events and placements.");
+  if(receipt.spatialSamples!==undefined&&!Array.isArray(receipt.spatialSamples))throw new TypeError("ONE PASS spatial samples must be an array when present.");
+  const spatialSamples=receipt.spatialSamples||[];
+  if(spatialSamples.length>384)throw new TypeError("ONE PASS spatial samples exceed the bounded performance envelope.");
   if(receipt.eventCount!==receipt.events.length||receipt.placementCount!==receipt.placements.length)throw new TypeError("ONE PASS receipt counts do not match its body.");
+  if(receipt.spatialSampleCount!==undefined&&receipt.spatialSampleCount!==spatialSamples.length)throw new TypeError("ONE PASS spatial sample count does not match its body.");
   const expected=fingerprint256(stableStringify(witnessBody(receipt)));
   if(receipt.performanceHash!==expected)throw new TypeError("ONE PASS performance fingerprint mismatch.");
   return receipt;
@@ -35,6 +39,47 @@ function amountForDuration(durationFrames,totalFrames){
   const d=finite(durationFrames,"placement durationFrames",1,1_000_000);
   const total=finite(totalFrames,"performance totalFrames",1,1_000_000);
   return Math.max(0.12,Math.min(1,0.12+(d/total)*3.2));
+}
+const SCENE_STARTS={ARRIVE:0,CROSS:384,ASSEMBLE:768};
+
+function boundedPath(samples,maxPoints=16){
+  if(samples.length<=maxPoints)return samples;
+  const indexes=[];
+  for(let i=0;i<maxPoints;i++)indexes.push(Math.round((i*(samples.length-1))/(maxPoints-1)));
+  return [...new Set(indexes)].map(index=>samples[index]);
+}
+
+function pathForPlacement(source,placement){
+  if(!Number.isSafeInteger(placement.gestureSeq))return [];
+  const sceneStart=SCENE_STARTS[placement.sceneId];
+  if(!Number.isSafeInteger(sceneStart))return [];
+  const start=sceneStart+Number(placement.startOffsetFrames||0);
+  const end=start+Number(placement.durationFrames||0);
+  const lane=Number(placement.lane);
+  const witnessed=(source.spatialSamples||[])
+    .filter(sample=>
+      sample.gestureSeq===placement.gestureSeq&&
+      (!Number.isSafeInteger(lane)||sample.lane===lane)&&
+      sample.frame>=start&&sample.frame<end
+    )
+    .sort((a,b)=>a.frame-b.frame)
+    .map(sample=>({
+      offsetFrames:sample.frame-start,
+      x:finite(sample.x,"spatial sample x",0,1),
+      y:finite(sample.y,"spatial sample y",0,1),
+      scale:finite(sample.scale??1,"spatial sample scale",0.01,16),
+      rotationDegrees:finite(sample.rotationDegrees??0,"spatial sample rotation",-3600,3600),
+    }));
+  return boundedPath(witnessed,16);
+}
+
+function pathLength(path){
+  let total=0;
+  for(let index=1;index<path.length;index++){
+    const a=path[index-1],b=path[index];
+    total+=Math.hypot(b.x-a.x,b.y-a.y);
+  }
+  return Math.round(total*1_000_000)/1_000_000;
 }
 function compilePerformanceTrace(receipt,{surfaceId="franken:topology",paintMode="scratch"}={}){
   const source=validatePerformanceReceipt(receipt);
@@ -48,11 +93,32 @@ function compilePerformanceTrace(receipt,{surfaceId="franken:topology",paintMode
     const durationFrames=finite(placement.durationFrames,`placement[${index}].durationFrames`,1,source.totalFrames);
     const transform=placement.transform||{};
     const amount=amountForDuration(durationFrames,source.totalFrames);
+    const path=pathForPlacement(source,placement);
+    const common={
+      mode,
+      x:finite(transform.x??0.5,`placement[${index}].transform.x`,-4,4),
+      y:finite(transform.y??0.5,`placement[${index}].transform.y`,-4,4),
+      scale:finite(transform.scale??1,`placement[${index}].transform.scale`,0.01,16),
+      rotationDegrees:finite(transform.rotationDegrees??0,`placement[${index}].transform.rotationDegrees`,-3600,3600),
+      amount,
+    };
+    const brush=path.length>=2
+      ?{
+          kind:"performed-spatial-stroke",
+          ...common,
+          path,
+          pathLength:pathLength(path),
+        }
+      :{
+          kind:"held-material-stamp",
+          ...common,
+        };
     return canonicalize({
       paintEventId:`paint:${source.performanceHash.slice(0,12)}:${placementId}`,
       authority:"proposal-only",
       sourcePerformanceHash:source.performanceHash,
       sourcePlacementId:placementId,
+      sourceGestureSeq:Number.isSafeInteger(placement.gestureSeq)?placement.gestureSeq:null,
       sourceMaterialId:materialId,
       surfaceId:surface,
       span:{
@@ -60,15 +126,7 @@ function compilePerformanceTrace(receipt,{surfaceId="franken:topology",paintMode
         startOffsetFrames:finite(placement.startOffsetFrames,`placement[${index}].startOffsetFrames`,0,1_000_000),
         durationFrames,
       },
-      brush:{
-        kind:"held-material-stamp",
-        mode,
-        x:finite(transform.x??0.5,`placement[${index}].transform.x`,-4,4),
-        y:finite(transform.y??0.5,`placement[${index}].transform.y`,-4,4),
-        scale:finite(transform.scale??1,`placement[${index}].transform.scale`,0.01,16),
-        rotationDegrees:finite(transform.rotationDegrees??0,`placement[${index}].transform.rotationDegrees`,-3600,3600),
-        amount,
-      },
+      brush,
       persistence:{
         mode:"accumulate-decay",
         decayPerFrame:0.012,
@@ -97,6 +155,7 @@ function compilePerformanceTrace(receipt,{surfaceId="franken:topology",paintMode
     },
   }));
 
+  const spatialStrokeCount=paintEvents.filter(event=>event.brush.kind==="performed-spatial-stroke").length;
   const body=canonicalize({
     schema:PERFORMANCE_TRACE_SCHEMA,
     policy:PERFORMANCE_TRACE_POLICY,
@@ -107,12 +166,15 @@ function compilePerformanceTrace(receipt,{surfaceId="franken:topology",paintMode
     topologySurfaceId:surface,
     paintMode:mode,
     placementIds:source.placements.map(p=>p.placementId),
+    spatialStrokeCount,
     paintEvents,
     syzygies,
     laws:[
       "WATCH != PLAY",
       "PLAY != TRACE",
       "TRACE != FREEZE",
+      "SPATIAL SAMPLE != KEYFRAME AUTHORITY",
+      "PERFORMED PATH != TOPOLOGY AUTHORITY",
       "PAINT != SOURCE",
       "SYZYGY != OBJECT",
       "RELATION != AUTHORITY",
@@ -130,5 +192,7 @@ module.exports={
   PERFORMANCE_TRACE_SCHEMA,
   amountForDuration,
   compilePerformanceTrace,
+  pathForPlacement,
+  pathLength,
   validatePerformanceReceipt,
 };
