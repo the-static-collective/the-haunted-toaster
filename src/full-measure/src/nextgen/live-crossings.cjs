@@ -211,7 +211,7 @@ function buildNextGenLiveCrossing({
           sourceSpecimenId: videoDigestion.sourceSpecimenId,
           sourceSha256: videoDigestion.sourceSha256,
           clipAnalysisHash: videoDigestion.clipAnalysisHash,
-          sourceHistoryRef: videoDigestion.sourceHistoryRef,
+          ...(videoDigestion.sourceHistoryRef ? { sourceHistoryRef: videoDigestion.sourceHistoryRef } : {}),
           descendants: videoDigestion.descendants.map((descendant) => ({
             slot: descendant.slot,
             roleId: descendant.roleId,
@@ -221,7 +221,7 @@ function buildNextGenLiveCrossing({
             projectionClass: descendant.projectionClass,
             planHash: descendant.planHash,
             sourceDurationFrames: sourceDurationFrames(descendant),
-            historyRef: descendant.historyRef,
+            ...(descendant.historyRef ? { historyRef: descendant.historyRef } : {}),
             projectionTreatment: projectionTreatmentFor(descendant),
           })),
         }
