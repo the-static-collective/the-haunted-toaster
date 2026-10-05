@@ -29,6 +29,27 @@ function normalizeCrop(crop,index){
   if(x+width>1||y+height>1)throw new TypeError(`digestPlacements[${index}] crop must remain inside the source frame.`);
   return {x,y,width,height};
 }
+function normalizeTransformKeyframes(value,index,durationFrames){
+  if(value==null)return [];
+  if(!Array.isArray(value)||value.length>4)throw new TypeError(`digestPlacements[${index}] transformKeyframes must contain at most four keyframes.`);
+  const offsets=new Set();
+  return value.map((keyframe,keyIndex)=>{
+    if(!keyframe||typeof keyframe!=="object"||Array.isArray(keyframe))throw new TypeError(`digestPlacements[${index}] keyframe ${keyIndex} must be an object.`);
+    const offsetFrames=integer(keyframe.offsetFrames,`digestPlacements[${index}] keyframe offsetFrames`,0,Math.max(0,durationFrames-1));
+    if(offsets.has(offsetFrames))throw new TypeError(`digestPlacements[${index}] keyframe offsets must be unique.`);
+    offsets.add(offsetFrames);
+    return {
+      offsetFrames,
+      transform:{
+        x:finite(keyframe.transform?.x??0.5,`digestPlacements[${index}] keyframe x`,-1,2),
+        y:finite(keyframe.transform?.y??0.5,`digestPlacements[${index}] keyframe y`,-1,2),
+        scale:finite(keyframe.transform?.scale??1,`digestPlacements[${index}] keyframe scale`,0.05,8),
+        rotationDegrees:finite(keyframe.transform?.rotationDegrees??0,`digestPlacements[${index}] keyframe rotation`,-720,720),
+      },
+    };
+  }).sort((a,b)=>a.offsetFrames-b.offsetFrames);
+}
+
 function normalizeDigestPlacements(value=[]){
   if(value==null)return [];
   if(!Array.isArray(value)||value.length>12)throw new TypeError("digestPlacements must contain at most twelve placements.");
@@ -61,6 +82,7 @@ function normalizeDigestPlacements(value=[]){
       opacity:finite(placement.opacity??0.72,`digestPlacements[${index}] opacity`,0,1),
       blend,
       stackOrder:integer(placement.stackOrder??30,`digestPlacements[${index}] stackOrder`,0,999),
+      transformKeyframes:normalizeTransformKeyframes(placement.transformKeyframes,index,integer(placement.durationFrames??72,`digestPlacements[${index}] durationFrames`,1,384)),
     };
   });
 }
@@ -77,4 +99,4 @@ function normalizeEdits(base,edits={}){
  if(edits.digestPlacements!==undefined)out.digestPlacements=normalizeDigestPlacements(edits.digestPlacements);
  return canonicalize(out);
 }
-module.exports={BLENDS,normalizeDigestPlacements,normalizeEdits,SCENES,TRANSITIONS,WORLD_RULES};
+module.exports={BLENDS,normalizeDigestPlacements,normalizeEdits,normalizeTransformKeyframes,SCENES,TRANSITIONS,WORLD_RULES};
