@@ -9,6 +9,71 @@
   "use strict";
 
   const SCENES=["ARRIVE","CROSS","ASSEMBLE"];
+  const SCENE_FRAMES=384;
+  const TOTAL_FRAMES=1152;
+  const SCENE_STARTS={ARRIVE:0,CROSS:384,ASSEMBLE:768};
+
+  const clamp=(value,min,max)=>Math.min(max,Math.max(min,Number(value)||0));
+
+  function globalFrameForPlacement(placement){
+    return SCENE_STARTS[placement.sceneId]+Number(placement.startOffsetFrames||0);
+  }
+
+  function sceneAtGlobalFrame(frame){
+    const value=Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(Number(frame)||0)));
+    const index=Math.min(2,Math.floor(value/SCENE_FRAMES));
+    const sceneId=SCENES[index];
+    return {sceneId,startFrame:SCENE_STARTS[sceneId],offsetFrame:value-SCENE_STARTS[sceneId]};
+  }
+
+  function snapFrame(frame,landmarks=[],enabled=true,threshold=14){
+    const value=Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(Number(frame)||0)));
+    if(!enabled)return value;
+    const candidates=[0,384,768,1151,...(Array.isArray(landmarks)?landmarks.map(mark=>Number(mark.compositionFrame)):[])].filter(Number.isFinite);
+    let best=value,bestDistance=threshold+1;
+    for(const candidate of candidates){
+      const distance=Math.abs(candidate-value);
+      if(distance<bestDistance){best=Math.round(candidate);bestDistance=distance;}
+    }
+    return bestDistance<=threshold?Math.max(0,Math.min(TOTAL_FRAMES-1,best)):value;
+  }
+
+  function movePlacementOnTimeline(placement,targetGlobalFrame,landmarks=[],snapEnabled=true){
+    const snapped=snapFrame(targetGlobalFrame,landmarks,snapEnabled);
+    const target=sceneAtGlobalFrame(snapped);
+    const maxStart=Math.max(0,SCENE_FRAMES-Number(placement.durationFrames||1));
+    return {
+      sceneId:target.sceneId,
+      startOffsetFrames:Math.max(0,Math.min(maxStart,target.offsetFrame)),
+    };
+  }
+
+  function resizePlacementOnTimeline(placement,targetGlobalEndFrame,sourceDurationFrames,landmarks=[],snapEnabled=true){
+    const start=globalFrameForPlacement(placement);
+    const sceneEnd=SCENE_STARTS[placement.sceneId]+SCENE_FRAMES;
+    const sourceRemaining=Math.max(1,Number(sourceDurationFrames||1)-Number(placement.sourceStartFrames||0));
+    const snapped=snapFrame(targetGlobalEndFrame,landmarks,snapEnabled);
+    const end=Math.max(start+1,Math.min(sceneEnd,snapped));
+    return {durationFrames:Math.max(1,Math.min(end-start,sourceRemaining))};
+  }
+
+  function interpolateTransformAtFrame(base,keyframes=[],offsetFrame=0){
+    const points=new Map([[0,{...base}]]);
+    for(const keyframe of Array.isArray(keyframes)?keyframes:[])points.set(Number(keyframe.offsetFrames),{...keyframe.transform});
+    const ordered=[...points.entries()].sort((a,b)=>a[0]-b[0]);
+    const frame=Math.max(0,Number(offsetFrame)||0);
+    if(ordered.length===1||frame<=ordered[0][0])return {...ordered[0][1]};
+    if(frame>=ordered.at(-1)[0])return {...ordered.at(-1)[1]};
+    for(let index=1;index<ordered.length;index++){
+      const [rightFrame,right]=ordered[index];
+      const [leftFrame,left]=ordered[index-1];
+      if(frame>rightFrame)continue;
+      const ratio=(frame-leftFrame)/Math.max(1,rightFrame-leftFrame);
+      const lerp=(key)=>Number(left[key])+(Number(right[key])-Number(left[key]))*ratio;
+      return {x:lerp("x"),y:lerp("y"),scale:lerp("scale"),rotationDegrees:lerp("rotationDegrees")};
+    }
+    return {...base};
+  }
   const TRANSITIONS=["panel-wipe","radial-reveal","cut","hinge"];
   const WORLD_RULES=["manga-room","comic-page","wrong-medium"];
 
@@ -99,6 +164,7 @@
       opacity:0.64,
       blend:"screen",
       stackOrder:30+n,
+      transformKeyframes:[],
     };
   }
 
