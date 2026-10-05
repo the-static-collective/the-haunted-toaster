@@ -710,6 +710,22 @@
       updatePreviewFrame();
     }
 
+    async function ensureTransportReady(){
+      if(!transportAudio||!transportMeta)return false;
+      if(transportAudio.readyState>0)return true;
+      return new Promise((resolve,reject)=>{
+        const ready=()=>{cleanup();resolve(true);};
+        const failed=()=>{cleanup();reject(new Error("Song transport could not load this audio source."));};
+        const cleanup=()=>{
+          transportAudio.removeEventListener("loadedmetadata",ready);
+          transportAudio.removeEventListener("error",failed);
+        };
+        transportAudio.addEventListener("loadedmetadata",ready,{once:true});
+        transportAudio.addEventListener("error",failed,{once:true});
+        transportAudio.load();
+      });
+    }
+
     function stopTransportLoop(){
       if(transportRaf&&view?.cancelAnimationFrame)view.cancelAnimationFrame(transportRaf);
       transportRaf=null;
@@ -1053,6 +1069,7 @@
     transportPlay?.addEventListener("click",async()=>{
       if(!transportAudio||!transportMeta)return;
       try{
+        await ensureTransportReady();
         transportAudio.currentTime=transportSecondsForFrame(playheadFrame);
         await transportAudio.play();
         runTransportLoop();
