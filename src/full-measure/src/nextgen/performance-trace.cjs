@@ -28,7 +28,10 @@ function validatePerformanceReceipt(receipt){
   if(!Array.isArray(receipt.events)||!Array.isArray(receipt.placements))throw new TypeError("ONE PASS receipt requires events and placements.");
   if(receipt.spatialSamples!==undefined&&!Array.isArray(receipt.spatialSamples))throw new TypeError("ONE PASS spatial samples must be an array when present.");
   const spatialSamples=receipt.spatialSamples||[];
-  if(spatialSamples.length>384)throw new TypeError("ONE PASS spatial samples exceed the bounded performance envelope.");
+  if(receipt.events.length>4096)throw new TypeError("ONE PASS events exceed the bounded full-song performance envelope.");
+  if(receipt.placements.length>2048)throw new TypeError("ONE PASS placements exceed the bounded full-song performance envelope.");
+  if(spatialSamples.length>16384)throw new TypeError("ONE PASS spatial samples exceed the bounded full-song performance envelope.");
+  if(receipt.sceneSpans!==undefined&&(!Array.isArray(receipt.sceneSpans)||receipt.sceneSpans.length!==3))throw new TypeError("ONE PASS sceneSpans must contain three macro scenes when present.");
   if(receipt.eventCount!==receipt.events.length||receipt.placementCount!==receipt.placements.length)throw new TypeError("ONE PASS receipt counts do not match its body.");
   if(receipt.spatialSampleCount!==undefined&&receipt.spatialSampleCount!==spatialSamples.length)throw new TypeError("ONE PASS spatial sample count does not match its body.");
   const expected=fingerprint256(stableStringify(witnessBody(receipt)));
@@ -41,6 +44,10 @@ function amountForDuration(durationFrames,totalFrames){
   return Math.max(0.12,Math.min(1,0.12+(d/total)*3.2));
 }
 const SCENE_STARTS={ARRIVE:0,CROSS:384,ASSEMBLE:768};
+function sceneStartFor(source,sceneId){
+  const span=Array.isArray(source?.sceneSpans)?source.sceneSpans.find(item=>item.sceneId===sceneId):null;
+  return span?Number(span.startFrame):SCENE_STARTS[sceneId];
+}
 
 function boundedPath(samples,maxPoints=16){
   if(samples.length<=maxPoints)return samples;
@@ -51,7 +58,7 @@ function boundedPath(samples,maxPoints=16){
 
 function pathForPlacement(source,placement){
   if(!Number.isSafeInteger(placement.gestureSeq))return [];
-  const sceneStart=SCENE_STARTS[placement.sceneId];
+  const sceneStart=sceneStartFor(source,placement.sceneId);
   if(!Number.isSafeInteger(sceneStart))return [];
   const start=sceneStart+Number(placement.startOffsetFrames||0);
   const end=start+Number(placement.durationFrames||0);
@@ -163,6 +170,11 @@ function compilePerformanceTrace(receipt,{surfaceId="franken:topology",paintMode
     sourcePerformanceHash:source.performanceHash,
     fps:source.fps,
     totalFrames:source.totalFrames,
+    sceneSpans:Array.isArray(source.sceneSpans)?source.sceneSpans:[
+      {sceneId:"ARRIVE",startFrame:0,durationFrames:384},
+      {sceneId:"CROSS",startFrame:384,durationFrames:384},
+      {sceneId:"ASSEMBLE",startFrame:768,durationFrames:384},
+    ],
     topologySurfaceId:surface,
     paintMode:mode,
     placementIds:source.placements.map(p=>p.placementId),
