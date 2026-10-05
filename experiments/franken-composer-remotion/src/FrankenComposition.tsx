@@ -20,19 +20,41 @@ const treatmentFilter=(t?:ProjectionTreatment):string|undefined=>{
   ].join(' ');
 };
 
+const keyframedTransform=(clip:Clip,frame:number)=>{
+  const map=new Map<number,typeof clip.transform>();
+  map.set(0,clip.transform);
+  for(const keyframe of clip.transformKeyframes||[])map.set(keyframe.offsetFrames,keyframe.transform);
+  const points=[...map.entries()].sort((a,b)=>a[0]-b[0]);
+  if(points.length===1)return points[0][1];
+  const offsets=points.map(([offset])=>offset);
+  const sample=(key:keyof typeof clip.transform)=>interpolate(
+    frame,
+    offsets,
+    points.map(([,transform])=>transform[key]),
+    {extrapolateLeft:'clamp',extrapolateRight:'clamp'},
+  );
+  return {
+    x:sample('x'),
+    y:sample('y'),
+    scale:sample('scale'),
+    rotationDegrees:sample('rotationDegrees'),
+  };
+};
+
 const ClipBody:React.FC<{bundle:FrankenBundle;clip:Clip;material:Material;name:string}>=({bundle,clip,material,name})=>{
   const frame=useCurrentFrame();
-  const scale=clip.transform.scale*interpolate(frame,[0,Math.min(12,clip.durationFrames-1)],[0.92,1],{
+  const transform=keyframedTransform(clip,frame);
+  const entranceScale=interpolate(frame,[0,Math.min(12,clip.durationFrames-1)],[0.92,1],{
     extrapolateLeft:'clamp',
     extrapolateRight:'clamp',
   });
   const style:React.CSSProperties={
     position:'absolute',
-    left:`${clip.transform.x*100}%`,
-    top:`${clip.transform.y*100}%`,
+    left:`${transform.x*100}%`,
+    top:`${transform.y*100}%`,
     translate:'-50% -50%',
-    scale,
-    rotate:`${clip.transform.rotationDegrees}deg`,
+    scale:transform.scale*entranceScale,
+    rotate:`${transform.rotationDegrees}deg`,
     opacity:clip.opacity,
     mixBlendMode:clip.blend as React.CSSProperties['mixBlendMode'],
     maxWidth:'70%',
