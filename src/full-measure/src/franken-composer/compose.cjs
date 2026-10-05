@@ -112,8 +112,8 @@ function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
     const material = reservoirById.get(placement.materialId);
     if (!material) throw new TypeError(`Unknown or stale digestion material placement: ${placement.materialId}.`);
     const maxFrames = Number(material.derivation?.sourceDurationFrames);
-    if (!Number.isSafeInteger(maxFrames) || maxFrames < 1 || placement.durationFrames > maxFrames) {
-      throw new RangeError(`Digestion placement ${placement.materialId} exceeds its admitted source duration.`);
+    if (!Number.isSafeInteger(maxFrames) || maxFrames < 1 || placement.sourceStartFrames + placement.durationFrames > maxFrames) {
+      throw new RangeError(`Digestion placement ${placement.placementId} exceeds its admitted source duration.`);
     }
     if (placement.startOffsetFrames + placement.durationFrames > 384) {
       throw new RangeError(`Digestion placement ${placement.materialId} exceeds its scene span.`);
@@ -177,6 +177,7 @@ function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
               crop: card.crop ?? null,
               opacity: 1,
               blend: "normal",
+              stackOrder: 20 + i,
               entrance: sceneId === "ARRIVE" ? "arrive" : "hinge",
               transitionRelation: null,
             },
@@ -206,6 +207,7 @@ function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
               crop: null,
               opacity: 1,
               blend: "normal",
+              stackOrder: 60,
               entrance: "portal",
               transitionRelation: null,
             },
@@ -219,19 +221,20 @@ function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
           trackId: `${sceneId.toLowerCase()}-video-digestion`,
           layer: "background",
           role: "video-digestion-placement",
-          clips: placedHere.map((placement, placementIndex) => ({
-            clipId: `clip-${sceneId.toLowerCase()}-digest-${placementIndex + 1}-${placement.materialId.split(":")[1]}`,
+          clips: placedHere.map((placement) => ({
+            clipId: `clip-${sceneId.toLowerCase()}-digest-${placement.placementId.replace(/[^A-Za-z0-9_-]/g,"-")}`,
             materialId: placement.materialId,
             startFrame: startFrame + placement.startOffsetFrames,
             durationFrames: placement.durationFrames,
             sourceWindow: {
-              startSeconds: 0,
-              endSeconds: placement.durationFrames / FPS,
+              startSeconds: placement.sourceStartFrames / FPS,
+              endSeconds: (placement.sourceStartFrames + placement.durationFrames) / FPS,
             },
             transform: placement.transform,
-            crop: null,
+            crop: placement.crop,
             opacity: placement.opacity,
             blend: placement.blend,
+            stackOrder: placement.stackOrder,
             entrance: "arrive",
             transitionRelation: null,
           })),
@@ -258,6 +261,7 @@ function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
             crop: null,
             opacity: 0.92,
             blend: "normal",
+            stackOrder: 90,
             entrance: "speak",
             transitionRelation: null,
           },
@@ -286,6 +290,7 @@ function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
               crop: null,
               opacity: worldOpacity,
               blend: "screen",
+              stackOrder: 5,
               entrance: "grow",
               transitionRelation: null,
             },
