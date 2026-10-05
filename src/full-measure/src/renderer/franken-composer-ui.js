@@ -242,6 +242,15 @@
             digestPlacements:(state.edits.digestPlacements||[]).filter((placement)=>placement.placementId!==action.placementId),
           },
         });
+      case "digest-replace":
+        if(!Array.isArray(action.value)||action.value.length>96)throw new Error("Franken editor supports at most ninety-six digestion placements.");
+        return markDirty({
+          ...state,
+          edits:{
+            ...state.edits,
+            digestPlacements:[...action.value],
+          },
+        });
       case "digest-edit":
         return markDirty({
           ...state,
@@ -370,6 +379,16 @@
     const playhead=document.getElementById("frankenPlayhead");
     const playheadReadout=document.getElementById("frankenPlayheadFrame");
     const snapToggle=document.getElementById("frankenSnapEnabled");
+    const onePassBegin=document.getElementById("frankenOnePassBegin");
+    const onePassStatus=document.getElementById("frankenOnePassStatus");
+    const onePassProgress=document.getElementById("frankenOnePassProgress");
+    const onePassLanes=document.getElementById("frankenOnePassLanes");
+    const onePassReceipt=document.getElementById("frankenOnePassReceipt");
+    const onePassApi=view?.OnePass||null;
+    const ONE_PASS_KEYS=["a","s","d","j","k","l"];
+    let onePassSession=null;
+    let onePassConsumed=false;
+    let onePassAnimation=null;
     let playheadFrame=0;
     let snapEnabled=true;
     let timelineGestureActive=false;
@@ -791,6 +810,131 @@
       }
     }
 
+    function renderOnePass(){
+      if(!onePassBegin||!onePassStatus||!onePassProgress||!onePassLanes||!onePassReceipt)return;
+      const descendants=state.nextGen?.videoDigestion?.descendants||[];
+      const running=onePassSession?.status==="running";
+      const finished=onePassSession?.status==="finished";
+      const ready=Boolean(onePassApi)&&descendants.length===6&&!onePassConsumed&&!running;
+      onePassBegin.disabled=!ready;
+      onePassBegin.textContent=running?"TAKE IN MOTION":(finished?"TAKE SEALED":"BEGIN THE TAKE");
+      if(!running){
+        onePassProgress.style.width=finished?"100%":"0%";
+      }
+      if(finished){
+        const receipt=onePassSession.receipt;
+        onePassStatus.textContent=`Take sealed · ${receipt.eventCount} gestures · ${receipt.placementCount} lawful clips · RECOMPOSE to review it`;
+        onePassReceipt.textContent=`PERFORMANCE · ${receipt.performanceHash}`;
+        onePassReceipt.title=receipt.performanceHash;
+        root.dataset.onePassPerformanceHash=receipt.performanceHash;
+      }else if(running){
+        onePassReceipt.textContent="Performance is happening. It cannot be repaired from here.";
+      }else if(!onePassApi){
+        onePassStatus.textContent="ONE PASS simulation module unavailable in this build.";
+        onePassReceipt.textContent="No take sealed";
+      }else if(descendants.length!==6){
+        onePassStatus.textContent="Load six Video Digestion descendants to arm the take.";
+        onePassReceipt.textContent="No take sealed";
+      }else if(onePassConsumed){
+        onePassStatus.textContent="This crossing already spent its ONE PASS. Reload live organs to begin a genuinely new take.";
+      }else{
+        onePassStatus.textContent="Armed · one 48-second pass · raw timing · no snap · no undo.";
+        onePassReceipt.textContent="No take sealed";
+      }
+
+      onePassLanes.replaceChildren(...descendants.slice(0,6).map((descendant,index)=>{
+        const lane=document.createElement("button");
+        lane.type="button";
+        lane.className="franken-one-pass-lane";
+        lane.dataset.lane=String(index);
+        lane.disabled=!running;
+        const active=Boolean(onePassSession?.activeLanes?.[index]);
+        const used=Boolean(onePassSession?.events?.some((event)=>event.lane===index));
+        lane.classList.toggle("is-active",active);
+        lane.classList.toggle("is-used",used);
+        const key=document.createElement("b");
+        key.textContent=ONE_PASS_KEYS[index].toUpperCase();
+        const label=document.createElement("small");
+        label.textContent=`#${descendant.slot} · ${descendant.roleId}`;
+        lane.append(key,label);
+        lane.addEventListener("pointerdown",(event)=>{
+          if(onePassSession?.status!=="running")return;
+          event.preventDefault();
+          pressOnePassLane(index);
+          const release=()=>{
+            document.removeEventListener("pointerup",release);
+            document.removeEventListener("pointercancel",release);
+            releaseOnePassLane(index);
+          };
+          document.addEventListener("pointerup",release,{once:true});
+          document.addEventListener("pointercancel",release,{once:true});
+        });
+        return lane;
+      }));
+    }
+
+    function setOnePassPlayhead(frame){
+      playheadFrame=Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(Number(frame)||0)));
+      if(playhead)playhead.value=String(playheadFrame);
+      if(playheadReadout)playheadReadout.textContent=`Frame ${playheadFrame} · ONE PASS`;
+      const line=timelineRoot?.querySelector(".franken-timeline-playhead-line");
+      if(line)line.style.left=`${(playheadFrame/TOTAL_FRAMES)*100}%`;
+    }
+
+    function pressOnePassLane(index){
+      if(!onePassApi||onePassSession?.status!=="running")return;
+      onePassSession=onePassApi.pressLane(onePassSession,index,view.performance.now());
+      renderOnePass();
+    }
+
+    function releaseOnePassLane(index){
+      if(!onePassApi||onePassSession?.status!=="running")return;
+      onePassSession=onePassApi.releaseLane(onePassSession,index,view.performance.now());
+      renderOnePass();
+    }
+
+    function finishOnePassTake(now=view.performance.now()){
+      if(!onePassApi||onePassSession?.status!=="running")return;
+      if(onePassAnimation)view.cancelAnimationFrame(onePassAnimation);
+      onePassAnimation=null;
+      onePassSession=onePassApi.finishOnePass(onePassSession,now);
+      onePassConsumed=true;
+      root.classList.remove("one-pass-running");
+      state=reduceBenchState(state,{type:"digest-replace",value:onePassSession.receipt.placements});
+      render();
+    }
+
+    function tickOnePass(){
+      if(!onePassApi||onePassSession?.status!=="running")return;
+      const now=view.performance.now();
+      const frame=onePassApi.frameAtMs(onePassSession,now);
+      setOnePassPlayhead(frame);
+      if(onePassProgress)onePassProgress.style.width=`${Math.min(100,((frame+1)/TOTAL_FRAMES)*100)}%`;
+      if(onePassStatus)onePassStatus.textContent=`TAKE IN MOTION · frame ${frame} / ${TOTAL_FRAMES-1} · silence is still a move`;
+      const elapsed=now-onePassSession.startedAtMs;
+      if(elapsed>=(TOTAL_FRAMES/onePassSession.fps)*1000){
+        finishOnePassTake(now);
+        return;
+      }
+      onePassAnimation=view.requestAnimationFrame(tickOnePass);
+    }
+
+    function beginOnePassTake(){
+      if(!onePassApi||onePassConsumed||onePassSession?.status==="running")return;
+      const descendants=state.nextGen?.videoDigestion?.descendants||[];
+      if(descendants.length!==6)return;
+      state=reduceBenchState(state,{type:"digest-replace",value:[]});
+      playheadFrame=0;
+      onePassSession=onePassApi.beginOnePass(onePassApi.createOnePassSession({
+        materials:descendants,
+        fps:24,
+        totalFrames:TOTAL_FRAMES,
+      }),view.performance.now());
+      root.classList.add("one-pass-running");
+      render();
+      onePassAnimation=view.requestAnimationFrame(tickOnePass);
+    }
+
     function render(){
       compose.disabled=!canCompose(state);
       freeze.disabled=!canFreeze(state);
@@ -884,6 +1028,7 @@
 
       syncControls();
       renderNextGen();
+      renderOnePass();
       renderTimeline();
       renderPreview();
     }
@@ -901,6 +1046,9 @@
           albumContext:{},
         });
         state=reduceBenchState(state,{type:"nextgen",value:crossing});
+        onePassSession=null;
+        onePassConsumed=false;
+        root.classList.remove("one-pass-running");
         render();
       }catch(error){
         nextGenStatus.textContent=error?.message||String(error);
@@ -915,6 +1063,22 @@
     });
     close?.addEventListener("click",()=>setOpen(false));
     nextGenLoad?.addEventListener("click",loadNextGen);
+    onePassBegin?.addEventListener("click",beginOnePassTake);
+    view?.addEventListener("keydown",(event)=>{
+      if(onePassSession?.status!=="running")return;
+      const lane=ONE_PASS_KEYS.indexOf(String(event.key||"").toLowerCase());
+      if(lane<0)return;
+      event.preventDefault();
+      if(event.repeat)return;
+      pressOnePassLane(lane);
+    });
+    view?.addEventListener("keyup",(event)=>{
+      if(onePassSession?.status!=="running")return;
+      const lane=ONE_PASS_KEYS.indexOf(String(event.key||"").toLowerCase());
+      if(lane<0)return;
+      event.preventDefault();
+      releaseOnePassLane(lane);
+    });
     playhead?.addEventListener("input",()=>{
       playheadFrame=Math.max(0,Math.min(TOTAL_FRAMES-1,Number(playhead.value)||0));
       renderTimeline();
