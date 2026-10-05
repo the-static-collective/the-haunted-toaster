@@ -164,7 +164,7 @@
     ];
     return {
       schema: "static-collective/nextgen-live-crossing/v0",
-      policy: "nextgen-live-crossings-003",
+      policy: "nextgen-live-crossings-004",
       authority: "proposal-pressure-and-material-reservoir-only",
       crossingIdentity: "c".repeat(64),
       basis: { candidateIndex: 0, timelineHash: "d".repeat(64) },
