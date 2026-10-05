@@ -52,7 +52,7 @@ function normalizeTransformKeyframes(value,index,durationFrames){
 
 function normalizeDigestPlacements(value=[]){
   if(value==null)return [];
-  if(!Array.isArray(value)||value.length>96)throw new TypeError("digestPlacements must contain at most ninety-six placements.");
+  if(!Array.isArray(value)||value.length>2048)throw new TypeError("digestPlacements must contain at most 2048 placements.");
   const placementIds=new Set();
   return value.map((placement,index)=>{
     if(!placement||typeof placement!=="object"||Array.isArray(placement))throw new TypeError("Each digestion placement must be an object.");
@@ -69,9 +69,9 @@ function normalizeDigestPlacements(value=[]){
       placementId,
       materialId,
       sceneId,
-      startOffsetFrames:integer(placement.startOffsetFrames??48,`digestPlacements[${index}] startOffsetFrames`,0,383),
+      startOffsetFrames:integer(placement.startOffsetFrames??48,`digestPlacements[${index}] startOffsetFrames`,0,1_000_000),
       sourceStartFrames:integer(placement.sourceStartFrames??0,`digestPlacements[${index}] sourceStartFrames`,0,1000000),
-      durationFrames:integer(placement.durationFrames??72,`digestPlacements[${index}] durationFrames`,1,384),
+      durationFrames:integer(placement.durationFrames??72,`digestPlacements[${index}] durationFrames`,1,1_000_000),
       transform:{
         x:finite(placement.transform?.x??0.5,`digestPlacements[${index}] x`,-1,2),
         y:finite(placement.transform?.y??0.5,`digestPlacements[${index}] y`,-1,2),
@@ -82,7 +82,7 @@ function normalizeDigestPlacements(value=[]){
       opacity:finite(placement.opacity??0.72,`digestPlacements[${index}] opacity`,0,1),
       blend,
       stackOrder:integer(placement.stackOrder??30,`digestPlacements[${index}] stackOrder`,0,999),
-      transformKeyframes:normalizeTransformKeyframes(placement.transformKeyframes,index,integer(placement.durationFrames??72,`digestPlacements[${index}] durationFrames`,1,384)),
+      transformKeyframes:normalizeTransformKeyframes(placement.transformKeyframes,index,integer(placement.durationFrames??72,`digestPlacements[${index}] durationFrames`,1,1_000_000)),
     };
   });
 }
