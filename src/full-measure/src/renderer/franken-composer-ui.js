@@ -608,6 +608,110 @@
       }
     }
 
+    function renderTimeline(){
+      if(!timelineRoot)return;
+      timelineRoot.replaceChildren();
+      const landmarks=state.nextGen?.snapLandmarks||[];
+      const frameFromClientX=(clientX)=>{
+        const rect=timelineRoot.getBoundingClientRect();
+        if(!rect.width)return 0;
+        return Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(((clientX-rect.left)/rect.width)*TOTAL_FRAMES)));
+      };
+      const setPlayhead=(frame)=>{
+        playheadFrame=Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(Number(frame)||0)));
+        if(playhead)playhead.value=String(playheadFrame);
+        if(playheadReadout)playheadReadout.textContent=`Frame ${playheadFrame}`;
+        renderPreview();
+        renderTimeline();
+      };
+
+      for(const sceneId of SCENES){
+        const band=document.createElement("div");
+        band.className="franken-timeline-scene";
+        band.dataset.sceneId=sceneId;
+        band.style.left=`${(SCENE_STARTS[sceneId]/TOTAL_FRAMES)*100}%`;
+        band.style.width=`${(SCENE_FRAMES/TOTAL_FRAMES)*100}%`;
+        const label=document.createElement("span");
+        label.textContent=sceneId;
+        band.append(label);
+        timelineRoot.append(band);
+      }
+
+      for(const mark of landmarks){
+        const line=document.createElement("i");
+        line.className="franken-timeline-landmark";
+        line.dataset.kind=mark.kind;
+        line.dataset.frame=String(mark.compositionFrame);
+        line.style.left=`${(Number(mark.compositionFrame)/TOTAL_FRAMES)*100}%`;
+        line.title=`${mark.kind} · ${mark.label} · frame ${mark.compositionFrame}`;
+        timelineRoot.append(line);
+      }
+
+      const placements=state.edits.digestPlacements||[];
+      for(const [index,placement] of placements.entries()){
+        const descendant=descendantFor(state,placement.materialId);
+        const clip=document.createElement("div");
+        clip.className="franken-timeline-clip";
+        clip.dataset.placementId=placement.placementId;
+        clip.style.left=`${(globalFrameForPlacement(placement)/TOTAL_FRAMES)*100}%`;
+        clip.style.width=`${Math.max(0.8,(Number(placement.durationFrames)/TOTAL_FRAMES)*100)}%`;
+        clip.style.top=`${36+(index%3)*28}px`;
+        clip.style.height="22px";
+        clip.style.zIndex=String(100+index);
+        const label=document.createElement("span");
+        label.textContent=`${placement.placementId} · ${String(placement.materialId).split(":")[1]}`;
+        const resize=document.createElement("button");
+        resize.type="button";
+        resize.className="franken-timeline-resize";
+        resize.setAttribute("aria-label",`Resize ${placement.placementId}`);
+
+        clip.addEventListener("pointerdown",(event)=>{
+          if(event.target===resize)return;
+          event.preventDefault();
+          const pointerOffset=frameFromClientX(event.clientX)-globalFrameForPlacement(placement);
+          const finish=(upEvent)=>{
+            const target=frameFromClientX(upEvent.clientX)-pointerOffset;
+            const patch=movePlacementOnTimeline(placement,target,landmarks,snapEnabled);
+            state=reduceBenchState(state,{type:"digest-edit",placementId:placement.placementId,patch});
+            render();
+          };
+          document.addEventListener("pointerup",finish,{once:true});
+        });
+
+        resize.addEventListener("pointerdown",(event)=>{
+          event.preventDefault();
+          event.stopPropagation();
+          const finish=(upEvent)=>{
+            const patch=resizePlacementOnTimeline(
+              placement,
+              frameFromClientX(upEvent.clientX),
+              descendant?.sourceDurationFrames,
+              landmarks,
+              snapEnabled,
+            );
+            state=reduceBenchState(state,{type:"digest-edit",placementId:placement.placementId,patch});
+            render();
+          };
+          document.addEventListener("pointerup",finish,{once:true});
+        });
+        clip.append(label,resize);
+        timelineRoot.append(clip);
+      }
+
+      const line=document.createElement("i");
+      line.className="franken-timeline-playhead-line";
+      line.style.left=`${(playheadFrame/TOTAL_FRAMES)*100}%`;
+      timelineRoot.append(line);
+
+      timelineRoot.onpointerdown=(event)=>{
+        if(event.target.closest?.(".franken-timeline-clip"))return;
+        setPlayhead(frameFromClientX(event.clientX));
+      };
+      if(playhead)playhead.value=String(playheadFrame);
+      if(playheadReadout)playheadReadout.textContent=`Frame ${playheadFrame}`;
+      if(snapToggle)snapToggle.checked=snapEnabled;
+    }
+
     function renderPreview(){
       if(!previewRoot)return;
       previewRoot.replaceChildren();
@@ -634,20 +738,24 @@
             node.textContent=track.role==="video-digestion-placement"
               ?String(clip.materialId).split(":")[1]
               :track.role;
-            const scale=Math.max(0.15,Math.min(2,Number(clip.transform?.scale)||1));
-            node.style.left=`${(Number(clip.transform?.x)||0.5)*100}%`;
-            node.style.top=`${(Number(clip.transform?.y)||0.5)*100}%`;
+            const active=playheadFrame>=Number(clip.startFrame)&&playheadFrame<Number(clip.startFrame)+Number(clip.durationFrames);
+            const localFrame=clamp(playheadFrame-Number(clip.startFrame),0,Math.max(0,Number(clip.durationFrames)-1));
+            const transform=interpolateTransformAtFrame(clip.transform,clip.transformKeyframes||[],localFrame);
+            const scale=Math.max(0.15,Math.min(2,Number(transform.scale)||1));
+            node.dataset.active=String(active);
+            node.style.left=`${(Number(transform.x)||0.5)*100}%`;
+            node.style.top=`${(Number(transform.y)||0.5)*100}%`;
             node.style.width=`${Math.min(92,26*scale)}%`;
             node.style.height=`${Math.min(92,18*scale)}%`;
-            node.style.opacity=String(Math.max(0.2,Number(clip.opacity)||1));
-            node.style.transform=`translate(-50%,-50%) rotate(${Number(clip.transform?.rotationDegrees)||0}deg)`;
+            node.style.opacity=String(active?Math.max(0.2,Number(clip.opacity)||1):0.13);
+            node.style.transform=`translate(-50%,-50%) rotate(${Number(transform.rotationDegrees)||0}deg)`;
             node.style.zIndex=String(Number(clip.stackOrder)||0);
             if(clip.crop)node.dataset.cropped="true";
             viewport.append(node);
           }
         }
         const meta=document.createElement("small");
-        meta.textContent=`${scene.tracks.reduce((sum,track)=>sum+(track.clips?.length||0),0)} clips · frozen-order preview`;
+        meta.textContent=`${scene.tracks.reduce((sum,track)=>sum+(track.clips?.length||0),0)} clips · proposal @ frame ${playheadFrame}`;
         card.append(title,viewport,meta);
         previewRoot.append(card);
       }
@@ -746,6 +854,7 @@
 
       syncControls();
       renderNextGen();
+      renderTimeline();
       renderPreview();
     }
 
@@ -776,6 +885,12 @@
     });
     close?.addEventListener("click",()=>setOpen(false));
     nextGenLoad?.addEventListener("click",loadNextGen);
+    playhead?.addEventListener("input",()=>{
+      playheadFrame=Math.max(0,Math.min(TOTAL_FRAMES-1,Number(playhead.value)||0));
+      renderTimeline();
+      renderPreview();
+    });
+    snapToggle?.addEventListener("change",()=>{snapEnabled=Boolean(snapToggle.checked);renderTimeline();});
 
     root.querySelectorAll("[data-franken-choose]").forEach((button)=>
       button.addEventListener("click",async()=>{
@@ -852,6 +967,12 @@
     TRANSITIONS,
     WORLD_RULES,
     applyNextGenPressure,
+    globalFrameForPlacement,
+    interpolateTransformAtFrame,
+    movePlacementOnTimeline,
+    resizePlacementOnTimeline,
+    sceneAtGlobalFrame,
+    snapFrame,
     defaultDigestPlacement,
     descendantFor,
     canCompose,
