@@ -134,6 +134,10 @@ test('human-selected digestion descendant becomes a frozen scene clip with deriv
     sourceStartFrames:6,
     durationFrames:12,
     transform:{x:0.42,y:0.58,scale:0.9,rotationDegrees:-4},
+    transformKeyframes:[
+      {offsetFrames:4,transform:{x:0.5,y:0.5,scale:1.1,rotationDegrees:0}},
+      {offsetFrames:10,transform:{x:0.65,y:0.4,scale:0.8,rotationDegrees:18}},
+    ],
     crop:{x:0.1,y:0.1,width:0.8,height:0.8},
     opacity:0.55,
     blend:'screen',
@@ -155,6 +159,7 @@ test('human-selected digestion descendant becomes a frozen scene clip with deriv
   assert.deepEqual(track.clips[0].sourceWindow,{startSeconds:0.25,endSeconds:0.75});
   assert.deepEqual(track.clips[0].crop,placement.crop);
   assert.equal(track.clips[0].stackOrder,66);
+  assert.deepEqual(track.clips[0].transformKeyframes,placement.transformKeyframes);
   const placedMaterial=preview.proposal.materials.find(m=>m.materialId===material.materialId);
   assert.equal(placedMaterial.derivation.planHash,material.planHash);
   assert.equal(placedMaterial.projectionTreatment.authority,'projection-style-only');
@@ -180,4 +185,8 @@ test('digestion placement allows repeated material but fails closed for duplicat
   await assert.rejects(()=>service.compose({...f.config,nextGen,edits:{...f.config.edits,digestPlacements:[{...base,sourceStartFrames:20,durationFrames:8}]}}),/source duration/i);
   await assert.rejects(()=>service.compose({...f.config,nextGen,edits:{...f.config.edits,digestPlacements:[{...base,startOffsetFrames:380,durationFrames:12}]}}),/scene span/i);
   await assert.rejects(()=>service.compose({...f.config,nextGen,edits:{...f.config.edits,digestPlacements:[{...base,crop:{x:0.8,y:0,width:0.4,height:1}}]}}),/crop/i);
+  await assert.rejects(()=>service.compose({...f.config,nextGen,edits:{...f.config.edits,digestPlacements:[{...base,transformKeyframes:Array.from({length:5},(_,i)=>({offsetFrames:i,transform:base.transform}))}]}}),/at most four/i);
+  await assert.rejects(()=>service.compose({...f.config,nextGen,edits:{...f.config.edits,digestPlacements:[{...base,transformKeyframes:[
+    {offsetFrames:2,transform:base.transform},{offsetFrames:2,transform:base.transform}
+  ]}]}}),/offsets must be unique/i);
 });
