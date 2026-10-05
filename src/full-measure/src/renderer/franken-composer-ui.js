@@ -101,6 +101,10 @@
     return (state.edits.digestPlacements||[]).find((placement)=>placement.materialId===materialId)||null;
   }
 
+  function descendantFor(state,materialId){
+    return (state.nextGen?.videoDigestion?.descendants||[]).find((descendant)=>descendant.materialId===materialId)||null;
+  }
+
   function reduceBenchState(state,action){
     switch(action.type){
       case "path":
@@ -362,11 +366,76 @@
       }
       for(const descendant of descendants){
         const item=document.createElement("span");
+        item.className="franken-digest-card";
+        item.draggable=true;
+        item.dataset.materialId=descendant.materialId;
+        item.addEventListener("dragstart",(event)=>{
+          event.dataTransfer?.setData("text/x-franken-digest",descendant.materialId);
+          if(event.dataTransfer)event.dataTransfer.effectAllowed="move";
+        });
+
         const title=document.createElement("b");
         title.textContent=`#${descendant.slot} · ${descendant.roleId}`;
         const meta=document.createElement("small");
         meta.textContent=`${descendant.projectionClass} · ${descendant.planHash.slice(0,10)}`;
-        item.append(title,meta);
+
+        const placement=placementFor(state,descendant.materialId);
+        const toggle=document.createElement("button");
+        toggle.type="button";
+        toggle.className="franken-digest-toggle";
+        toggle.textContent=placement?"REMOVE":"PLACE";
+        toggle.addEventListener("click",()=>{
+          state=placement
+            ?reduceBenchState(state,{type:"digest-remove",materialId:descendant.materialId})
+            :reduceBenchState(state,{type:"digest-place",placement:defaultDigestPlacement(descendant)});
+          render();
+        });
+        item.append(title,meta,toggle);
+
+        if(placement){
+          item.classList.add("is-placed");
+          const controls=document.createElement("div");
+          controls.className="franken-digest-controls";
+
+          const select=(label,value,options,onChange)=>{
+            const wrap=document.createElement("label");
+            wrap.textContent=label;
+            const node=document.createElement("select");
+            for(const optionValue of options){
+              const option=document.createElement("option");
+              option.value=optionValue;
+              option.textContent=optionValue;
+              option.selected=optionValue===value;
+              node.append(option);
+            }
+            node.addEventListener("change",()=>onChange(node.value));
+            wrap.append(node);
+            return wrap;
+          };
+          const number=(label,value,min,max,step,onChange)=>{
+            const wrap=document.createElement("label");
+            wrap.textContent=label;
+            const node=document.createElement("input");
+            node.type="number";
+            node.value=String(value);
+            node.min=String(min);
+            node.max=String(max);
+            node.step=String(step);
+            node.addEventListener("change",()=>onChange(Number(node.value)));
+            wrap.append(node);
+            return wrap;
+          };
+          const patch=(next)=>{state=reduceBenchState(state,{type:"digest-edit",materialId:descendant.materialId,patch:next});render();};
+
+          controls.append(
+            select("Scene",placement.sceneId,SCENES,(value)=>patch({sceneId:value})),
+            number("Start",placement.startOffsetFrames,0,383,1,(value)=>patch({startOffsetFrames:value})),
+            number("Frames",placement.durationFrames,1,Math.max(1,Math.min(Number(descendant.sourceDurationFrames)||384,384-placement.startOffsetFrames)),1,(value)=>patch({durationFrames:value})),
+            number("Opacity",placement.opacity,0,1,0.05,(value)=>patch({opacity:value})),
+            select("Blend",placement.blend,["normal","screen"],(value)=>patch({blend:value})),
+          );
+          item.append(controls);
+        }
         reservoirRoot.append(item);
       }
     }
@@ -390,6 +459,19 @@
         section.className="franken-lane";
         const title=document.createElement("strong");
         title.textContent=lane.sceneId;
+        section.dataset.sceneId=lane.sceneId;
+        section.addEventListener("dragover",(event)=>{event.preventDefault();if(event.dataTransfer)event.dataTransfer.dropEffect="move";});
+        section.addEventListener("drop",(event)=>{
+          event.preventDefault();
+          const materialId=event.dataTransfer?.getData("text/x-franken-digest")||"";
+          const descendant=descendantFor(state,materialId);
+          if(!descendant)return;
+          const current=placementFor(state,materialId);
+          state=current
+            ?reduceBenchState(state,{type:"digest-edit",materialId,patch:{sceneId:lane.sceneId}})
+            :reduceBenchState(state,{type:"digest-place",placement:defaultDigestPlacement(descendant,lane.sceneId)});
+          render();
+        });
         section.append(title);
 
         for(const id of lane.cards){
@@ -556,6 +638,8 @@
     TRANSITIONS,
     WORLD_RULES,
     applyNextGenPressure,
+    defaultDigestPlacement,
+    descendantFor,
     canCompose,
     canFreeze,
     composeConfig,
@@ -563,6 +647,7 @@
     laneModel,
     moveCard,
     mount,
+    placementFor,
     reduceBenchState,
   };
 });
