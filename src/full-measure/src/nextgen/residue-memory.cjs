@@ -20,22 +20,33 @@ function finite(value,label,min=-Infinity,max=Infinity){
 function clamp(value,min,max){
   return Math.min(max,Math.max(min,value));
 }
-function sceneStart(sceneId){
-  const index=SCENE_ORDER.indexOf(sceneId);
-  if(index<0)throw new TypeError(`Unknown residue scene: ${sceneId}.`);
-  return index*SCENE_FRAMES;
-}
-function sceneSpans(totalFrames){
-  const total=Math.floor(finite(totalFrames,"totalFrames",1,1_000_000));
+function sceneSpans(sourceOrTotal,totalFrames=null){
+  const source=sourceOrTotal&&typeof sourceOrTotal==="object"&&!Array.isArray(sourceOrTotal)?sourceOrTotal:null;
+  const total=Math.floor(finite(source?source.totalFrames:(totalFrames??sourceOrTotal),"totalFrames",1,1_000_000));
+  if(source&&Array.isArray(source.sceneSpans)&&source.sceneSpans.length===3){
+    let cursor=0;
+    const spans=source.sceneSpans.map((span,index)=>{
+      const sceneId=req(span?.sceneId,`sceneSpans[${index}].sceneId`);
+      if(sceneId!==SCENE_ORDER[index])throw new TypeError(`Residue macro scene ${index} must be ${SCENE_ORDER[index]}.`);
+      const startFrame=Math.floor(finite(span.startFrame,`${sceneId} startFrame`,0,total-1));
+      const durationFrames=Math.floor(finite(span.durationFrames,`${sceneId} durationFrames`,1,total));
+      if(startFrame!==cursor)throw new RangeError("Residue macro scene spans must be contiguous.");
+      cursor=startFrame+durationFrames;
+      return {sceneId,startFrame,endFrame:cursor};
+    });
+    if(cursor!==total)throw new RangeError("Residue macro scene spans must exactly cover totalFrames.");
+    return spans;
+  }
   return SCENE_ORDER.map((sceneId,index)=>{
     const startFrame=index*SCENE_FRAMES;
     if(startFrame>=total)return null;
-    return {
-      sceneId,
-      startFrame,
-      endFrame:Math.min(total,(index+1)*SCENE_FRAMES),
-    };
+    return {sceneId,startFrame,endFrame:Math.min(total,(index+1)*SCENE_FRAMES)};
   }).filter(Boolean);
+}
+function sceneSpanFor(source,sceneId,totalFrames){
+  const span=sceneSpans(source,totalFrames).find(item=>item.sceneId===sceneId);
+  if(!span)throw new TypeError(`Unknown residue scene: ${sceneId}.`);
+  return span;
 }
 function validateTrace(trace){
   if(!trace||typeof trace!=="object"||Array.isArray(trace))throw new TypeError("ResidueMemory requires a PerformanceTrace object.");
@@ -62,9 +73,10 @@ function residueFromPaint(trace,paint,index,{decayPerFrame,carryAcrossScenes,tot
   const sceneId=req(paint?.span?.sceneId,`paintEvents[${index}].span.sceneId`);
   const startOffsetFrames=Math.floor(finite(paint?.span?.startOffsetFrames,`paintEvents[${index}].span.startOffsetFrames`,0,1_000_000));
   const durationFrames=Math.floor(finite(paint?.span?.durationFrames,`paintEvents[${index}].span.durationFrames`,1,1_000_000));
-  const birthFrame=Math.min(totalFrames-1,sceneStart(sceneId)+startOffsetFrames+durationFrames-1);
+  const scene=sceneSpanFor(trace,sceneId,totalFrames);
+  const birthFrame=Math.min(totalFrames-1,scene.startFrame+startOffsetFrames+durationFrames-1);
   const initialStrength=finite(paint?.brush?.amount,`paintEvents[${index}].brush.amount`,0,1);
-  const localSceneEnd=Math.min(totalFrames,sceneStart(sceneId)+SCENE_FRAMES);
+  const localSceneEnd=scene.endFrame;
   const naturalDeath=birthFrame+Math.ceil(Math.max(0,initialStrength)/Math.max(decayPerFrame,Number.EPSILON))+1;
   const deathFrame=Math.min(
     totalFrames,
@@ -113,7 +125,7 @@ function compileResidueMemory(trace,{
     index,
     {decayPerFrame:decay,carryAcrossScenes,totalFrames},
   ));
-  const spans=sceneSpans(totalFrames);
+  const spans=sceneSpans(source,totalFrames);
   const sceneMemory=spans.map(scene=>canonicalize({
     sceneId:scene.sceneId,
     startFrame:scene.startFrame,
@@ -152,6 +164,7 @@ function compileResidueMemory(trace,{
     sourcePerformanceHash:source.sourcePerformanceHash,
     fps:source.fps,
     totalFrames,
+    sceneSpans:spans.map(span=>({sceneId:span.sceneId,startFrame:span.startFrame,durationFrames:span.endFrame-span.startFrame})),
     decayPolicy:{
       kind:"linear",
       perFrame:decay,
