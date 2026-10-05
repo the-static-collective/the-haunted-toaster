@@ -1113,7 +1113,7 @@
       }else if(onePassConsumed){
         onePassStatus.textContent="This crossing already spent its ONE PASS. Reload live organs to begin a genuinely new take.";
       }else{
-        onePassStatus.textContent="Armed · one 48-second pass · raw timing · no snap · no undo.";
+        onePassStatus.textContent=`Armed · one full-song pass · ${currentTotalFrames()} frames · raw timing · no snap · no undo.`;
         onePassReceipt.textContent="No take sealed";
       }
 
