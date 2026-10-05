@@ -151,3 +151,29 @@ test('placement keyframes remain placement-owned editor state and dirty freeze',
     offsetFrames:40,transform:{x:0.7,y:0.6,scale:0.8,rotationDegrees:20},
   });
 });
+
+
+test('transport maps song time and proposal media time deterministically',()=>{
+  assert.equal(ui.transportFrameForSeconds(0,4),0);
+  assert.equal(ui.transportFrameForSeconds(2,4),576);
+  assert.equal(ui.transportFrameForSeconds(4,4),1151);
+  assert.equal(ui.transportFrameForSeconds(99,4),1151);
+  const clip={startFrame:384,durationFrames:48,sourceWindow:{startSeconds:1.25,endSeconds:3.25}};
+  assert.equal(ui.previewMediaTime(clip,384,24),1.25);
+  assert.equal(ui.previewMediaTime(clip,396,24),1.75);
+  assert.equal(ui.previewMediaTime(clip,999,24),1.25+47/24);
+});
+
+test('proposal reducer holds observational preview assets alongside reviewed proposal without making them editor authority',()=>{
+  let s=ui.createBenchState();
+  s=ui.reduceBenchState(s,{type:'proposal',result:{
+    proposalIdentity:'a'.repeat(64),
+    proposal,
+    previewAssets:{'playdeck:card-01':{kind:'image',url:'file:///tmp/card-01.png'}},
+  }});
+  assert.equal(s.previewAssets['playdeck:card-01'].kind,'image');
+  assert.equal(ui.composeConfig(s).previewAssets,undefined);
+  s=ui.reduceBenchState(s,{type:'edit',key:'text',value:'DIRTY'});
+  assert.equal(s.previewAssets['playdeck:card-01'].url,'file:///tmp/card-01.png');
+  assert.equal(ui.canFreeze(s),false);
+});
