@@ -115,3 +115,59 @@ test('Franken service refuses a stale NextGen crossing identity',async()=>{
     /stale|unreviewed NextGen/i,
   );
 });
+
+
+test('human-selected digestion descendant becomes a frozen scene clip with derivation custody',async()=>{
+  const f=await configInTemp();
+  const provider=nextGenProvider();
+  const observed=provider({rootSeed:f.config.seed,albumContext:{}});
+  const material=observed.videoDigestion.descendants[0];
+  const service=createFrankenComposerService({
+    rootDir:path.join(f.dir,'out-nextgen-placement'),
+    getNextGenContext:provider,
+  });
+  const placement={
+    materialId:material.materialId,
+    sceneId:'CROSS',
+    startOffsetFrames:24,
+    durationFrames:12,
+    transform:{x:0.42,y:0.58,scale:0.9,rotationDegrees:-4},
+    opacity:0.55,
+    blend:'screen',
+  };
+  const config={
+    ...f.config,
+    edits:{...f.config.edits,digestPlacements:[placement]},
+    nextGen:{enabled:true,expectedCrossingIdentity:observed.crossingIdentity,albumContext:{}},
+  };
+  const preview=await service.compose(config);
+  assert.deepEqual(preview.proposal.digestPlacements,[placement]);
+  const track=preview.proposal.scenes.find(s=>s.sceneId==='CROSS').tracks.find(t=>t.role==='video-digestion-placement');
+  assert.ok(track);
+  assert.equal(track.clips.length,1);
+  assert.equal(track.clips[0].materialId,material.materialId);
+  assert.equal(track.clips[0].startFrame,384+24);
+  assert.equal(track.clips[0].durationFrames,12);
+  const placedMaterial=preview.proposal.materials.find(m=>m.materialId===material.materialId);
+  assert.equal(placedMaterial.derivation.planHash,material.planHash);
+  assert.equal(placedMaterial.projectionTreatment.authority,'projection-style-only');
+
+  const frozen=await service.freeze({...config,expectedProposalIdentity:preview.proposalIdentity});
+  const frozenTrack=frozen.plan.scenes.find(s=>s.sceneId==='CROSS').tracks.find(t=>t.role==='video-digestion-placement');
+  assert.equal(frozenTrack.clips[0].materialId,material.materialId);
+  assert.equal(frozen.plan.materials.find(m=>m.materialId===material.materialId).derivation.familyHash,observed.videoDigestion.familyHash);
+});
+
+test('digestion placement fails closed for duplicate, stale, overlong, or scene-overflow requests',async()=>{
+  const f=await configInTemp();
+  const provider=nextGenProvider();
+  const observed=provider({rootSeed:f.config.seed,albumContext:{}});
+  const material=observed.videoDigestion.descendants[0];
+  const service=createFrankenComposerService({rootDir:path.join(f.dir,'out-nextgen-placement-refusal'),getNextGenContext:provider});
+  const nextGen={enabled:true,expectedCrossingIdentity:observed.crossingIdentity,albumContext:{}};
+  const base={materialId:material.materialId,sceneId:'ARRIVE',startOffsetFrames:0,durationFrames:12,transform:{x:0.5,y:0.5,scale:1,rotationDegrees:0},opacity:0.6,blend:'screen'};
+  await assert.rejects(()=>service.compose({...f.config,nextGen,edits:{...f.config.edits,digestPlacements:[base,base]}}),/at most once|unique|duplicate/i);
+  await assert.rejects(()=>service.compose({...f.config,nextGen,edits:{...f.config.edits,digestPlacements:[{...base,materialId:'video-digest:stale:deadbeefdead'}]}}),/unknown|stale/i);
+  await assert.rejects(()=>service.compose({...f.config,nextGen,edits:{...f.config.edits,digestPlacements:[{...base,durationFrames:25}]}}),/source duration/i);
+  await assert.rejects(()=>service.compose({...f.config,nextGen,edits:{...f.config.edits,digestPlacements:[{...base,startOffsetFrames:380,durationFrames:12}]}}),/scene span/i);
+});
