@@ -243,7 +243,7 @@
           },
         });
       case "digest-place":
-        if((state.edits.digestPlacements||[]).length>=12)throw new Error("Franken editor supports at most twelve digestion placements.");
+        if((state.edits.digestPlacements||[]).length>=96)throw new Error("Franken editor supports at most ninety-six digestion placements.");
         if(placementFor(state,action.placement.placementId))throw new Error("Digestion placement id must be unique.");
         return markDirty({
           ...state,
@@ -258,6 +258,15 @@
           edits:{
             ...state.edits,
             digestPlacements:(state.edits.digestPlacements||[]).filter((placement)=>placement.placementId!==action.placementId),
+          },
+        });
+      case "digest-replace":
+        if(!Array.isArray(action.value)||action.value.length>96)throw new Error("Franken editor supports at most ninety-six digestion placements.");
+        return markDirty({
+          ...state,
+          edits:{
+            ...state.edits,
+            digestPlacements:[...action.value],
           },
         });
       case "digest-edit":
@@ -396,6 +405,19 @@
     const transportPlay=document.getElementById("frankenTransportPlay");
     const transportPause=document.getElementById("frankenTransportPause");
     const transportStatus=document.getElementById("frankenTransportStatus");
+    const onePassBegin=document.getElementById("frankenOnePassBegin");
+    const onePassStatus=document.getElementById("frankenOnePassStatus");
+    const onePassProgress=document.getElementById("frankenOnePassProgress");
+    const onePassLanes=document.getElementById("frankenOnePassLanes");
+    const onePassReceipt=document.getElementById("frankenOnePassReceipt");
+    const performanceAudio=document.getElementById("syncAudio");
+    const onePassApi=view?.OnePass||null;
+    const ONE_PASS_KEYS=["a","s","d","j","k","l"];
+    let onePassSession=null;
+    let onePassConsumed=false;
+    let onePassAnimation=null;
+    let onePassReceiptPath=null;
+    let onePassPersistenceError=null;
     let playheadFrame=0;
     let snapEnabled=true;
     let timelineGestureActive=false;
@@ -932,6 +954,167 @@
       updatePreviewFrame();
     }
 
+    function renderOnePass(){
+      if(!onePassBegin||!onePassStatus||!onePassProgress||!onePassLanes||!onePassReceipt)return;
+      const descendants=state.nextGen?.videoDigestion?.descendants||[];
+      const running=onePassSession?.status==="running";
+      const finished=onePassSession?.status==="finished";
+      const hasAudio=Boolean(performanceAudio?.src);
+      const ready=Boolean(onePassApi)&&hasAudio&&descendants.length===6&&!onePassConsumed&&!running;
+      onePassBegin.disabled=!ready;
+      onePassBegin.textContent=running?"TAKE IN MOTION":(finished?"TAKE SEALED":"BEGIN THE TAKE");
+      if(!running){
+        onePassProgress.style.width=finished?"100%":"0%";
+      }
+      if(finished){
+        const receipt=onePassSession.receipt;
+        onePassStatus.textContent=onePassPersistenceError
+          ?`Take sealed in memory · receipt save failed · ${onePassPersistenceError}`
+          :`Take sealed · ${receipt.eventCount} gestures · ${receipt.placementCount} lawful clips · RECOMPOSE to review it`;
+        onePassReceipt.textContent=onePassReceiptPath
+          ?`PERFORMANCE · ${receipt.performanceHash} · ${filename(onePassReceiptPath)}`
+          :`PERFORMANCE · ${receipt.performanceHash}`;
+        onePassReceipt.title=receipt.performanceHash;
+        root.dataset.onePassPerformanceHash=receipt.performanceHash;
+      }else if(running){
+        onePassReceipt.textContent="Performance is happening. It cannot be repaired from here.";
+      }else if(!onePassApi){
+        onePassStatus.textContent="ONE PASS simulation module unavailable in this build.";
+        onePassReceipt.textContent="No take sealed";
+      }else if(!hasAudio){
+        onePassStatus.textContent="Load a song first. ONE PASS follows the admitted audio clock.";
+        onePassReceipt.textContent="No take sealed";
+      }else if(descendants.length!==6){
+        onePassStatus.textContent="Load six Video Digestion descendants to arm the take.";
+        onePassReceipt.textContent="No take sealed";
+      }else if(onePassConsumed){
+        onePassStatus.textContent="This crossing already spent its ONE PASS. Reload live organs to begin a genuinely new take.";
+      }else{
+        onePassStatus.textContent="Armed · one 48-second pass · raw timing · no snap · no undo.";
+        onePassReceipt.textContent="No take sealed";
+      }
+
+      onePassLanes.replaceChildren(...descendants.slice(0,6).map((descendant,index)=>{
+        const lane=document.createElement("button");
+        lane.type="button";
+        lane.className="franken-one-pass-lane";
+        lane.dataset.lane=String(index);
+        lane.disabled=!running;
+        const active=Boolean(onePassSession?.activeLanes?.[index]);
+        const used=Boolean(onePassSession?.events?.some((event)=>event.lane===index));
+        lane.classList.toggle("is-active",active);
+        lane.classList.toggle("is-used",used);
+        const key=document.createElement("b");
+        key.textContent=ONE_PASS_KEYS[index].toUpperCase();
+        const label=document.createElement("small");
+        label.textContent=`#${descendant.slot} · ${descendant.roleId}`;
+        lane.append(key,label);
+        lane.addEventListener("pointerdown",(event)=>{
+          if(onePassSession?.status!=="running")return;
+          event.preventDefault();
+          pressOnePassLane(index);
+          const release=()=>{
+            document.removeEventListener("pointerup",release);
+            document.removeEventListener("pointercancel",release);
+            releaseOnePassLane(index);
+          };
+          document.addEventListener("pointerup",release,{once:true});
+          document.addEventListener("pointercancel",release,{once:true});
+        });
+        return lane;
+      }));
+    }
+
+    function setOnePassPlayhead(frame){
+      playheadFrame=Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(Number(frame)||0)));
+      if(playhead)playhead.value=String(playheadFrame);
+      if(playheadReadout)playheadReadout.textContent=`Frame ${playheadFrame} · ONE PASS`;
+      const line=timelineRoot?.querySelector(".franken-timeline-playhead-line");
+      if(line)line.style.left=`${(playheadFrame/TOTAL_FRAMES)*100}%`;
+    }
+
+    function pressOnePassLane(index){
+      if(!onePassApi||onePassSession?.status!=="running")return;
+      onePassSession=onePassApi.pressLane(onePassSession,index,(performanceAudio?.currentTime||0)*1000);
+      renderOnePass();
+    }
+
+    function releaseOnePassLane(index){
+      if(!onePassApi||onePassSession?.status!=="running")return;
+      onePassSession=onePassApi.releaseLane(onePassSession,index,(performanceAudio?.currentTime||0)*1000);
+      renderOnePass();
+    }
+
+    async function finishOnePassTake(now=(performanceAudio?.currentTime||0)*1000){
+      if(!onePassApi||onePassSession?.status!=="running")return;
+      if(onePassAnimation)view.cancelAnimationFrame(onePassAnimation);
+      onePassAnimation=null;
+      performanceAudio?.pause();
+      onePassSession=onePassApi.finishOnePass(onePassSession,now);
+      onePassConsumed=true;
+      root.classList.remove("one-pass-running");
+      state=reduceBenchState(state,{type:"digest-replace",value:onePassSession.receipt.placements});
+      onePassReceiptPath=null;
+      onePassPersistenceError=null;
+      if(typeof bridge.writeOnePassReceipt==="function"){
+        try{
+          const saved=await bridge.writeOnePassReceipt(onePassSession.receipt);
+          onePassReceiptPath=saved?.path||null;
+        }catch(error){
+          onePassPersistenceError=error?.message||String(error);
+        }
+      }else{
+        onePassPersistenceError="receipt persistence bridge unavailable";
+      }
+      render();
+    }
+
+    function tickOnePass(){
+      if(!onePassApi||onePassSession?.status!=="running")return;
+      const now=(performanceAudio?.currentTime||0)*1000;
+      const frame=onePassApi.frameAtMs(onePassSession,now);
+      setOnePassPlayhead(frame);
+      if(onePassProgress)onePassProgress.style.width=`${Math.min(100,((frame+1)/onePassSession.totalFrames)*100)}%`;
+      if(onePassStatus)onePassStatus.textContent=`TAKE IN MOTION · frame ${frame} / ${onePassSession.totalFrames-1} · silence is still a move`;
+      const elapsed=now-onePassSession.startedAtMs;
+      if(performanceAudio?.ended||elapsed>=(onePassSession.totalFrames/onePassSession.fps)*1000){
+        finishOnePassTake(now).catch((error)=>{
+          onePassPersistenceError=error?.message||String(error);
+          renderOnePass();
+        });
+        return;
+      }
+      onePassAnimation=view.requestAnimationFrame(tickOnePass);
+    }
+
+    async function beginOnePassTake(){
+      if(!onePassApi||!performanceAudio?.src||onePassConsumed||onePassSession?.status==="running")return;
+      const descendants=state.nextGen?.videoDigestion?.descendants||[];
+      if(descendants.length!==6)return;
+      const audioFrames=Number.isFinite(performanceAudio.duration)&&performanceAudio.duration>0
+        ?Math.max(1,Math.round(performanceAudio.duration*24))
+        :TOTAL_FRAMES;
+      const takeFrames=Math.min(TOTAL_FRAMES,audioFrames);
+      state=reduceBenchState(state,{type:"digest-replace",value:[]});
+      playheadFrame=0;
+      performanceAudio.pause();
+      performanceAudio.currentTime=0;
+      try{
+        await performanceAudio.play();
+      }catch(error){
+        onePassStatus.textContent=`Could not begin take · ${error?.message||error}`;
+        return;
+      }
+      onePassSession=onePassApi.beginOnePass(onePassApi.createOnePassSession({
+        materials:descendants,
+        fps:24,
+        totalFrames:takeFrames,
+      }),0);
+      root.classList.add("one-pass-running");
+      render();
+      onePassAnimation=view.requestAnimationFrame(tickOnePass);
+    }
+
     function render(){
       compose.disabled=!canCompose(state);
       freeze.disabled=!canFreeze(state);
@@ -1025,6 +1208,7 @@
 
       syncControls();
       renderNextGen();
+      renderOnePass();
       renderTimeline();
       renderPreview();
     }
@@ -1042,6 +1226,11 @@
           albumContext:{},
         });
         state=reduceBenchState(state,{type:"nextgen",value:crossing});
+        onePassSession=null;
+        onePassConsumed=false;
+        onePassReceiptPath=null;
+        onePassPersistenceError=null;
+        root.classList.remove("one-pass-running");
         render();
       }catch(error){
         nextGenStatus.textContent=error?.message||String(error);
@@ -1056,6 +1245,28 @@
     });
     close?.addEventListener("click",()=>setOpen(false));
     nextGenLoad?.addEventListener("click",loadNextGen);
+    onePassBegin?.addEventListener("click",()=>{beginOnePassTake().catch((error)=>{onePassStatus.textContent=error?.message||String(error);});});
+    performanceAudio?.addEventListener("ended",()=>{
+      finishOnePassTake((performanceAudio.currentTime||0)*1000).catch((error)=>{
+        onePassPersistenceError=error?.message||String(error);
+        renderOnePass();
+      });
+    });
+    view?.addEventListener("keydown",(event)=>{
+      if(onePassSession?.status!=="running")return;
+      const lane=ONE_PASS_KEYS.indexOf(String(event.key||"").toLowerCase());
+      if(lane<0)return;
+      event.preventDefault();
+      if(event.repeat)return;
+      pressOnePassLane(lane);
+    });
+    view?.addEventListener("keyup",(event)=>{
+      if(onePassSession?.status!=="running")return;
+      const lane=ONE_PASS_KEYS.indexOf(String(event.key||"").toLowerCase());
+      if(lane<0)return;
+      event.preventDefault();
+      releaseOnePassLane(lane);
+    });
     playhead?.addEventListener("input",()=>setPlayhead(Number(playhead.value)||0));
     snapToggle?.addEventListener("change",()=>{snapEnabled=Boolean(snapToggle.checked);renderTimeline();});
     timelineZoomControl?.addEventListener("change",()=>{
