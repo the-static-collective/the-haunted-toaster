@@ -13,6 +13,7 @@ const NEXTGEN_LIVE_CROSSING_SCHEMA = "static-collective/nextgen-live-crossing/v0
 const NEXTGEN_LIVE_CROSSING_POLICY = "nextgen-live-crossings-003";
 const PRESSURE_SCHEMA = "static-collective/franken-listening-eye-pressure/v0";
 const MATERIAL_DERIVATION_SCHEMA = "static-collective/franken-video-digestion-material/v0";
+const MATERIAL_PROJECTION_TREATMENT_SCHEMA = "static-collective/franken-video-digestion-treatment/v0";
 const DONOR_PINS = deepFreeze({
   listeningEye: {
     repo: "the-static-collective/the-haunted-toaster",
@@ -97,6 +98,37 @@ function deriveFrankenPressure(listeningEye) {
   });
 }
 
+function digestionMaterialId(descendant) {
+  return `video-digest:${descendant.roleId}:${descendant.planHash.slice(0, 12)}`;
+}
+
+function sourceDurationFrames(descendant) {
+  const seconds = Number(descendant?.plan?.frameReservoir?.durationSeconds);
+  if (!Number.isFinite(seconds) || seconds <= 0) return 1;
+  return Math.max(1, Math.floor(seconds * 24));
+}
+
+function projectionTreatmentFor(descendant) {
+  const projectionClass = String(descendant?.projectionClass || "");
+  const roleId = String(descendant?.roleId || "");
+  const family = projectionClass === "derived-texture"
+    ? "texture"
+    : roleId.startsWith("motion-")
+      ? "motion"
+      : "topology";
+  const values = family === "texture"
+    ? { grayscale: 1, contrast: 1.3, saturate: 0.35, brightness: 1.06, blurPx: 1.2 }
+    : family === "motion"
+      ? { grayscale: 1, contrast: 2.1, saturate: 0, brightness: 1.14, blurPx: 0.4 }
+      : { grayscale: 1, contrast: 1.75, saturate: 0, brightness: 0.96, blurPx: 0.8 };
+  return deepFreeze({
+    schema: MATERIAL_PROJECTION_TREATMENT_SCHEMA,
+    authority: "projection-style-only",
+    family,
+    ...values,
+  });
+}
+
 function buildNextGenLiveCrossing({
   analysis,
   rootSeed = "nextgen-003",
@@ -147,10 +179,13 @@ function buildNextGenLiveCrossing({
           descendants: videoDigestion.descendants.map((descendant) => ({
             slot: descendant.slot,
             roleId: descendant.roleId,
+            materialId: digestionMaterialId(descendant),
             digestOperatorId: descendant.digestOperatorId,
             samplingPolicyId: descendant.samplingPolicyId,
             projectionClass: descendant.projectionClass,
             planHash: descendant.planHash,
+            sourceDurationFrames: sourceDurationFrames(descendant),
+            projectionTreatment: projectionTreatmentFor(descendant),
           })),
         }
       : null,
@@ -177,7 +212,7 @@ function frankenVideoDigestionReservoir(context) {
   const materials = [];
   const bindings = {};
   for (const descendant of family.descendants) {
-    const materialId = `video-digest:${descendant.roleId}:${descendant.planHash.slice(0, 12)}`;
+    const materialId = digestionMaterialId(descendant);
     materials.push({
       materialId,
       kind: "video",
@@ -194,7 +229,9 @@ function frankenVideoDigestionReservoir(context) {
         digestOperatorId: descendant.digestOperatorId,
         samplingPolicyId: descendant.samplingPolicyId,
         projectionClass: descendant.projectionClass,
+        sourceDurationFrames: sourceDurationFrames(descendant),
       },
+      projectionTreatment: projectionTreatmentFor(descendant),
     });
     bindings[materialId] = descendant.plan.sourcePath;
   }
@@ -207,11 +244,14 @@ function frankenVideoDigestionReservoir(context) {
 module.exports = {
   DONOR_PINS,
   MATERIAL_DERIVATION_SCHEMA,
+  MATERIAL_PROJECTION_TREATMENT_SCHEMA,
   NEXTGEN_LIVE_CROSSING_POLICY,
   NEXTGEN_LIVE_CROSSING_SCHEMA,
   PRESSURE_SCHEMA,
   buildNextGenLiveCrossing,
   deriveFrankenPressure,
+  digestionMaterialId,
   frankenVideoDigestionReservoir,
+  projectionTreatmentFor,
   publicCrossingView,
 };
