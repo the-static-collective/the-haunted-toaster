@@ -6,6 +6,8 @@ const { frankenVideoDigestionReservoir } = require("../nextgen/live-crossings.cj
 const {
   FRANKEN_SCHEMA,
   FRANKEN_POLICY,
+  FRANKEN_FULL_SONG_SCHEMA,
+  FRANKEN_FULL_SONG_POLICY,
   FPS,
   DURATION_FRAMES,
 } = require("./schema.cjs");
@@ -80,7 +82,11 @@ function stateFromDonors({ playdeck, blenderTake, seed, nextGenContext = null })
   return normalizeEdits(base, nextGenContext.frankenPressure.edits || {});
 }
 
-function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
+function buildProposal(playdeck, blenderTake, state, nextGenContext = null, fullSongForm = null) {
+  const activeSceneSpans=fullSongForm
+    ?Object.fromEntries(fullSongForm.sceneSpans.map(span=>[span.sceneId,[span.startFrame,span.durationFrames]]))
+    :SCENE_SPANS;
+  const compositionDuration=fullSongForm?.totalFrames||DURATION_FRAMES;
   const cardsById = new Map(playdeck.cards.map((c) => [c.cardId, c]));
   if (state.cardOrder.some((id) => !cardsById.has(id))) {
     throw new TypeError("cardOrder references an unknown Playdeck card.");
@@ -115,7 +121,9 @@ function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
     if (!Number.isSafeInteger(maxFrames) || maxFrames < 1 || placement.sourceStartFrames + placement.durationFrames > maxFrames) {
       throw new RangeError(`Digestion placement ${placement.placementId} exceeds its admitted source duration.`);
     }
-    if (placement.startOffsetFrames + placement.durationFrames > 384) {
+    const span=activeSceneSpans[placement.sceneId];
+    if(!span)throw new TypeError(`Digestion placement ${placement.placementId} references an unknown macro scene.`);
+    if (placement.startOffsetFrames + placement.durationFrames > span[1]) {
       throw new RangeError(`Digestion placement ${placement.materialId} exceeds its scene span.`);
     }
   }
@@ -142,7 +150,7 @@ function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
     ...reservoir.materials,
   ];
 
-  const scenes = Object.entries(SCENE_SPANS).map(
+  const scenes = Object.entries(activeSceneSpans).map(
     ([sceneId, [startFrame, durationFrames]]) => {
       const assigned = state.cardOrder.filter(
         (id) => state.sceneRoles[id] === sceneId,
@@ -187,6 +195,8 @@ function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
 
       if (sceneId === state.movingTakeSceneId) {
         const m = blenderTake.material;
+        const movingOffset=Math.min(96,Math.max(0,durationFrames-1));
+        const movingDuration=Math.max(1,Math.min(72,durationFrames-movingOffset));
         tracks.push({
           trackId: `${sceneId.toLowerCase()}-moving-take`,
           layer: "moving-take",
@@ -195,9 +205,9 @@ function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
             {
               clipId: `clip-${sceneId.toLowerCase()}-moving-take`,
               materialId: m.materialId,
-              startFrame: startFrame + 96,
-              durationFrames: 72,
-              sourceWindow: { startSeconds: 0, endSeconds: 3 },
+              startFrame: startFrame + movingOffset,
+              durationFrames: movingDuration,
+              sourceWindow: { startSeconds: 0, endSeconds: movingDuration / FPS },
               transform: {
                 x: 0.5,
                 y: 0.5,
@@ -242,6 +252,8 @@ function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
         });
       }
 
+      const typeOffset=Math.min(48,Math.max(0,durationFrames-1));
+      const typeDuration=Math.max(1,Math.min(192,durationFrames-typeOffset));
       tracks.push({
         trackId: `${sceneId.toLowerCase()}-type`,
         layer: "type",
@@ -250,8 +262,8 @@ function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
           {
             clipId: `clip-${sceneId.toLowerCase()}-type`,
             materialId: "franken:text",
-            startFrame: startFrame + 48,
-            durationFrames: 192,
+            startFrame: startFrame + typeOffset,
+            durationFrames: typeDuration,
             sourceWindow: null,
             transform: {
               x: 0.5,
@@ -358,6 +370,9 @@ function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
     transitionChoices: state.transitions,
     text: state.text,
     variation: state.variation,
+    durationFrames:compositionDuration,
+    sceneSpans:Object.entries(activeSceneSpans).map(([sceneId,[startFrame,durationFrames]])=>({sceneId,startFrame,durationFrames})),
+    ...(fullSongForm?{fullSongForm}:{}),
     digestPlacements,
     donorGuards,
     ancestry,
@@ -381,7 +396,7 @@ function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
         parameters: {},
       },
     ],
-    _donor: { playdeck, blenderTake, nextGenContext },
+    _donor: { playdeck, blenderTake, nextGenContext, fullSongForm },
   });
 }
 
@@ -390,12 +405,14 @@ function composeFrankenProposal({
   blenderTake,
   seed,
   nextGenContext = null,
+  fullSongForm = null,
 } = {}) {
   return buildProposal(
     playdeck,
     blenderTake,
     stateFromDonors({ playdeck, blenderTake, seed, nextGenContext }),
     nextGenContext,
+    fullSongForm,
   );
 }
 
@@ -422,6 +439,7 @@ function applyFrankenEdits(proposal, edits = {}) {
     proposal._donor.blenderTake,
     state,
     proposal._donor.nextGenContext || null,
+    proposal._donor.fullSongForm || null,
   );
 }
 
@@ -448,10 +466,11 @@ function proposalToComposition(proposal) {
   ) {
     throw new TypeError("Stale NextGen organ crossing detected before freeze.");
   }
+  const isFullSong=Boolean(proposal.fullSongForm);
   return {
-    schema: FRANKEN_SCHEMA,
-    policy: FRANKEN_POLICY,
-    compositionId: `fc0_${hashCanonical(
+    schema: isFullSong?FRANKEN_FULL_SONG_SCHEMA:FRANKEN_SCHEMA,
+    policy: isFullSong?FRANKEN_FULL_SONG_POLICY:FRANKEN_POLICY,
+    compositionId: `${isFullSong?"fc1":"fc0"}_${hashCanonical(
       {
         seed: proposal.seed,
         variation: proposal.variation,
@@ -462,18 +481,20 @@ function proposalToComposition(proposal) {
         digestPlacements: proposal.digestPlacements || [],
         nextGenCrossingIdentity:
           proposal.donorGuards.nextGenCrossingIdentity || null,
+        fullSongFormHash:proposal.fullSongForm?.formHash||null,
       },
-      "HauntedToaster-FrankenProposal-v0",
+      isFullSong?"HauntedToaster-FrankenProposal-v1":"HauntedToaster-FrankenProposal-v0",
     )}`,
     seed: `${proposal.seed}:${proposal.variation}`,
     fps: FPS,
-    durationFrames: DURATION_FRAMES,
+    durationFrames: proposal.durationFrames||DURATION_FRAMES,
     ancestry: proposal.ancestry,
     materials: proposal.materials,
     scenes: proposal.scenes,
     transitions: proposal.transitions,
     receipts: {
-      policyVersion: FRANKEN_POLICY,
+      policyVersion: isFullSong?FRANKEN_FULL_SONG_POLICY:FRANKEN_POLICY,
+      ...(proposal.fullSongForm?{fullSongFormHash:proposal.fullSongForm.formHash}:{}),
       ...(proposal.donorGuards.nextGenCrossingIdentity
         ? {
             nextGenCrossingIdentity:

@@ -11,57 +11,73 @@
   const SCENES=["ARRIVE","CROSS","ASSEMBLE"];
   const SCENE_FRAMES=384;
   const TOTAL_FRAMES=1152;
-  const SCENE_STARTS={ARRIVE:0,CROSS:384,ASSEMBLE:768};
+  const DEFAULT_FORM=Object.freeze({
+    totalFrames:TOTAL_FRAMES,
+    sceneSpans:Object.freeze([
+      Object.freeze({sceneId:"ARRIVE",startFrame:0,durationFrames:384}),
+      Object.freeze({sceneId:"CROSS",startFrame:384,durationFrames:384}),
+      Object.freeze({sceneId:"ASSEMBLE",startFrame:768,durationFrames:384}),
+    ]),
+  });
 
   const clamp=(value,min,max)=>Math.min(max,Math.max(min,Number(value)||0));
+  const formTotalFrames=(form)=>Math.max(3,Math.round(Number(form?.totalFrames)||TOTAL_FRAMES));
+  const formSceneSpans=(form)=>Array.isArray(form?.sceneSpans)&&form.sceneSpans.length===3?form.sceneSpans:DEFAULT_FORM.sceneSpans;
+  const sceneSpanFor=(form,sceneId)=>formSceneSpans(form).find(span=>span.sceneId===sceneId)||DEFAULT_FORM.sceneSpans.find(span=>span.sceneId===sceneId);
 
-  function globalFrameForPlacement(placement){
-    return SCENE_STARTS[placement.sceneId]+Number(placement.startOffsetFrames||0);
+  function globalFrameForPlacement(placement,form=DEFAULT_FORM){
+    const span=sceneSpanFor(form,placement.sceneId);
+    return Number(span?.startFrame||0)+Number(placement.startOffsetFrames||0);
   }
 
-  function sceneAtGlobalFrame(frame){
-    const value=Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(Number(frame)||0)));
-    const index=Math.min(2,Math.floor(value/SCENE_FRAMES));
-    const sceneId=SCENES[index];
-    return {sceneId,startFrame:SCENE_STARTS[sceneId],offsetFrame:value-SCENE_STARTS[sceneId]};
+  function sceneAtGlobalFrame(frame,form=DEFAULT_FORM){
+    const total=formTotalFrames(form);
+    const value=Math.max(0,Math.min(total-1,Math.round(Number(frame)||0)));
+    const spans=formSceneSpans(form);
+    const span=spans.find(item=>value>=item.startFrame&&value<item.startFrame+item.durationFrames)||spans.at(-1);
+    return {sceneId:span.sceneId,startFrame:span.startFrame,offsetFrame:value-span.startFrame,durationFrames:span.durationFrames};
   }
 
-  function snapFrame(frame,landmarks=[],enabled=true,threshold=14){
-    const value=Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(Number(frame)||0)));
+  function snapFrame(frame,landmarks=[],enabled=true,threshold=14,form=DEFAULT_FORM){
+    const total=formTotalFrames(form);
+    const value=Math.max(0,Math.min(total-1,Math.round(Number(frame)||0)));
     if(!enabled)return value;
-    const candidates=[0,384,768,1151,...(Array.isArray(landmarks)?landmarks.map(mark=>Number(mark.compositionFrame)):[])].filter(Number.isFinite);
+    const boundaries=formSceneSpans(form).flatMap(span=>[span.startFrame,span.startFrame+span.durationFrames-1]);
+    const candidates=[0,total-1,...boundaries,...(Array.isArray(landmarks)?landmarks.map(mark=>Number(mark.compositionFrame)):[])].filter(Number.isFinite);
     let best=value,bestDistance=threshold+1;
     for(const candidate of candidates){
       const distance=Math.abs(candidate-value);
       if(distance<bestDistance){best=Math.round(candidate);bestDistance=distance;}
     }
-    return bestDistance<=threshold?Math.max(0,Math.min(TOTAL_FRAMES-1,best)):value;
+    return bestDistance<=threshold?Math.max(0,Math.min(total-1,best)):value;
   }
 
-  function movePlacementOnTimeline(placement,targetGlobalFrame,landmarks=[],snapEnabled=true){
-    const snapped=snapFrame(targetGlobalFrame,landmarks,snapEnabled);
-    const target=sceneAtGlobalFrame(snapped);
-    const maxStart=Math.max(0,SCENE_FRAMES-Number(placement.durationFrames||1));
+  function movePlacementOnTimeline(placement,targetGlobalFrame,landmarks=[],snapEnabled=true,form=DEFAULT_FORM){
+    const snapped=snapFrame(targetGlobalFrame,landmarks,snapEnabled,14,form);
+    const target=sceneAtGlobalFrame(snapped,form);
+    const maxStart=Math.max(0,target.durationFrames-Number(placement.durationFrames||1));
     return {
       sceneId:target.sceneId,
       startOffsetFrames:Math.max(0,Math.min(maxStart,target.offsetFrame)),
     };
   }
 
-  function resizePlacementOnTimeline(placement,targetGlobalEndFrame,sourceDurationFrames,landmarks=[],snapEnabled=true){
-    const start=globalFrameForPlacement(placement);
-    const sceneEnd=SCENE_STARTS[placement.sceneId]+SCENE_FRAMES;
+  function resizePlacementOnTimeline(placement,targetGlobalEndFrame,sourceDurationFrames,landmarks=[],snapEnabled=true,form=DEFAULT_FORM){
+    const start=globalFrameForPlacement(placement,form);
+    const span=sceneSpanFor(form,placement.sceneId);
+    const sceneEnd=span.startFrame+span.durationFrames;
     const sourceRemaining=Math.max(1,Number(sourceDurationFrames||1)-Number(placement.sourceStartFrames||0));
-    const snapped=snapFrame(targetGlobalEndFrame,landmarks,snapEnabled);
+    const snapped=snapFrame(targetGlobalEndFrame,landmarks,snapEnabled,14,form);
     const end=Math.max(start+1,Math.min(sceneEnd,snapped));
     return {durationFrames:Math.max(1,Math.min(end-start,sourceRemaining))};
   }
 
-  function transportFrameForSeconds(seconds,durationSeconds){
+  function transportFrameForSeconds(seconds,durationSeconds,totalFrames=TOTAL_FRAMES){
     const duration=Number(durationSeconds);
+    const total=Math.max(3,Math.round(Number(totalFrames)||TOTAL_FRAMES));
     if(!Number.isFinite(duration)||duration<=0)return 0;
     const ratio=clamp(Number(seconds)||0,0,duration)/duration;
-    return Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(ratio*(TOTAL_FRAMES-1))));
+    return Math.max(0,Math.min(total-1,Math.round(ratio*(total-1))));
   }
 
   function previewMediaTime(clip,globalFrame,fps=24){
@@ -266,7 +282,7 @@
           },
         });
       case "digest-place":
-        if((state.edits.digestPlacements||[]).length>=96)throw new Error("Franken editor supports at most ninety-six digestion placements.");
+        if((state.edits.digestPlacements||[]).length>=2048)throw new Error("Franken editor supports at most 2048 digestion placements.");
         if(placementFor(state,action.placement.placementId))throw new Error("Digestion placement id must be unique.");
         return markDirty({
           ...state,
@@ -284,7 +300,7 @@
           },
         });
       case "digest-replace":
-        if(!Array.isArray(action.value)||action.value.length>96)throw new Error("Franken editor supports at most ninety-six digestion placements.");
+        if(!Array.isArray(action.value)||action.value.length>2048)throw new Error("Franken editor supports at most 2048 digestion placements.");
         return markDirty({
           ...state,
           edits:{
@@ -346,7 +362,7 @@
     }
   }
 
-  function composeConfig(state){
+  function composeConfig(state,fullSongForm=null){
     return {
       deckPath:state.paths.deckPath,
       worldRulePath:state.paths.worldRulePath,
@@ -355,6 +371,7 @@
       blenderReceiptPath:state.paths.blenderReceiptPath,
       blenderVideoPath:state.paths.blenderVideoPath,
       seed:state.seed,
+      ...(fullSongForm?{fullSongForm}:{}),
       nextGen:state.nextGen
         ?{
             enabled:true,
@@ -448,9 +465,19 @@
     let timelineGestureActive=false;
     let timelineZoom=1;
     let transportMeta=null;
+    let fullSongForm=null;
     let transportRaf=null;
     let previewClipIndex=new Map();
     let timelinePlayheadLine=null;
+
+    const currentForm=()=>fullSongForm||DEFAULT_FORM;
+    const currentTotalFrames=()=>formTotalFrames(currentForm());
+    const currentLandmarks=()=>fullSongForm
+      ?fullSongForm.sourceSections.flatMap(section=>[
+          {kind:"section",label:`${section.label} start`,compositionFrame:section.startFrame},
+          {kind:"section",label:`${section.label} end`,compositionFrame:Math.max(section.startFrame,section.endFrame-1)},
+        ])
+      :(state.nextGen?.snapLandmarks||[]);
 
     const pathMethods={
       deckPath:"chooseFrankenPlaydeckDeck",
@@ -709,7 +736,7 @@
           addKey.disabled=(placement.transformKeyframes||[]).length>=4;
           addKey.textContent="ADD TRANSFORM KEYFRAME @ PLAYHEAD";
           addKey.addEventListener("click",()=>{
-            const globalStart=globalFrameForPlacement(placement);
+            const globalStart=globalFrameForPlacement(placement,currentForm());
             let offset=Math.round(clamp(playheadFrame-globalStart,0,Math.max(0,placement.durationFrames-1)));
             const used=new Set((placement.transformKeyframes||[]).map(keyframe=>keyframe.offsetFrames));
             while(used.has(offset)&&offset<placement.durationFrames-1)offset+=1;
@@ -730,12 +757,17 @@
 
     function transportSecondsForFrame(frame){
       if(!transportMeta?.duration)return 0;
-      return (clamp(frame,0,TOTAL_FRAMES-1)/(TOTAL_FRAMES-1))*transportMeta.duration;
+      const total=currentTotalFrames();
+      return (clamp(frame,0,total-1)/(total-1))*transportMeta.duration;
     }
 
     function updateTimelinePlayhead(){
-      if(timelinePlayheadLine)timelinePlayheadLine.style.left=`${(playheadFrame/TOTAL_FRAMES)*100}%`;
-      if(playhead)playhead.value=String(playheadFrame);
+      const total=currentTotalFrames();
+      if(timelinePlayheadLine)timelinePlayheadLine.style.left=`${(playheadFrame/total)*100}%`;
+      if(playhead){
+        playhead.max=String(total-1);
+        playhead.value=String(playheadFrame);
+      }
       if(playheadReadout)playheadReadout.textContent=`Frame ${playheadFrame}`;
     }
 
@@ -754,7 +786,7 @@
       if(!previewRoot)return;
       const memory=onePassEcology?.residueMemory;
       if(!memory)return;
-      const activeScene=sceneAtGlobalFrame(playheadFrame).sceneId;
+      const activeScene=sceneAtGlobalFrame(playheadFrame,currentForm()).sceneId;
       for(const layer of previewRoot.querySelectorAll(".franken-residue-layer")){
         const sceneId=layer.closest(".franken-preview-scene")?.dataset?.sceneId||"";
         const active=sceneId===activeScene;
@@ -803,7 +835,8 @@
     }
 
     function setPlayhead(frame,{seekAudio=true}={}){
-      playheadFrame=Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(Number(frame)||0)));
+      const total=currentTotalFrames();
+      playheadFrame=Math.max(0,Math.min(total-1,Math.round(Number(frame)||0)));
       if(seekAudio&&transportMeta&&transportAudio){
         const seconds=transportSecondsForFrame(playheadFrame);
         if(Number.isFinite(seconds)){
@@ -839,7 +872,7 @@
       stopTransportLoop();
       const tick=()=>{
         if(!transportAudio||transportAudio.paused||!transportMeta){transportRaf=null;updateTransportStatus();return;}
-        playheadFrame=transportFrameForSeconds(transportAudio.currentTime,transportMeta.duration);
+        playheadFrame=transportFrameForSeconds(transportAudio.currentTime,transportMeta.duration,currentTotalFrames());
         updateTimelinePlayhead();
         updatePreviewFrame();
         transportRaf=view?.requestAnimationFrame?view.requestAnimationFrame(tick):null;
@@ -850,11 +883,13 @@
     function renderTimeline(){
       if(!timelineRoot)return;
       timelineRoot.replaceChildren();
-      const landmarks=state.nextGen?.snapLandmarks||[];
+      const form=currentForm();
+      const total=formTotalFrames(form);
+      const landmarks=currentLandmarks();
       const frameFromClientX=(clientX)=>{
         const rect=timelineRoot.getBoundingClientRect();
         if(!rect.width)return 0;
-        return Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(((clientX-rect.left)/rect.width)*TOTAL_FRAMES)));
+        return Math.max(0,Math.min(total-1,Math.round(((clientX-rect.left)/rect.width)*total)));
       };
       const beginTimelineGesture=(event,finish)=>{
         if(timelineGestureActive)return;
@@ -878,12 +913,13 @@
         document.addEventListener("mouseup",complete);
         document.addEventListener("pointercancel",cancel,{once:true});
       };
-      for(const sceneId of SCENES){
+      for(const span of formSceneSpans(form)){
+        const sceneId=span.sceneId;
         const band=document.createElement("div");
         band.className="franken-timeline-scene";
         band.dataset.sceneId=sceneId;
-        band.style.left=`${(SCENE_STARTS[sceneId]/TOTAL_FRAMES)*100}%`;
-        band.style.width=`${(SCENE_FRAMES/TOTAL_FRAMES)*100}%`;
+        band.style.left=`${(span.startFrame/total)*100}%`;
+        band.style.width=`${(span.durationFrames/total)*100}%`;
         const label=document.createElement("span");
         label.textContent=sceneId;
         band.append(label);
@@ -895,7 +931,7 @@
         line.className="franken-timeline-landmark";
         line.dataset.kind=mark.kind;
         line.dataset.frame=String(mark.compositionFrame);
-        line.style.left=`${(Number(mark.compositionFrame)/TOTAL_FRAMES)*100}%`;
+        line.style.left=`${(Number(mark.compositionFrame)/total)*100}%`;
         line.title=`${mark.kind} · ${mark.label} · frame ${mark.compositionFrame}`;
         timelineRoot.append(line);
       }
@@ -906,8 +942,8 @@
         const clip=document.createElement("div");
         clip.className="franken-timeline-clip";
         clip.dataset.placementId=placement.placementId;
-        clip.style.left=`${(globalFrameForPlacement(placement)/TOTAL_FRAMES)*100}%`;
-        clip.style.width=`${Math.max(0.8,(Number(placement.durationFrames)/TOTAL_FRAMES)*100)}%`;
+        clip.style.left=`${(globalFrameForPlacement(placement,form)/total)*100}%`;
+        clip.style.width=`${Math.max(0.15,(Number(placement.durationFrames)/total)*100)}%`;
         clip.style.top=`${36+(index%3)*28}px`;
         clip.style.height="22px";
         clip.style.zIndex=String(100+index);
@@ -920,10 +956,10 @@
 
         const beginMove=(event)=>{
           if(event.target===resize)return;
-          const pointerOffset=frameFromClientX(event.clientX)-globalFrameForPlacement(placement);
+          const pointerOffset=frameFromClientX(event.clientX)-globalFrameForPlacement(placement,form);
           beginTimelineGesture(event,(upEvent)=>{
             const target=frameFromClientX(upEvent.clientX)-pointerOffset;
-            const patch=movePlacementOnTimeline(placement,target,landmarks,snapEnabled);
+            const patch=movePlacementOnTimeline(placement,target,landmarks,snapEnabled,form);
             state=reduceBenchState(state,{type:"digest-edit",placementId:placement.placementId,patch});
             render();
           });
@@ -940,6 +976,7 @@
               descendant?.sourceDurationFrames,
               landmarks,
               snapEnabled,
+              form,
             );
             patch.transformKeyframes=(placement.transformKeyframes||[]).filter(keyframe=>keyframe.offsetFrames<patch.durationFrames);
             state=reduceBenchState(state,{type:"digest-edit",placementId:placement.placementId,patch});
@@ -1076,7 +1113,7 @@
       }else if(onePassConsumed){
         onePassStatus.textContent="This crossing already spent its ONE PASS. Reload live organs to begin a genuinely new take.";
       }else{
-        onePassStatus.textContent="Armed · one 48-second pass · raw timing · no snap · no undo.";
+        onePassStatus.textContent=`Armed · one full-song pass · ${currentTotalFrames()} frames · raw timing · no snap · no undo.`;
         onePassReceipt.textContent="No take sealed";
       }
 
@@ -1112,11 +1149,12 @@
     }
 
     function setOnePassPlayhead(frame){
-      playheadFrame=Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(Number(frame)||0)));
-      if(playhead)playhead.value=String(playheadFrame);
+      const total=onePassSession?.totalFrames||currentTotalFrames();
+      playheadFrame=Math.max(0,Math.min(total-1,Math.round(Number(frame)||0)));
+      if(playhead){playhead.max=String(total-1);playhead.value=String(playheadFrame);}
       if(playheadReadout)playheadReadout.textContent=`Frame ${playheadFrame} · ONE PASS`;
       const line=timelineRoot?.querySelector(".franken-timeline-playhead-line");
-      if(line)line.style.left=`${(playheadFrame/TOTAL_FRAMES)*100}%`;
+      if(line)line.style.left=`${(playheadFrame/total)*100}%`;
     }
 
     function pointerPointForCurrentScene(event){
@@ -1124,7 +1162,7 @@
       const performanceFrame=onePassApi&&onePassSession?.status==="running"
         ?onePassApi.frameAtMs(onePassSession,(performanceAudio?.currentTime||0)*1000)
         :playheadFrame;
-      const sceneId=sceneAtGlobalFrame(performanceFrame).sceneId;
+      const sceneId=sceneAtGlobalFrame(performanceFrame,onePassSession?{totalFrames:onePassSession.totalFrames,sceneSpans:onePassSession.sceneSpans}:currentForm()).sceneId;
       const card=previewRoot.querySelector(`.franken-preview-scene[data-scene-id="${sceneId}"]`);
       const viewport=card?.querySelector(".franken-preview-viewport");
       if(!viewport)return null;
@@ -1227,10 +1265,11 @@
       if(!onePassApi||!performanceAudio?.src||onePassConsumed||onePassSession?.status==="running")return;
       const descendants=state.nextGen?.videoDigestion?.descendants||[];
       if(descendants.length!==6)return;
-      const audioFrames=Number.isFinite(performanceAudio.duration)&&performanceAudio.duration>0
-        ?Math.max(1,Math.round(performanceAudio.duration*24))
-        :TOTAL_FRAMES;
-      const takeFrames=Math.min(TOTAL_FRAMES,audioFrames);
+      if(!fullSongForm){
+        onePassStatus.textContent="Full-song form is not ready yet.";
+        return;
+      }
+      const takeFrames=fullSongForm.totalFrames;
       state=reduceBenchState(state,{type:"digest-replace",value:[]});
       playheadFrame=0;
       performanceAudio.pause();
@@ -1247,6 +1286,7 @@
         materials:descendants,
         fps:24,
         totalFrames:takeFrames,
+        sceneSpans:fullSongForm.sceneSpans,
       }),0);
       root.classList.add("one-pass-running");
       render();
@@ -1427,7 +1467,7 @@
       timelineZoom=[1,2,4].includes(Number(timelineZoomControl.value))?Number(timelineZoomControl.value):1;
       renderTimeline();
       if(timelineScroll){
-        const target=(playheadFrame/(TOTAL_FRAMES-1))*Math.max(0,timelineRoot.scrollWidth-timelineScroll.clientWidth);
+        const target=(playheadFrame/(currentTotalFrames()-1))*Math.max(0,timelineRoot.scrollWidth-timelineScroll.clientWidth);
         timelineScroll.scrollLeft=Math.max(0,target);
       }
     });
@@ -1447,20 +1487,56 @@
       stopTransportLoop();
       updateTransportStatus();
     });
-    transportAudio?.addEventListener("ended",()=>{playheadFrame=TOTAL_FRAMES-1;stopTransportLoop();updateTimelinePlayhead();updatePreviewFrame();});
-    view?.addEventListener("full-measure:audio-ready",(event)=>{
+    transportAudio?.addEventListener("ended",()=>{playheadFrame=currentTotalFrames()-1;stopTransportLoop();updateTimelinePlayhead();updatePreviewFrame();});
+    view?.addEventListener("full-measure:audio-ready",async(event)=>{
       transportAudio?.pause();
       stopTransportLoop();
+      fullSongForm=null;
       transportMeta=event.detail?.url&&Number(event.detail?.duration)>0
-        ?{url:event.detail.url,duration:Number(event.detail.duration),filename:event.detail.filename||"song"}
+        ?{
+            url:event.detail.url,
+            duration:Number(event.detail.duration),
+            filename:event.detail.filename||"song",
+            sections:Array.isArray(event.detail.sections)?event.detail.sections:[],
+          }
         :null;
+      if(transportMeta&&typeof bridge.deriveFrankenFullSongForm==="function"){
+        try{
+          fullSongForm=await bridge.deriveFrankenFullSongForm({
+            durationSeconds:transportMeta.duration,
+            fps:24,
+            sections:transportMeta.sections,
+          });
+          transportMeta.fullSongForm=fullSongForm;
+        }catch(error){
+          fullSongForm=null;
+          if(transportStatus)transportStatus.textContent=`Full-song form failed · ${error?.message||error}`;
+        }
+      }
       if(transportAudio){
         if(transportMeta)transportAudio.src=transportMeta.url;
         else transportAudio.removeAttribute("src");
       }
+      playheadFrame=0;
+      onePassSession=null;
+      onePassConsumed=false;
+      onePassReceiptPath=null;
+      onePassPersistenceError=null;
+      onePassEcology=null;
+      onePassEcologyError=null;
+      state=markDirty({
+        ...state,
+        proposal:null,
+        proposalIdentity:null,
+        edits:{...state.edits,digestPlacements:[]},
+      });
+      if(playhead){
+        playhead.max=String(currentTotalFrames()-1);
+        playhead.value="0";
+      }
       if(transportPlay)transportPlay.disabled=!transportMeta;
       if(transportPause)transportPause.disabled=!transportMeta;
-      updateTransportStatus();
+      render();
     });
 
     root.querySelectorAll("[data-franken-choose]").forEach((button)=>
@@ -1496,7 +1572,7 @@
     compose.addEventListener("click",async()=>{
       try{
         status.textContent="Composing proposal…";
-        const result=await bridge.composeFranken(composeConfig(state));
+        const result=await bridge.composeFranken(composeConfig(state,fullSongForm));
         state=reduceBenchState(state,{type:"proposal",result});
         render();
       }catch(error){
@@ -1508,7 +1584,7 @@
       try{
         status.textContent="Revalidating donors and freezing…";
         const result=await bridge.freezeFranken({
-          ...composeConfig(state),
+          ...composeConfig(state,fullSongForm),
           expectedProposalIdentity:state.proposalIdentity,
         });
         state=reduceBenchState(state,{type:"frozen",planHash:result.planHash});
@@ -1521,7 +1597,7 @@
     bundle.addEventListener("click",async()=>{
       try{
         const result=await bridge.writeFrankenProjectionBundle({
-          ...composeConfig(state),
+          ...composeConfig(state,fullSongForm),
           expectedProposalIdentity:state.proposalIdentity,
         });
         status.textContent=`Renderer bundle prepared · ${result.directory}`;

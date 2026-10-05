@@ -9,9 +9,10 @@ const {adaptAcceptedBlenderTake}=require("./adapters/blender-take.cjs");
 const {frankenVideoDigestionReservoir}=require("../nextgen/live-crossings.cjs");
 const {composeFrankenProposal,applyFrankenEdits,proposalToComposition}=require("./compose.cjs");
 const {freezeFrankenComposition}=require("./freeze.cjs");
-const {fingerprint256,stableStringify}=require("../renderer/one-pass.js");
+const {fingerprint256,stableStringify,normalizeSceneSpans}=require("../renderer/one-pass.js");
 const {compilePerformanceTrace}=require("../nextgen/performance-trace.cjs");
 const {compileResidueMemory}=require("../nextgen/residue-memory.cjs");
+const {deriveFullSongForm,validateFullSongForm}=require("../nextgen/full-song-form.cjs");
 
 const JSON_EXTENSIONS=new Set([".json"]);
 const VIDEO_EXTENSIONS=new Set([".mp4"]);
@@ -25,11 +26,15 @@ function validateOnePassReceipt(receipt){
   if(!/^[a-f0-9]{64}$/.test(String(receipt.performanceHash||"")))throw new TypeError("ONE PASS performance hash must be 64 lowercase hex characters.");
   const {performanceHash,...witness}=receipt;
   if(fingerprint256(stableStringify(witness))!==performanceHash)throw new TypeError("ONE PASS receipt fingerprint mismatch.");
-  if(!Array.isArray(receipt.events)||receipt.events.length>192)throw new TypeError("ONE PASS receipt events are outside the bounded performance envelope.");
-  if(!Array.isArray(receipt.placements)||receipt.placements.length>96)throw new TypeError("ONE PASS receipt placements are outside the bounded performance envelope.");
+  if(!Array.isArray(receipt.events)||receipt.events.length>4096)throw new TypeError("ONE PASS receipt events are outside the bounded full-song performance envelope.");
+  if(!Array.isArray(receipt.placements)||receipt.placements.length>2048)throw new TypeError("ONE PASS receipt placements are outside the bounded full-song performance envelope.");
   if(receipt.spatialSamples!==undefined&&!Array.isArray(receipt.spatialSamples))throw new TypeError("ONE PASS receipt spatial samples must be an array when present.");
   const spatialSamples=receipt.spatialSamples||[];
-  if(spatialSamples.length>384)throw new TypeError("ONE PASS receipt spatial samples are outside the bounded performance envelope.");
+  if(spatialSamples.length>16384)throw new TypeError("ONE PASS receipt spatial samples are outside the bounded full-song performance envelope.");
+  if(receipt.sceneSpans!==undefined){
+    if(!Array.isArray(receipt.sceneSpans)||receipt.sceneSpans.length!==3)throw new TypeError("ONE PASS receipt sceneSpans must contain three macro scenes when present.");
+    normalizeSceneSpans(receipt.sceneSpans,Math.floor(Number(receipt.totalFrames)));
+  }
   if(receipt.eventCount!==receipt.events.length||receipt.placementCount!==receipt.placements.length)throw new TypeError("ONE PASS receipt counts do not match its body.");
   if(receipt.spatialSampleCount!==undefined&&receipt.spatialSampleCount!==spatialSamples.length)throw new TypeError("ONE PASS receipt spatial sample count does not match its body.");
   return canonicalize(receipt);
@@ -90,7 +95,7 @@ async function blenderInputs(acceptancePath,admissionReceiptPath,videoPath){
   return {blenderTake,videoPath:video};
 }
 function publicProposal(proposal){const {_donor,...safe}=proposal;return canonicalize(safe);}
-function proposalIdentity(proposal){return hashCanonical(publicProposal(proposal),"HauntedToaster-FrankenProposalPreview-v0");}
+function proposalIdentity(proposal){return hashCanonical(publicProposal(proposal),proposal?.fullSongForm?"HauntedToaster-FrankenProposalPreview-v1":"HauntedToaster-FrankenProposalPreview-v0");}
 function previewAssets(proposal,assetBindings={}){
   const byId=new Map((proposal?.materials||[]).map(material=>[material.materialId,material]));
   return canonicalize(Object.fromEntries(
@@ -105,6 +110,7 @@ function previewAssets(proposal,assetBindings={}){
 async function buildProposal(config,{getNextGenContext=null}={}){
   const {playdeck,sourcePaths}=await playdeckInputs(config?.deckPath,config?.worldRulePath,config?.playdeckAssetMapPath);
   const {blenderTake,videoPath}=await blenderInputs(config?.blenderAcceptancePath,config?.blenderReceiptPath,config?.blenderVideoPath);
+  const fullSongForm=config?.fullSongForm?validateFullSongForm(config.fullSongForm):null;
   let nextGenContext=null;
   if(config?.nextGen?.enabled===true){
     if(typeof getNextGenContext!=="function")throw new TypeError("NextGen organ crossing is unavailable in this Franken service.");
@@ -122,6 +128,7 @@ async function buildProposal(config,{getNextGenContext=null}={}){
     blenderTake,
     seed:String(config?.seed||"franken-001"),
     nextGenContext,
+    fullSongForm,
   });
   if(config?.edits)proposal=applyFrankenEdits(proposal,config.edits);
   const reservoir=nextGenContext?frankenVideoDigestionReservoir(nextGenContext):{bindings:{}};
@@ -137,6 +144,7 @@ async function buildProposal(config,{getNextGenContext=null}={}){
 function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
   const outputRoot=path.resolve(rootDir||path.join(process.cwd(),"FrankenComposer"));
   return Object.freeze({
+    deriveFullSongForm(input){return deriveFullSongForm(input);},
     async compose(config){const {proposal,assetBindings}=await buildProposal(config,{getNextGenContext});return {proposalIdentity:proposalIdentity(proposal),proposal:publicProposal(proposal),previewAssets:previewAssets(proposal,assetBindings)};},
     async freeze(config){const {proposal,assetBindings}=await buildProposal(config,{getNextGenContext});const identity=proposalIdentity(proposal);if(typeof config?.expectedProposalIdentity!=="string"||config.expectedProposalIdentity!==identity)throw new TypeError("Franken freeze refuses stale or unreviewed proposal identity.");const frozen=freezeFrankenComposition(proposalToComposition(proposal));return {...frozen,assetBindings};},
     async derivePerformanceEcology(receipt){
@@ -179,6 +187,7 @@ function registerFrankenComposerIpc(ipcMain,{dialog,getWindow,rootDir,assertAvai
   ipcMain.handle("franken:choose-blender-acceptance",()=>choose("Choose Blender accepted-take JSON",["json"]));
   ipcMain.handle("franken:choose-blender-receipt",()=>choose("Choose Blender admission receipt JSON",["json"]));
   ipcMain.handle("franken:choose-blender-video",()=>choose("Choose Blender accepted take",["mp4"]));
+  ipcMain.handle("franken:derive-full-song-form",(_event,input)=>{assertAvailable();return service.deriveFullSongForm(input);});
   ipcMain.handle("franken:compose",async(_event,config)=>{assertAvailable();return service.compose(config);});
   ipcMain.handle("franken:freeze",async(_event,config)=>{assertAvailable();const result=await service.freeze(config);return {plan:result.plan,planHash:result.planHash};});
   ipcMain.handle("franken:derive-performance-ecology",async(_event,receipt)=>{assertAvailable();return service.derivePerformanceEcology(receipt);});

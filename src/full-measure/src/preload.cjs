@@ -180,6 +180,7 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   chooseFrankenBlenderAcceptance: () => ipcRenderer.invoke("franken:choose-blender-acceptance"),
   chooseFrankenBlenderReceipt: () => ipcRenderer.invoke("franken:choose-blender-receipt"),
   chooseFrankenBlenderVideo: () => ipcRenderer.invoke("franken:choose-blender-video"),
+  deriveFrankenFullSongForm: (input) => ipcRenderer.invoke("franken:derive-full-song-form", input),
   composeFranken: (config) => ipcRenderer.invoke("franken:compose", config),
   freezeFranken: (config) => ipcRenderer.invoke("franken:freeze", config),
   derivePerformanceEcology: (receipt) => ipcRenderer.invoke("franken:derive-performance-ecology", receipt),
