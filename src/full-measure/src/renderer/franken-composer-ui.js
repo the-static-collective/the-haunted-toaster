@@ -78,27 +78,36 @@
     };
   }
 
-  function defaultDigestPlacement(descendant,sceneId=null){
+  function defaultDigestPlacement(descendant,sceneId=null,ordinal=1){
     const scene=sceneId||SCENES[(Math.max(1,Number(descendant?.slot)||1)-1)%SCENES.length];
     const slot=Math.max(1,Number(descendant?.slot)||1);
+    const n=Math.max(1,Number(ordinal)||1);
     return {
+      placementId:`p-${String(descendant.roleId||"digest").replace(/[^A-Za-z0-9_-]/g,"-")}-${n}`,
       materialId:String(descendant.materialId),
       sceneId:scene,
-      startOffsetFrames:48+((slot-1)%3)*72,
+      startOffsetFrames:48+((slot+n-2)%3)*72,
+      sourceStartFrames:0,
       durationFrames:Math.max(1,Math.min(72,Number(descendant.sourceDurationFrames)||72)),
       transform:{
-        x:[0.32,0.5,0.68][(slot-1)%3],
-        y:slot%2===0?0.58:0.42,
+        x:[0.32,0.5,0.68][(slot+n-2)%3],
+        y:(slot+n)%2===0?0.58:0.42,
         scale:0.86,
-        rotationDegrees:((slot-1)%3-1)*5,
+        rotationDegrees:(((slot+n-2)%3)-1)*5,
       },
+      crop:null,
       opacity:0.64,
       blend:"screen",
+      stackOrder:30+n,
     };
   }
 
-  function placementFor(state,materialId){
-    return (state.edits.digestPlacements||[]).find((placement)=>placement.materialId===materialId)||null;
+  function placementsFor(state,materialId){
+    return (state.edits.digestPlacements||[]).filter((placement)=>placement.materialId===materialId);
+  }
+
+  function placementFor(state,placementId){
+    return (state.edits.digestPlacements||[]).find((placement)=>placement.placementId===placementId)||null;
   }
 
   function descendantFor(state,materialId){
@@ -149,9 +158,9 @@
             sceneRoles:{...state.edits.sceneRoles,[action.cardId]:action.sceneId},
           },
         });
-      case "digest-place":{
-        const existing=placementFor(state,action.placement.materialId);
-        if(existing)return state;
+      case "digest-place":
+        if((state.edits.digestPlacements||[]).length>=12)throw new Error("Franken editor supports at most twelve digestion placements.");
+        if(placementFor(state,action.placement.placementId))throw new Error("Digestion placement id must be unique.");
         return markDirty({
           ...state,
           edits:{
@@ -159,13 +168,12 @@
             digestPlacements:[...(state.edits.digestPlacements||[]),action.placement],
           },
         });
-      }
       case "digest-remove":
         return markDirty({
           ...state,
           edits:{
             ...state.edits,
-            digestPlacements:(state.edits.digestPlacements||[]).filter((placement)=>placement.materialId!==action.materialId),
+            digestPlacements:(state.edits.digestPlacements||[]).filter((placement)=>placement.placementId!==action.placementId),
           },
         });
       case "digest-edit":
@@ -173,8 +181,13 @@
           ...state,
           edits:{
             ...state.edits,
-            digestPlacements:(state.edits.digestPlacements||[]).map((placement)=>placement.materialId===action.materialId
-              ?{...placement,...action.patch,transform:action.patch?.transform?{...placement.transform,...action.patch.transform}:placement.transform}
+            digestPlacements:(state.edits.digestPlacements||[]).map((placement)=>placement.placementId===action.placementId
+              ?{
+                  ...placement,
+                  ...action.patch,
+                  transform:action.patch?.transform?{...placement.transform,...action.patch.transform}:placement.transform,
+                  crop:Object.prototype.hasOwnProperty.call(action.patch||{},"crop")?action.patch.crop:placement.crop,
+                }
               :placement),
           },
         });
