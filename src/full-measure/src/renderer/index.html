@@ -273,11 +273,11 @@
               <div class="franken-transport-controls">
                 <button type="button" id="frankenTransportPlay" disabled>PLAY</button>
                 <button type="button" id="frankenTransportPause" disabled>PAUSE</button>
-                <label class="franken-snap-toggle"><input id="frankenSnapEnabled" type="checkbox" checked /> Snap</label>
+                <label class="franken-snap-toggle"><input id="frankenSnapEnabled" type="checkbox" checked /> Snap</label><label class="franken-ear-toggle"><input id="frankenEarEnabled" type="checkbox" checked /> Ear</label>
                 <label>Zoom<select id="frankenTimelineZoom"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
               </div>
             </div>
-            <div class="franken-transport-status"><span id="frankenTransportStatus">Choose a song in Full Measure to enable synchronized transport.</span></div>
+            <div class="franken-transport-status"><span id="frankenTransportStatus">Choose a song in Full Measure to enable synchronized transport.</span><span id="frankenListeningFieldStatus">EAR waiting for admitted song</span></div>
             <div class="franken-timeline-scroll" id="frankenTimelineScroll"><div class="franken-timeline-ruler" id="frankenTimelineRuler" aria-label="Full-song composition timeline"></div></div>
             <input class="franken-playhead" id="frankenPlayhead" type="range" min="0" max="1151" step="1" value="0" aria-label="Proposal preview playhead" />
             <audio id="frankenTransportAudio" preload="metadata"></audio>
