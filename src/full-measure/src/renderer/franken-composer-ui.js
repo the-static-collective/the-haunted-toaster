@@ -72,6 +72,29 @@
     return sourceStart+local/Math.max(1,Number(fps)||24);
   }
 
+  function residueStrengthAtFrame(residue,frame){
+    const target=Math.floor(Number(frame));
+    if(!Number.isFinite(target)||!residue)return 0;
+    const birth=Number(residue.birthFrame);
+    const death=Number(residue.deathFrame);
+    if(target<birth)return 0;
+    if(Number.isSafeInteger(death)&&target>=death)return 0;
+    const initial=Number(residue.initialStrength)||0;
+    const perFrame=Number(residue.decay?.perFrame)||0;
+    const floor=Number(residue.decay?.floor)||0;
+    const raw=initial-((target-birth)*perFrame);
+    if(raw<=floor)return 0;
+    return Math.max(0,Math.min(1,Math.round(raw*1_000_000)/1_000_000));
+  }
+
+  function residuePathPoints(path=[]){
+    if(!Array.isArray(path))return "";
+    return path
+      .filter(point=>Number.isFinite(Number(point?.x))&&Number.isFinite(Number(point?.y)))
+      .map(point=>`${Math.round(Number(point.x)*1000)},${Math.round(Number(point.y)*1000)}`)
+      .join(" ");
+  }
+
   function interpolateTransformAtFrame(base,keyframes=[],offsetFrame=0){
     const points=new Map([[0,{...base}]]);
     for(const keyframe of Array.isArray(keyframes)?keyframes:[])points.set(Number(keyframe.offsetFrames),{...keyframe.transform});
@@ -418,6 +441,8 @@
     let onePassAnimation=null;
     let onePassReceiptPath=null;
     let onePassPersistenceError=null;
+    let onePassEcology=null;
+    let onePassEcologyError=null;
     let playheadFrame=0;
     let snapEnabled=true;
     let timelineGestureActive=false;
@@ -516,6 +541,41 @@
 
         const title=document.createElement("b");
         title.textContent=`#${descendant.slot} · ${descendant.roleId}`;
+        if(onePassEcology?.trace&&onePassEcology?.residueMemory){
+          const layer=document.createElement("div");
+          layer.className="franken-residue-layer";
+          layer.dataset.authority="proposal-preview-only";
+          const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
+          svg.setAttribute("viewBox","0 0 1000 1000");
+          svg.setAttribute("preserveAspectRatio","none");
+          const paintById=new Map((onePassEcology.trace.paintEvents||[]).map(event=>[event.paintEventId,event]));
+          for(const residue of onePassEcology.residueMemory.residues||[]){
+            const paint=paintById.get(residue.sourcePaintEventId);
+            if(!paint)continue;
+            let mark=null;
+            if(paint.brush?.kind==="performed-spatial-stroke"&&Array.isArray(paint.brush.path)&&paint.brush.path.length>=2){
+              mark=document.createElementNS("http://www.w3.org/2000/svg","polyline");
+              mark.setAttribute("points",residuePathPoints(paint.brush.path));
+              mark.setAttribute("fill","none");
+              mark.setAttribute("vector-effect","non-scaling-stroke");
+            }else{
+              mark=document.createElementNS("http://www.w3.org/2000/svg","circle");
+              mark.setAttribute("cx",String(Math.round((Number(paint.brush?.x)||.5)*1000)));
+              mark.setAttribute("cy",String(Math.round((Number(paint.brush?.y)||.5)*1000)));
+              mark.setAttribute("r",String(Math.max(10,Math.round((Number(paint.brush?.scale)||1)*28))));
+            }
+            mark.setAttribute("class","franken-residue-mark");
+            mark.dataset.residueId=residue.residueId;
+            mark.dataset.sourcePaintEventId=residue.sourcePaintEventId;
+            mark.style.opacity="0";
+            svg.append(mark);
+          }
+          const residueLabel=document.createElement("span");
+          residueLabel.className="franken-residue-label";
+          layer.append(svg,residueLabel);
+          viewport.append(layer);
+        }
+
         const meta=document.createElement("small");
         meta.textContent=`${descendant.projectionClass} · ${descendant.planHash.slice(0,10)} · ${descendant.sourceDurationFrames}f source`;
         const placements=placementsFor(state,descendant.materialId);
@@ -690,6 +750,27 @@
       transportStatus.textContent=`${mode} · ${transportMeta.filename||"song"} · ${current.toFixed(2)}s / ${Number(transportMeta.duration).toFixed(2)}s`;
     }
 
+    function updateResiduePreview(){
+      if(!previewRoot)return;
+      const memory=onePassEcology?.residueMemory;
+      if(!memory)return;
+      const activeScene=sceneAtGlobalFrame(playheadFrame).sceneId;
+      for(const layer of previewRoot.querySelectorAll(".franken-residue-layer")){
+        const sceneId=layer.closest(".franken-preview-scene")?.dataset?.sceneId||"";
+        const active=sceneId===activeScene;
+        let visible=0;
+        for(const mark of layer.querySelectorAll("[data-residue-id]")){
+          const residue=(memory.residues||[]).find(item=>item.residueId===mark.dataset.residueId);
+          const strength=active?residueStrengthAtFrame(residue,playheadFrame):0;
+          mark.style.opacity=String(strength);
+          if(strength>0)visible+=1;
+        }
+        layer.dataset.active=String(active&&visible>0);
+        const label=layer.querySelector(".franken-residue-label");
+        if(label)label.textContent=visible?`RESIDUE MEMORY · ${visible} scar${visible===1?"":"s"}`:"";
+      }
+    }
+
     function updatePreviewFrame(){
       for(const entry of previewClipIndex.values()){
         const {clip,node,media}=entry;
@@ -718,6 +799,7 @@
       if(playhead)playhead.value=String(playheadFrame);
       if(playheadReadout)playheadReadout.textContent=`Frame ${playheadFrame}`;
       updateTransportStatus();
+      updateResiduePreview();
     }
 
     function setPlayhead(frame,{seekAudio=true}={}){
@@ -971,10 +1053,13 @@
         const receipt=onePassSession.receipt;
         onePassStatus.textContent=onePassPersistenceError
           ?`Take sealed in memory · receipt save failed · ${onePassPersistenceError}`
-          :`Take sealed · ${receipt.eventCount} gestures · ${receipt.spatialSampleCount||0} spatial samples · ${receipt.placementCount} lawful clips · RECOMPOSE to review it`;
+          :onePassEcologyError
+            ?`Take sealed · residue preview unavailable · ${onePassEcologyError}`
+            :`Take sealed · ${receipt.eventCount} gestures · ${receipt.spatialSampleCount||0} spatial samples · ${receipt.placementCount} lawful clips · ${onePassEcology?.residueMemory?.residues?.length||0} residue memories · RECOMPOSE to review it`;
+        const memoryCount=onePassEcology?.residueMemory?.residues?.length||0;
         onePassReceipt.textContent=onePassReceiptPath
-          ?`PERFORMANCE · ${receipt.performanceHash} · ${filename(onePassReceiptPath)}`
-          :`PERFORMANCE · ${receipt.performanceHash}`;
+          ?`PERFORMANCE · ${receipt.performanceHash} · ${memoryCount} residue${memoryCount===1?"":"s"} · ${filename(onePassReceiptPath)}`
+          :`PERFORMANCE · ${receipt.performanceHash} · ${memoryCount} residue${memoryCount===1?"":"s"}`;
         onePassReceipt.title=receipt.performanceHash;
         root.dataset.onePassPerformanceHash=receipt.performanceHash;
       }else if(running){
@@ -1098,6 +1183,15 @@
       state=reduceBenchState(state,{type:"digest-replace",value:onePassSession.receipt.placements});
       onePassReceiptPath=null;
       onePassPersistenceError=null;
+      onePassEcology=null;
+      onePassEcologyError=null;
+      if(typeof bridge.derivePerformanceEcology==="function"){
+        try{
+          onePassEcology=await bridge.derivePerformanceEcology(onePassSession.receipt);
+        }catch(error){
+          onePassEcologyError=error?.message||String(error);
+        }
+      }
       if(typeof bridge.writeOnePassReceipt==="function"){
         try{
           const saved=await bridge.writeOnePassReceipt(onePassSession.receipt);
@@ -1147,6 +1241,8 @@
         onePassStatus.textContent=`Could not begin take · ${error?.message||error}`;
         return;
       }
+      onePassEcology=null;
+      onePassEcologyError=null;
       onePassSession=onePassApi.beginOnePass(onePassApi.createOnePassSession({
         materials:descendants,
         fps:24,
@@ -1272,6 +1368,8 @@
         onePassConsumed=false;
         onePassReceiptPath=null;
         onePassPersistenceError=null;
+        onePassEcology=null;
+        onePassEcologyError=null;
         root.classList.remove("one-pass-running");
         render();
       }catch(error){
@@ -1442,6 +1540,8 @@
     applyNextGenPressure,
     globalFrameForPlacement,
     interpolateTransformAtFrame,
+    residuePathPoints,
+    residueStrengthAtFrame,
     movePlacementOnTimeline,
     resizePlacementOnTimeline,
     sceneAtGlobalFrame,
