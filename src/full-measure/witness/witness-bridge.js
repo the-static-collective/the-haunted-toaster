@@ -18,6 +18,47 @@
     for (const callback of listeners.get(channel) || []) callback(payload);
   }
 
+
+  function witnessFullSongForm({ durationSeconds, fps = 24, sections = [] } = {}) {
+    const safeFps = Math.max(1, Math.round(Number(fps) || 24));
+    const duration = Math.max(1 / safeFps, Number(durationSeconds) || 48);
+    const totalFrames = Math.max(3, Math.round(duration * safeFps));
+    const candidates = [...new Set((Array.isArray(sections) ? sections : [])
+      .flatMap((section) => [Number(section.start), Number(section.end)])
+      .filter((seconds) => Number.isFinite(seconds) && seconds > 0 && seconds < duration)
+      .map((seconds) => Math.round(seconds * safeFps)))]
+      .sort((a, b) => a - b);
+    let first = Math.round(totalFrames / 3);
+    let second = Math.round((totalFrames * 2) / 3);
+    if (candidates.length >= 2) {
+      let best = null;
+      for (let i = 0; i < candidates.length; i += 1) {
+        for (let j = i + 1; j < candidates.length; j += 1) {
+          const score = Math.abs(candidates[i] - totalFrames / 3) + Math.abs(candidates[j] - (totalFrames * 2) / 3);
+          if (!best || score < best.score) best = { first: candidates[i], second: candidates[j], score };
+        }
+      }
+      if (best) ({ first, second } = best);
+    }
+    return {
+      schema: "static-collective/full-song-form/v0",
+      policy: "section-snapped-three-act/v0",
+      authority: "timing-form",
+      fps: safeFps,
+      durationSeconds: duration,
+      totalFrames,
+      boundaryBasis: candidates.length >= 2 ? "detected-section-boundaries" : "duration-thirds",
+      sceneSpans: [
+        { sceneId: "ARRIVE", startFrame: 0, durationFrames: first },
+        { sceneId: "CROSS", startFrame: first, durationFrames: second - first },
+        { sceneId: "ASSEMBLE", startFrame: second, durationFrames: totalFrames - second },
+      ],
+      sourceSections: [],
+      laws: ["SECTION GUIDE != EDIT", "SECTION BOUNDARY != PAUSE", "AUDIO CLOCK = PERFORMANCE CLOCK", "MACROFORM != PERFORMANCE"],
+      formHash: "f".repeat(64),
+    };
+  }
+
   function thumbnail(index) {
     const hue = 18 + index * 49;
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><defs><linearGradient id="g"><stop stop-color="hsl(${hue} 66% 18%)"/><stop offset="1" stop-color="hsl(${(hue + 84) % 360} 72% 48%)"/></linearGradient></defs><rect width="640" height="360" fill="url(#g)"/><circle cx="${100 + index * 70}" cy="180" r="${72 + index * 6}" fill="none" stroke="#f4d5a2" stroke-width="7" opacity=".72"/></svg>`;
@@ -360,6 +401,7 @@
     chooseFrankenBlenderAcceptance: async () => "/witness/franken/accepted-take.json",
     chooseFrankenBlenderReceipt: async () => "/witness/franken/accepted-take.mp4.receipt.json",
     chooseFrankenBlenderVideo: async () => "/witness/franken/accepted-take.mp4",
+    deriveFrankenFullSongForm: async (input = {}) => witnessFullSongForm(input),
     composeFranken: async (config = {}) => {
       const base = witnessFrankenProposal(config.edits?.digestPlacements || []);
       const proposal = {
