@@ -736,7 +736,7 @@
           addKey.disabled=(placement.transformKeyframes||[]).length>=4;
           addKey.textContent="ADD TRANSFORM KEYFRAME @ PLAYHEAD";
           addKey.addEventListener("click",()=>{
-            const globalStart=globalFrameForPlacement(placement);
+            const globalStart=globalFrameForPlacement(placement,currentForm());
             let offset=Math.round(clamp(playheadFrame-globalStart,0,Math.max(0,placement.durationFrames-1)));
             const used=new Set((placement.transformKeyframes||[]).map(keyframe=>keyframe.offsetFrames));
             while(used.has(offset)&&offset<placement.durationFrames-1)offset+=1;
