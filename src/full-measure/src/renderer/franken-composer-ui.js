@@ -390,6 +390,8 @@
     let onePassSession=null;
     let onePassConsumed=false;
     let onePassAnimation=null;
+    let onePassReceiptPath=null;
+    let onePassPersistenceError=null;
     let playheadFrame=0;
     let snapEnabled=true;
     let timelineGestureActive=false;
@@ -825,8 +827,12 @@
       }
       if(finished){
         const receipt=onePassSession.receipt;
-        onePassStatus.textContent=`Take sealed · ${receipt.eventCount} gestures · ${receipt.placementCount} lawful clips · RECOMPOSE to review it`;
-        onePassReceipt.textContent=`PERFORMANCE · ${receipt.performanceHash}`;
+        onePassStatus.textContent=onePassPersistenceError
+          ?`Take sealed in memory · receipt save failed · ${onePassPersistenceError}`
+          :`Take sealed · ${receipt.eventCount} gestures · ${receipt.placementCount} lawful clips · RECOMPOSE to review it`;
+        onePassReceipt.textContent=onePassReceiptPath
+          ?`PERFORMANCE · ${receipt.performanceHash} · ${filename(onePassReceiptPath)}`
+          :`PERFORMANCE · ${receipt.performanceHash}`;
         onePassReceipt.title=receipt.performanceHash;
         root.dataset.onePassPerformanceHash=receipt.performanceHash;
       }else if(running){
@@ -898,7 +904,7 @@
       renderOnePass();
     }
 
-    function finishOnePassTake(now=(performanceAudio?.currentTime||0)*1000){
+    async function finishOnePassTake(now=(performanceAudio?.currentTime||0)*1000){
       if(!onePassApi||onePassSession?.status!=="running")return;
       if(onePassAnimation)view.cancelAnimationFrame(onePassAnimation);
       onePassAnimation=null;
@@ -907,6 +913,18 @@
       onePassConsumed=true;
       root.classList.remove("one-pass-running");
       state=reduceBenchState(state,{type:"digest-replace",value:onePassSession.receipt.placements});
+      onePassReceiptPath=null;
+      onePassPersistenceError=null;
+      if(typeof bridge.writeOnePassReceipt==="function"){
+        try{
+          const saved=await bridge.writeOnePassReceipt(onePassSession.receipt);
+          onePassReceiptPath=saved?.path||null;
+        }catch(error){
+          onePassPersistenceError=error?.message||String(error);
+        }
+      }else{
+        onePassPersistenceError="receipt persistence bridge unavailable";
+      }
       render();
     }
 
@@ -919,7 +937,10 @@
       if(onePassStatus)onePassStatus.textContent=`TAKE IN MOTION · frame ${frame} / ${onePassSession.totalFrames-1} · silence is still a move`;
       const elapsed=now-onePassSession.startedAtMs;
       if(performanceAudio?.ended||elapsed>=(onePassSession.totalFrames/onePassSession.fps)*1000){
-        finishOnePassTake(now);
+        finishOnePassTake(now).catch((error)=>{
+          onePassPersistenceError=error?.message||String(error);
+          renderOnePass();
+        });
         return;
       }
       onePassAnimation=view.requestAnimationFrame(tickOnePass);
@@ -1066,6 +1087,8 @@
         state=reduceBenchState(state,{type:"nextgen",value:crossing});
         onePassSession=null;
         onePassConsumed=false;
+        onePassReceiptPath=null;
+        onePassPersistenceError=null;
         root.classList.remove("one-pass-running");
         render();
       }catch(error){
@@ -1082,7 +1105,12 @@
     close?.addEventListener("click",()=>setOpen(false));
     nextGenLoad?.addEventListener("click",loadNextGen);
     onePassBegin?.addEventListener("click",()=>{beginOnePassTake().catch((error)=>{onePassStatus.textContent=error?.message||String(error);});});
-    performanceAudio?.addEventListener("ended",()=>finishOnePassTake((performanceAudio.currentTime||0)*1000));
+    performanceAudio?.addEventListener("ended",()=>{
+      finishOnePassTake((performanceAudio.currentTime||0)*1000).catch((error)=>{
+        onePassPersistenceError=error?.message||String(error);
+        renderOnePass();
+      });
+    });
     view?.addEventListener("keydown",(event)=>{
       if(onePassSession?.status!=="running")return;
       const lane=ONE_PASS_KEYS.indexOf(String(event.key||"").toLowerCase());
