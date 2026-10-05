@@ -88,6 +88,28 @@
     return sourceStart+local/Math.max(1,Number(fps)||24);
   }
 
+  function listeningFieldMarks(field){
+    if(!field||field.schema!=="static-collective/listening-field/v0"||field.authority!=="testimony-only")return [];
+    return (field.lanes||[]).flatMap((lane,laneIndex)=>
+      (lane.witnesses||[]).map((witness)=>({
+        laneId:String(lane.laneId||"unknown"),
+        laneKind:String(lane.kind||"unknown"),
+        laneIndex,
+        witnessId:String(witness.witnessId||""),
+        kind:String(witness.kind||"unknown"),
+        label:String(witness.label||witness.kind||"witness"),
+        startFrame:Number(witness.startFrame),
+        endFrame:Number(witness.endFrame),
+        evidenceClass:String(witness.evidenceClass||"unknown"),
+        authority:String(witness.authority||""),
+      }))
+    ).filter((mark)=>
+      mark.authority==="testimony-only"&&
+      Number.isFinite(mark.startFrame)&&
+      Number.isFinite(mark.endFrame)
+    );
+  }
+
   function residueStrengthAtFrame(residue,frame){
     const target=Math.floor(Number(frame));
     if(!Number.isFinite(target)||!residue)return 0;
@@ -439,6 +461,8 @@
     const playhead=document.getElementById("frankenPlayhead");
     const playheadReadout=document.getElementById("frankenPlayheadFrame");
     const snapToggle=document.getElementById("frankenSnapEnabled");
+    const earToggle=document.getElementById("frankenEarEnabled");
+    const listeningFieldStatus=document.getElementById("frankenListeningFieldStatus");
     const timelineScroll=document.getElementById("frankenTimelineScroll");
     const timelineZoomControl=document.getElementById("frankenTimelineZoom");
     const transportAudio=document.getElementById("frankenTransportAudio");
@@ -466,6 +490,10 @@
     let timelineZoom=1;
     let transportMeta=null;
     let fullSongForm=null;
+    let listeningEvidence=null;
+    let listeningField=null;
+    let listeningFieldError=null;
+    let earEnabled=true;
     let transportRaf=null;
     let previewClipIndex=new Map();
     let timelinePlayheadLine=null;
@@ -478,6 +506,50 @@
           {kind:"section",label:`${section.label} end`,compositionFrame:Math.max(section.startFrame,section.endFrame-1)},
         ])
       :(state.nextGen?.snapLandmarks||[]);
+
+    function updateListeningFieldStatus(){
+      if(!listeningFieldStatus)return;
+      if(listeningFieldError){
+        listeningFieldStatus.textContent=`EAR unavailable · ${listeningFieldError}`;
+        return;
+      }
+      if(!listeningField){
+        listeningFieldStatus.textContent="EAR waiting for admitted song";
+        return;
+      }
+      listeningFieldStatus.textContent=
+        `EAR ${earEnabled?"ON":"OFF"} · ${listeningField.witnessCount} witnesses · ${String(listeningField.fieldHash||"").slice(0,12)} · testimony only`;
+    }
+
+    async function deriveCurrentListeningField(){
+      listeningFieldError=null;
+      if(
+        !transportMeta||
+        !fullSongForm||
+        !/^[a-f0-9]{64}$/.test(String(transportMeta.sourceSha256||""))||
+        typeof bridge.deriveFrankenListeningField!=="function"
+      ){
+        listeningField=null;
+        updateListeningFieldStatus();
+        return null;
+      }
+      try{
+        listeningField=await bridge.deriveFrankenListeningField({
+          fullSongForm,
+          songRef:{
+            sourceSha256:transportMeta.sourceSha256,
+            durationSeconds:transportMeta.duration,
+          },
+          alignment:listeningEvidence,
+          landmarks:state.nextGen?.snapLandmarks||[],
+        });
+      }catch(error){
+        listeningField=null;
+        listeningFieldError=error?.message||String(error);
+      }
+      updateListeningFieldStatus();
+      return listeningField;
+    }
 
     const pathMethods={
       deckPath:"chooseFrankenPlaydeckDeck",
@@ -934,6 +1006,37 @@
         line.style.left=`${(Number(mark.compositionFrame)/total)*100}%`;
         line.title=`${mark.kind} · ${mark.label} · frame ${mark.compositionFrame}`;
         timelineRoot.append(line);
+      }
+
+      const earMarks=earEnabled?listeningFieldMarks(listeningField):[];
+      timelineRoot.classList.toggle("has-listening-field",earMarks.length>0);
+      if(earMarks.length){
+        const laneIds=[...new Set(earMarks.map(mark=>mark.laneId))];
+        for(const [laneIndex,laneId] of laneIds.entries()){
+          const row=document.createElement("div");
+          row.className="franken-listening-lane";
+          row.dataset.laneId=laneId;
+          row.dataset.authority="testimony-only";
+          row.style.top=`${122+laneIndex*15}px`;
+          const laneLabel=document.createElement("b");
+          laneLabel.className="franken-listening-lane-label";
+          laneLabel.textContent=laneId.toUpperCase();
+          row.append(laneLabel);
+          for(const mark of earMarks.filter(item=>item.laneId===laneId)){
+            const witness=document.createElement(mark.endFrame>mark.startFrame?"span":"i");
+            witness.className="franken-listening-witness";
+            witness.dataset.kind=mark.kind;
+            witness.dataset.witnessId=mark.witnessId;
+            witness.dataset.evidenceClass=mark.evidenceClass;
+            witness.style.left=`${(mark.startFrame/total)*100}%`;
+            if(mark.endFrame>mark.startFrame){
+              witness.style.width=`${Math.max(.08,((mark.endFrame-mark.startFrame+1)/total)*100)}%`;
+            }
+            witness.title=`${mark.kind} · ${mark.label} · frame ${mark.startFrame}${mark.endFrame>mark.startFrame?`–${mark.endFrame}`:""} · testimony only`;
+            row.append(witness);
+          }
+          timelineRoot.append(row);
+        }
       }
 
       const placements=state.edits.digestPlacements||[];
@@ -1404,6 +1507,7 @@
           albumContext:{},
         });
         state=reduceBenchState(state,{type:"nextgen",value:crossing});
+        await deriveCurrentListeningField();
         onePassSession=null;
         onePassConsumed=false;
         onePassReceiptPath=null;
@@ -1463,6 +1567,11 @@
     });
     playhead?.addEventListener("input",()=>setPlayhead(Number(playhead.value)||0));
     snapToggle?.addEventListener("change",()=>{snapEnabled=Boolean(snapToggle.checked);renderTimeline();});
+    earToggle?.addEventListener("change",()=>{
+      earEnabled=Boolean(earToggle.checked);
+      updateListeningFieldStatus();
+      renderTimeline();
+    });
     timelineZoomControl?.addEventListener("change",()=>{
       timelineZoom=[1,2,4].includes(Number(timelineZoomControl.value))?Number(timelineZoomControl.value):1;
       renderTimeline();
@@ -1497,6 +1606,7 @@
             url:event.detail.url,
             duration:Number(event.detail.duration),
             filename:event.detail.filename||"song",
+            sourceSha256:String(event.detail.sourceSha256||""),
             sections:Array.isArray(event.detail.sections)?event.detail.sections:[],
           }
         :null;
@@ -1513,6 +1623,7 @@
           if(transportStatus)transportStatus.textContent=`Full-song form failed · ${error?.message||error}`;
         }
       }
+      await deriveCurrentListeningField();
       if(transportAudio){
         if(transportMeta)transportAudio.src=transportMeta.url;
         else transportAudio.removeAttribute("src");
@@ -1537,6 +1648,12 @@
       if(transportPlay)transportPlay.disabled=!transportMeta;
       if(transportPause)transportPause.disabled=!transportMeta;
       render();
+    });
+
+    view?.addEventListener("full-measure:listening-evidence",async(event)=>{
+      listeningEvidence=event.detail?.alignment||null;
+      await deriveCurrentListeningField();
+      renderTimeline();
     });
 
     root.querySelectorAll("[data-franken-choose]").forEach((button)=>
@@ -1624,6 +1741,7 @@
     snapFrame,
     transportFrameForSeconds,
     previewMediaTime,
+    listeningFieldMarks,
     defaultDigestPlacement,
     descendantFor,
     canCompose,
