@@ -75,7 +75,7 @@ function createVideoDigestionSix({ videoBinding, timeline, analysisDurationSecon
     sourceSpecimenId: first.sourceSpecimenId,
     sourceSha256: first.sourceSha256,
     clipAnalysisHash: first.clipAnalysisHash,
-    sourceHistoryRef,
+    ...(sourceHistoryRef ? { sourceHistoryRef } : {}),
     descendants: descendants.map((descendant) => ({
       slot: descendant.slot,
       roleId: descendant.roleId,
@@ -83,7 +83,7 @@ function createVideoDigestionSix({ videoBinding, timeline, analysisDurationSecon
       samplingPolicyId: descendant.samplingPolicyId,
       projectionClass: descendant.projectionClass,
       planHash: descendant.planHash,
-      historyRef: descendant.historyRef,
+      ...(descendant.historyRef ? { historyRef: descendant.historyRef } : {}),
     })),
   };
 
