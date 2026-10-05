@@ -10,7 +10,7 @@ const { buildListeningEye } = require("../generation/listening-eye.cjs");
 const { createVideoDigestionSix } = require("../render/video-digestion-six.cjs");
 
 const NEXTGEN_LIVE_CROSSING_SCHEMA = "static-collective/nextgen-live-crossing/v0";
-const NEXTGEN_LIVE_CROSSING_POLICY = "nextgen-live-crossings-003";
+const NEXTGEN_LIVE_CROSSING_POLICY = "nextgen-live-crossings-004";
 const PRESSURE_SCHEMA = "static-collective/franken-listening-eye-pressure/v0";
 const MATERIAL_DERIVATION_SCHEMA = "static-collective/franken-video-digestion-material/v0";
 const MATERIAL_PROJECTION_TREATMENT_SCHEMA = "static-collective/franken-video-digestion-treatment/v0";
