@@ -1,4 +1,6 @@
 const path = require("node:path");
+const crypto = require("node:crypto");
+const fs = require("node:fs");
 const { resolveFfmpeg, resolveFfprobe, runProcess } = require("./tooling.cjs");
 
 function finiteNumber(value, fallback = 0) {
@@ -311,8 +313,22 @@ async function analyzeEnergy(filePath) {
   return samples;
 }
 
+async function sha256File(filePath) {
+  const hash = crypto.createHash("sha256");
+  await new Promise((resolve, reject) => {
+    const stream = fs.createReadStream(filePath);
+    stream.on("data", (chunk) => hash.update(chunk));
+    stream.on("error", reject);
+    stream.on("end", resolve);
+  });
+  return hash.digest("hex");
+}
+
 async function inspectAudio(filePath) {
-  const media = await probeMedia(filePath);
+  const [media, sourceSha256] = await Promise.all([
+    probeMedia(filePath),
+    sha256File(filePath),
+  ]);
   if (!media.audio) {
     throw new Error("That file does not contain an audio stream.");
   }
@@ -325,6 +341,7 @@ async function inspectAudio(filePath) {
 
   return {
     ...media,
+    sourceSha256,
     energySamples,
     sections,
   };
@@ -336,5 +353,6 @@ module.exports = {
   inspectAudio,
   normalizeEnergy,
   probeMedia,
+  sha256File,
   targetSectionCount,
 };
