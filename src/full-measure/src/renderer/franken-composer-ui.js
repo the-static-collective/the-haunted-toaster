@@ -372,6 +372,7 @@
     const snapToggle=document.getElementById("frankenSnapEnabled");
     let playheadFrame=0;
     let snapEnabled=true;
+    let timelineGestureActive=false;
 
     const pathMethods={
       deckPath:"chooseFrankenPlaydeckDeck",
@@ -623,6 +624,28 @@
         if(!rect.width)return 0;
         return Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(((clientX-rect.left)/rect.width)*TOTAL_FRAMES)));
       };
+      const beginTimelineGesture=(event,finish)=>{
+        if(timelineGestureActive)return;
+        timelineGestureActive=true;
+        event.preventDefault();
+        const complete=(upEvent)=>{
+          if(!timelineGestureActive)return;
+          timelineGestureActive=false;
+          document.removeEventListener("pointerup",complete);
+          document.removeEventListener("mouseup",complete);
+          document.removeEventListener("pointercancel",cancel);
+          finish(upEvent);
+        };
+        const cancel=()=>{
+          timelineGestureActive=false;
+          document.removeEventListener("pointerup",complete);
+          document.removeEventListener("mouseup",complete);
+          document.removeEventListener("pointercancel",cancel);
+        };
+        document.addEventListener("pointerup",complete);
+        document.addEventListener("mouseup",complete);
+        document.addEventListener("pointercancel",cancel,{once:true});
+      };
       const setPlayhead=(frame)=>{
         playheadFrame=Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(Number(frame)||0)));
         if(playhead)playhead.value=String(playheadFrame);
@@ -671,23 +694,22 @@
         resize.className="franken-timeline-resize";
         resize.setAttribute("aria-label",`Resize ${placement.placementId}`);
 
-        clip.addEventListener("pointerdown",(event)=>{
+        const beginMove=(event)=>{
           if(event.target===resize)return;
-          event.preventDefault();
           const pointerOffset=frameFromClientX(event.clientX)-globalFrameForPlacement(placement);
-          const finish=(upEvent)=>{
+          beginTimelineGesture(event,(upEvent)=>{
             const target=frameFromClientX(upEvent.clientX)-pointerOffset;
             const patch=movePlacementOnTimeline(placement,target,landmarks,snapEnabled);
             state=reduceBenchState(state,{type:"digest-edit",placementId:placement.placementId,patch});
             render();
-          };
-          document.addEventListener("pointerup",finish,{once:true});
-        });
+          });
+        };
+        clip.addEventListener("pointerdown",beginMove);
+        clip.addEventListener("mousedown",beginMove);
 
-        resize.addEventListener("pointerdown",(event)=>{
-          event.preventDefault();
+        const beginResize=(event)=>{
           event.stopPropagation();
-          const finish=(upEvent)=>{
+          beginTimelineGesture(event,(upEvent)=>{
             const patch=resizePlacementOnTimeline(
               placement,
               frameFromClientX(upEvent.clientX),
@@ -698,9 +720,10 @@
             patch.transformKeyframes=(placement.transformKeyframes||[]).filter(keyframe=>keyframe.offsetFrames<patch.durationFrames);
             state=reduceBenchState(state,{type:"digest-edit",placementId:placement.placementId,patch});
             render();
-          };
-          document.addEventListener("pointerup",finish,{once:true});
-        });
+          });
+        };
+        resize.addEventListener("pointerdown",beginResize);
+        resize.addEventListener("mousedown",beginResize);
         clip.append(label,resize);
         timelineRoot.append(clip);
       }
