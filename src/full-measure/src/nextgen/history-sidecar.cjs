@@ -60,13 +60,13 @@ async function readHistorySidecar({videoPath}={}){
   if(!raw)throw new TypeError("videoPath is required.");
   const resolved=path.resolve(raw);
   const sidecar=historySidecarPath(resolved);
-  const [file,raw]=await Promise.all([
+  const [file,sidecarText]=await Promise.all([
     fileSha256(resolved),
     fs.readFile(sidecar,"utf8"),
   ]);
   let parsed;
   try{
-    parsed=JSON.parse(raw);
+    parsed=JSON.parse(sidecarText);
   }catch(error){
     throw new TypeError(`History sidecar is not valid JSON: ${error?.message||error}`);
   }
