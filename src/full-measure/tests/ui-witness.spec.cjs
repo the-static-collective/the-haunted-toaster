@@ -537,6 +537,8 @@ test("NextGen 006 edits time directly with snapping scrub keyframes and proposal
   await expect(ruler).toBeVisible();
   await expect(ruler.locator(".franken-timeline-landmark")).toHaveCount(6);
   await expect(ruler.locator(".franken-timeline-clip")).toHaveCount(1);
+  await ruler.scrollIntoViewIfNeeded();
+  await ruler.locator(".franken-timeline-clip").scrollIntoViewIfNeeded();
 
   let rulerBox=await ruler.boundingBox();
   let clipBox=await ruler.locator(".franken-timeline-clip").boundingBox();
@@ -550,6 +552,8 @@ test("NextGen 006 edits time directly with snapping scrub keyframes and proposal
   await expect(editor.locator("label").filter({hasText:"Scene"}).locator("select")).toHaveValue("CROSS");
   await expect(editor.locator("label").filter({hasText:"Timeline"}).locator("input")).toHaveValue("0");
 
+  await ruler.scrollIntoViewIfNeeded();
+  await ruler.locator(".franken-timeline-resize").scrollIntoViewIfNeeded();
   rulerBox=await ruler.boundingBox();
   const resizeBox=await ruler.locator(".franken-timeline-resize").boundingBox();
   if(!rulerBox||!resizeBox)throw new Error("Timeline resize witness requires measurable boxes.");
@@ -591,6 +595,8 @@ test("NextGen 006 edits time directly with snapping scrub keyframes and proposal
     path:testInfo.outputPath("nextgen-006-time-editor-before-second-recompose.png"),
   });
 
+  await ruler.scrollIntoViewIfNeeded();
+  await ruler.locator(".franken-timeline-clip").scrollIntoViewIfNeeded();
   rulerBox=await ruler.boundingBox();
   clipBox=await ruler.locator(".franken-timeline-clip").boundingBox();
   if(!rulerBox||!clipBox)throw new Error("Second timeline move requires measurable boxes.");
