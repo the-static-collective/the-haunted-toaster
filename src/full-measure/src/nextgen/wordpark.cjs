@@ -15,6 +15,8 @@ const MOOD_LANES=deepFreeze({
     laneId:"OPEN",
     geometryKind:"platform",
     authority:"performance-choice",
+    entryX:.82,
+    entryY:.2,
     restitution:.78,
     friction:.08,
   },
@@ -22,6 +24,8 @@ const MOOD_LANES=deepFreeze({
     laneId:"TENDER",
     geometryKind:"bowl",
     authority:"performance-choice",
+    entryX:.82,
+    entryY:.4,
     restitution:.52,
     friction:.18,
   },
@@ -29,6 +33,8 @@ const MOOD_LANES=deepFreeze({
     laneId:"STRANGE",
     geometryKind:"ramp",
     authority:"performance-choice",
+    entryX:.82,
+    entryY:.6,
     restitution:.88,
     friction:.05,
   },
@@ -36,6 +42,8 @@ const MOOD_LANES=deepFreeze({
     laneId:"HARD",
     geometryKind:"wall",
     authority:"performance-choice",
+    entryX:.82,
+    entryY:.8,
     restitution:.94,
     friction:.03,
   },
@@ -218,14 +226,16 @@ function findLyric(session,witnessId){
   return witness;
 }
 
-function dropLyric(session,{witnessId,moodLane,frame,x=.8,y=.5}={}){
+function dropLyric(session,{witnessId,moodLane,frame,x=null,y=null}={}){
   if(session?.schema!==WORDPARK_SCHEMA||session.status!=="running")throw new TypeError("WORDPARK session must be running.");
   const lane=MOOD_LANES[moodLane];
   if(!lane)throw new TypeError(`Unknown WORDPARK mood lane: ${moodLane}.`);
   const witness=findLyric(session,witnessId);
   const dropFrame=Math.round(finite(frame,"drop frame",0,session.totalFrames-1));
   const text=req(witness.label,"lyric text",500);
-  const geometry=geometryForLyric(text,moodLane,x,y);
+  const dropX=x==null?lane.entryX:x;
+  const dropY=y==null?lane.entryY:y;
+  const geometry=geometryForLyric(text,moodLane,dropX,dropY);
   const wordObject=canonicalize({
     wordObjectId:`word:${session.dropSeq}:${witness.witnessId}`,
     sourceWitnessId:witness.witnessId,
