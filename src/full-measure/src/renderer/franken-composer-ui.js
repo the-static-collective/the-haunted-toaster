@@ -403,6 +403,7 @@
     let transportMeta=null;
     let transportRaf=null;
     let previewClipIndex=new Map();
+    let timelinePlayheadLine=null;
 
     const pathMethods={
       deckPath:"chooseFrankenPlaydeckDeck",
@@ -650,6 +651,12 @@
       return (clamp(frame,0,TOTAL_FRAMES-1)/(TOTAL_FRAMES-1))*transportMeta.duration;
     }
 
+    function updateTimelinePlayhead(){
+      if(timelinePlayheadLine)timelinePlayheadLine.style.left=`${(playheadFrame/TOTAL_FRAMES)*100}%`;
+      if(playhead)playhead.value=String(playheadFrame);
+      if(playheadReadout)playheadReadout.textContent=`Frame ${playheadFrame}`;
+    }
+
     function updateTransportStatus(){
       if(!transportStatus)return;
       if(!transportMeta){
@@ -699,7 +706,7 @@
           try{transportAudio.currentTime=seconds;}catch(_error){}
         }
       }
-      renderTimeline();
+      updateTimelinePlayhead();
       updatePreviewFrame();
     }
 
@@ -713,7 +720,7 @@
       const tick=()=>{
         if(!transportAudio||transportAudio.paused||!transportMeta){transportRaf=null;updateTransportStatus();return;}
         playheadFrame=transportFrameForSeconds(transportAudio.currentTime,transportMeta.duration);
-        renderTimeline();
+        updateTimelinePlayhead();
         updatePreviewFrame();
         transportRaf=view?.requestAnimationFrame?view.requestAnimationFrame(tick):null;
       };
@@ -827,16 +834,15 @@
 
       const line=document.createElement("i");
       line.className="franken-timeline-playhead-line";
-      line.style.left=`${(playheadFrame/TOTAL_FRAMES)*100}%`;
+      timelinePlayheadLine=line;
       timelineRoot.append(line);
+      updateTimelinePlayhead();
 
       timelineRoot.onpointerdown=(event)=>{
         if(event.target.closest?.(".franken-timeline-clip"))return;
         setPlayhead(frameFromClientX(event.clientX));
       };
       timelineRoot.style.width=`${timelineZoom*100}%`;
-      if(playhead)playhead.value=String(playheadFrame);
-      if(playheadReadout)playheadReadout.textContent=`Frame ${playheadFrame}`;
       if(snapToggle)snapToggle.checked=snapEnabled;
     }
 
@@ -1059,7 +1065,7 @@
       stopTransportLoop();
       updateTransportStatus();
     });
-    transportAudio?.addEventListener("ended",()=>{playheadFrame=TOTAL_FRAMES-1;stopTransportLoop();renderTimeline();updatePreviewFrame();});
+    transportAudio?.addEventListener("ended",()=>{playheadFrame=TOTAL_FRAMES-1;stopTransportLoop();updateTimelinePlayhead();updatePreviewFrame();});
     view?.addEventListener("full-measure:audio-ready",(event)=>{
       transportAudio?.pause();
       stopTransportLoop();
