@@ -535,8 +535,14 @@
           controls.append(
             select("Scene",placement.sceneId,SCENES,(value)=>patch({sceneId:value})),
             number("Timeline",placement.startOffsetFrames,0,383,1,(value)=>patch({startOffsetFrames:value})),
-            number("Source in",placement.sourceStartFrames,0,Math.max(0,maxSource-1),1,(value)=>patch({sourceStartFrames:value})),
-            number("Frames",placement.durationFrames,1,maxDuration,1,(value)=>patch({durationFrames:value})),
+            number("Source in",placement.sourceStartFrames,0,Math.max(0,maxSource-1),1,(value)=>{
+              const durationFrames=Math.max(1,Math.min(placement.durationFrames,maxSource-value,384-placement.startOffsetFrames));
+              patch({sourceStartFrames:value,durationFrames,transformKeyframes:(placement.transformKeyframes||[]).filter(keyframe=>keyframe.offsetFrames<durationFrames)});
+            }),
+            number("Frames",placement.durationFrames,1,maxDuration,1,(value)=>patch({
+              durationFrames:value,
+              transformKeyframes:(placement.transformKeyframes||[]).filter(keyframe=>keyframe.offsetFrames<value),
+            })),
             number("X",placement.transform.x,-1,2,0.01,(value)=>patch({transform:{x:value}})),
             number("Y",placement.transform.y,-1,2,0.01,(value)=>patch({transform:{y:value}})),
             number("Scale",placement.transform.scale,0.05,8,0.05,(value)=>patch({transform:{scale:value}})),
@@ -689,6 +695,7 @@
               landmarks,
               snapEnabled,
             );
+            patch.transformKeyframes=(placement.transformKeyframes||[]).filter(keyframe=>keyframe.offsetFrames<patch.durationFrames);
             state=reduceBenchState(state,{type:"digest-edit",placementId:placement.placementId,patch});
             render();
           };
