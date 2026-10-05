@@ -79,6 +79,22 @@ function validateSceneSpans(sceneSpans,totalFrames){
     return span;
   });
 }
+function validateFullSongForm(form){
+  if(!form||typeof form!=="object"||Array.isArray(form))throw new TypeError("Full-song form must be an object.");
+  if(form.schema!==FULL_SONG_FORM_SCHEMA||form.policy!==FULL_SONG_FORM_POLICY)throw new TypeError("Unsupported full-song form contract.");
+  if(form.authority!=="timing-form")throw new TypeError("Full-song form must remain timing-form authority.");
+  const fps=Math.floor(finite(form.fps,"fps",1,240));
+  const totalFrames=Math.floor(finite(form.totalFrames,"totalFrames",3,1_000_000));
+  const durationSeconds=finite(form.durationSeconds,"durationSeconds",1/fps,24*60*60);
+  if(Math.round(durationSeconds*fps)!==totalFrames)throw new TypeError("Full-song form duration and totalFrames disagree.");
+  validateSceneSpans(form.sceneSpans,totalFrames);
+  if(!Array.isArray(form.sourceSections))throw new TypeError("Full-song form sourceSections must be an array.");
+  const {formHash,...body}=form;
+  const expected=hashCanonical(canonicalize(body),"HauntedToaster-FullSongForm-v0");
+  if(!/^[a-f0-9]{64}$/.test(String(formHash||""))||formHash!==expected)throw new TypeError("Full-song form hash mismatch.");
+  return deepFreeze(canonicalize(form));
+}
+
 function deriveFullSongForm({durationSeconds,fps=24,sections=[]}={}){
   const safeFps=Math.floor(finite(fps,"fps",1,240));
   const duration=finite(durationSeconds,"durationSeconds",1/safeFps,24*60*60);
@@ -119,5 +135,6 @@ module.exports={
   FULL_SONG_FORM_SCHEMA,
   SCENES,
   deriveFullSongForm,
+  validateFullSongForm,
   validateSceneSpans,
 };
