@@ -66,6 +66,10 @@ test("one admitted video becomes six addressable Franken reservoir materials",()
   assert.equal(Object.keys(reservoir.bindings).length,6);
   assert.equal(new Set(reservoir.materials.map((m)=>m.materialId)).size,6);
   assert.equal(new Set(reservoir.materials.map((m)=>m.derivation.planHash)).size,6);
+  assert.equal(new Set(crossing.videoDigestion.descendants.map((d)=>d.materialId)).size,6);
+  assert.equal(crossing.videoDigestion.descendants[0].sourceDurationFrames,24);
+  assert.equal(reservoir.materials[0].projectionTreatment.authority,"projection-style-only");
+  assert.ok(["texture","topology","motion"].includes(reservoir.materials[0].projectionTreatment.family));
   assert.deepEqual(new Set(Object.values(reservoir.bindings)),new Set(["/tmp/nextgen-video.mp4"]));
   for(const material of reservoir.materials){
     assert.equal(material.kind,"video");
