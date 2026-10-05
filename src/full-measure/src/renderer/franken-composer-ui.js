@@ -34,6 +34,7 @@
         },
         text:"THE ROOM REMEMBERS",
         variation:0,
+        digestPlacements:[],
       },
       nextGen:null,
       proposal:null,
@@ -77,6 +78,29 @@
     };
   }
 
+  function defaultDigestPlacement(descendant,sceneId=null){
+    const scene=sceneId||SCENES[(Math.max(1,Number(descendant?.slot)||1)-1)%SCENES.length];
+    const slot=Math.max(1,Number(descendant?.slot)||1);
+    return {
+      materialId:String(descendant.materialId),
+      sceneId:scene,
+      startOffsetFrames:48+((slot-1)%3)*72,
+      durationFrames:Math.max(1,Math.min(72,Number(descendant.sourceDurationFrames)||72)),
+      transform:{
+        x:[0.32,0.5,0.68][(slot-1)%3],
+        y:slot%2===0?0.58:0.42,
+        scale:0.86,
+        rotationDegrees:((slot-1)%3-1)*5,
+      },
+      opacity:0.64,
+      blend:"screen",
+    };
+  }
+
+  function placementFor(state,materialId){
+    return (state.edits.digestPlacements||[]).find((placement)=>placement.materialId===materialId)||null;
+  }
+
   function reduceBenchState(state,action){
     switch(action.type){
       case "path":
@@ -93,6 +117,7 @@
           nextGen:null,
           proposal:null,
           proposalIdentity:null,
+          edits:{...state.edits,digestPlacements:[]},
         });
       case "edit":
         return markDirty({
@@ -120,13 +145,42 @@
             sceneRoles:{...state.edits.sceneRoles,[action.cardId]:action.sceneId},
           },
         });
+      case "digest-place":{
+        const existing=placementFor(state,action.placement.materialId);
+        if(existing)return state;
+        return markDirty({
+          ...state,
+          edits:{
+            ...state.edits,
+            digestPlacements:[...(state.edits.digestPlacements||[]),action.placement],
+          },
+        });
+      }
+      case "digest-remove":
+        return markDirty({
+          ...state,
+          edits:{
+            ...state.edits,
+            digestPlacements:(state.edits.digestPlacements||[]).filter((placement)=>placement.materialId!==action.materialId),
+          },
+        });
+      case "digest-edit":
+        return markDirty({
+          ...state,
+          edits:{
+            ...state.edits,
+            digestPlacements:(state.edits.digestPlacements||[]).map((placement)=>placement.materialId===action.materialId
+              ?{...placement,...action.patch,transform:action.patch?.transform?{...placement.transform,...action.patch.transform}:placement.transform}
+              :placement),
+          },
+        });
       case "nextgen":
         return markDirty({
           ...state,
           nextGen:action.value||null,
           proposal:null,
           proposalIdentity:null,
-          edits:applyNextGenPressure(state.edits,action.value),
+          edits:{...applyNextGenPressure(state.edits,action.value),digestPlacements:[]},
         });
       case "proposal":{
         const p=action.result.proposal;
@@ -145,6 +199,7 @@
             transitions:{...p.transitionChoices},
             text:p.text,
             variation:p.variation,
+            digestPlacements:[...(p.digestPlacements||[])],
           },
         };
       }
@@ -182,6 +237,7 @@
         transitions:state.edits.transitions,
         text:state.edits.text,
         variation:Number(state.edits.variation),
+        digestPlacements:[...(state.edits.digestPlacements||[])],
       },
     };
   }
