@@ -10,6 +10,8 @@ const {frankenVideoDigestionReservoir}=require("../nextgen/live-crossings.cjs");
 const {composeFrankenProposal,applyFrankenEdits,proposalToComposition}=require("./compose.cjs");
 const {freezeFrankenComposition}=require("./freeze.cjs");
 const {fingerprint256,stableStringify}=require("../renderer/one-pass.js");
+const {compilePerformanceTrace}=require("../nextgen/performance-trace.cjs");
+const {compileResidueMemory}=require("../nextgen/residue-memory.cjs");
 
 const JSON_EXTENSIONS=new Set([".json"]);
 const VIDEO_EXTENSIONS=new Set([".mp4"]);
@@ -137,6 +139,18 @@ function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
   return Object.freeze({
     async compose(config){const {proposal,assetBindings}=await buildProposal(config,{getNextGenContext});return {proposalIdentity:proposalIdentity(proposal),proposal:publicProposal(proposal),previewAssets:previewAssets(proposal,assetBindings)};},
     async freeze(config){const {proposal,assetBindings}=await buildProposal(config,{getNextGenContext});const identity=proposalIdentity(proposal);if(typeof config?.expectedProposalIdentity!=="string"||config.expectedProposalIdentity!==identity)throw new TypeError("Franken freeze refuses stale or unreviewed proposal identity.");const frozen=freezeFrankenComposition(proposalToComposition(proposal));return {...frozen,assetBindings};},
+    async derivePerformanceEcology(receipt){
+      const validated=validateOnePassReceipt(receipt);
+      const trace=compilePerformanceTrace(validated);
+      const residueMemory=compileResidueMemory(trace);
+      return canonicalize({
+        schema:"static-collective/performance-ecology-preview/v0",
+        authority:"proposal-preview-only",
+        performanceHash:validated.performanceHash,
+        trace,
+        residueMemory,
+      });
+    },
     async writeOnePassReceipt(receipt){
       const validated=validateOnePassReceipt(receipt);
       const dir=path.join(outputRoot,"one-pass");
@@ -167,6 +181,7 @@ function registerFrankenComposerIpc(ipcMain,{dialog,getWindow,rootDir,assertAvai
   ipcMain.handle("franken:choose-blender-video",()=>choose("Choose Blender accepted take",["mp4"]));
   ipcMain.handle("franken:compose",async(_event,config)=>{assertAvailable();return service.compose(config);});
   ipcMain.handle("franken:freeze",async(_event,config)=>{assertAvailable();const result=await service.freeze(config);return {plan:result.plan,planHash:result.planHash};});
+  ipcMain.handle("franken:derive-performance-ecology",async(_event,receipt)=>{assertAvailable();return service.derivePerformanceEcology(receipt);});
   ipcMain.handle("franken:write-one-pass-receipt",async(_event,receipt)=>{assertAvailable();return service.writeOnePassReceipt(receipt);});
   ipcMain.handle("franken:write-projection-bundle",async(_event,config)=>{assertAvailable();return service.writeProjectionBundle(config);});
   return service;
