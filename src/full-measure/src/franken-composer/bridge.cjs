@@ -9,7 +9,7 @@ const {adaptAcceptedBlenderTake}=require("./adapters/blender-take.cjs");
 const {frankenVideoDigestionReservoir}=require("../nextgen/live-crossings.cjs");
 const {composeFrankenProposal,applyFrankenEdits,proposalToComposition}=require("./compose.cjs");
 const {freezeFrankenComposition}=require("./freeze.cjs");
-const {fingerprint256,stableStringify}=require("../renderer/one-pass.js");
+const {fingerprint256,stableStringify,normalizeSceneSpans}=require("../renderer/one-pass.js");
 const {compilePerformanceTrace}=require("../nextgen/performance-trace.cjs");
 const {compileResidueMemory}=require("../nextgen/residue-memory.cjs");
 const {deriveFullSongForm,validateFullSongForm}=require("../nextgen/full-song-form.cjs");
@@ -31,7 +31,10 @@ function validateOnePassReceipt(receipt){
   if(receipt.spatialSamples!==undefined&&!Array.isArray(receipt.spatialSamples))throw new TypeError("ONE PASS receipt spatial samples must be an array when present.");
   const spatialSamples=receipt.spatialSamples||[];
   if(spatialSamples.length>16384)throw new TypeError("ONE PASS receipt spatial samples are outside the bounded full-song performance envelope.");
-  if(receipt.sceneSpans!==undefined&&(!Array.isArray(receipt.sceneSpans)||receipt.sceneSpans.length!==3))throw new TypeError("ONE PASS receipt sceneSpans must contain three macro scenes when present.");
+  if(receipt.sceneSpans!==undefined){
+    if(!Array.isArray(receipt.sceneSpans)||receipt.sceneSpans.length!==3)throw new TypeError("ONE PASS receipt sceneSpans must contain three macro scenes when present.");
+    normalizeSceneSpans(receipt.sceneSpans,Math.floor(Number(receipt.totalFrames)));
+  }
   if(receipt.eventCount!==receipt.events.length||receipt.placementCount!==receipt.placements.length)throw new TypeError("ONE PASS receipt counts do not match its body.");
   if(receipt.spatialSampleCount!==undefined&&receipt.spatialSampleCount!==spatialSamples.length)throw new TypeError("ONE PASS receipt spatial sample count does not match its body.");
   return canonicalize(receipt);
