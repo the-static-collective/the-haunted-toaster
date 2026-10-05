@@ -232,6 +232,23 @@
             <div class="franken-pressure-readout" id="frankenPressureReadout" hidden></div>
             <div class="franken-digestion-reservoir" id="frankenDigestionReservoir" hidden></div><small class="franken-digestion-hint">PLACE or drag a descendant onto ARRIVE, CROSS, or ASSEMBLE. Placement edits remain inert until RECOMPOSE + FREEZE.</small>
           </section>
+          <section class="franken-one-pass" id="frankenOnePass" aria-labelledby="frankenOnePassHeading">
+            <div class="franken-one-pass-heading">
+              <div>
+                <span>ONE PASS 001 · EDITING AS PERFORMANCE</span>
+                <h4 id="frankenOnePassHeading">One clock. Six lanes. No undo.</h4>
+              </div>
+              <button type="button" id="frankenOnePassBegin" disabled>BEGIN THE TAKE</button>
+            </div>
+            <p id="frankenOnePassStatus">Load six Video Digestion descendants to arm the take.</p>
+            <div class="franken-one-pass-progress" aria-hidden="true"><i id="frankenOnePassProgress"></i></div>
+            <div class="franken-one-pass-lanes" id="frankenOnePassLanes" aria-label="ONE PASS material lanes"></div>
+            <div class="franken-one-pass-meta">
+              <span><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd> press / hold / release</span>
+              <span>raw timing · no snap · no pause · silence is a move</span>
+            </div>
+            <code id="frankenOnePassReceipt">No take sealed</code>
+          </section>
           <div class="franken-source-grid">
             <button type="button" data-franken-choose="deckPath"><b>Playdeck deck</b><small data-franken-path-status="deckPath">Not chosen</small></button>
             <button type="button" data-franken-choose="worldRulePath"><b>World rule</b><small data-franken-path-status="worldRulePath">Not chosen</small></button>
@@ -568,6 +585,7 @@
     <script src="./toast-feel-controller.js"></script>
     <script src="./app.js"></script>
     <script src="./candidate-ui.js"></script>
+    <script src="./one-pass.js"></script>
     <script src="./franken-composer-ui.js"></script>
     <script src="./nextgen-lab-ui.js"></script>
     <script src="./recent-toasts-ui.js"></script>
