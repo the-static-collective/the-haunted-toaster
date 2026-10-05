@@ -618,3 +618,90 @@ test("NextGen 006 edits time directly with snapping scrub keyframes and proposal
   await page.locator("#frankenFreeze").click();
   await expect(page.locator("#frankenPlanHash")).toHaveText("b".repeat(64));
 });
+
+
+test("NextGen 007 previews admitted media with synchronized song transport and timeline zoom", async ({ page }, testInfo) => {
+  await page.goto("/?state=beta-home&nextgen=1");
+  await expect(page.locator("html")).toHaveAttribute("data-witness-ready", "true");
+  expect(await page.evaluate(() => window.__consoleErrors)).toEqual([]);
+
+  await page.locator('[data-phase="compose"]').click();
+  const bench=page.locator("#frankenComposerWindow");
+  const first=page.locator("#frankenDigestionReservoir .franken-digest-card").first();
+  await expect(first).toBeVisible();
+  await first.locator(".franken-digest-toggle").click();
+
+  for (const key of ["deckPath","worldRulePath","blenderAcceptancePath","blenderReceiptPath","blenderVideoPath"]) {
+    await bench.locator(`[data-franken-choose="${key}"]`).click();
+  }
+  await page.locator("#frankenRecompose").click();
+  await expect(page.locator("#frankenFreeze")).toBeEnabled();
+
+  const media=page.locator("#frankenProposalPreview .franken-preview-media");
+  await expect(media).toHaveCount(1);
+  await expect(media.first()).toHaveAttribute("src",/visual-specimen-1\.mp4/);
+  await expect(page.locator("#frankenProposalPreview .franken-preview-clip.has-media")).toHaveCount(1);
+
+  await page.evaluate(() => {
+    const sampleRate=8000;
+    const seconds=4;
+    const samples=sampleRate*seconds;
+    const buffer=new ArrayBuffer(44+samples*2);
+    const view=new DataView(buffer);
+    const write=(offset,text)=>{for(let i=0;i<text.length;i++)view.setUint8(offset+i,text.charCodeAt(i));};
+    write(0,"RIFF");
+    view.setUint32(4,36+samples*2,true);
+    write(8,"WAVE");
+    write(12,"fmt ");
+    view.setUint32(16,16,true);
+    view.setUint16(20,1,true);
+    view.setUint16(22,1,true);
+    view.setUint32(24,sampleRate,true);
+    view.setUint32(28,sampleRate*2,true);
+    view.setUint16(32,2,true);
+    view.setUint16(34,16,true);
+    write(36,"data");
+    view.setUint32(40,samples*2,true);
+    const url=URL.createObjectURL(new Blob([buffer],{type:"audio/wav"}));
+    window.__frankenWitnessAudioUrl=url;
+    window.dispatchEvent(new CustomEvent("full-measure:audio-ready",{
+      detail:{url,duration:4,filename:"Witness Silence.wav"},
+    }));
+  });
+
+  await expect(page.locator("#frankenTransportPlay")).toBeEnabled();
+  await expect(page.locator("#frankenTransportPause")).toBeEnabled();
+
+  const playhead=page.locator("#frankenPlayhead");
+  await playhead.fill("60");
+  await expect(page.locator("#frankenPlayheadFrame")).toHaveText("Frame 60");
+  await expect(page.locator("#frankenTransportStatus")).toContainText("0.21s");
+  await expect(page.locator("#frankenProposalPreview .franken-preview-clip.has-media")).toHaveAttribute("data-active","true");
+  await expect(page.locator("#frankenFreeze")).toBeEnabled();
+
+  const before=Number(await playhead.inputValue());
+  await page.locator("#frankenTransportPlay").click();
+  await expect.poll(async()=>Number(await playhead.inputValue()),{timeout:3000}).toBeGreaterThan(before);
+  await page.locator("#frankenTransportPause").click();
+  await expect(page.locator("#frankenTransportStatus")).toContainText("PAUSED");
+  await expect(page.locator("#frankenFreeze")).toBeEnabled();
+
+  await page.locator("#frankenTimelineZoom").selectOption("4");
+  await expect(page.locator("#frankenTimelineRuler")).toHaveCSS("width",/./);
+  const zoomWidth=await page.locator("#frankenTimelineRuler").evaluate((node)=>node.style.width);
+  expect(zoomWidth).toBe("400%");
+  await expect(page.locator("#frankenFreeze")).toBeEnabled();
+
+  await bench.screenshot({
+    animations:"disabled",
+    caret:"hide",
+    path:testInfo.outputPath("nextgen-007-live-preview-transport.png"),
+  });
+
+  await page.locator("#frankenFreeze").click();
+  await expect(page.locator("#frankenPlanHash")).toHaveText("b".repeat(64));
+
+  await page.evaluate(() => {
+    if(window.__frankenWitnessAudioUrl)URL.revokeObjectURL(window.__frankenWitnessAudioUrl);
+  });
+});

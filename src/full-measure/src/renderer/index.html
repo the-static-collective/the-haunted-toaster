@@ -253,16 +253,23 @@
           <section class="franken-timeline-shell" aria-labelledby="frankenTimelineHeading">
             <div class="franken-preview-heading">
               <div><span>TIME EDITOR · DIRTY STATE</span><h4 id="frankenTimelineHeading">Franken miniature timeline</h4></div>
-              <label class="franken-snap-toggle"><input id="frankenSnapEnabled" type="checkbox" checked /> Snap to song landmarks</label>
+              <div class="franken-transport-controls">
+                <button type="button" id="frankenTransportPlay" disabled>PLAY</button>
+                <button type="button" id="frankenTransportPause" disabled>PAUSE</button>
+                <label class="franken-snap-toggle"><input id="frankenSnapEnabled" type="checkbox" checked /> Snap</label>
+                <label>Zoom<select id="frankenTimelineZoom"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
+              </div>
             </div>
-            <div class="franken-timeline-ruler" id="frankenTimelineRuler" aria-label="1152 frame composition timeline"></div>
+            <div class="franken-transport-status"><span id="frankenTransportStatus">Choose a song in Full Measure to enable synchronized transport.</span></div>
+            <div class="franken-timeline-scroll" id="frankenTimelineScroll"><div class="franken-timeline-ruler" id="frankenTimelineRuler" aria-label="1152 frame composition timeline"></div></div>
             <input class="franken-playhead" id="frankenPlayhead" type="range" min="0" max="1151" step="1" value="0" aria-label="Proposal preview playhead" />
-            <div class="franken-playhead-readout"><span id="frankenPlayheadFrame">Frame 0</span><span>drag clips · resize right edge · RECOMPOSE to update proposal preview</span></div>
+            <audio id="frankenTransportAudio" preload="metadata"></audio>
+            <div class="franken-playhead-readout"><span id="frankenPlayheadFrame">Frame 0</span><span>drag clips · resize right edge · scrub/play proposal media · RECOMPOSE to update proposal preview</span></div>
           </section>
           <section class="franken-proposal-preview-shell" aria-labelledby="frankenPreviewHeading">
             <div class="franken-preview-heading">
-              <div><span>REVIEW SURFACE · PROPOSAL ONLY</span><h4 id="frankenPreviewHeading">Three-scene geometry preview</h4></div>
-              <small>Transforms, crop state, stacking, and placement timing from the current recomposed proposal.</small>
+              <div><span>REVIEW SURFACE · PROPOSAL ONLY</span><h4 id="frankenPreviewHeading">Three-scene media preview</h4></div>
+              <small>Real admitted media plus transforms, crop, stacking, timing, and keyframes from the current recomposed proposal.</small>
             </div>
             <div class="franken-proposal-preview" id="frankenProposalPreview" aria-live="polite"></div>
           </section>
