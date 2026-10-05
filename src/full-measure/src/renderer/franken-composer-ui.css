@@ -98,3 +98,29 @@ body.franken-open{overflow:hidden}
 .franken-add-keyframe{grid-column:1/-1;min-height:29px;border:1px dashed rgba(244,223,156,.35);border-radius:6px;background:transparent;color:#f4df9c;font-size:8px;font-weight:700}
 .franken-preview-clip[data-active="false"]{opacity:.13!important}
 @media(max-width:980px){.franken-keyframe-row{grid-template-columns:1fr 1fr}.franken-playhead-readout{flex-direction:column}}
+
+
+.franken-one-pass{margin:14px 0 18px;padding:14px;border:1px solid rgba(244,223,156,.22);border-radius:12px;background:linear-gradient(180deg,rgba(244,223,156,.045),rgba(0,0,0,.2))}
+.franken-one-pass-heading{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.franken-one-pass-heading span{font-size:8px;letter-spacing:.16em;color:#f4df9c}
+.franken-one-pass-heading h4{margin:3px 0 0;font-size:18px}
+.franken-one-pass-heading button{min-height:38px;padding:0 14px;border:1px solid rgba(244,223,156,.5);border-radius:8px;background:rgba(244,223,156,.12);color:#f4df9c;font-weight:800;letter-spacing:.08em}
+.franken-one-pass-heading button:disabled{opacity:.32}
+.franken-one-pass>p{margin:9px 0;color:var(--muted,#aaa);font-size:10px}
+.franken-one-pass-progress{height:7px;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.07)}
+.franken-one-pass-progress>i{display:block;width:0;height:100%;background:#f4df9c;transition:width 60ms linear}
+.franken-one-pass-lanes{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px;margin:11px 0}
+.franken-one-pass-lane{min-width:0;padding:9px 7px;border:1px solid rgba(255,255,255,.1);border-radius:8px;background:rgba(255,255,255,.025);text-align:center}
+.franken-one-pass-lane b{display:block;font-size:13px}
+.franken-one-pass-lane small{display:block;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted,#999);font-size:7px}
+.franken-one-pass-lane.is-active{border-color:#f4df9c;background:rgba(244,223,156,.19);transform:translateY(-2px)}
+.franken-one-pass-lane.is-used{box-shadow:inset 0 -2px 0 rgba(217,75,75,.55)}
+.franken-one-pass-meta{display:flex;justify-content:space-between;gap:12px;color:var(--muted,#999);font-size:8px}
+.franken-one-pass-meta kbd{display:inline-grid;place-items:center;min-width:19px;height:19px;margin-right:3px;border:1px solid rgba(255,255,255,.16);border-radius:4px;background:rgba(0,0,0,.35);color:#f5f1e8;font:inherit}
+.franken-one-pass code{display:block;margin-top:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#f4df9c;font-size:8px}
+.franken-composer-window.one-pass-running .franken-source-grid,
+.franken-composer-window.one-pass-running .franken-controls,
+.franken-composer-window.one-pass-running .franken-actions,
+.franken-composer-window.one-pass-running .franken-digestion-reservoir,
+.franken-composer-window.one-pass-running .franken-timeline-shell{pointer-events:none;opacity:.36}
+@media(max-width:980px){.franken-one-pass-lanes{grid-template-columns:repeat(3,1fr)}.franken-one-pass-heading,.franken-one-pass-meta{align-items:flex-start;flex-direction:column}}
