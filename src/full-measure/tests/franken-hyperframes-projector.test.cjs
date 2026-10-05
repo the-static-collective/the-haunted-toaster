@@ -64,3 +64,21 @@ test('HyperFrames emits nonzero media trim, video crop viewport, and frozen stac
   assert.match(out.html,/z-index:73/);
   assert.match(out.html,/currentTime=c\.mediaStart/);
 });
+
+
+test('HyperFrames lowers frozen transform keyframes into explicit GSAP timeline motion',()=>{
+  const f=frozenFixture();
+  const input=JSON.parse(JSON.stringify(f.plan));
+  delete input.receipts.planHash;
+  const clip=input.scenes[0].tracks[0].clips[0];
+  clip.transformKeyframes=[
+    {offsetFrames:12,transform:{x:0.4,y:0.45,scale:1.1,rotationDegrees:8}},
+    {offsetFrames:36,transform:{x:0.7,y:0.6,scale:0.85,rotationDegrees:-12}},
+  ];
+  const frozen=freezeFrankenComposition(input);
+  const out=compileHyperFramesFranken({plan:frozen.plan,planHash:frozen.planHash,assetBindings:f.assetBindings});
+  assert.match(out.html,/"offsetSeconds":0\.5/);
+  assert.match(out.html,/"offsetSeconds":1\.5/);
+  assert.match(out.html,/for\(const k of c\.transformKeyframes\)/);
+  assert.match(out.html,/ease:'none'/);
+});
