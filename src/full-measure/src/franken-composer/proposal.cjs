@@ -52,7 +52,7 @@ function normalizeTransformKeyframes(value,index,durationFrames){
 
 function normalizeDigestPlacements(value=[]){
   if(value==null)return [];
-  if(!Array.isArray(value)||value.length>12)throw new TypeError("digestPlacements must contain at most twelve placements.");
+  if(!Array.isArray(value)||value.length>96)throw new TypeError("digestPlacements must contain at most ninety-six placements.");
   const placementIds=new Set();
   return value.map((placement,index)=>{
     if(!placement||typeof placement!=="object"||Array.isArray(placement))throw new TypeError("Each digestion placement must be an object.");
