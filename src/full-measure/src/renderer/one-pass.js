@@ -33,7 +33,7 @@
       hash^=input.length;
       hash=Math.imul(hash^(hash>>>16),0x7feb352d)>>>0;
       hash=Math.imul(hash^(hash>>>15),0x846ca68b)>>>0;
-      return (hash^(hash>>>16)).toString(16).padStart(8,"0");
+      return ((hash^(hash>>>16))>>>0).toString(16).padStart(8,"0");
     }).join("");
   }
 
