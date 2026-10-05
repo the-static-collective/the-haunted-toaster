@@ -299,6 +299,7 @@
     const nextGenStatus=document.getElementById("frankenNextGenStatus");
     const pressureRoot=document.getElementById("frankenPressureReadout");
     const reservoirRoot=document.getElementById("frankenDigestionReservoir");
+    const previewRoot=document.getElementById("frankenProposalPreview");
 
     const pathMethods={
       deckPath:"chooseFrankenPlaydeckDeck",
@@ -494,6 +495,51 @@
       }
     }
 
+    function renderPreview(){
+      if(!previewRoot)return;
+      previewRoot.replaceChildren();
+      const proposal=state.proposal;
+      if(!proposal){
+        const empty=document.createElement("p");
+        empty.textContent="RECOMPOSE to build the proposal geometry preview.";
+        previewRoot.append(empty);
+        return;
+      }
+      for(const scene of proposal.scenes||[]){
+        const card=document.createElement("section");
+        card.className="franken-preview-scene";
+        const title=document.createElement("strong");
+        title.textContent=scene.sceneId;
+        const viewport=document.createElement("div");
+        viewport.className="franken-preview-viewport";
+        for(const track of scene.tracks||[]){
+          for(const clip of track.clips||[]){
+            const node=document.createElement("div");
+            node.className=`franken-preview-clip role-${String(track.role||"unknown").replace(/[^A-Za-z0-9_-]/g,"-")}`;
+            node.dataset.clipId=clip.clipId;
+            node.title=`${track.role} · ${clip.materialId} · f${clip.startFrame}+${clip.durationFrames}`;
+            node.textContent=track.role==="video-digestion-placement"
+              ?String(clip.materialId).split(":")[1]
+              :track.role;
+            const scale=Math.max(0.15,Math.min(2,Number(clip.transform?.scale)||1));
+            node.style.left=`${(Number(clip.transform?.x)||0.5)*100}%`;
+            node.style.top=`${(Number(clip.transform?.y)||0.5)*100}%`;
+            node.style.width=`${Math.min(92,26*scale)}%`;
+            node.style.height=`${Math.min(92,18*scale)}%`;
+            node.style.opacity=String(Math.max(0.2,Number(clip.opacity)||1));
+            node.style.transform=`translate(-50%,-50%) rotate(${Number(clip.transform?.rotationDegrees)||0}deg)`;
+            node.style.zIndex=String(Number(clip.stackOrder)||0);
+            if(clip.crop)node.dataset.cropped="true";
+            viewport.append(node);
+          }
+        }
+        const meta=document.createElement("small");
+        meta.textContent=`${scene.tracks.reduce((sum,track)=>sum+(track.clips?.length||0),0)} clips · frozen-order preview`;
+        card.append(title,viewport,meta);
+        previewRoot.append(card);
+      }
+    }
+
     function render(){
       compose.disabled=!canCompose(state);
       freeze.disabled=!canFreeze(state);
@@ -520,10 +566,10 @@
           const materialId=event.dataTransfer?.getData("text/x-franken-digest")||"";
           const descendant=descendantFor(state,materialId);
           if(!descendant)return;
-          const current=placementFor(state,materialId);
-          state=current
-            ?reduceBenchState(state,{type:"digest-edit",materialId,patch:{sceneId:lane.sceneId}})
-            :reduceBenchState(state,{type:"digest-place",placement:defaultDigestPlacement(descendant,lane.sceneId)});
+          let ordinal=placementsFor(state,materialId).length+1;
+          let candidate=defaultDigestPlacement(descendant,lane.sceneId,ordinal);
+          while(placementFor(state,candidate.placementId)){ordinal+=1;candidate=defaultDigestPlacement(descendant,lane.sceneId,ordinal);}
+          state=reduceBenchState(state,{type:"digest-place",placement:candidate});
           render();
         });
         section.append(title);
@@ -587,6 +633,7 @@
 
       syncControls();
       renderNextGen();
+      renderPreview();
     }
 
     async function loadNextGen(){
@@ -702,6 +749,7 @@
     moveCard,
     mount,
     placementFor,
+    placementsFor,
     reduceBenchState,
   };
 });
