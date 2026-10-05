@@ -10,8 +10,9 @@ const {
 }=require("./history-capsule.cjs");
 
 function historySidecarPath(videoPath){
-  const resolved=path.resolve(String(videoPath||""));
-  if(!resolved)throw new TypeError("videoPath is required.");
+  const raw=String(videoPath||"").trim();
+  if(!raw)throw new TypeError("videoPath is required.");
+  const resolved=path.resolve(raw);
   return `${resolved}.history.json`;
 }
 
@@ -24,8 +25,9 @@ async function fileSha256(filePath){
 }
 
 async function writeHistorySidecar({videoPath,historyCapsule}={}){
-  const resolved=path.resolve(String(videoPath||""));
-  if(!resolved)throw new TypeError("videoPath is required.");
+  const raw=String(videoPath||"").trim();
+  if(!raw)throw new TypeError("videoPath is required.");
+  const resolved=path.resolve(raw);
   const capsule=validateRenderedHistoryCapsule(historyCapsule);
   const file=await fileSha256(resolved);
   bindHistoryToVideo({historyCapsule:capsule,sourceSha256:file.sha256});
@@ -54,8 +56,9 @@ async function writeHistorySidecar({videoPath,historyCapsule}={}){
 }
 
 async function readHistorySidecar({videoPath}={}){
-  const resolved=path.resolve(String(videoPath||""));
-  if(!resolved)throw new TypeError("videoPath is required.");
+  const raw=String(videoPath||"").trim();
+  if(!raw)throw new TypeError("videoPath is required.");
+  const resolved=path.resolve(raw);
   const sidecar=historySidecarPath(resolved);
   const [file,raw]=await Promise.all([
     fileSha256(resolved),
