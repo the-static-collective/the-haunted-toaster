@@ -44,3 +44,23 @@ test('HyperFrames timed elements are clip-owned and typography has no unbundled 
   for(const tag of timed)assert.match(tag,/class="[^"]*\bclip\b[^"]*"/);
   assert.doesNotMatch(out.html,/Bowlby One SC/i);
 });
+
+
+test('HyperFrames emits nonzero media trim, video crop viewport, and frozen stack order',()=>{
+  const f=frozenFixture();
+  const input=JSON.parse(JSON.stringify(f.plan));
+  delete input.receipts.planHash;
+  const videoMaterial=input.materials.find(m=>m.kind==='video');
+  const clip=input.scenes.flatMap(s=>s.tracks).flatMap(t=>t.clips).find(c=>c.materialId===videoMaterial.materialId);
+  clip.sourceWindow={startSeconds:0.5,endSeconds:2.5};
+  clip.durationFrames=48;
+  clip.crop={x:0.1,y:0.2,width:0.7,height:0.6};
+  clip.stackOrder=73;
+  const frozen=freezeFrankenComposition(input);
+  const out=compileHyperFramesFranken({plan:frozen.plan,planHash:frozen.planHash,assetBindings:f.assetBindings});
+  assert.match(out.html,/data-media-start="0\.5"/);
+  assert.match(out.html,/data-crop-viewport="true"/);
+  assert.match(out.html,/data-stack-order="73"/);
+  assert.match(out.html,/z-index:73/);
+  assert.match(out.html,/currentTime=c\.mediaStart/);
+});
