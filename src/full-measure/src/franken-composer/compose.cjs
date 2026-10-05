@@ -470,7 +470,7 @@ function proposalToComposition(proposal) {
   return {
     schema: isFullSong?FRANKEN_FULL_SONG_SCHEMA:FRANKEN_SCHEMA,
     policy: isFullSong?FRANKEN_FULL_SONG_POLICY:FRANKEN_POLICY,
-    compositionId: `fc0_${hashCanonical(
+    compositionId: `${isFullSong?"fc1":"fc0"}_${hashCanonical(
       {
         seed: proposal.seed,
         variation: proposal.variation,
@@ -494,7 +494,7 @@ function proposalToComposition(proposal) {
     transitions: proposal.transitions,
     receipts: {
       policyVersion: isFullSong?FRANKEN_FULL_SONG_POLICY:FRANKEN_POLICY,
-      ...(proposal.fullSongForm?{fullSongFormHash:proposal.fullSongForm.formHash}:{ }),
+      ...(proposal.fullSongForm?{fullSongFormHash:proposal.fullSongForm.formHash}:{}),
       ...(proposal.donorGuards.nextGenCrossingIdentity
         ? {
             nextGenCrossingIdentity:
