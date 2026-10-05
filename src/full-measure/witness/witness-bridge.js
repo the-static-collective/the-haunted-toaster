@@ -384,7 +384,13 @@
             }
           : {}),
       };
-      return { proposalIdentity: "a".repeat(64), proposal };
+      const previewAssets=Object.fromEntries(
+        (config.edits?.digestPlacements||[]).map((placement)=>[
+          placement.materialId,
+          {kind:"video",url:"/witness/visual-specimen-1.mp4"},
+        ]),
+      );
+      return { proposalIdentity: "a".repeat(64), proposal, previewAssets };
     },
     freezeFranken: async () => ({ planHash: "b".repeat(64), plan: { schema: "static-collective/franken-composition/v0" } }),
     writeFrankenProjectionBundle: async () => ({ directory: "/witness/franken/render-bundle", planHash: "b".repeat(64) }),
