@@ -32,3 +32,12 @@ test('Remotion composition walks the frozen track graph instead of hard-coding m
   assert.doesNotMatch(source,/materialId=\{imageMaterialIds\[/);
   assert.match(source,/treatmentFilter/);
 });
+
+
+test('Remotion composition interpolates frozen transform keyframes rather than renderer-local motion',()=>{
+  const fs=require('node:fs'),path=require('node:path');
+  const source=fs.readFileSync(path.join(__dirname,'..','..','..','experiments','franken-composer-remotion','src','FrankenComposition.tsx'),'utf8');
+  assert.match(source,/keyframedTransform/);
+  assert.match(source,/clip\.transformKeyframes/);
+  assert.match(source,/interpolate\(/);
+});
