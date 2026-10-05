@@ -1,7 +1,7 @@
 "use strict";
 
 const {canonicalize,deepFreeze,hashCanonical}=require("../generation/canonical.cjs");
-const {fingerprint256,stableStringify}=require("../renderer/one-pass.js");
+const {fingerprint256,stableStringify,normalizeSceneSpans}=require("../renderer/one-pass.js");
 
 const PERFORMANCE_TRACE_SCHEMA="static-collective/performance-trace/v0";
 const PERFORMANCE_TRACE_POLICY="watch-play-trace/v0";
@@ -31,7 +31,10 @@ function validatePerformanceReceipt(receipt){
   if(receipt.events.length>4096)throw new TypeError("ONE PASS events exceed the bounded full-song performance envelope.");
   if(receipt.placements.length>2048)throw new TypeError("ONE PASS placements exceed the bounded full-song performance envelope.");
   if(spatialSamples.length>16384)throw new TypeError("ONE PASS spatial samples exceed the bounded full-song performance envelope.");
-  if(receipt.sceneSpans!==undefined&&(!Array.isArray(receipt.sceneSpans)||receipt.sceneSpans.length!==3))throw new TypeError("ONE PASS sceneSpans must contain three macro scenes when present.");
+  if(receipt.sceneSpans!==undefined){
+    if(!Array.isArray(receipt.sceneSpans)||receipt.sceneSpans.length!==3)throw new TypeError("ONE PASS sceneSpans must contain three macro scenes when present.");
+    normalizeSceneSpans(receipt.sceneSpans,Math.floor(Number(receipt.totalFrames)));
+  }
   if(receipt.eventCount!==receipt.events.length||receipt.placementCount!==receipt.placements.length)throw new TypeError("ONE PASS receipt counts do not match its body.");
   if(receipt.spatialSampleCount!==undefined&&receipt.spatialSampleCount!==spatialSamples.length)throw new TypeError("ONE PASS spatial sample count does not match its body.");
   const expected=fingerprint256(stableStringify(witnessBody(receipt)));
