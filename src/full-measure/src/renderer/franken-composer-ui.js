@@ -282,7 +282,7 @@
           },
         });
       case "digest-place":
-        if((state.edits.digestPlacements||[]).length>=96)throw new Error("Franken editor supports at most ninety-six digestion placements.");
+        if((state.edits.digestPlacements||[]).length>=2048)throw new Error("Franken editor supports at most 2048 digestion placements.");
         if(placementFor(state,action.placement.placementId))throw new Error("Digestion placement id must be unique.");
         return markDirty({
           ...state,
@@ -300,7 +300,7 @@
           },
         });
       case "digest-replace":
-        if(!Array.isArray(action.value)||action.value.length>96)throw new Error("Franken editor supports at most ninety-six digestion placements.");
+        if(!Array.isArray(action.value)||action.value.length>2048)throw new Error("Franken editor supports at most 2048 digestion placements.");
         return markDirty({
           ...state,
           edits:{
@@ -1488,19 +1488,55 @@
       updateTransportStatus();
     });
     transportAudio?.addEventListener("ended",()=>{playheadFrame=currentTotalFrames()-1;stopTransportLoop();updateTimelinePlayhead();updatePreviewFrame();});
-    view?.addEventListener("full-measure:audio-ready",(event)=>{
+    view?.addEventListener("full-measure:audio-ready",async(event)=>{
       transportAudio?.pause();
       stopTransportLoop();
+      fullSongForm=null;
       transportMeta=event.detail?.url&&Number(event.detail?.duration)>0
-        ?{url:event.detail.url,duration:Number(event.detail.duration),filename:event.detail.filename||"song"}
+        ?{
+            url:event.detail.url,
+            duration:Number(event.detail.duration),
+            filename:event.detail.filename||"song",
+            sections:Array.isArray(event.detail.sections)?event.detail.sections:[],
+          }
         :null;
+      if(transportMeta&&typeof bridge.deriveFrankenFullSongForm==="function"){
+        try{
+          fullSongForm=await bridge.deriveFrankenFullSongForm({
+            durationSeconds:transportMeta.duration,
+            fps:24,
+            sections:transportMeta.sections,
+          });
+          transportMeta.fullSongForm=fullSongForm;
+        }catch(error){
+          fullSongForm=null;
+          if(transportStatus)transportStatus.textContent=`Full-song form failed · ${error?.message||error}`;
+        }
+      }
       if(transportAudio){
         if(transportMeta)transportAudio.src=transportMeta.url;
         else transportAudio.removeAttribute("src");
       }
+      playheadFrame=0;
+      onePassSession=null;
+      onePassConsumed=false;
+      onePassReceiptPath=null;
+      onePassPersistenceError=null;
+      onePassEcology=null;
+      onePassEcologyError=null;
+      state=markDirty({
+        ...state,
+        proposal:null,
+        proposalIdentity:null,
+        edits:{...state.edits,digestPlacements:[]},
+      });
+      if(playhead){
+        playhead.max=String(currentTotalFrames()-1);
+        playhead.value="0";
+      }
       if(transportPlay)transportPlay.disabled=!transportMeta;
       if(transportPause)transportPause.disabled=!transportMeta;
-      updateTransportStatus();
+      render();
     });
 
     root.querySelectorAll("[data-franken-choose]").forEach((button)=>
@@ -1561,7 +1597,7 @@
     bundle.addEventListener("click",async()=>{
       try{
         const result=await bridge.writeFrankenProjectionBundle({
-          ...composeConfig(state),
+          ...composeConfig(state,fullSongForm),
           expectedProposalIdentity:state.proposalIdentity,
         });
         status.textContent=`Renderer bundle prepared · ${result.directory}`;
