@@ -1053,7 +1053,9 @@
         const receipt=onePassSession.receipt;
         onePassStatus.textContent=onePassPersistenceError
           ?`Take sealed in memory · receipt save failed · ${onePassPersistenceError}`
-          :`Take sealed · ${receipt.eventCount} gestures · ${receipt.spatialSampleCount||0} spatial samples · ${receipt.placementCount} lawful clips · RECOMPOSE to review it`;
+          :onePassEcologyError
+            ?`Take sealed · residue preview unavailable · ${onePassEcologyError}`
+            :`Take sealed · ${receipt.eventCount} gestures · ${receipt.spatialSampleCount||0} spatial samples · ${receipt.placementCount} lawful clips · ${onePassEcology?.residueMemory?.residues?.length||0} residue memories · RECOMPOSE to review it`;
         const memoryCount=onePassEcology?.residueMemory?.residues?.length||0;
         onePassReceipt.textContent=onePassReceiptPath
           ?`PERFORMANCE · ${receipt.performanceHash} · ${memoryCount} residue${memoryCount===1?"":"s"} · ${filename(onePassReceiptPath)}`
