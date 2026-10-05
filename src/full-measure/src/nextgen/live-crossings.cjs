@@ -166,6 +166,7 @@ function buildNextGenLiveCrossing({
   rootSeed = "nextgen-003",
   albumContext = {},
   videoBinding = null,
+  videoHistoryCapsule = null,
   timeline = null,
   timelineHash = null,
   candidateIndex = null,
@@ -178,6 +179,7 @@ function buildNextGenLiveCrossing({
           videoBinding,
           timeline,
           analysisDurationSeconds: Number(analysis.durationSeconds),
+          historyCapsule: videoHistoryCapsule || videoBinding?.historyCapsule || null,
         })
       : null;
   const core = {
@@ -209,6 +211,7 @@ function buildNextGenLiveCrossing({
           sourceSpecimenId: videoDigestion.sourceSpecimenId,
           sourceSha256: videoDigestion.sourceSha256,
           clipAnalysisHash: videoDigestion.clipAnalysisHash,
+          ...(videoDigestion.sourceHistoryRef ? { sourceHistoryRef: videoDigestion.sourceHistoryRef } : {}),
           descendants: videoDigestion.descendants.map((descendant) => ({
             slot: descendant.slot,
             roleId: descendant.roleId,
@@ -218,6 +221,7 @@ function buildNextGenLiveCrossing({
             projectionClass: descendant.projectionClass,
             planHash: descendant.planHash,
             sourceDurationFrames: sourceDurationFrames(descendant),
+            ...(descendant.historyRef ? { historyRef: descendant.historyRef } : {}),
             projectionTreatment: projectionTreatmentFor(descendant),
           })),
         }
@@ -249,7 +253,7 @@ function frankenVideoDigestionReservoir(context) {
     materials.push({
       materialId,
       kind: "video",
-      sourceIdentity: `video-digestion:${family.familyHash}:${descendant.roleId}:${descendant.planHash}`,
+      sourceIdentity: `video-digestion:${family.familyHash}:${descendant.roleId}:${descendant.planHash}${descendant.historyRef?`:history:${descendant.historyRef.capsuleHash}`:""}`,
       digest: descendant.sourceSha256,
       rightsBasis: "local-admitted-video-derived-proposal",
       admissionBasis: "video-digestion-six-proposal-only",
@@ -263,6 +267,7 @@ function frankenVideoDigestionReservoir(context) {
         samplingPolicyId: descendant.samplingPolicyId,
         projectionClass: descendant.projectionClass,
         sourceDurationFrames: sourceDurationFrames(descendant),
+        ...(descendant.historyRef?{historyRef:descendant.historyRef}:{}),
       },
       projectionTreatment: projectionTreatmentFor(descendant),
     });

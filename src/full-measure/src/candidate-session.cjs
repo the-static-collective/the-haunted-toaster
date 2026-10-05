@@ -114,18 +114,23 @@ function sameOptionalPath(left, right) {
   return path.resolve(left) === path.resolve(right);
 }
 
+function videoHistoryIdentity(binding) {
+  return String(binding?.historyRef?.capsuleHash || binding?.historyCapsule?.capsuleHash || "").trim();
+}
+
 function sameVideoBinding(left, right) {
   if (!left && !right) return true;
   if (!left || !right) return false;
+  const sameHistory = videoHistoryIdentity(left) === videoHistoryIdentity(right);
   const leftSpecimenId = String(left.specimenId || "").trim();
   const rightSpecimenId = String(right.specimenId || "").trim();
-  if (leftSpecimenId && rightSpecimenId) return leftSpecimenId === rightSpecimenId;
+  if (leftSpecimenId && rightSpecimenId) return leftSpecimenId === rightSpecimenId && sameHistory;
   const leftSha256 = normalizeSourceSha256(left.sourceSha256);
   const rightSha256 = normalizeSourceSha256(right.sourceSha256);
   if (leftSha256 && rightSha256) {
-    return leftSha256 === rightSha256 && Number(left.byteLength) === Number(right.byteLength);
+    return leftSha256 === rightSha256 && Number(left.byteLength) === Number(right.byteLength) && sameHistory;
   }
-  if (left.path && right.path) return path.resolve(left.path) === path.resolve(right.path);
+  if (left.path && right.path) return path.resolve(left.path) === path.resolve(right.path) && sameHistory;
   return false;
 }
 
@@ -1200,6 +1205,8 @@ module.exports = {
   CONSTRAINTS_BY_PRESET,
   rendererProfile,
   createCandidateSession,
+  sameVideoBinding,
+  videoHistoryIdentity,
   timedLyricTrack,
   toGenerationAnalysis,
 };
