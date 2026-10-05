@@ -22,9 +22,12 @@ test('founding Remotion projector refuses video source crops and composition imp
 });
 
 
-test('Remotion card slots bind the six frozen image materials rather than literal Playdeck ids',()=>{
+test('Remotion composition walks the frozen track graph instead of hard-coding material slots',()=>{
   const fs=require('node:fs'),path=require('node:path');
   const source=fs.readFileSync(path.join(__dirname,'..','..','..','experiments','franken-composer-remotion','src','FrankenComposition.tsx'),'utf8');
-  assert.doesNotMatch(source,/materialId="playdeck:card-0[1-6]"/);
-  for(let i=0;i<6;i++)assert.match(source,new RegExp(`materialId=\\{imageMaterialIds\\[${i}\\]\\}`));
+  assert.match(source,/bundle\.scenes\.flatMap/);
+  assert.match(source,/track\.clips\.map/);
+  assert.match(source,/<FrozenClip/);
+  assert.doesNotMatch(source,/materialId=\{imageMaterialIds\[/);
+  assert.match(source,/treatmentFilter/);
 });

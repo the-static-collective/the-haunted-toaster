@@ -164,7 +164,7 @@
     ];
     return {
       schema: "static-collective/nextgen-live-crossing/v0",
-      policy: "nextgen-live-crossings-003",
+      policy: "nextgen-live-crossings-004",
       authority: "proposal-pressure-and-material-reservoir-only",
       crossingIdentity: "c".repeat(64),
       basis: { candidateIndex: 0, timelineHash: "d".repeat(64) },
@@ -187,22 +187,44 @@
         schema: "haunted-toaster/video-digestion-six/v0",
         authority: "proposal-only",
         familyHash: "a".repeat(64),
-        descendants: roles.map(([roleId, projectionClass], index) => ({
-          slot: index + 1,
-          roleId,
-          projectionClass,
-          planHash: String(index + 1).repeat(64),
-        })),
+        descendants: roles.map(([roleId, projectionClass], index) => {
+          const planHash=String(index + 1).repeat(64);
+          const family=projectionClass==="derived-texture"?"texture":roleId.startsWith("motion-")?"motion":"topology";
+          return {
+            slot:index+1,
+            roleId,
+            materialId:`video-digest:${roleId}:${planHash.slice(0,12)}`,
+            projectionClass,
+            planHash,
+            sourceDurationFrames:96,
+            projectionTreatment:{
+              schema:"static-collective/franken-video-digestion-treatment/v0",
+              authority:"projection-style-only",
+              family,
+              grayscale:1,
+              contrast:family==="motion"?2.1:family==="topology"?1.75:1.3,
+              saturate:family==="texture"?0.35:0,
+              brightness:family==="motion"?1.14:family==="topology"?0.96:1.06,
+              blurPx:family==="texture"?1.2:family==="topology"?0.8:0.4,
+            },
+          };
+        }),
       },
     };
   }
 
-  function witnessFrankenProposal() {
+  function witnessFrankenProposal(digestPlacements = []) {
     const cardOrder = ["card-01", "card-02", "card-03", "card-04", "card-05", "card-06"];
     const sceneRoles = {
       "card-01": "ARRIVE", "card-02": "ARRIVE",
       "card-03": "CROSS", "card-04": "CROSS",
       "card-05": "ASSEMBLE", "card-06": "ASSEMBLE",
+    };
+    const sceneTracks=(sceneId,base)=>{
+      const placements=digestPlacements.filter((placement)=>placement.sceneId===sceneId);
+      return placements.length
+        ?[...base.slice(0,base.length-1),{role:"video-digestion-placement",clips:placements.map((placement)=>({materialId:placement.materialId}))},base.at(-1)]
+        :base;
     };
     return {
       proposalSchema: "static-collective/franken-proposal/v0",
@@ -215,10 +237,11 @@
       transitionChoices: { arriveCross: "panel-wipe", crossAssemble: "radial-reveal" },
       text: "THE ROOM REMEMBERS",
       variation: 0,
+      digestPlacements: structuredClone(digestPlacements),
       scenes: [
-        { sceneId: "ARRIVE", tracks: [{ role: "card" }, { role: "typography" }] },
-        { sceneId: "CROSS", tracks: [{ role: "card" }, { role: "moving-take" }, { role: "typography" }, { role: "topology-material" }] },
-        { sceneId: "ASSEMBLE", tracks: [{ role: "card" }, { role: "typography" }, { role: "topology-material" }] },
+        { sceneId: "ARRIVE", tracks: sceneTracks("ARRIVE",[{ role: "card" }, { role: "typography" }]) },
+        { sceneId: "CROSS", tracks: sceneTracks("CROSS",[{ role: "card" }, { role: "moving-take" }, { role: "typography" }, { role: "topology-material" }]) },
+        { sceneId: "ASSEMBLE", tracks: sceneTracks("ASSEMBLE",[{ role: "card" }, { role: "typography" }, { role: "topology-material" }]) },
       ],
     };
   }
@@ -311,7 +334,7 @@
     chooseFrankenBlenderReceipt: async () => "/witness/franken/accepted-take.mp4.receipt.json",
     chooseFrankenBlenderVideo: async () => "/witness/franken/accepted-take.mp4",
     composeFranken: async (config = {}) => {
-      const base = witnessFrankenProposal();
+      const base = witnessFrankenProposal(config.edits?.digestPlacements || []);
       const proposal = {
         ...base,
         movingTakeSceneId: config.edits?.movingTakeSceneId || base.movingTakeSceneId,
@@ -323,6 +346,7 @@
         variation: Number.isSafeInteger(config.edits?.variation)
           ? config.edits.variation
           : base.variation,
+        digestPlacements: structuredClone(config.edits?.digestPlacements || []),
         ...(config.nextGen?.enabled
           ? {
               ancestry: {

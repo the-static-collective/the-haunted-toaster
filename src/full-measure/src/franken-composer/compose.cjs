@@ -71,6 +71,7 @@ function stateFromDonors({ playdeck, blenderTake, seed, nextGenContext = null })
     },
     text: "THE ROOM REMEMBERS",
     variation: 0,
+    digestPlacements: [],
   };
   if (!nextGenContext) return canonicalize(base);
   if (nextGenContext.frankenPressure?.authority !== "influence-only") {
@@ -104,6 +105,20 @@ function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
   const reservoir = nextGenContext
     ? frankenVideoDigestionReservoir(nextGenContext)
     : { materials: [], bindings: {} };
+
+  const reservoirById = new Map(reservoir.materials.map((material) => [material.materialId, material]));
+  const digestPlacements = Array.isArray(state.digestPlacements) ? state.digestPlacements : [];
+  for (const placement of digestPlacements) {
+    const material = reservoirById.get(placement.materialId);
+    if (!material) throw new TypeError(`Unknown or stale digestion material placement: ${placement.materialId}.`);
+    const maxFrames = Number(material.derivation?.sourceDurationFrames);
+    if (!Number.isSafeInteger(maxFrames) || maxFrames < 1 || placement.durationFrames > maxFrames) {
+      throw new RangeError(`Digestion placement ${placement.materialId} exceeds its admitted source duration.`);
+    }
+    if (placement.startOffsetFrames + placement.durationFrames > 384) {
+      throw new RangeError(`Digestion placement ${placement.materialId} exceeds its scene span.`);
+    }
+  }
 
   const materials = [
     ...state.cardOrder.map((id) => cleanCardMaterial(cardsById.get(id))),
@@ -195,6 +210,31 @@ function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
               transitionRelation: null,
             },
           ],
+        });
+      }
+
+      const placedHere = digestPlacements.filter((placement) => placement.sceneId === sceneId);
+      if (placedHere.length) {
+        tracks.push({
+          trackId: `${sceneId.toLowerCase()}-video-digestion`,
+          layer: "background",
+          role: "video-digestion-placement",
+          clips: placedHere.map((placement, placementIndex) => ({
+            clipId: `clip-${sceneId.toLowerCase()}-digest-${placementIndex + 1}-${placement.materialId.split(":")[1]}`,
+            materialId: placement.materialId,
+            startFrame: startFrame + placement.startOffsetFrames,
+            durationFrames: placement.durationFrames,
+            sourceWindow: {
+              startSeconds: 0,
+              endSeconds: placement.durationFrames / FPS,
+            },
+            transform: placement.transform,
+            crop: null,
+            opacity: placement.opacity,
+            blend: placement.blend,
+            entrance: "arrive",
+            transitionRelation: null,
+          })),
         });
       }
 
@@ -312,6 +352,7 @@ function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
     transitionChoices: state.transitions,
     text: state.text,
     variation: state.variation,
+    digestPlacements,
     donorGuards,
     ancestry,
     materials,
@@ -366,6 +407,7 @@ function applyFrankenEdits(proposal, edits = {}) {
       transitions: proposal.transitionChoices,
       text: proposal.text,
       variation: proposal.variation,
+      digestPlacements: proposal.digestPlacements || [],
     },
     edits,
   );
@@ -411,6 +453,7 @@ function proposalToComposition(proposal) {
         sceneRoles: proposal.sceneRoles,
         transitionChoices: proposal.transitionChoices,
         text: proposal.text,
+        digestPlacements: proposal.digestPlacements || [],
         nextGenCrossingIdentity:
           proposal.donorGuards.nextGenCrossingIdentity || null,
       },

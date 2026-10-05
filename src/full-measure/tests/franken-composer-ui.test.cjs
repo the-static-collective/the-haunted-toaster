@@ -42,7 +42,7 @@ test('live organ pressure changes visible defaults but never freezes by itself',
         variation:7,
       },
     },
-    videoDigestion:{descendants:Array.from({length:6},(_,i)=>({slot:i+1,roleId:`role-${i+1}`,planHash:String(i+1).repeat(64)}))},
+    videoDigestion:{descendants:Array.from({length:6},(_,i)=>({slot:i+1,roleId:`role-${i+1}`,materialId:`video-digest:role-${i+1}:${String(i+1).repeat(12)}`,planHash:String(i+1).repeat(64),sourceDurationFrames:96}))},
   };
   s=ui.reduceBenchState(s,{type:'nextgen',value:crossing});
   assert.equal(s.edits.movingTakeSceneId,'ASSEMBLE');
@@ -68,4 +68,37 @@ test('changing seed revokes loaded organ crossing identity',()=>{
   s=ui.reduceBenchState(s,{type:'seed',value:'different-seed'});
   assert.equal(s.nextGen,null);
   assert.equal(ui.composeConfig(s).nextGen,null);
+});
+
+
+test('human digestion placement is explicit, editable, removable, and always dirties freeze',()=>{
+  let s=ui.createBenchState();
+  const descendant={slot:1,roleId:'texture-loop',materialId:'video-digest:texture-loop:'+ '1'.repeat(12),sourceDurationFrames:48};
+  const crossing={crossingIdentity:'c'.repeat(64),frankenPressure:{edits:{movingTakeSceneId:'CROSS',transitions:{},variation:0}},videoDigestion:{descendants:[descendant]}};
+  s=ui.reduceBenchState(s,{type:'nextgen',value:crossing});
+  const placement=ui.defaultDigestPlacement(descendant,'CROSS');
+  s=ui.reduceBenchState(s,{type:'digest-place',placement});
+  assert.equal(ui.placementFor(s,descendant.materialId).sceneId,'CROSS');
+  assert.equal(s.dirty,true);
+  assert.equal(ui.canFreeze(s),false);
+  assert.equal(ui.composeConfig(s).edits.digestPlacements.length,1);
+  s=ui.reduceBenchState(s,{type:'digest-edit',materialId:descendant.materialId,patch:{sceneId:'ASSEMBLE',opacity:0.4}});
+  assert.equal(ui.placementFor(s,descendant.materialId).sceneId,'ASSEMBLE');
+  assert.equal(ui.placementFor(s,descendant.materialId).opacity,0.4);
+  s=ui.reduceBenchState(s,{type:'digest-remove',materialId:descendant.materialId});
+  assert.equal(ui.placementFor(s,descendant.materialId),null);
+});
+
+test('reloading or reseeding live organs clears stale digestion placements',()=>{
+  let s=ui.createBenchState();
+  const descendant={slot:1,roleId:'texture-loop',materialId:'video-digest:texture-loop:'+ '1'.repeat(12),sourceDurationFrames:48};
+  const crossing={crossingIdentity:'c'.repeat(64),frankenPressure:{edits:{movingTakeSceneId:'CROSS',transitions:{},variation:0}},videoDigestion:{descendants:[descendant]}};
+  s=ui.reduceBenchState(s,{type:'nextgen',value:crossing});
+  s=ui.reduceBenchState(s,{type:'digest-place',placement:ui.defaultDigestPlacement(descendant)});
+  assert.equal(s.edits.digestPlacements.length,1);
+  s=ui.reduceBenchState(s,{type:'nextgen',value:{...crossing,crossingIdentity:'d'.repeat(64)}});
+  assert.equal(s.edits.digestPlacements.length,0);
+  s=ui.reduceBenchState(s,{type:'digest-place',placement:ui.defaultDigestPlacement(descendant)});
+  s=ui.reduceBenchState(s,{type:'seed',value:'new-seed'});
+  assert.equal(s.edits.digestPlacements.length,0);
 });

@@ -34,6 +34,7 @@
         },
         text:"THE ROOM REMEMBERS",
         variation:0,
+        digestPlacements:[],
       },
       nextGen:null,
       proposal:null,
@@ -77,6 +78,33 @@
     };
   }
 
+  function defaultDigestPlacement(descendant,sceneId=null){
+    const scene=sceneId||SCENES[(Math.max(1,Number(descendant?.slot)||1)-1)%SCENES.length];
+    const slot=Math.max(1,Number(descendant?.slot)||1);
+    return {
+      materialId:String(descendant.materialId),
+      sceneId:scene,
+      startOffsetFrames:48+((slot-1)%3)*72,
+      durationFrames:Math.max(1,Math.min(72,Number(descendant.sourceDurationFrames)||72)),
+      transform:{
+        x:[0.32,0.5,0.68][(slot-1)%3],
+        y:slot%2===0?0.58:0.42,
+        scale:0.86,
+        rotationDegrees:((slot-1)%3-1)*5,
+      },
+      opacity:0.64,
+      blend:"screen",
+    };
+  }
+
+  function placementFor(state,materialId){
+    return (state.edits.digestPlacements||[]).find((placement)=>placement.materialId===materialId)||null;
+  }
+
+  function descendantFor(state,materialId){
+    return (state.nextGen?.videoDigestion?.descendants||[]).find((descendant)=>descendant.materialId===materialId)||null;
+  }
+
   function reduceBenchState(state,action){
     switch(action.type){
       case "path":
@@ -93,6 +121,7 @@
           nextGen:null,
           proposal:null,
           proposalIdentity:null,
+          edits:{...state.edits,digestPlacements:[]},
         });
       case "edit":
         return markDirty({
@@ -120,13 +149,42 @@
             sceneRoles:{...state.edits.sceneRoles,[action.cardId]:action.sceneId},
           },
         });
+      case "digest-place":{
+        const existing=placementFor(state,action.placement.materialId);
+        if(existing)return state;
+        return markDirty({
+          ...state,
+          edits:{
+            ...state.edits,
+            digestPlacements:[...(state.edits.digestPlacements||[]),action.placement],
+          },
+        });
+      }
+      case "digest-remove":
+        return markDirty({
+          ...state,
+          edits:{
+            ...state.edits,
+            digestPlacements:(state.edits.digestPlacements||[]).filter((placement)=>placement.materialId!==action.materialId),
+          },
+        });
+      case "digest-edit":
+        return markDirty({
+          ...state,
+          edits:{
+            ...state.edits,
+            digestPlacements:(state.edits.digestPlacements||[]).map((placement)=>placement.materialId===action.materialId
+              ?{...placement,...action.patch,transform:action.patch?.transform?{...placement.transform,...action.patch.transform}:placement.transform}
+              :placement),
+          },
+        });
       case "nextgen":
         return markDirty({
           ...state,
           nextGen:action.value||null,
           proposal:null,
           proposalIdentity:null,
-          edits:applyNextGenPressure(state.edits,action.value),
+          edits:{...applyNextGenPressure(state.edits,action.value),digestPlacements:[]},
         });
       case "proposal":{
         const p=action.result.proposal;
@@ -145,6 +203,7 @@
             transitions:{...p.transitionChoices},
             text:p.text,
             variation:p.variation,
+            digestPlacements:[...(p.digestPlacements||[])],
           },
         };
       }
@@ -182,6 +241,7 @@
         transitions:state.edits.transitions,
         text:state.edits.text,
         variation:Number(state.edits.variation),
+        digestPlacements:[...(state.edits.digestPlacements||[])],
       },
     };
   }
@@ -306,11 +366,76 @@
       }
       for(const descendant of descendants){
         const item=document.createElement("span");
+        item.className="franken-digest-card";
+        item.draggable=true;
+        item.dataset.materialId=descendant.materialId;
+        item.addEventListener("dragstart",(event)=>{
+          event.dataTransfer?.setData("text/x-franken-digest",descendant.materialId);
+          if(event.dataTransfer)event.dataTransfer.effectAllowed="move";
+        });
+
         const title=document.createElement("b");
         title.textContent=`#${descendant.slot} · ${descendant.roleId}`;
         const meta=document.createElement("small");
         meta.textContent=`${descendant.projectionClass} · ${descendant.planHash.slice(0,10)}`;
-        item.append(title,meta);
+
+        const placement=placementFor(state,descendant.materialId);
+        const toggle=document.createElement("button");
+        toggle.type="button";
+        toggle.className="franken-digest-toggle";
+        toggle.textContent=placement?"REMOVE":"PLACE";
+        toggle.addEventListener("click",()=>{
+          state=placement
+            ?reduceBenchState(state,{type:"digest-remove",materialId:descendant.materialId})
+            :reduceBenchState(state,{type:"digest-place",placement:defaultDigestPlacement(descendant)});
+          render();
+        });
+        item.append(title,meta,toggle);
+
+        if(placement){
+          item.classList.add("is-placed");
+          const controls=document.createElement("div");
+          controls.className="franken-digest-controls";
+
+          const select=(label,value,options,onChange)=>{
+            const wrap=document.createElement("label");
+            wrap.textContent=label;
+            const node=document.createElement("select");
+            for(const optionValue of options){
+              const option=document.createElement("option");
+              option.value=optionValue;
+              option.textContent=optionValue;
+              option.selected=optionValue===value;
+              node.append(option);
+            }
+            node.addEventListener("change",()=>onChange(node.value));
+            wrap.append(node);
+            return wrap;
+          };
+          const number=(label,value,min,max,step,onChange)=>{
+            const wrap=document.createElement("label");
+            wrap.textContent=label;
+            const node=document.createElement("input");
+            node.type="number";
+            node.value=String(value);
+            node.min=String(min);
+            node.max=String(max);
+            node.step=String(step);
+            node.addEventListener("change",()=>onChange(Number(node.value)));
+            wrap.append(node);
+            return wrap;
+          };
+          const patch=(next)=>{state=reduceBenchState(state,{type:"digest-edit",materialId:descendant.materialId,patch:next});render();};
+
+          controls.append(
+            select("Scene",placement.sceneId,SCENES,(value)=>patch({sceneId:value})),
+            number("Start",placement.startOffsetFrames,0,383,1,(value)=>patch({startOffsetFrames:value})),
+            number("Frames",placement.durationFrames,1,Math.max(1,Math.min(Number(descendant.sourceDurationFrames)||384,384-placement.startOffsetFrames)),1,(value)=>patch({durationFrames:value})),
+            number("Opacity",placement.opacity,0,1,0.05,(value)=>patch({opacity:value})),
+            select("Blend",placement.blend,["normal","screen"],(value)=>patch({blend:value})),
+          );
+          item.append(controls);
+        }
         reservoirRoot.append(item);
       }
     }
@@ -334,6 +459,19 @@
         section.className="franken-lane";
         const title=document.createElement("strong");
         title.textContent=lane.sceneId;
+        section.dataset.sceneId=lane.sceneId;
+        section.addEventListener("dragover",(event)=>{event.preventDefault();if(event.dataTransfer)event.dataTransfer.dropEffect="move";});
+        section.addEventListener("drop",(event)=>{
+          event.preventDefault();
+          const materialId=event.dataTransfer?.getData("text/x-franken-digest")||"";
+          const descendant=descendantFor(state,materialId);
+          if(!descendant)return;
+          const current=placementFor(state,materialId);
+          state=current
+            ?reduceBenchState(state,{type:"digest-edit",materialId,patch:{sceneId:lane.sceneId}})
+            :reduceBenchState(state,{type:"digest-place",placement:defaultDigestPlacement(descendant,lane.sceneId)});
+          render();
+        });
         section.append(title);
 
         for(const id of lane.cards){
@@ -500,6 +638,8 @@
     TRANSITIONS,
     WORLD_RULES,
     applyNextGenPressure,
+    defaultDigestPlacement,
+    descendantFor,
     canCompose,
     canFreeze,
     composeConfig,
@@ -507,6 +647,7 @@
     laneModel,
     moveCard,
     mount,
+    placementFor,
     reduceBenchState,
   };
 });
