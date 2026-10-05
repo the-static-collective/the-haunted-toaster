@@ -100,7 +100,7 @@ function residueFromPaint(trace,paint,index,{decayPerFrame,carryAcrossScenes,tot
   });
 }
 function compileResidueMemory(trace,{
-  decayPerFrame=.001,
+  decayPerFrame=.0004,
   carryAcrossScenes=true,
 }={}){
   const source=validateTrace(trace);
