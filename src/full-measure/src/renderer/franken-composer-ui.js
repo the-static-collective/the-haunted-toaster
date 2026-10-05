@@ -11,57 +11,73 @@
   const SCENES=["ARRIVE","CROSS","ASSEMBLE"];
   const SCENE_FRAMES=384;
   const TOTAL_FRAMES=1152;
-  const SCENE_STARTS={ARRIVE:0,CROSS:384,ASSEMBLE:768};
+  const DEFAULT_FORM=Object.freeze({
+    totalFrames:TOTAL_FRAMES,
+    sceneSpans:Object.freeze([
+      Object.freeze({sceneId:"ARRIVE",startFrame:0,durationFrames:384}),
+      Object.freeze({sceneId:"CROSS",startFrame:384,durationFrames:384}),
+      Object.freeze({sceneId:"ASSEMBLE",startFrame:768,durationFrames:384}),
+    ]),
+  });
 
   const clamp=(value,min,max)=>Math.min(max,Math.max(min,Number(value)||0));
+  const formTotalFrames=(form)=>Math.max(3,Math.round(Number(form?.totalFrames)||TOTAL_FRAMES));
+  const formSceneSpans=(form)=>Array.isArray(form?.sceneSpans)&&form.sceneSpans.length===3?form.sceneSpans:DEFAULT_FORM.sceneSpans;
+  const sceneSpanFor=(form,sceneId)=>formSceneSpans(form).find(span=>span.sceneId===sceneId)||DEFAULT_FORM.sceneSpans.find(span=>span.sceneId===sceneId);
 
-  function globalFrameForPlacement(placement){
-    return SCENE_STARTS[placement.sceneId]+Number(placement.startOffsetFrames||0);
+  function globalFrameForPlacement(placement,form=DEFAULT_FORM){
+    const span=sceneSpanFor(form,placement.sceneId);
+    return Number(span?.startFrame||0)+Number(placement.startOffsetFrames||0);
   }
 
-  function sceneAtGlobalFrame(frame){
-    const value=Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(Number(frame)||0)));
-    const index=Math.min(2,Math.floor(value/SCENE_FRAMES));
-    const sceneId=SCENES[index];
-    return {sceneId,startFrame:SCENE_STARTS[sceneId],offsetFrame:value-SCENE_STARTS[sceneId]};
+  function sceneAtGlobalFrame(frame,form=DEFAULT_FORM){
+    const total=formTotalFrames(form);
+    const value=Math.max(0,Math.min(total-1,Math.round(Number(frame)||0)));
+    const spans=formSceneSpans(form);
+    const span=spans.find(item=>value>=item.startFrame&&value<item.startFrame+item.durationFrames)||spans.at(-1);
+    return {sceneId:span.sceneId,startFrame:span.startFrame,offsetFrame:value-span.startFrame,durationFrames:span.durationFrames};
   }
 
-  function snapFrame(frame,landmarks=[],enabled=true,threshold=14){
-    const value=Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(Number(frame)||0)));
+  function snapFrame(frame,landmarks=[],enabled=true,threshold=14,form=DEFAULT_FORM){
+    const total=formTotalFrames(form);
+    const value=Math.max(0,Math.min(total-1,Math.round(Number(frame)||0)));
     if(!enabled)return value;
-    const candidates=[0,384,768,1151,...(Array.isArray(landmarks)?landmarks.map(mark=>Number(mark.compositionFrame)):[])].filter(Number.isFinite);
+    const boundaries=formSceneSpans(form).flatMap(span=>[span.startFrame,span.startFrame+span.durationFrames-1]);
+    const candidates=[0,total-1,...boundaries,...(Array.isArray(landmarks)?landmarks.map(mark=>Number(mark.compositionFrame)):[])].filter(Number.isFinite);
     let best=value,bestDistance=threshold+1;
     for(const candidate of candidates){
       const distance=Math.abs(candidate-value);
       if(distance<bestDistance){best=Math.round(candidate);bestDistance=distance;}
     }
-    return bestDistance<=threshold?Math.max(0,Math.min(TOTAL_FRAMES-1,best)):value;
+    return bestDistance<=threshold?Math.max(0,Math.min(total-1,best)):value;
   }
 
-  function movePlacementOnTimeline(placement,targetGlobalFrame,landmarks=[],snapEnabled=true){
-    const snapped=snapFrame(targetGlobalFrame,landmarks,snapEnabled);
-    const target=sceneAtGlobalFrame(snapped);
-    const maxStart=Math.max(0,SCENE_FRAMES-Number(placement.durationFrames||1));
+  function movePlacementOnTimeline(placement,targetGlobalFrame,landmarks=[],snapEnabled=true,form=DEFAULT_FORM){
+    const snapped=snapFrame(targetGlobalFrame,landmarks,snapEnabled,14,form);
+    const target=sceneAtGlobalFrame(snapped,form);
+    const maxStart=Math.max(0,target.durationFrames-Number(placement.durationFrames||1));
     return {
       sceneId:target.sceneId,
       startOffsetFrames:Math.max(0,Math.min(maxStart,target.offsetFrame)),
     };
   }
 
-  function resizePlacementOnTimeline(placement,targetGlobalEndFrame,sourceDurationFrames,landmarks=[],snapEnabled=true){
-    const start=globalFrameForPlacement(placement);
-    const sceneEnd=SCENE_STARTS[placement.sceneId]+SCENE_FRAMES;
+  function resizePlacementOnTimeline(placement,targetGlobalEndFrame,sourceDurationFrames,landmarks=[],snapEnabled=true,form=DEFAULT_FORM){
+    const start=globalFrameForPlacement(placement,form);
+    const span=sceneSpanFor(form,placement.sceneId);
+    const sceneEnd=span.startFrame+span.durationFrames;
     const sourceRemaining=Math.max(1,Number(sourceDurationFrames||1)-Number(placement.sourceStartFrames||0));
-    const snapped=snapFrame(targetGlobalEndFrame,landmarks,snapEnabled);
+    const snapped=snapFrame(targetGlobalEndFrame,landmarks,snapEnabled,14,form);
     const end=Math.max(start+1,Math.min(sceneEnd,snapped));
     return {durationFrames:Math.max(1,Math.min(end-start,sourceRemaining))};
   }
 
-  function transportFrameForSeconds(seconds,durationSeconds){
+  function transportFrameForSeconds(seconds,durationSeconds,totalFrames=TOTAL_FRAMES){
     const duration=Number(durationSeconds);
+    const total=Math.max(3,Math.round(Number(totalFrames)||TOTAL_FRAMES));
     if(!Number.isFinite(duration)||duration<=0)return 0;
     const ratio=clamp(Number(seconds)||0,0,duration)/duration;
-    return Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(ratio*(TOTAL_FRAMES-1))));
+    return Math.max(0,Math.min(total-1,Math.round(ratio*(total-1))));
   }
 
   function previewMediaTime(clip,globalFrame,fps=24){
