@@ -42,19 +42,27 @@ function history(seed="4"){
   });
 }
 function binding(){
+  const sourceSha256="3".repeat(64);
+  const byteLength=1000;
   return {
-    specimenId:"history-video",
-    sourcePath:"/tmp/history-video.mp4",
-    sourceSha256:"3".repeat(64),
-    clipAnalysisHash:"5".repeat(64),
-    durationSeconds:10,
+    schema:"haunted-toaster/video-source/v1",
+    specimenId:`sha256:${sourceSha256}:${byteLength}`,
+    sourceSha256,
+    byteLength,
+    path:"/tmp/history-video.mp4",
+    filename:"history-video.mp4",
+    probe:{
+      durationSeconds:10,
+      width:640,
+      height:360,
+      frameRate:"24/1",
+    },
   };
 }
 function timeline(){
   return {
-    durationSeconds:10,
-    fps:24,
-    durationFrames:240,
+    durationTicks:240,
+    timebase:24,
   };
 }
 
