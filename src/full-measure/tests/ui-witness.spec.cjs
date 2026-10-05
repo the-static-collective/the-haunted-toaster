@@ -423,3 +423,45 @@ test("NextGen 003 loads visible Listening Eye pressure and six-up video reservoi
   await page.locator("#frankenFreeze").click();
   await expect(page.locator("#frankenPlanHash")).toHaveText("b".repeat(64));
 });
+
+
+test("NextGen 004 places digestion material explicitly before freeze", async ({ page }, testInfo) => {
+  await page.goto("/?state=beta-home&nextgen=1");
+  await expect(page.locator("html")).toHaveAttribute("data-witness-ready", "true");
+  expect(await page.evaluate(() => window.__consoleErrors)).toEqual([]);
+
+  await page.locator('[data-phase="compose"]').click();
+  const bench=page.locator("#frankenComposerWindow");
+  await expect(bench).toBeVisible();
+
+  const cards=page.locator("#frankenDigestionReservoir .franken-digest-card");
+  await expect(cards).toHaveCount(6);
+  const first=cards.first();
+  await expect(first).toHaveAttribute("draggable","true");
+  await first.locator(".franken-digest-toggle").click();
+  await expect(first).toHaveClass(/is-placed/);
+  await expect(first.locator(".franken-digest-controls")).toBeVisible();
+  await expect(page.locator("#frankenFreeze")).toBeDisabled();
+
+  const scene=first.locator(".franken-digest-controls label").filter({hasText:"Scene"}).locator("select");
+  await scene.selectOption("ARRIVE");
+  const opacity=first.locator(".franken-digest-controls label").filter({hasText:"Opacity"}).locator("input");
+  await opacity.fill("0.5");
+  await opacity.press("Tab");
+
+  for (const key of ["deckPath","worldRulePath","blenderAcceptancePath","blenderReceiptPath","blenderVideoPath"]) {
+    await bench.locator(`[data-franken-choose="${key}"]`).click();
+  }
+  await page.locator("#frankenRecompose").click();
+  await expect(page.locator("#frankenFreeze")).toBeEnabled();
+  await expect(page.locator('.franken-lane[data-scene-id="ARRIVE"] > small')).toContainText("video-digestion-placement");
+
+  await bench.screenshot({
+    animations:"disabled",
+    caret:"hide",
+    path:testInfo.outputPath("nextgen-004-digestion-placement-before-freeze.png"),
+  });
+
+  await page.locator("#frankenFreeze").click();
+  await expect(page.locator("#frankenPlanHash")).toHaveText("b".repeat(64));
+});
