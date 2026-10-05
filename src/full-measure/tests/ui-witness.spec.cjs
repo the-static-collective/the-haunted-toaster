@@ -520,3 +520,95 @@ test("NextGen 005 repeats, trims, crops, stacks, previews, then freezes derived 
   await page.locator("#frankenFreeze").click();
   await expect(page.locator("#frankenPlanHash")).toHaveText("b".repeat(64));
 });
+
+
+test("NextGen 006 edits time directly with snapping scrub keyframes and proposal custody", async ({ page }, testInfo) => {
+  await page.goto("/?state=beta-home&nextgen=1");
+  await expect(page.locator("html")).toHaveAttribute("data-witness-ready", "true");
+  expect(await page.evaluate(() => window.__consoleErrors)).toEqual([]);
+
+  await page.locator('[data-phase="compose"]').click();
+  const bench=page.locator("#frankenComposerWindow");
+  const first=page.locator("#frankenDigestionReservoir .franken-digest-card").first();
+  await expect(first).toBeVisible();
+  await first.locator(".franken-digest-toggle").click();
+
+  const ruler=page.locator("#frankenTimelineRuler");
+  await expect(ruler).toBeVisible();
+  await expect(ruler.locator(".franken-timeline-landmark")).toHaveCount(6);
+  await expect(ruler.locator(".franken-timeline-clip")).toHaveCount(1);
+
+  let rulerBox=await ruler.boundingBox();
+  let clipBox=await ruler.locator(".franken-timeline-clip").boundingBox();
+  if(!rulerBox||!clipBox)throw new Error("Timeline witness requires measurable boxes.");
+  await page.mouse.move(clipBox.x+2,clipBox.y+clipBox.height/2);
+  await page.mouse.down();
+  await page.mouse.move(rulerBox.x+rulerBox.width*(390/1152),clipBox.y+clipBox.height/2);
+  await page.mouse.up();
+
+  let editor=first.locator(".franken-placement-editor").first();
+  await expect(editor.locator("label").filter({hasText:"Scene"}).locator("select")).toHaveValue("CROSS");
+  await expect(editor.locator("label").filter({hasText:"Timeline"}).locator("input")).toHaveValue("0");
+
+  rulerBox=await ruler.boundingBox();
+  const resizeBox=await ruler.locator(".franken-timeline-resize").boundingBox();
+  if(!rulerBox||!resizeBox)throw new Error("Timeline resize witness requires measurable boxes.");
+  await page.mouse.move(resizeBox.x+resizeBox.width/2,resizeBox.y+resizeBox.height/2);
+  await page.mouse.down();
+  await page.mouse.move(rulerBox.x+rulerBox.width*(460/1152),resizeBox.y+resizeBox.height/2);
+  await page.mouse.up();
+
+  editor=first.locator(".franken-placement-editor").first();
+  await expect(editor.locator("label").filter({hasText:"Frames"}).locator("input")).not.toHaveValue("72");
+
+  const playhead=page.locator("#frankenPlayhead");
+  await playhead.fill("420");
+  await editor.locator(".franken-add-keyframe").click();
+  await expect(editor.locator(".franken-keyframe-row")).toHaveCount(1);
+  await expect(editor.locator(".franken-keyframe-row").first().locator("label").filter({hasText:"Frame"}).locator("input")).toHaveValue("36");
+
+  await playhead.fill("450");
+  await editor.locator(".franken-add-keyframe").click();
+  await expect(editor.locator(".franken-keyframe-row")).toHaveCount(2);
+  const secondKey=editor.locator(".franken-keyframe-row").nth(1);
+  const keyX=secondKey.locator("label").filter({hasText:"X"}).locator("input");
+  await keyX.fill("0.78");
+  await keyX.press("Tab");
+
+  for (const key of ["deckPath","worldRulePath","blenderAcceptancePath","blenderReceiptPath","blenderVideoPath"]) {
+    await bench.locator(`[data-franken-choose="${key}"]`).click();
+  }
+  await page.locator("#frankenRecompose").click();
+  await expect(page.locator("#frankenFreeze")).toBeEnabled();
+  await expect(page.locator("#frankenProposalPreview .franken-preview-scene").nth(1).locator(".role-video-digestion-placement")).toHaveCount(1);
+
+  await playhead.fill("450");
+  await expect(page.locator("#frankenProposalPreview .role-video-digestion-placement")).toHaveAttribute("data-active","true");
+
+  await bench.screenshot({
+    animations:"disabled",
+    caret:"hide",
+    path:testInfo.outputPath("nextgen-006-time-editor-before-second-recompose.png"),
+  });
+
+  rulerBox=await ruler.boundingBox();
+  clipBox=await ruler.locator(".franken-timeline-clip").boundingBox();
+  if(!rulerBox||!clipBox)throw new Error("Second timeline move requires measurable boxes.");
+  await page.mouse.move(clipBox.x+2,clipBox.y+clipBox.height/2);
+  await page.mouse.down();
+  await page.mouse.move(rulerBox.x+rulerBox.width*(772/1152),clipBox.y+clipBox.height/2);
+  await page.mouse.up();
+
+  await expect(page.locator("#frankenFreeze")).toBeDisabled();
+  await expect(page.locator("#frankenProposalPreview .franken-preview-scene").nth(1).locator(".role-video-digestion-placement")).toHaveCount(1);
+  await expect(page.locator("#frankenProposalPreview .franken-preview-scene").nth(2).locator(".role-video-digestion-placement")).toHaveCount(0);
+
+  await page.locator("#frankenRecompose").click();
+  await expect(page.locator("#frankenFreeze")).toBeEnabled();
+  await expect(page.locator("#frankenProposalPreview .franken-preview-scene").nth(1).locator(".role-video-digestion-placement")).toHaveCount(0);
+  await expect(page.locator("#frankenProposalPreview .franken-preview-scene").nth(2).locator(".role-video-digestion-placement")).toHaveCount(1);
+
+  await playhead.fill("800");
+  await page.locator("#frankenFreeze").click();
+  await expect(page.locator("#frankenPlanHash")).toHaveText("b".repeat(64));
+});
