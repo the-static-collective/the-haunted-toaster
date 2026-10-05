@@ -127,13 +127,17 @@ test('human-selected digestion descendant becomes a frozen scene clip with deriv
     getNextGenContext:provider,
   });
   const placement={
+    placementId:'texture-cross-1',
     materialId:material.materialId,
     sceneId:'CROSS',
     startOffsetFrames:24,
+    sourceStartFrames:6,
     durationFrames:12,
     transform:{x:0.42,y:0.58,scale:0.9,rotationDegrees:-4},
+    crop:{x:0.1,y:0.1,width:0.8,height:0.8},
     opacity:0.55,
     blend:'screen',
+    stackOrder:66,
   };
   const config={
     ...f.config,
@@ -148,6 +152,9 @@ test('human-selected digestion descendant becomes a frozen scene clip with deriv
   assert.equal(track.clips[0].materialId,material.materialId);
   assert.equal(track.clips[0].startFrame,384+24);
   assert.equal(track.clips[0].durationFrames,12);
+  assert.deepEqual(track.clips[0].sourceWindow,{startSeconds:0.25,endSeconds:0.75});
+  assert.deepEqual(track.clips[0].crop,placement.crop);
+  assert.equal(track.clips[0].stackOrder,66);
   const placedMaterial=preview.proposal.materials.find(m=>m.materialId===material.materialId);
   assert.equal(placedMaterial.derivation.planHash,material.planHash);
   assert.equal(placedMaterial.projectionTreatment.authority,'projection-style-only');
@@ -158,16 +165,19 @@ test('human-selected digestion descendant becomes a frozen scene clip with deriv
   assert.equal(frozen.plan.materials.find(m=>m.materialId===material.materialId).derivation.familyHash,observed.videoDigestion.familyHash);
 });
 
-test('digestion placement fails closed for duplicate, stale, overlong, or scene-overflow requests',async()=>{
+test('digestion placement allows repeated material but fails closed for duplicate placement id, stale, source-window, crop, or scene overflow',async()=>{
   const f=await configInTemp();
   const provider=nextGenProvider();
   const observed=provider({rootSeed:f.config.seed,albumContext:{}});
   const material=observed.videoDigestion.descendants[0];
   const service=createFrankenComposerService({rootDir:path.join(f.dir,'out-nextgen-placement-refusal'),getNextGenContext:provider});
   const nextGen={enabled:true,expectedCrossingIdentity:observed.crossingIdentity,albumContext:{}};
-  const base={materialId:material.materialId,sceneId:'ARRIVE',startOffsetFrames:0,durationFrames:12,transform:{x:0.5,y:0.5,scale:1,rotationDegrees:0},opacity:0.6,blend:'screen'};
-  await assert.rejects(()=>service.compose({...f.config,nextGen,edits:{...f.config.edits,digestPlacements:[base,base]}}),/at most once|unique|duplicate/i);
+  const base={placementId:'p1',materialId:material.materialId,sceneId:'ARRIVE',startOffsetFrames:0,sourceStartFrames:0,durationFrames:12,transform:{x:0.5,y:0.5,scale:1,rotationDegrees:0},crop:null,opacity:0.6,blend:'screen',stackOrder:30};
+  const repeated=await service.compose({...f.config,nextGen,edits:{...f.config.edits,digestPlacements:[base,{...base,placementId:'p2',sceneId:'CROSS'}]}});
+  assert.equal(repeated.proposal.digestPlacements.length,2);
+  await assert.rejects(()=>service.compose({...f.config,nextGen,edits:{...f.config.edits,digestPlacements:[base,{...base} ]}}),/placement ids|unique/i);
   await assert.rejects(()=>service.compose({...f.config,nextGen,edits:{...f.config.edits,digestPlacements:[{...base,materialId:'video-digest:stale:deadbeefdead'}]}}),/unknown|stale/i);
-  await assert.rejects(()=>service.compose({...f.config,nextGen,edits:{...f.config.edits,digestPlacements:[{...base,durationFrames:25}]}}),/source duration/i);
+  await assert.rejects(()=>service.compose({...f.config,nextGen,edits:{...f.config.edits,digestPlacements:[{...base,sourceStartFrames:20,durationFrames:8}]}}),/source duration/i);
   await assert.rejects(()=>service.compose({...f.config,nextGen,edits:{...f.config.edits,digestPlacements:[{...base,startOffsetFrames:380,durationFrames:12}]}}),/scene span/i);
+  await assert.rejects(()=>service.compose({...f.config,nextGen,edits:{...f.config.edits,digestPlacements:[{...base,crop:{x:0.8,y:0,width:0.4,height:1}}]}}),/crop/i);
 });

@@ -37,6 +37,7 @@ const ClipBody:React.FC<{bundle:FrankenBundle;clip:Clip;material:Material;name:s
     mixBlendMode:clip.blend as React.CSSProperties['mixBlendMode'],
     maxWidth:'70%',
     maxHeight:'80%',
+    zIndex:clip.stackOrder,
     filter:treatmentFilter(material.projectionTreatment),
   };
   if(material.kind==='image'){
@@ -45,7 +46,11 @@ const ClipBody:React.FC<{bundle:FrankenBundle;clip:Clip;material:Material;name:s
     </Interactive.Div>;
     return <Img name={name} src={staticFile(material.binding!)} style={style}/>;
   }
-  if(material.kind==='video')return <Video src={staticFile(material.binding!)} muted trimBefore={Math.round((clip.sourceWindow?.startSeconds??0)*bundle.composition.fps)} trimAfter={Math.round((clip.sourceWindow?.endSeconds??clip.durationFrames/bundle.composition.fps)*bundle.composition.fps)} style={style}/>;
+  if(material.kind==='video'){
+    const video=<Video src={staticFile(material.binding!)} muted trimBefore={Math.round((clip.sourceWindow?.startSeconds??0)*bundle.composition.fps)} trimAfter={Math.round((clip.sourceWindow?.endSeconds??clip.durationFrames/bundle.composition.fps)*bundle.composition.fps)} style={clip.crop?{width:`${100/clip.crop.width}%`,height:`${100/clip.crop.height}%`,position:'absolute',left:`${-(clip.crop.x/clip.crop.width)*100}%`,top:`${-(clip.crop.y/clip.crop.height)*100}%`,maxWidth:'none',maxHeight:'none',filter:treatmentFilter(material.projectionTreatment)}:style}/>;
+    if(clip.crop)return <Interactive.Div name={name} style={{...style,width:420,height:420,overflow:'hidden',filter:undefined}}>{video}</Interactive.Div>;
+    return video;
+  }
   if(material.kind==='text'){
     const text=material.sourceIdentity.split(':').slice(2).join(':');
     return <Interactive.Div name={name} style={{...style,color:'white',fontFamily:'Impact, sans-serif',fontSize:64,lineHeight:1,textAlign:'center',WebkitTextStroke:'2px black'}}>{text}</Interactive.Div>;

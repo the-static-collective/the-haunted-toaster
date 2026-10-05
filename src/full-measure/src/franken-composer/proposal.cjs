@@ -14,33 +14,53 @@ function integer(v,label,min,max){
   if(!Number.isSafeInteger(v)||v<min||v>max)throw new TypeError(`${label} must be an integer in [${min}, ${max}].`);
   return v;
 }
+function normalizedPlacementId(value,index){
+  const text=String(value||"").trim();
+  if(!/^[A-Za-z0-9._:-]{1,96}$/.test(text))throw new TypeError(`digestPlacements[${index}] placementId must be a stable editor id.`);
+  return text;
+}
+function normalizeCrop(crop,index){
+  if(crop==null)return null;
+  if(!crop||typeof crop!=="object"||Array.isArray(crop))throw new TypeError(`digestPlacements[${index}] crop must be null or an object.`);
+  const x=finite(crop.x??0,`digestPlacements[${index}] crop x`,0,1);
+  const y=finite(crop.y??0,`digestPlacements[${index}] crop y`,0,1);
+  const width=finite(crop.width??1,`digestPlacements[${index}] crop width`,0.01,1);
+  const height=finite(crop.height??1,`digestPlacements[${index}] crop height`,0.01,1);
+  if(x+width>1||y+height>1)throw new TypeError(`digestPlacements[${index}] crop must remain inside the source frame.`);
+  return {x,y,width,height};
+}
 function normalizeDigestPlacements(value=[]){
   if(value==null)return [];
-  if(!Array.isArray(value)||value.length>6)throw new TypeError("digestPlacements must contain at most six placements.");
-  const materialIds=new Set();
+  if(!Array.isArray(value)||value.length>12)throw new TypeError("digestPlacements must contain at most twelve placements.");
+  const placementIds=new Set();
   return value.map((placement,index)=>{
     if(!placement||typeof placement!=="object"||Array.isArray(placement))throw new TypeError("Each digestion placement must be an object.");
+    const placementId=normalizedPlacementId(placement.placementId,index);
+    if(placementIds.has(placementId))throw new TypeError("Digestion placement ids must be unique.");
+    placementIds.add(placementId);
     const materialId=String(placement.materialId||"").trim();
     if(!materialId.startsWith("video-digest:"))throw new TypeError("Digestion placement materialId must name a video-digest material.");
-    if(materialIds.has(materialId))throw new TypeError("Each digestion descendant may be placed at most once.");
-    materialIds.add(materialId);
     const sceneId=String(placement.sceneId||"").trim();
     if(!SCENES.has(sceneId))throw new TypeError("Digestion placement scene must be ARRIVE, CROSS, or ASSEMBLE.");
     const blend=String(placement.blend||"screen").trim();
     if(!BLENDS.has(blend))throw new TypeError("Digestion placement blend must be normal or screen.");
     return {
+      placementId,
       materialId,
       sceneId,
       startOffsetFrames:integer(placement.startOffsetFrames??48,`digestPlacements[${index}] startOffsetFrames`,0,383),
+      sourceStartFrames:integer(placement.sourceStartFrames??0,`digestPlacements[${index}] sourceStartFrames`,0,1000000),
       durationFrames:integer(placement.durationFrames??72,`digestPlacements[${index}] durationFrames`,1,384),
       transform:{
-        x:finite(placement.transform?.x??0.5,`digestPlacements[${index}] x`,0,1),
-        y:finite(placement.transform?.y??0.5,`digestPlacements[${index}] y`,0,1),
-        scale:finite(placement.transform?.scale??1,`digestPlacements[${index}] scale`,0.05,4),
-        rotationDegrees:finite(placement.transform?.rotationDegrees??0,`digestPlacements[${index}] rotation`,-360,360),
+        x:finite(placement.transform?.x??0.5,`digestPlacements[${index}] x`,-1,2),
+        y:finite(placement.transform?.y??0.5,`digestPlacements[${index}] y`,-1,2),
+        scale:finite(placement.transform?.scale??1,`digestPlacements[${index}] scale`,0.05,8),
+        rotationDegrees:finite(placement.transform?.rotationDegrees??0,`digestPlacements[${index}] rotation`,-720,720),
       },
+      crop:normalizeCrop(placement.crop,index),
       opacity:finite(placement.opacity??0.72,`digestPlacements[${index}] opacity`,0,1),
       blend,
+      stackOrder:integer(placement.stackOrder??30,`digestPlacements[${index}] stackOrder`,0,999),
     };
   });
 }

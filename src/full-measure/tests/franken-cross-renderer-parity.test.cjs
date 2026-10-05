@@ -53,11 +53,12 @@ function placedDigestFixture(){
       materialId,
       startFrame:48,
       durationFrames:48,
-      sourceWindow:{startSeconds:0,endSeconds:2},
+      sourceWindow:{startSeconds:0.5,endSeconds:2.5},
       transform:{x:0.42,y:0.58,scale:0.9,rotationDegrees:-4},
-      crop:null,
+      crop:{x:0.1,y:0.1,width:0.8,height:0.8},
       opacity:0.55,
       blend:'screen',
+      stackOrder:71,
       entrance:'arrive',
       transitionRelation:null,
     }],
@@ -76,6 +77,11 @@ test('placed digestion clip has identical frozen semantics in both projectors',(
   assert.equal(material.projectionTreatment.family,'texture');
   const track=hyper.semanticTrace.scenes[0].tracks.find(t=>t.role==='video-digestion-placement');
   assert.equal(track.clips[0].materialId,f.materialId);
+  assert.deepEqual(track.clips[0].sourceWindow,{startSeconds:0.5,endSeconds:2.5});
+  assert.deepEqual(track.clips[0].crop,{x:0.1,y:0.1,width:0.8,height:0.8});
+  assert.equal(track.clips[0].stackOrder,71);
   assert.match(hyper.html,/grayscale\(1\) contrast\(1\.3\)/);
+  assert.match(hyper.html,/data-media-start="0\.5"/);
+  assert.match(hyper.html,/data-stack-order="71"/);
   assert.equal(remotion.bundle.materials.find(m=>m.materialId===f.materialId).projectionTreatment.family,'texture');
 });
