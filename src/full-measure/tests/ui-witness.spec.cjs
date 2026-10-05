@@ -465,3 +465,58 @@ test("NextGen 004 places digestion material explicitly before freeze", async ({ 
   await page.locator("#frankenFreeze").click();
   await expect(page.locator("#frankenPlanHash")).toHaveText("b".repeat(64));
 });
+
+
+test("NextGen 005 repeats, trims, crops, stacks, previews, then freezes derived video clips", async ({ page }, testInfo) => {
+  await page.goto("/?state=beta-home&nextgen=1");
+  await expect(page.locator("html")).toHaveAttribute("data-witness-ready", "true");
+  expect(await page.evaluate(() => window.__consoleErrors)).toEqual([]);
+
+  await page.locator('[data-phase="compose"]').click();
+  const bench=page.locator("#frankenComposerWindow");
+  const first=page.locator("#frankenDigestionReservoir .franken-digest-card").first();
+  await expect(first).toBeVisible();
+
+  await first.locator(".franken-digest-toggle").click();
+  await first.locator(".franken-digest-toggle").click();
+  await expect(first.locator(".franken-placement-editor")).toHaveCount(2);
+
+  const second=first.locator(".franken-placement-editor").nth(1);
+  await second.locator("label").filter({hasText:"Scene"}).locator("select").selectOption("CROSS");
+  const sourceIn=second.locator("label").filter({hasText:"Source in"}).locator("input");
+  await sourceIn.fill("8");
+  await sourceIn.press("Tab");
+  const scale=second.locator("label").filter({hasText:"Scale"}).locator("input");
+  await scale.fill("1.35");
+  await scale.press("Tab");
+  const stack=second.locator("label").filter({hasText:"Stack"}).locator("input");
+  await stack.fill("74");
+  await stack.press("Tab");
+  await second.locator(".franken-crop-toggle").click();
+  await expect(second.locator("label").filter({hasText:"Crop X"}).locator("input")).toBeVisible();
+
+  for (const key of ["deckPath","worldRulePath","blenderAcceptancePath","blenderReceiptPath","blenderVideoPath"]) {
+    await bench.locator(`[data-franken-choose="${key}"]`).click();
+  }
+  await page.locator("#frankenRecompose").click();
+  await expect(page.locator("#frankenFreeze")).toBeEnabled();
+
+  await expect(page.locator("#frankenProposalPreview .franken-preview-scene")).toHaveCount(3);
+  await expect(page.locator("#frankenProposalPreview .role-video-digestion-placement")).toHaveCount(2);
+  await expect(page.locator("#frankenProposalPreview .role-video-digestion-placement[data-cropped='true']")).toHaveCount(1);
+
+  await bench.screenshot({
+    animations:"disabled",
+    caret:"hide",
+    path:testInfo.outputPath("nextgen-005-editor-power-before-freeze.png"),
+  });
+
+  const opacity=first.locator(".franken-placement-editor").first().locator("label").filter({hasText:"Opacity"}).locator("input");
+  await opacity.fill("0.45");
+  await opacity.press("Tab");
+  await expect(page.locator("#frankenFreeze")).toBeDisabled();
+  await page.locator("#frankenRecompose").click();
+  await expect(page.locator("#frankenFreeze")).toBeEnabled();
+  await page.locator("#frankenFreeze").click();
+  await expect(page.locator("#frankenPlanHash")).toHaveText("b".repeat(64));
+});
