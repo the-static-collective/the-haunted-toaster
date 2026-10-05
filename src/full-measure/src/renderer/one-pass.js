@@ -9,8 +9,13 @@
   const SCENE_FRAMES=384;
   const DEFAULT_TOTAL_FRAMES=1152;
   const DEFAULT_FPS=24;
-  const MAX_PLACEMENTS=96;
-  const MAX_SPATIAL_SAMPLES=384;
+  const MAX_PLACEMENTS=2048;
+  const MAX_SPATIAL_SAMPLES=16384;
+  const DEFAULT_SCENE_SPANS=Object.freeze([
+    Object.freeze({sceneId:"ARRIVE",startFrame:0,durationFrames:384}),
+    Object.freeze({sceneId:"CROSS",startFrame:384,durationFrames:384}),
+    Object.freeze({sceneId:"ASSEMBLE",startFrame:768,durationFrames:384}),
+  ]);
 
   const clamp=(value,min,max)=>Math.min(max,Math.max(min,value));
 
@@ -64,16 +69,41 @@
     });
   }
 
-  function createOnePassSession({materials,fps=DEFAULT_FPS,totalFrames=DEFAULT_TOTAL_FRAMES}={}){
+  function normalizeSceneSpans(sceneSpans,totalFrames){
+    const source=sceneSpans==null
+      ?(totalFrames===DEFAULT_TOTAL_FRAMES?DEFAULT_SCENE_SPANS:[
+          {sceneId:"ARRIVE",startFrame:0,durationFrames:Math.max(1,Math.round(totalFrames/3))},
+          {sceneId:"CROSS",startFrame:Math.max(1,Math.round(totalFrames/3)),durationFrames:Math.max(1,Math.round((totalFrames*2)/3)-Math.max(1,Math.round(totalFrames/3)))},
+          {sceneId:"ASSEMBLE",startFrame:Math.max(2,Math.round((totalFrames*2)/3)),durationFrames:Math.max(1,totalFrames-Math.max(2,Math.round((totalFrames*2)/3)))},
+        ])
+      :sceneSpans;
+    if(!Array.isArray(source)||source.length!==3)throw new TypeError("ONE PASS requires exactly three macro scene spans.");
+    let cursor=0;
+    const normalized=source.map((span,index)=>{
+      const sceneId=String(span?.sceneId||"");
+      if(sceneId!==SCENES[index])throw new TypeError(`ONE PASS macro scene ${index} must be ${SCENES[index]}.`);
+      const startFrame=Math.floor(Number(span?.startFrame));
+      const durationFrames=Math.floor(Number(span?.durationFrames));
+      if(!Number.isSafeInteger(startFrame)||!Number.isSafeInteger(durationFrames)||durationFrames<1)throw new TypeError("ONE PASS scene spans require integer startFrame and positive durationFrames.");
+      if(startFrame!==cursor)throw new RangeError("ONE PASS scene spans must be contiguous.");
+      cursor=startFrame+durationFrames;
+      return {sceneId,startFrame,durationFrames};
+    });
+    if(cursor!==totalFrames)throw new RangeError("ONE PASS scene spans must exactly cover totalFrames.");
+    return normalized;
+  }
+
+  function createOnePassSession({materials,fps=DEFAULT_FPS,totalFrames=DEFAULT_TOTAL_FRAMES,sceneSpans=null}={}){
     const safeFps=Math.floor(Number(fps));
     const safeTotal=Math.floor(Number(totalFrames));
     if(!Number.isSafeInteger(safeFps)||safeFps<1||safeFps>240)throw new TypeError("ONE PASS fps must be an integer in [1, 240].");
-    if(!Number.isSafeInteger(safeTotal)||safeTotal<1||safeTotal>1_000_000)throw new TypeError("ONE PASS totalFrames must be a positive integer.");
+    if(!Number.isSafeInteger(safeTotal)||safeTotal<3||safeTotal>1_000_000)throw new TypeError("ONE PASS totalFrames must be an integer in [3, 1000000].");
     return {
       schema:"static-collective/one-pass-session/v0",
       status:"armed",
       fps:safeFps,
       totalFrames:safeTotal,
+      sceneSpans:normalizeSceneSpans(sceneSpans,safeTotal),
       materials:normalizeMaterials(materials),
       startedAtMs:null,
       events:[],
@@ -190,22 +220,23 @@
     };
   }
 
-  function sceneForFrame(frame){
+  function sceneForFrame(frame,sceneSpans=DEFAULT_SCENE_SPANS){
     const safe=Math.max(0,Math.floor(Number(frame)||0));
-    const index=Math.min(SCENES.length-1,Math.floor(safe/SCENE_FRAMES));
+    const spans=Array.isArray(sceneSpans)&&sceneSpans.length===3?sceneSpans:DEFAULT_SCENE_SPANS;
+    const span=spans.find(item=>safe>=item.startFrame&&safe<item.startFrame+item.durationFrames)||spans.at(-1);
     return {
-      sceneId:SCENES[index],
-      sceneStart:index*SCENE_FRAMES,
-      sceneEnd:(index+1)*SCENE_FRAMES,
+      sceneId:span.sceneId,
+      sceneStart:span.startFrame,
+      sceneEnd:span.startFrame+span.durationFrames,
     };
   }
 
-  function placementChunks({material,lane,startFrame,endExclusive,eventSeq,placementBase,spatialSamples=[]}){
+  function placementChunks({material,lane,startFrame,endExclusive,eventSeq,placementBase,spatialSamples=[],sceneSpans=DEFAULT_SCENE_SPANS}){
     const placements=[];
     let cursor=startFrame;
     let segment=0;
     while(cursor<endExclusive&&placements.length<MAX_PLACEMENTS){
-      const scene=sceneForFrame(cursor);
+      const scene=sceneForFrame(cursor,sceneSpans);
       const sceneEnd=Math.min(endExclusive,scene.sceneEnd);
       let segmentCursor=cursor;
       while(segmentCursor<sceneEnd&&placements.length<MAX_PLACEMENTS){
@@ -273,6 +304,7 @@
       eventSeq:active.eventSeq,
       placementBase:String(session.materials[laneIndex].slot||laneIndex+1),
       spatialSamples:session.spatialSamples.filter(sample=>sample.gestureSeq===active.eventSeq&&sample.lane===laneIndex),
+      sceneSpans:session.sceneSpans,
     });
     const activeLanes={...session.activeLanes};
     delete activeLanes[laneIndex];
@@ -301,6 +333,7 @@
       authority:"witness-only",
       fps:next.fps,
       totalFrames:next.totalFrames,
+      sceneSpans:next.sceneSpans,
       materials:next.materials,
       events:next.events,
       spatialSamples:next.spatialSamples,
@@ -335,6 +368,7 @@
     DEFAULT_TOTAL_FRAMES,
     MAX_PLACEMENTS,
     MAX_SPATIAL_SAMPLES,
+    DEFAULT_SCENE_SPANS,
     SCENES,
     SCENE_FRAMES,
     beginOnePass,
@@ -346,6 +380,7 @@
     releaseLane,
     sampleLanePosition,
     sceneForFrame,
+    normalizeSceneSpans,
     stableStringify,
   };
 });
