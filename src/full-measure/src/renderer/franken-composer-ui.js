@@ -362,7 +362,7 @@
     }
   }
 
-  function composeConfig(state){
+  function composeConfig(state,fullSongForm=null){
     return {
       deckPath:state.paths.deckPath,
       worldRulePath:state.paths.worldRulePath,
@@ -371,6 +371,7 @@
       blenderReceiptPath:state.paths.blenderReceiptPath,
       blenderVideoPath:state.paths.blenderVideoPath,
       seed:state.seed,
+      ...(fullSongForm?{fullSongForm}:{}),
       nextGen:state.nextGen
         ?{
             enabled:true,
@@ -464,9 +465,19 @@
     let timelineGestureActive=false;
     let timelineZoom=1;
     let transportMeta=null;
+    let fullSongForm=null;
     let transportRaf=null;
     let previewClipIndex=new Map();
     let timelinePlayheadLine=null;
+
+    const currentForm=()=>fullSongForm||DEFAULT_FORM;
+    const currentTotalFrames=()=>formTotalFrames(currentForm());
+    const currentLandmarks=()=>fullSongForm
+      ?fullSongForm.sourceSections.flatMap(section=>[
+          {kind:"section",label:`${section.label} start`,compositionFrame:section.startFrame},
+          {kind:"section",label:`${section.label} end`,compositionFrame:Math.max(section.startFrame,section.endFrame-1)},
+        ])
+      :(state.nextGen?.snapLandmarks||[]);
 
     const pathMethods={
       deckPath:"chooseFrankenPlaydeckDeck",
@@ -746,12 +757,17 @@
 
     function transportSecondsForFrame(frame){
       if(!transportMeta?.duration)return 0;
-      return (clamp(frame,0,TOTAL_FRAMES-1)/(TOTAL_FRAMES-1))*transportMeta.duration;
+      const total=currentTotalFrames();
+      return (clamp(frame,0,total-1)/(total-1))*transportMeta.duration;
     }
 
     function updateTimelinePlayhead(){
-      if(timelinePlayheadLine)timelinePlayheadLine.style.left=`${(playheadFrame/TOTAL_FRAMES)*100}%`;
-      if(playhead)playhead.value=String(playheadFrame);
+      const total=currentTotalFrames();
+      if(timelinePlayheadLine)timelinePlayheadLine.style.left=`${(playheadFrame/total)*100}%`;
+      if(playhead){
+        playhead.max=String(total-1);
+        playhead.value=String(playheadFrame);
+      }
       if(playheadReadout)playheadReadout.textContent=`Frame ${playheadFrame}`;
     }
 
@@ -770,7 +786,7 @@
       if(!previewRoot)return;
       const memory=onePassEcology?.residueMemory;
       if(!memory)return;
-      const activeScene=sceneAtGlobalFrame(playheadFrame).sceneId;
+      const activeScene=sceneAtGlobalFrame(playheadFrame,currentForm()).sceneId;
       for(const layer of previewRoot.querySelectorAll(".franken-residue-layer")){
         const sceneId=layer.closest(".franken-preview-scene")?.dataset?.sceneId||"";
         const active=sceneId===activeScene;
@@ -819,7 +835,8 @@
     }
 
     function setPlayhead(frame,{seekAudio=true}={}){
-      playheadFrame=Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(Number(frame)||0)));
+      const total=currentTotalFrames();
+      playheadFrame=Math.max(0,Math.min(total-1,Math.round(Number(frame)||0)));
       if(seekAudio&&transportMeta&&transportAudio){
         const seconds=transportSecondsForFrame(playheadFrame);
         if(Number.isFinite(seconds)){
@@ -855,7 +872,7 @@
       stopTransportLoop();
       const tick=()=>{
         if(!transportAudio||transportAudio.paused||!transportMeta){transportRaf=null;updateTransportStatus();return;}
-        playheadFrame=transportFrameForSeconds(transportAudio.currentTime,transportMeta.duration);
+        playheadFrame=transportFrameForSeconds(transportAudio.currentTime,transportMeta.duration,currentTotalFrames());
         updateTimelinePlayhead();
         updatePreviewFrame();
         transportRaf=view?.requestAnimationFrame?view.requestAnimationFrame(tick):null;
@@ -866,11 +883,13 @@
     function renderTimeline(){
       if(!timelineRoot)return;
       timelineRoot.replaceChildren();
-      const landmarks=state.nextGen?.snapLandmarks||[];
+      const form=currentForm();
+      const total=formTotalFrames(form);
+      const landmarks=currentLandmarks();
       const frameFromClientX=(clientX)=>{
         const rect=timelineRoot.getBoundingClientRect();
         if(!rect.width)return 0;
-        return Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(((clientX-rect.left)/rect.width)*TOTAL_FRAMES)));
+        return Math.max(0,Math.min(total-1,Math.round(((clientX-rect.left)/rect.width)*total)));
       };
       const beginTimelineGesture=(event,finish)=>{
         if(timelineGestureActive)return;
@@ -894,12 +913,13 @@
         document.addEventListener("mouseup",complete);
         document.addEventListener("pointercancel",cancel,{once:true});
       };
-      for(const sceneId of SCENES){
+      for(const span of formSceneSpans(form)){
+        const sceneId=span.sceneId;
         const band=document.createElement("div");
         band.className="franken-timeline-scene";
         band.dataset.sceneId=sceneId;
-        band.style.left=`${(SCENE_STARTS[sceneId]/TOTAL_FRAMES)*100}%`;
-        band.style.width=`${(SCENE_FRAMES/TOTAL_FRAMES)*100}%`;
+        band.style.left=`${(span.startFrame/total)*100}%`;
+        band.style.width=`${(span.durationFrames/total)*100}%`;
         const label=document.createElement("span");
         label.textContent=sceneId;
         band.append(label);
@@ -911,7 +931,7 @@
         line.className="franken-timeline-landmark";
         line.dataset.kind=mark.kind;
         line.dataset.frame=String(mark.compositionFrame);
-        line.style.left=`${(Number(mark.compositionFrame)/TOTAL_FRAMES)*100}%`;
+        line.style.left=`${(Number(mark.compositionFrame)/total)*100}%`;
         line.title=`${mark.kind} · ${mark.label} · frame ${mark.compositionFrame}`;
         timelineRoot.append(line);
       }
@@ -922,8 +942,8 @@
         const clip=document.createElement("div");
         clip.className="franken-timeline-clip";
         clip.dataset.placementId=placement.placementId;
-        clip.style.left=`${(globalFrameForPlacement(placement)/TOTAL_FRAMES)*100}%`;
-        clip.style.width=`${Math.max(0.8,(Number(placement.durationFrames)/TOTAL_FRAMES)*100)}%`;
+        clip.style.left=`${(globalFrameForPlacement(placement,form)/total)*100}%`;
+        clip.style.width=`${Math.max(0.15,(Number(placement.durationFrames)/total)*100)}%`;
         clip.style.top=`${36+(index%3)*28}px`;
         clip.style.height="22px";
         clip.style.zIndex=String(100+index);
@@ -936,10 +956,10 @@
 
         const beginMove=(event)=>{
           if(event.target===resize)return;
-          const pointerOffset=frameFromClientX(event.clientX)-globalFrameForPlacement(placement);
+          const pointerOffset=frameFromClientX(event.clientX)-globalFrameForPlacement(placement,form);
           beginTimelineGesture(event,(upEvent)=>{
             const target=frameFromClientX(upEvent.clientX)-pointerOffset;
-            const patch=movePlacementOnTimeline(placement,target,landmarks,snapEnabled);
+            const patch=movePlacementOnTimeline(placement,target,landmarks,snapEnabled,form);
             state=reduceBenchState(state,{type:"digest-edit",placementId:placement.placementId,patch});
             render();
           });
@@ -956,6 +976,7 @@
               descendant?.sourceDurationFrames,
               landmarks,
               snapEnabled,
+              form,
             );
             patch.transformKeyframes=(placement.transformKeyframes||[]).filter(keyframe=>keyframe.offsetFrames<patch.durationFrames);
             state=reduceBenchState(state,{type:"digest-edit",placementId:placement.placementId,patch});
@@ -1128,11 +1149,12 @@
     }
 
     function setOnePassPlayhead(frame){
-      playheadFrame=Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(Number(frame)||0)));
-      if(playhead)playhead.value=String(playheadFrame);
+      const total=onePassSession?.totalFrames||currentTotalFrames();
+      playheadFrame=Math.max(0,Math.min(total-1,Math.round(Number(frame)||0)));
+      if(playhead){playhead.max=String(total-1);playhead.value=String(playheadFrame);}
       if(playheadReadout)playheadReadout.textContent=`Frame ${playheadFrame} · ONE PASS`;
       const line=timelineRoot?.querySelector(".franken-timeline-playhead-line");
-      if(line)line.style.left=`${(playheadFrame/TOTAL_FRAMES)*100}%`;
+      if(line)line.style.left=`${(playheadFrame/total)*100}%`;
     }
 
     function pointerPointForCurrentScene(event){
@@ -1140,7 +1162,7 @@
       const performanceFrame=onePassApi&&onePassSession?.status==="running"
         ?onePassApi.frameAtMs(onePassSession,(performanceAudio?.currentTime||0)*1000)
         :playheadFrame;
-      const sceneId=sceneAtGlobalFrame(performanceFrame).sceneId;
+      const sceneId=sceneAtGlobalFrame(performanceFrame,onePassSession?{totalFrames:onePassSession.totalFrames,sceneSpans:onePassSession.sceneSpans}:currentForm()).sceneId;
       const card=previewRoot.querySelector(`.franken-preview-scene[data-scene-id="${sceneId}"]`);
       const viewport=card?.querySelector(".franken-preview-viewport");
       if(!viewport)return null;
@@ -1243,10 +1265,11 @@
       if(!onePassApi||!performanceAudio?.src||onePassConsumed||onePassSession?.status==="running")return;
       const descendants=state.nextGen?.videoDigestion?.descendants||[];
       if(descendants.length!==6)return;
-      const audioFrames=Number.isFinite(performanceAudio.duration)&&performanceAudio.duration>0
-        ?Math.max(1,Math.round(performanceAudio.duration*24))
-        :TOTAL_FRAMES;
-      const takeFrames=Math.min(TOTAL_FRAMES,audioFrames);
+      if(!fullSongForm){
+        onePassStatus.textContent="Full-song form is not ready yet.";
+        return;
+      }
+      const takeFrames=fullSongForm.totalFrames;
       state=reduceBenchState(state,{type:"digest-replace",value:[]});
       playheadFrame=0;
       performanceAudio.pause();
@@ -1263,6 +1286,7 @@
         materials:descendants,
         fps:24,
         totalFrames:takeFrames,
+        sceneSpans:fullSongForm.sceneSpans,
       }),0);
       root.classList.add("one-pass-running");
       render();
@@ -1443,7 +1467,7 @@
       timelineZoom=[1,2,4].includes(Number(timelineZoomControl.value))?Number(timelineZoomControl.value):1;
       renderTimeline();
       if(timelineScroll){
-        const target=(playheadFrame/(TOTAL_FRAMES-1))*Math.max(0,timelineRoot.scrollWidth-timelineScroll.clientWidth);
+        const target=(playheadFrame/(currentTotalFrames()-1))*Math.max(0,timelineRoot.scrollWidth-timelineScroll.clientWidth);
         timelineScroll.scrollLeft=Math.max(0,target);
       }
     });
@@ -1463,7 +1487,7 @@
       stopTransportLoop();
       updateTransportStatus();
     });
-    transportAudio?.addEventListener("ended",()=>{playheadFrame=TOTAL_FRAMES-1;stopTransportLoop();updateTimelinePlayhead();updatePreviewFrame();});
+    transportAudio?.addEventListener("ended",()=>{playheadFrame=currentTotalFrames()-1;stopTransportLoop();updateTimelinePlayhead();updatePreviewFrame();});
     view?.addEventListener("full-measure:audio-ready",(event)=>{
       transportAudio?.pause();
       stopTransportLoop();
@@ -1512,7 +1536,7 @@
     compose.addEventListener("click",async()=>{
       try{
         status.textContent="Composing proposal…";
-        const result=await bridge.composeFranken(composeConfig(state));
+        const result=await bridge.composeFranken(composeConfig(state,fullSongForm));
         state=reduceBenchState(state,{type:"proposal",result});
         render();
       }catch(error){
@@ -1524,7 +1548,7 @@
       try{
         status.textContent="Revalidating donors and freezing…";
         const result=await bridge.freezeFranken({
-          ...composeConfig(state),
+          ...composeConfig(state,fullSongForm),
           expectedProposalIdentity:state.proposalIdentity,
         });
         state=reduceBenchState(state,{type:"frozen",planHash:result.planHash});
