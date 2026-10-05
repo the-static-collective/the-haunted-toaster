@@ -57,6 +57,21 @@
     return {durationFrames:Math.max(1,Math.min(end-start,sourceRemaining))};
   }
 
+  function transportFrameForSeconds(seconds,durationSeconds){
+    const duration=Number(durationSeconds);
+    if(!Number.isFinite(duration)||duration<=0)return 0;
+    const ratio=clamp(Number(seconds)||0,0,duration)/duration;
+    return Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(ratio*(TOTAL_FRAMES-1))));
+  }
+
+  function previewMediaTime(clip,globalFrame,fps=24){
+    const start=Number(clip?.startFrame)||0;
+    const duration=Math.max(1,Number(clip?.durationFrames)||1);
+    const local=clamp((Number(globalFrame)||0)-start,0,duration-1);
+    const sourceStart=Number(clip?.sourceWindow?.startSeconds)||0;
+    return sourceStart+local/Math.max(1,Number(fps)||24);
+  }
+
   function interpolateTransformAtFrame(base,keyframes=[],offsetFrame=0){
     const points=new Map([[0,{...base}]]);
     for(const keyframe of Array.isArray(keyframes)?keyframes:[])points.set(Number(keyframe.offsetFrames),{...keyframe.transform});
@@ -104,6 +119,7 @@
       nextGen:null,
       proposal:null,
       proposalIdentity:null,
+      previewAssets:{},
       frozen:null,
       dirty:true,
     };
@@ -188,6 +204,7 @@
           paths:{...state.paths,[action.key]:action.value||null},
           proposal:null,
           proposalIdentity:null,
+          previewAssets:{},
         });
       case "seed":
         return markDirty({
@@ -196,6 +213,7 @@
           nextGen:null,
           proposal:null,
           proposalIdentity:null,
+          previewAssets:{},
           edits:{...state.edits,digestPlacements:[]},
         });
       case "edit":
@@ -225,7 +243,7 @@
           },
         });
       case "digest-place":
-        if((state.edits.digestPlacements||[]).length>=12)throw new Error("Franken editor supports at most twelve digestion placements.");
+        if((state.edits.digestPlacements||[]).length>=96)throw new Error("Franken editor supports at most ninety-six digestion placements.");
         if(placementFor(state,action.placement.placementId))throw new Error("Digestion placement id must be unique.");
         return markDirty({
           ...state,
@@ -240,6 +258,15 @@
           edits:{
             ...state.edits,
             digestPlacements:(state.edits.digestPlacements||[]).filter((placement)=>placement.placementId!==action.placementId),
+          },
+        });
+      case "digest-replace":
+        if(!Array.isArray(action.value)||action.value.length>96)throw new Error("Franken editor supports at most ninety-six digestion placements.");
+        return markDirty({
+          ...state,
+          edits:{
+            ...state.edits,
+            digestPlacements:[...action.value],
           },
         });
       case "digest-edit":
@@ -263,6 +290,7 @@
           nextGen:action.value||null,
           proposal:null,
           proposalIdentity:null,
+          previewAssets:{},
           edits:{...applyNextGenPressure(state.edits,action.value),digestPlacements:[]},
         });
       case "proposal":{
@@ -271,6 +299,7 @@
           ...state,
           proposal:p,
           proposalIdentity:action.result.proposalIdentity,
+          previewAssets:{...(action.result.previewAssets||{})},
           frozen:null,
           dirty:false,
           edits:{
@@ -370,9 +399,33 @@
     const playhead=document.getElementById("frankenPlayhead");
     const playheadReadout=document.getElementById("frankenPlayheadFrame");
     const snapToggle=document.getElementById("frankenSnapEnabled");
+    const timelineScroll=document.getElementById("frankenTimelineScroll");
+    const timelineZoomControl=document.getElementById("frankenTimelineZoom");
+    const transportAudio=document.getElementById("frankenTransportAudio");
+    const transportPlay=document.getElementById("frankenTransportPlay");
+    const transportPause=document.getElementById("frankenTransportPause");
+    const transportStatus=document.getElementById("frankenTransportStatus");
+    const onePassBegin=document.getElementById("frankenOnePassBegin");
+    const onePassStatus=document.getElementById("frankenOnePassStatus");
+    const onePassProgress=document.getElementById("frankenOnePassProgress");
+    const onePassLanes=document.getElementById("frankenOnePassLanes");
+    const onePassReceipt=document.getElementById("frankenOnePassReceipt");
+    const performanceAudio=document.getElementById("syncAudio");
+    const onePassApi=view?.OnePass||null;
+    const ONE_PASS_KEYS=["a","s","d","j","k","l"];
+    let onePassSession=null;
+    let onePassConsumed=false;
+    let onePassAnimation=null;
+    let onePassReceiptPath=null;
+    let onePassPersistenceError=null;
     let playheadFrame=0;
     let snapEnabled=true;
     let timelineGestureActive=false;
+    let timelineZoom=1;
+    let transportMeta=null;
+    let transportRaf=null;
+    let previewClipIndex=new Map();
+    let timelinePlayheadLine=null;
 
     const pathMethods={
       deckPath:"chooseFrankenPlaydeckDeck",
@@ -615,6 +668,103 @@
       }
     }
 
+    function transportSecondsForFrame(frame){
+      if(!transportMeta?.duration)return 0;
+      return (clamp(frame,0,TOTAL_FRAMES-1)/(TOTAL_FRAMES-1))*transportMeta.duration;
+    }
+
+    function updateTimelinePlayhead(){
+      if(timelinePlayheadLine)timelinePlayheadLine.style.left=`${(playheadFrame/TOTAL_FRAMES)*100}%`;
+      if(playhead)playhead.value=String(playheadFrame);
+      if(playheadReadout)playheadReadout.textContent=`Frame ${playheadFrame}`;
+    }
+
+    function updateTransportStatus(){
+      if(!transportStatus)return;
+      if(!transportMeta){
+        transportStatus.textContent="Choose a song in Full Measure to enable synchronized transport.";
+        return;
+      }
+      const current=transportSecondsForFrame(playheadFrame);
+      const mode=transportAudio&&!transportAudio.paused?"PLAYING":"PAUSED";
+      transportStatus.textContent=`${mode} · ${transportMeta.filename||"song"} · ${current.toFixed(2)}s / ${Number(transportMeta.duration).toFixed(2)}s`;
+    }
+
+    function updatePreviewFrame(){
+      for(const entry of previewClipIndex.values()){
+        const {clip,node,media}=entry;
+        const active=playheadFrame>=Number(clip.startFrame)&&playheadFrame<Number(clip.startFrame)+Number(clip.durationFrames);
+        const localFrame=clamp(playheadFrame-Number(clip.startFrame),0,Math.max(0,Number(clip.durationFrames)-1));
+        const transform=interpolateTransformAtFrame(clip.transform,clip.transformKeyframes||[],localFrame);
+        const scale=Math.max(0.15,Math.min(2,Number(transform.scale)||1));
+        node.dataset.active=String(active);
+        node.style.left=`${(Number(transform.x)||0.5)*100}%`;
+        node.style.top=`${(Number(transform.y)||0.5)*100}%`;
+        node.style.width=`${Math.min(92,26*scale)}%`;
+        node.style.height=`${Math.min(92,18*scale)}%`;
+        node.style.opacity=String(active?Math.max(0.2,Number(clip.opacity)||1):0.13);
+        node.style.transform=`translate(-50%,-50%) rotate(${Number(transform.rotationDegrees)||0}deg)`;
+        if(media?.tagName==="VIDEO"){
+          const target=previewMediaTime(clip,playheadFrame,24);
+          if(Number.isFinite(target)&&Math.abs(Number(media.currentTime||0)-target)>0.08){
+            try{media.currentTime=target;}catch(_error){}
+          }
+        }
+      }
+      previewRoot?.querySelectorAll(".franken-preview-scene").forEach((scene)=>{
+        const meta=scene.querySelector(":scope > small");
+        if(meta)meta.dataset.playheadFrame=String(playheadFrame);
+      });
+      if(playhead)playhead.value=String(playheadFrame);
+      if(playheadReadout)playheadReadout.textContent=`Frame ${playheadFrame}`;
+      updateTransportStatus();
+    }
+
+    function setPlayhead(frame,{seekAudio=true}={}){
+      playheadFrame=Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(Number(frame)||0)));
+      if(seekAudio&&transportMeta&&transportAudio){
+        const seconds=transportSecondsForFrame(playheadFrame);
+        if(Number.isFinite(seconds)){
+          try{transportAudio.currentTime=seconds;}catch(_error){}
+        }
+      }
+      updateTimelinePlayhead();
+      updatePreviewFrame();
+    }
+
+    async function ensureTransportReady(){
+      if(!transportAudio||!transportMeta)return false;
+      if(transportAudio.readyState>0)return true;
+      return new Promise((resolve,reject)=>{
+        const ready=()=>{cleanup();resolve(true);};
+        const failed=()=>{cleanup();reject(new Error("Song transport could not load this audio source."));};
+        const cleanup=()=>{
+          transportAudio.removeEventListener("loadedmetadata",ready);
+          transportAudio.removeEventListener("error",failed);
+        };
+        transportAudio.addEventListener("loadedmetadata",ready,{once:true});
+        transportAudio.addEventListener("error",failed,{once:true});
+        transportAudio.load();
+      });
+    }
+
+    function stopTransportLoop(){
+      if(transportRaf&&view?.cancelAnimationFrame)view.cancelAnimationFrame(transportRaf);
+      transportRaf=null;
+    }
+
+    function runTransportLoop(){
+      stopTransportLoop();
+      const tick=()=>{
+        if(!transportAudio||transportAudio.paused||!transportMeta){transportRaf=null;updateTransportStatus();return;}
+        playheadFrame=transportFrameForSeconds(transportAudio.currentTime,transportMeta.duration);
+        updateTimelinePlayhead();
+        updatePreviewFrame();
+        transportRaf=view?.requestAnimationFrame?view.requestAnimationFrame(tick):null;
+      };
+      tick();
+    }
+
     function renderTimeline(){
       if(!timelineRoot)return;
       timelineRoot.replaceChildren();
@@ -646,14 +796,6 @@
         document.addEventListener("mouseup",complete);
         document.addEventListener("pointercancel",cancel,{once:true});
       };
-      const setPlayhead=(frame)=>{
-        playheadFrame=Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(Number(frame)||0)));
-        if(playhead)playhead.value=String(playheadFrame);
-        if(playheadReadout)playheadReadout.textContent=`Frame ${playheadFrame}`;
-        renderPreview();
-        renderTimeline();
-      };
-
       for(const sceneId of SCENES){
         const band=document.createElement("div");
         band.className="franken-timeline-scene";
@@ -730,25 +872,26 @@
 
       const line=document.createElement("i");
       line.className="franken-timeline-playhead-line";
-      line.style.left=`${(playheadFrame/TOTAL_FRAMES)*100}%`;
+      timelinePlayheadLine=line;
       timelineRoot.append(line);
+      updateTimelinePlayhead();
 
       timelineRoot.onpointerdown=(event)=>{
         if(event.target.closest?.(".franken-timeline-clip"))return;
         setPlayhead(frameFromClientX(event.clientX));
       };
-      if(playhead)playhead.value=String(playheadFrame);
-      if(playheadReadout)playheadReadout.textContent=`Frame ${playheadFrame}`;
+      timelineRoot.style.width=`${timelineZoom*100}%`;
       if(snapToggle)snapToggle.checked=snapEnabled;
     }
 
     function renderPreview(){
       if(!previewRoot)return;
       previewRoot.replaceChildren();
+      previewClipIndex=new Map();
       const proposal=state.proposal;
       if(!proposal){
         const empty=document.createElement("p");
-        empty.textContent="RECOMPOSE to build the proposal geometry preview.";
+        empty.textContent="RECOMPOSE to build the proposal media preview.";
         previewRoot.append(empty);
         return;
       }
@@ -765,30 +908,211 @@
             node.className=`franken-preview-clip role-${String(track.role||"unknown").replace(/[^A-Za-z0-9_-]/g,"-")}`;
             node.dataset.clipId=clip.clipId;
             node.title=`${track.role} · ${clip.materialId} · f${clip.startFrame}+${clip.durationFrames}`;
-            node.textContent=track.role==="video-digestion-placement"
-              ?String(clip.materialId).split(":")[1]
-              :track.role;
-            const active=playheadFrame>=Number(clip.startFrame)&&playheadFrame<Number(clip.startFrame)+Number(clip.durationFrames);
-            const localFrame=clamp(playheadFrame-Number(clip.startFrame),0,Math.max(0,Number(clip.durationFrames)-1));
-            const transform=interpolateTransformAtFrame(clip.transform,clip.transformKeyframes||[],localFrame);
-            const scale=Math.max(0.15,Math.min(2,Number(transform.scale)||1));
-            node.dataset.active=String(active);
-            node.style.left=`${(Number(transform.x)||0.5)*100}%`;
-            node.style.top=`${(Number(transform.y)||0.5)*100}%`;
-            node.style.width=`${Math.min(92,26*scale)}%`;
-            node.style.height=`${Math.min(92,18*scale)}%`;
-            node.style.opacity=String(active?Math.max(0.2,Number(clip.opacity)||1):0.13);
-            node.style.transform=`translate(-50%,-50%) rotate(${Number(transform.rotationDegrees)||0}deg)`;
             node.style.zIndex=String(Number(clip.stackOrder)||0);
             if(clip.crop)node.dataset.cropped="true";
+
+            const asset=state.previewAssets?.[clip.materialId]||null;
+            let media=null;
+            if(asset?.url&&["image","video"].includes(asset.kind)){
+              media=document.createElement(asset.kind==="video"?"video":"img");
+              media.className="franken-preview-media";
+              media.src=asset.url;
+              if(asset.kind==="video"){
+                media.muted=true;
+                media.playsInline=true;
+                media.preload="metadata";
+                media.addEventListener("loadedmetadata",()=>updatePreviewFrame(),{once:true});
+              }else{
+                media.alt="";
+              }
+              if(clip.crop){
+                media.style.inset="auto";
+                media.style.width=`${100/clip.crop.width}%`;
+                media.style.height=`${100/clip.crop.height}%`;
+                media.style.left=`${-(clip.crop.x/clip.crop.width)*100}%`;
+                media.style.top=`${-(clip.crop.y/clip.crop.height)*100}%`;
+              }
+              node.classList.add("has-media");
+              node.append(media);
+            }
+
+            const label=document.createElement("span");
+            label.className="franken-preview-label";
+            label.textContent=track.role==="video-digestion-placement"
+              ?String(clip.materialId).split(":")[1]
+              :track.role;
+            node.append(label);
             viewport.append(node);
+            previewClipIndex.set(clip.clipId,{clip,node,media});
           }
         }
         const meta=document.createElement("small");
-        meta.textContent=`${scene.tracks.reduce((sum,track)=>sum+(track.clips?.length||0),0)} clips · proposal @ frame ${playheadFrame}`;
+        meta.textContent=`${scene.tracks.reduce((sum,track)=>sum+(track.clips?.length||0),0)} clips · proposal media preview`;
         card.append(title,viewport,meta);
         previewRoot.append(card);
       }
+      updatePreviewFrame();
+    }
+
+    function renderOnePass(){
+      if(!onePassBegin||!onePassStatus||!onePassProgress||!onePassLanes||!onePassReceipt)return;
+      const descendants=state.nextGen?.videoDigestion?.descendants||[];
+      const running=onePassSession?.status==="running";
+      const finished=onePassSession?.status==="finished";
+      const hasAudio=Boolean(performanceAudio?.src);
+      const ready=Boolean(onePassApi)&&hasAudio&&descendants.length===6&&!onePassConsumed&&!running;
+      onePassBegin.disabled=!ready;
+      onePassBegin.textContent=running?"TAKE IN MOTION":(finished?"TAKE SEALED":"BEGIN THE TAKE");
+      if(!running){
+        onePassProgress.style.width=finished?"100%":"0%";
+      }
+      if(finished){
+        const receipt=onePassSession.receipt;
+        onePassStatus.textContent=onePassPersistenceError
+          ?`Take sealed in memory · receipt save failed · ${onePassPersistenceError}`
+          :`Take sealed · ${receipt.eventCount} gestures · ${receipt.placementCount} lawful clips · RECOMPOSE to review it`;
+        onePassReceipt.textContent=onePassReceiptPath
+          ?`PERFORMANCE · ${receipt.performanceHash} · ${filename(onePassReceiptPath)}`
+          :`PERFORMANCE · ${receipt.performanceHash}`;
+        onePassReceipt.title=receipt.performanceHash;
+        root.dataset.onePassPerformanceHash=receipt.performanceHash;
+      }else if(running){
+        onePassReceipt.textContent="Performance is happening. It cannot be repaired from here.";
+      }else if(!onePassApi){
+        onePassStatus.textContent="ONE PASS simulation module unavailable in this build.";
+        onePassReceipt.textContent="No take sealed";
+      }else if(!hasAudio){
+        onePassStatus.textContent="Load a song first. ONE PASS follows the admitted audio clock.";
+        onePassReceipt.textContent="No take sealed";
+      }else if(descendants.length!==6){
+        onePassStatus.textContent="Load six Video Digestion descendants to arm the take.";
+        onePassReceipt.textContent="No take sealed";
+      }else if(onePassConsumed){
+        onePassStatus.textContent="This crossing already spent its ONE PASS. Reload live organs to begin a genuinely new take.";
+      }else{
+        onePassStatus.textContent="Armed · one 48-second pass · raw timing · no snap · no undo.";
+        onePassReceipt.textContent="No take sealed";
+      }
+
+      onePassLanes.replaceChildren(...descendants.slice(0,6).map((descendant,index)=>{
+        const lane=document.createElement("button");
+        lane.type="button";
+        lane.className="franken-one-pass-lane";
+        lane.dataset.lane=String(index);
+        lane.disabled=!running;
+        const active=Boolean(onePassSession?.activeLanes?.[index]);
+        const used=Boolean(onePassSession?.events?.some((event)=>event.lane===index));
+        lane.classList.toggle("is-active",active);
+        lane.classList.toggle("is-used",used);
+        const key=document.createElement("b");
+        key.textContent=ONE_PASS_KEYS[index].toUpperCase();
+        const label=document.createElement("small");
+        label.textContent=`#${descendant.slot} · ${descendant.roleId}`;
+        lane.append(key,label);
+        lane.addEventListener("pointerdown",(event)=>{
+          if(onePassSession?.status!=="running")return;
+          event.preventDefault();
+          pressOnePassLane(index);
+          const release=()=>{
+            document.removeEventListener("pointerup",release);
+            document.removeEventListener("pointercancel",release);
+            releaseOnePassLane(index);
+          };
+          document.addEventListener("pointerup",release,{once:true});
+          document.addEventListener("pointercancel",release,{once:true});
+        });
+        return lane;
+      }));
+    }
+
+    function setOnePassPlayhead(frame){
+      playheadFrame=Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(Number(frame)||0)));
+      if(playhead)playhead.value=String(playheadFrame);
+      if(playheadReadout)playheadReadout.textContent=`Frame ${playheadFrame} · ONE PASS`;
+      const line=timelineRoot?.querySelector(".franken-timeline-playhead-line");
+      if(line)line.style.left=`${(playheadFrame/TOTAL_FRAMES)*100}%`;
+    }
+
+    function pressOnePassLane(index){
+      if(!onePassApi||onePassSession?.status!=="running")return;
+      onePassSession=onePassApi.pressLane(onePassSession,index,(performanceAudio?.currentTime||0)*1000);
+      renderOnePass();
+    }
+
+    function releaseOnePassLane(index){
+      if(!onePassApi||onePassSession?.status!=="running")return;
+      onePassSession=onePassApi.releaseLane(onePassSession,index,(performanceAudio?.currentTime||0)*1000);
+      renderOnePass();
+    }
+
+    async function finishOnePassTake(now=(performanceAudio?.currentTime||0)*1000){
+      if(!onePassApi||onePassSession?.status!=="running")return;
+      if(onePassAnimation)view.cancelAnimationFrame(onePassAnimation);
+      onePassAnimation=null;
+      performanceAudio?.pause();
+      onePassSession=onePassApi.finishOnePass(onePassSession,now);
+      onePassConsumed=true;
+      root.classList.remove("one-pass-running");
+      state=reduceBenchState(state,{type:"digest-replace",value:onePassSession.receipt.placements});
+      onePassReceiptPath=null;
+      onePassPersistenceError=null;
+      if(typeof bridge.writeOnePassReceipt==="function"){
+        try{
+          const saved=await bridge.writeOnePassReceipt(onePassSession.receipt);
+          onePassReceiptPath=saved?.path||null;
+        }catch(error){
+          onePassPersistenceError=error?.message||String(error);
+        }
+      }else{
+        onePassPersistenceError="receipt persistence bridge unavailable";
+      }
+      render();
+    }
+
+    function tickOnePass(){
+      if(!onePassApi||onePassSession?.status!=="running")return;
+      const now=(performanceAudio?.currentTime||0)*1000;
+      const frame=onePassApi.frameAtMs(onePassSession,now);
+      setOnePassPlayhead(frame);
+      if(onePassProgress)onePassProgress.style.width=`${Math.min(100,((frame+1)/onePassSession.totalFrames)*100)}%`;
+      if(onePassStatus)onePassStatus.textContent=`TAKE IN MOTION · frame ${frame} / ${onePassSession.totalFrames-1} · silence is still a move`;
+      const elapsed=now-onePassSession.startedAtMs;
+      if(performanceAudio?.ended||elapsed>=(onePassSession.totalFrames/onePassSession.fps)*1000){
+        finishOnePassTake(now).catch((error)=>{
+          onePassPersistenceError=error?.message||String(error);
+          renderOnePass();
+        });
+        return;
+      }
+      onePassAnimation=view.requestAnimationFrame(tickOnePass);
+    }
+
+    async function beginOnePassTake(){
+      if(!onePassApi||!performanceAudio?.src||onePassConsumed||onePassSession?.status==="running")return;
+      const descendants=state.nextGen?.videoDigestion?.descendants||[];
+      if(descendants.length!==6)return;
+      const audioFrames=Number.isFinite(performanceAudio.duration)&&performanceAudio.duration>0
+        ?Math.max(1,Math.round(performanceAudio.duration*24))
+        :TOTAL_FRAMES;
+      const takeFrames=Math.min(TOTAL_FRAMES,audioFrames);
+      state=reduceBenchState(state,{type:"digest-replace",value:[]});
+      playheadFrame=0;
+      performanceAudio.pause();
+      performanceAudio.currentTime=0;
+      try{
+        await performanceAudio.play();
+      }catch(error){
+        onePassStatus.textContent=`Could not begin take · ${error?.message||error}`;
+        return;
+      }
+      onePassSession=onePassApi.beginOnePass(onePassApi.createOnePassSession({
+        materials:descendants,
+        fps:24,
+        totalFrames:takeFrames,
+      }),0);
+      root.classList.add("one-pass-running");
+      render();
+      onePassAnimation=view.requestAnimationFrame(tickOnePass);
     }
 
     function render(){
@@ -884,6 +1208,7 @@
 
       syncControls();
       renderNextGen();
+      renderOnePass();
       renderTimeline();
       renderPreview();
     }
@@ -901,6 +1226,11 @@
           albumContext:{},
         });
         state=reduceBenchState(state,{type:"nextgen",value:crossing});
+        onePassSession=null;
+        onePassConsumed=false;
+        onePassReceiptPath=null;
+        onePassPersistenceError=null;
+        root.classList.remove("one-pass-running");
         render();
       }catch(error){
         nextGenStatus.textContent=error?.message||String(error);
@@ -915,12 +1245,69 @@
     });
     close?.addEventListener("click",()=>setOpen(false));
     nextGenLoad?.addEventListener("click",loadNextGen);
-    playhead?.addEventListener("input",()=>{
-      playheadFrame=Math.max(0,Math.min(TOTAL_FRAMES-1,Number(playhead.value)||0));
-      renderTimeline();
-      renderPreview();
+    onePassBegin?.addEventListener("click",()=>{beginOnePassTake().catch((error)=>{onePassStatus.textContent=error?.message||String(error);});});
+    performanceAudio?.addEventListener("ended",()=>{
+      finishOnePassTake((performanceAudio.currentTime||0)*1000).catch((error)=>{
+        onePassPersistenceError=error?.message||String(error);
+        renderOnePass();
+      });
     });
+    view?.addEventListener("keydown",(event)=>{
+      if(onePassSession?.status!=="running")return;
+      const lane=ONE_PASS_KEYS.indexOf(String(event.key||"").toLowerCase());
+      if(lane<0)return;
+      event.preventDefault();
+      if(event.repeat)return;
+      pressOnePassLane(lane);
+    });
+    view?.addEventListener("keyup",(event)=>{
+      if(onePassSession?.status!=="running")return;
+      const lane=ONE_PASS_KEYS.indexOf(String(event.key||"").toLowerCase());
+      if(lane<0)return;
+      event.preventDefault();
+      releaseOnePassLane(lane);
+    });
+    playhead?.addEventListener("input",()=>setPlayhead(Number(playhead.value)||0));
     snapToggle?.addEventListener("change",()=>{snapEnabled=Boolean(snapToggle.checked);renderTimeline();});
+    timelineZoomControl?.addEventListener("change",()=>{
+      timelineZoom=[1,2,4].includes(Number(timelineZoomControl.value))?Number(timelineZoomControl.value):1;
+      renderTimeline();
+      if(timelineScroll){
+        const target=(playheadFrame/(TOTAL_FRAMES-1))*Math.max(0,timelineRoot.scrollWidth-timelineScroll.clientWidth);
+        timelineScroll.scrollLeft=Math.max(0,target);
+      }
+    });
+    transportPlay?.addEventListener("click",async()=>{
+      if(!transportAudio||!transportMeta)return;
+      try{
+        await ensureTransportReady();
+        transportAudio.currentTime=transportSecondsForFrame(playheadFrame);
+        await transportAudio.play();
+        runTransportLoop();
+      }catch(error){
+        transportStatus.textContent=error?.message||String(error);
+      }
+    });
+    transportPause?.addEventListener("click",()=>{
+      transportAudio?.pause();
+      stopTransportLoop();
+      updateTransportStatus();
+    });
+    transportAudio?.addEventListener("ended",()=>{playheadFrame=TOTAL_FRAMES-1;stopTransportLoop();updateTimelinePlayhead();updatePreviewFrame();});
+    view?.addEventListener("full-measure:audio-ready",(event)=>{
+      transportAudio?.pause();
+      stopTransportLoop();
+      transportMeta=event.detail?.url&&Number(event.detail?.duration)>0
+        ?{url:event.detail.url,duration:Number(event.detail.duration),filename:event.detail.filename||"song"}
+        :null;
+      if(transportAudio){
+        if(transportMeta)transportAudio.src=transportMeta.url;
+        else transportAudio.removeAttribute("src");
+      }
+      if(transportPlay)transportPlay.disabled=!transportMeta;
+      if(transportPause)transportPause.disabled=!transportMeta;
+      updateTransportStatus();
+    });
 
     root.querySelectorAll("[data-franken-choose]").forEach((button)=>
       button.addEventListener("click",async()=>{
@@ -1003,6 +1390,8 @@
     resizePlacementOnTimeline,
     sceneAtGlobalFrame,
     snapFrame,
+    transportFrameForSeconds,
+    previewMediaTime,
     defaultDigestPlacement,
     descendantFor,
     canCompose,

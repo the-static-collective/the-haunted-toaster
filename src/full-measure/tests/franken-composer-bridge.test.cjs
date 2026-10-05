@@ -190,3 +190,22 @@ test('digestion placement allows repeated material but fails closed for duplicat
     {offsetFrames:2,transform:base.transform},{offsetFrames:2,transform:base.transform}
   ]}]}}),/offsets must be unique/i);
 });
+
+
+test('compose exposes media preview URLs outside proposal identity and freeze authority',async()=>{
+  const f=await configInTemp();
+  const service=createFrankenComposerService({rootDir:path.join(f.dir,'out-preview-assets')});
+  const preview=await service.compose(f.config);
+  assert.ok(preview.previewAssets&&typeof preview.previewAssets==='object');
+  const mediaEntries=Object.entries(preview.previewAssets);
+  assert.ok(mediaEntries.length>=7,'six cards plus accepted moving take should be preview-bindable');
+  for(const [,asset] of mediaEntries){
+    assert.ok(['image','video'].includes(asset.kind));
+    assert.match(asset.url,/^file:/);
+  }
+  assert.doesNotMatch(JSON.stringify(preview.proposal),/file:\/\//);
+  assert.equal(preview.proposal.previewAssets,undefined);
+  const frozen=await service.freeze({...f.config,expectedProposalIdentity:preview.proposalIdentity});
+  assert.equal(frozen.plan.previewAssets,undefined);
+  assert.doesNotMatch(JSON.stringify(frozen.plan),/file:\/\//);
+});
