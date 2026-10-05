@@ -396,7 +396,17 @@
       const audioUrl = await api.fileUrl(filePath);
       elements.syncAudio.src = audioUrl;
       window.dispatchEvent(new CustomEvent("full-measure:audio-ready",{
-        detail:{url:audioUrl,duration:Number(audio.duration)||0,filename:audio.filename||basename(filePath)},
+        detail:{
+          url:audioUrl,
+          duration:Number(audio.duration)||0,
+          filename:audio.filename||basename(filePath),
+          sections:Array.isArray(audio.sections)?audio.sections.map(section=>({
+            start:Number(section.start)||0,
+            end:Number(section.end)||0,
+            label:String(section.label||"Section"),
+            energy:Number(section.energy)||0,
+          })):[],
+        },
       }));
 
       elements.audioDrop.classList.add("has-file");
