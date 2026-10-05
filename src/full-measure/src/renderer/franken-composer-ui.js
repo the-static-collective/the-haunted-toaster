@@ -57,6 +57,21 @@
     return {durationFrames:Math.max(1,Math.min(end-start,sourceRemaining))};
   }
 
+  function transportFrameForSeconds(seconds,durationSeconds){
+    const duration=Number(durationSeconds);
+    if(!Number.isFinite(duration)||duration<=0)return 0;
+    const ratio=clamp(Number(seconds)||0,0,duration)/duration;
+    return Math.max(0,Math.min(TOTAL_FRAMES-1,Math.round(ratio*(TOTAL_FRAMES-1))));
+  }
+
+  function previewMediaTime(clip,globalFrame,fps=24){
+    const start=Number(clip?.startFrame)||0;
+    const duration=Math.max(1,Number(clip?.durationFrames)||1);
+    const local=clamp((Number(globalFrame)||0)-start,0,duration-1);
+    const sourceStart=Number(clip?.sourceWindow?.startSeconds)||0;
+    return sourceStart+local/Math.max(1,Number(fps)||24);
+  }
+
   function interpolateTransformAtFrame(base,keyframes=[],offsetFrame=0){
     const points=new Map([[0,{...base}]]);
     for(const keyframe of Array.isArray(keyframes)?keyframes:[])points.set(Number(keyframe.offsetFrames),{...keyframe.transform});
@@ -104,6 +119,7 @@
       nextGen:null,
       proposal:null,
       proposalIdentity:null,
+      previewAssets:{},
       frozen:null,
       dirty:true,
     };
@@ -188,6 +204,7 @@
           paths:{...state.paths,[action.key]:action.value||null},
           proposal:null,
           proposalIdentity:null,
+          previewAssets:{},
         });
       case "seed":
         return markDirty({
@@ -196,6 +213,7 @@
           nextGen:null,
           proposal:null,
           proposalIdentity:null,
+          previewAssets:{},
           edits:{...state.edits,digestPlacements:[]},
         });
       case "edit":
@@ -263,6 +281,7 @@
           nextGen:action.value||null,
           proposal:null,
           proposalIdentity:null,
+          previewAssets:{},
           edits:{...applyNextGenPressure(state.edits,action.value),digestPlacements:[]},
         });
       case "proposal":{
@@ -271,6 +290,7 @@
           ...state,
           proposal:p,
           proposalIdentity:action.result.proposalIdentity,
+          previewAssets:{...(action.result.previewAssets||{})},
           frozen:null,
           dirty:false,
           edits:{
@@ -1003,6 +1023,8 @@
     resizePlacementOnTimeline,
     sceneAtGlobalFrame,
     snapFrame,
+    transportFrameForSeconds,
+    previewMediaTime,
     defaultDigestPlacement,
     descendantFor,
     canCompose,
