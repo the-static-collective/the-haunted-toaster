@@ -82,10 +82,20 @@ function normalizeParents(parents=[]){
 function validateRenderedHistoryCapsule(value){
   if(!value||typeof value!=="object"||Array.isArray(value))throw new TypeError("Rendered history capsule must be an object.");
   if(value.schema!==HISTORY_CAPSULE_SCHEMA||value.policy!==HISTORY_CAPSULE_POLICY||value.authority!=="provenance-only")throw new TypeError("Unsupported rendered history capsule.");
-  sha(value.renderedMedia?.sha256,"renderedMedia.sha256");
+  normalizeRenderedMedia(value.renderedMedia);
   sha(value.renderAuthority?.planHash,"renderAuthority.planHash");
-  sha(value.renderAuthority?.projectionHash,"renderAuthority.projectionHash");
+  req(value.renderAuthority?.planSchema,"renderAuthority.planSchema");
+  req(value.renderAuthority?.planPolicy,"renderAuthority.planPolicy");
+  const fps=Number(value.renderAuthority?.fps);
+  const durationFrames=Number(value.renderAuthority?.durationFrames);
+  if(!Number.isSafeInteger(fps)||fps<1||fps>240)throw new TypeError("renderAuthority.fps must be a positive integer.");
+  if(!Number.isSafeInteger(durationFrames)||durationFrames<1)throw new TypeError("renderAuthority.durationFrames must be a positive integer.");
+  normalizeProjection({
+    kind:value.renderAuthority?.kind,
+    projectionHash:value.renderAuthority?.projectionHash,
+  });
   if(value.renderAuthority?.authority!=="render-cause-reference")throw new TypeError("renderAuthority must remain render-cause-reference.");
+  normalizeHistoricalContext(value.historicalContext);
   if(value.historicalContext?.authority!=="context-reference-only")throw new TypeError("historicalContext must remain context-reference-only.");
   const parents=normalizeParents(value.parents||[]);
   const expectedGeneration=parents.length?Math.max(...parents.map(parent=>parent.generation))+1:1;
