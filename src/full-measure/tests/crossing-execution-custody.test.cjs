@@ -100,6 +100,17 @@ test("scope approval requires exact proposal identity and still grants no comput
   }),/stale|scope/i);
 });
 
+test("tampered affected scope cannot approve itself by echoing its old hash",()=>{
+  const {program,binding}=accepted();
+  const derived=createCrossingExecutionProgram(program,binding,{wakeStrength:1});
+  const scope=deriveAffectedRegionProposal(program,derived,binding);
+  const tampered={...scope,changedFrameCount:scope.changedFrameCount+1};
+  assert.throws(()=>approveExecutionScope(tampered,{
+    expectedScopeProposalHash:tampered.scopeProposalHash,
+    approvedBy:"human-ui",
+  }),/hash mismatch/i);
+});
+
 test("approved scope becomes a GHoT-067-shaped sparse parcel but still cannot execute itself",()=>{
   const {program,binding}=accepted();
   const derived=createCrossingExecutionProgram(program,binding,{wakeStrength:1});
