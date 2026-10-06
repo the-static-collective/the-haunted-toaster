@@ -149,6 +149,19 @@ function validateCandidateDerivedFrameGraph(graph){
 function sha256(bytes){
   return crypto.createHash("sha256").update(bytes).digest("hex");
 }
+async function assertRenderedOutputBytes(output,label){
+  if(!output?.directory||!output?.receipt||!Array.isArray(output.receipt.frames))throw new TypeError(`${label} output is incomplete.`);
+  const base=path.resolve(output.directory);
+  for(const [index,record] of output.receipt.frames.entries()){
+    const filename=req(record?.filename,`${label} frame filename ${index}`);
+    const sourcePath=path.resolve(base,filename);
+    if(sourcePath===base||!sourcePath.startsWith(base+path.sep))throw new TypeError(`${label} frame path escapes output custody.`);
+    const bytes=await fs.readFile(sourcePath);
+    const expected=hash64(record.sha256,`${label} frame sha256`);
+    if(sha256(bytes)!==expected)throw new TypeError(`${label} frame bytes changed for frame ${record.frame}.`);
+    if(record.sizeBytes!==undefined&&bytes.length!==record.sizeBytes)throw new TypeError(`${label} frame byte length changed for frame ${record.frame}.`);
+  }
+}
 async function materializeCandidateReview(graph,{
   sourceWholeOutput,
   derivedOutputs=[],
@@ -158,11 +171,13 @@ async function materializeCandidateReview(graph,{
   if(!sourceWholeOutput?.directory||!sourceWholeOutput?.receipt)throw new TypeError("Candidate review requires source whole-render output.");
   const sourceReceipt=sourceWholeOutput.receipt;
   if(sourceReceipt.receiptHash!==candidate.sourceWholeReceiptHash)throw new TypeError("Candidate review source whole-render receipt mismatch.");
+  await assertRenderedOutputBytes(sourceWholeOutput,"Candidate review source");
   if(!Array.isArray(derivedOutputs))throw new TypeError("Candidate review derivedOutputs must be an array.");
   const outputByReceipt=new Map();
   for(const output of derivedOutputs){
     if(!output?.directory||!output?.receipt)throw new TypeError("Candidate review derived output is incomplete.");
     if(outputByReceipt.has(output.receipt.receiptHash))throw new TypeError("Candidate review contains duplicate derived output receipt.");
+    await assertRenderedOutputBytes(output,"Candidate review derived");
     outputByReceipt.set(output.receipt.receiptHash,output);
   }
   const root=path.resolve(req(rootDir,"candidate review rootDir"));
