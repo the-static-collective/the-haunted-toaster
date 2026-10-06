@@ -182,8 +182,16 @@ function validateAffectedRegionProposal(sourceProgram,derivedProgram,binding,pro
   if(expected.scopeProposalHash!==proposal.scopeProposalHash)throw new TypeError("Affected-region proposal does not match derived execution semantics.");
   return proposal;
 }
+function validateScopeProposalHashOnly(scopeProposal){
+  if(!scopeProposal||typeof scopeProposal!=="object"||Array.isArray(scopeProposal))throw new TypeError("Affected-region proposal must be an object.");
+  if(scopeProposal.schema!==AFFECTED_SCOPE_SCHEMA||scopeProposal.authority!=="scope-proposal-only")throw new TypeError("Unsupported affected-region proposal.");
+  const {scopeProposalHash,...body}=scopeProposal;
+  const expected=hashCanonical(canonicalize(body),"HauntedToaster-CrossingAffectedRegionProposal-v0");
+  if(hash64(scopeProposalHash,"scopeProposalHash")!==expected)throw new TypeError("Affected-region proposal hash mismatch.");
+  return scopeProposal;
+}
 function approveExecutionScope(scopeProposal,{expectedScopeProposalHash,approvedBy}={}){
-  if(!scopeProposal||typeof scopeProposal!=="object"||scopeProposal.schema!==AFFECTED_SCOPE_SCHEMA)throw new TypeError("Execution scope approval requires an affected-region proposal.");
+  validateScopeProposalHashOnly(scopeProposal);
   const expected=hash64(expectedScopeProposalHash,"expectedScopeProposalHash");
   if(expected!==scopeProposal.scopeProposalHash)throw new TypeError("Stale execution scope proposal identity; refusing scope approval.");
   const approvedRegionIds=[...(scopeProposal.affectedRegionIds||[])];
@@ -213,7 +221,7 @@ function approveExecutionScope(scopeProposal,{expectedScopeProposalHash,approved
   }));
 }
 function validateExecutionScopeApproval(scopeProposal,approval){
-  if(!scopeProposal||scopeProposal.schema!==AFFECTED_SCOPE_SCHEMA)throw new TypeError("Scope approval requires an affected-region proposal.");
+  validateScopeProposalHashOnly(scopeProposal);
   if(!approval||typeof approval!=="object"||Array.isArray(approval))throw new TypeError("Scope approval must be an object.");
   if(approval.schema!==SCOPE_APPROVAL_SCHEMA||approval.authority!=="human-approved-scope-only")throw new TypeError("Unsupported scope approval.");
   if(approval.sourceScopeProposalHash!==scopeProposal.scopeProposalHash||approval.sourceBindingHash!==scopeProposal.sourceBindingHash||approval.derivedProgramHash!==scopeProposal.derivedProgramHash){
