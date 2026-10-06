@@ -84,6 +84,46 @@ test("ADOPT persists exact graph+review-media disposition without freezing sourc
   }finally{await fs.rm(root,{recursive:true,force:true});}
 });
 
+test("candidate graph cannot acquire contradictory ADOPT and REJECT dispositions",async()=>{
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),"ht-021-one-choice-"));
+  try{
+    const receipt=take(),binding=bindingFor(receipt);
+    const service=createFrankenComposerService({rootDir:root});
+    const {prepared,approved,executed}=await executeChain(service,receipt,binding);
+    const review=await service.prepareCandidateArtifactReview(
+      receipt,binding,prepared.scopeProposal,approved.approval,executed,
+    );
+    await service.decideCandidateArtifact(
+      review.graph,review.reviewReceipt,"ADOPT",review.graph.candidateGraphHash,
+    );
+    await assert.rejects(
+      ()=>service.decideCandidateArtifact(
+        review.graph,review.reviewReceipt,"REJECT",review.graph.candidateGraphHash,
+      ),
+      /different artifact disposition|contradictory/i,
+    );
+  }finally{await fs.rm(root,{recursive:true,force:true});}
+});
+
+test("tampered review-media receipt cannot be used for disposition",async()=>{
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),"ht-021-review-receipt-"));
+  try{
+    const receipt=take(),binding=bindingFor(receipt);
+    const service=createFrankenComposerService({rootDir:root});
+    const {prepared,approved,executed}=await executeChain(service,receipt,binding);
+    const review=await service.prepareCandidateArtifactReview(
+      receipt,binding,prepared.scopeProposal,approved.approval,executed,
+    );
+    const tampered={...review.reviewReceipt,mediaSha256:"0".repeat(64)};
+    await assert.rejects(
+      ()=>service.decideCandidateArtifact(
+        review.graph,tampered,"ADOPT",review.graph.candidateGraphHash,
+      ),
+      /review-media receipt hash mismatch/i,
+    );
+  }finally{await fs.rm(root,{recursive:true,force:true});}
+});
+
 test("REJECT persists review evidence with a distinct disposition",async()=>{
   const root=await fs.mkdtemp(path.join(os.tmpdir(),"ht-021-reject-"));
   try{
