@@ -63,7 +63,7 @@ function renderPossibilityMapSvg(map,{width=960,height=320,padding=44}={}){
       `<g class="contribution-rail" data-contribution-kind="${esc(kind)}">`,
       `<text x="${chartLeft}" y="${railY+3}" class="rail-label">${esc(kind)}</text>`,
       `<line x1="${chartLeft+170}" y1="${railY}" x2="${chartRight}" y2="${railY}" class="rail-baseline"/>`,
-      `<g transform="translate(170 0)">${ticks}</g>`,
+      `<g>${ticks}</g>`,
       "</g>",
     ].join("");
   }).join("");
