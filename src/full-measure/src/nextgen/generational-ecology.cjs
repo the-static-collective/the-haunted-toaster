@@ -29,6 +29,7 @@ function array(value,label,max){
   return value;
 }
 function historyNodeFromRef(ref){
+  if(!ref||typeof ref!=="object"||Array.isArray(ref)||ref.authority!=="provenance-only")throw new TypeError("Generational ecology history ref must remain provenance-only.");
   return canonicalize({
     nodeId:`history:${hash64(ref.capsuleHash,"history capsuleHash")}`,
     kind:"rendered-history-capsule",
@@ -76,6 +77,8 @@ function compileGenerationalEcology({
 }={}){
   const receipts=array(performanceReceipts,"performanceReceipts",32).map(validatePerformanceReceipt);
   const admissions=array(artifactAdmissions,"artifactAdmissions",64).map(validateAdoptedMaterialAdmission);
+  if(new Set(receipts.map(item=>item.performanceHash)).size!==receipts.length)throw new TypeError("Generational ecology performance receipts must be unique.");
+  if(new Set(admissions.map(item=>item.admissionHash)).size!==admissions.length)throw new TypeError("Generational ecology adoption admissions must be unique.");
 
   const historyNodes=new Map();
   const performanceRows=[];
@@ -121,18 +124,30 @@ function compileGenerationalEcology({
       if(ref.lawFossilRef){
         const fossil=ref.lawFossilRef;
         const fossilHash=hash64(fossil.lawFossilHash,"lawFossilHash");
-        const sourceCapsuleHashes=new Set(fossilMap.get(fossilHash)?.sourceCapsuleHashes||[]);
+        const weirdnessCompilationHash=hash64(fossil.weirdnessCompilationHash,"weirdnessCompilationHash");
+        const sourceProgramHash=hash64(fossil.sourceProgramHash,"law fossil sourceProgramHash");
+        const compiledProgramHash=hash64(fossil.compiledProgramHash,"law fossil compiledProgramHash");
+        const axes=array(fossil.axes,"law fossil axes",16).map(axis=>{
+          const amount=Number(axis.amount);
+          if(!Number.isFinite(amount)||amount<0||amount>1)throw new TypeError("Generational ecology law fossil amount must remain in [0, 1].");
+          return canonicalize({axisId:req(axis.axisId,"law fossil axisId"),amount});
+        }).sort((a,b)=>a.axisId.localeCompare(b.axisId));
+        const priorFossil=fossilMap.get(fossilHash);
+        if(priorFossil&&(
+          priorFossil.weirdnessCompilationHash!==weirdnessCompilationHash||
+          priorFossil.sourceProgramHash!==sourceProgramHash||
+          priorFossil.compiledProgramHash!==compiledProgramHash||
+          JSON.stringify(priorFossil.axes)!==JSON.stringify(axes)
+        ))throw new TypeError(`Conflicting law-fossil evidence for ${fossilHash}.`);
+        const sourceCapsuleHashes=new Set(priorFossil?.sourceCapsuleHashes||[]);
         sourceCapsuleHashes.add(node.capsuleHash);
         fossilMap.set(fossilHash,canonicalize({
           lawFossilHash:fossilHash,
           authority:"provenance-only",
-          weirdnessCompilationHash:hash64(fossil.weirdnessCompilationHash,"weirdnessCompilationHash"),
-          sourceProgramHash:hash64(fossil.sourceProgramHash,"law fossil sourceProgramHash"),
-          compiledProgramHash:hash64(fossil.compiledProgramHash,"law fossil compiledProgramHash"),
-          axes:array(fossil.axes,"law fossil axes",16).map(axis=>canonicalize({
-            axisId:req(axis.axisId,"law fossil axisId"),
-            amount:Number(axis.amount),
-          })).sort((a,b)=>a.axisId.localeCompare(b.axisId)),
+          weirdnessCompilationHash,
+          sourceProgramHash,
+          compiledProgramHash,
+          axes,
           sourceCapsuleHashes:[...sourceCapsuleHashes].sort(),
           activeLawAuthority:"none",
         }));
