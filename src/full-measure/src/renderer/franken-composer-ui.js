@@ -1206,7 +1206,7 @@
         if(frame===acceptedFrame)node.classList.add("is-accepted");
         node.addEventListener("pointerenter",()=>inspectTerrainFrame(frame,point));
         node.addEventListener("focus",()=>inspectTerrainFrame(frame,point));
-        node.addEventListener("click",()=>{proposeTerrainPoint(frame);});
+        node.addEventListener("click",()=>{inspectTerrainFrame(frame,point);proposeTerrainPoint(frame);});
       }
 
       if(possibilityProposal?.sourceMapHash===entry?.map?.mapHash){
