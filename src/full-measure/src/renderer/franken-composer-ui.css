@@ -154,3 +154,26 @@ body.franken-open{overflow:hidden}
 .franken-residue-mark{stroke:currentColor;stroke-width:12;fill:currentColor;filter:drop-shadow(0 0 5px rgba(244,223,156,.35));transition:opacity 80ms linear}
 .franken-residue-layer polyline.franken-residue-mark{fill:none}
 .franken-residue-label{position:absolute;left:6px;bottom:6px;padding:3px 5px;border:1px solid rgba(244,223,156,.32);border-radius:4px;background:rgba(11,11,16,.76);color:#f4df9c;font-size:7px;letter-spacing:.11em}
+
+.franken-terrain{margin:14px 0 18px;padding:14px;border:1px solid rgba(120,190,255,.24);border-radius:12px;background:linear-gradient(180deg,rgba(120,190,255,.045),rgba(0,0,0,.2))}
+.franken-terrain-heading{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.franken-terrain-heading span{font-size:8px;letter-spacing:.14em;color:#b9dbff}
+.franken-terrain-heading h4{margin:3px 0 0;font-size:18px}
+.franken-terrain-heading button,.franken-terrain-inspector button{min-height:36px;padding:0 13px;border:1px solid rgba(120,190,255,.45);border-radius:8px;background:rgba(120,190,255,.09);color:#cfe7ff;font-weight:800;letter-spacing:.07em}
+.franken-terrain-heading button:disabled,.franken-terrain-inspector button:disabled{opacity:.32}
+.franken-terrain>p{margin:8px 0;color:var(--muted,#aaa);font-size:9px}
+.franken-terrain-controls{display:flex;align-items:end;justify-content:space-between;gap:12px;margin:9px 0}
+.franken-terrain-controls label{display:grid;gap:4px;min-width:min(420px,70%);font-size:8px;color:var(--muted,#aaa)}
+.franken-terrain-controls select{min-height:32px;border:1px solid rgba(255,255,255,.12);border-radius:7px;background:rgba(255,255,255,.05);color:inherit}
+.franken-terrain-controls>span{font-size:8px;color:var(--muted,#999)}
+.franken-terrain-canvas{min-height:220px;overflow:auto;border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:6px;background:rgba(0,0,0,.18)}
+.franken-terrain-canvas>svg{display:block;max-width:100%;height:auto}
+.franken-terrain-canvas .possibility-point{cursor:crosshair}
+.franken-terrain-canvas .possibility-point:hover{stroke:currentColor;stroke-width:4}
+.franken-terrain-canvas .possibility-point.is-proposed{stroke:#fff;stroke-width:4}
+.franken-terrain-canvas .possibility-point.is-accepted{stroke-width:5;filter:drop-shadow(0 0 4px currentColor)}
+.franken-terrain-inspector{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;margin-top:9px}
+.franken-terrain-inspector>div{min-width:0;display:grid;gap:3px}
+.franken-terrain-inspector span{font-size:9px;color:#cfe7ff}
+.franken-terrain-inspector code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px;color:var(--muted,#999)}
+@media(max-width:980px){.franken-terrain-heading,.franken-terrain-controls,.franken-terrain-inspector{align-items:stretch;grid-template-columns:1fr;flex-direction:column}.franken-terrain-controls label{min-width:0;width:100%}}

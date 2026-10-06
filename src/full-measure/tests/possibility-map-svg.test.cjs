@@ -68,7 +68,7 @@ test("SVG draws exact sampled points without smoothing them into new evidence",(
   assert.match(svg,/data-frame="96"/);
   assert.match(svg,/data-frame="144"/);
   assert.match(svg,/data-frame="191"/);
-  assert.equal((svg.match(/class="possibility-point"/g)||[]).length,5);
+  assert.equal((svg.match(/class="possibility-point(?: |")/g)||[]).length,5);
   assert.match(svg,/polyline[^>]*class="possibility-curve"/);
 });
 

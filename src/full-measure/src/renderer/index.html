@@ -253,6 +253,29 @@
               <code id="frankenPerformanceProgram">No program compiled</code>
             </div>
           </section>
+          <section class="franken-terrain" id="frankenTerrain" aria-labelledby="frankenTerrainHeading">
+            <div class="franken-terrain-heading">
+              <div>
+                <span>POSSIBILITY MAP · OBSERVATION → PROPOSAL → ACCEPT</span>
+                <h4 id="frankenTerrainHeading">Playable creative terrain</h4>
+              </div>
+              <button type="button" id="frankenTerrainBuild" disabled>BUILD TERRAIN</button>
+            </div>
+            <p id="frankenTerrainStatus">Compile a sealed ONE PASS take to expose its residue terrain.</p>
+            <div class="franken-terrain-controls">
+              <label>Scar map<select id="frankenTerrainSelect" disabled><option value="">No terrain</option></select></label>
+              <span>hover = scrub · click = propose · ACCEPT = bind only</span>
+            </div>
+            <div class="franken-terrain-canvas" id="frankenTerrainCanvas" aria-live="polite"></div>
+            <div class="franken-terrain-inspector">
+              <div>
+                <span id="frankenTerrainPoint">No point inspected</span>
+                <code id="frankenTerrainProposal">No crossing proposed</code>
+                <code id="frankenTerrainBinding">No crossing accepted</code>
+              </div>
+              <button type="button" id="frankenTerrainAccept" disabled>ACCEPT CROSSING</button>
+            </div>
+          </section>
           <div class="franken-source-grid">
             <button type="button" data-franken-choose="deckPath"><b>Playdeck deck</b><small data-franken-path-status="deckPath">Not chosen</small></button>
             <button type="button" data-franken-choose="worldRulePath"><b>World rule</b><small data-franken-path-status="worldRulePath">Not chosen</small></button>

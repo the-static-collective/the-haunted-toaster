@@ -435,6 +435,14 @@
     const onePassReceipt=document.getElementById("frankenOnePassReceipt");
     const onePassCompile=document.getElementById("frankenCompileTake");
     const onePassProgram=document.getElementById("frankenPerformanceProgram");
+    const terrainBuild=document.getElementById("frankenTerrainBuild");
+    const terrainStatus=document.getElementById("frankenTerrainStatus");
+    const terrainSelect=document.getElementById("frankenTerrainSelect");
+    const terrainCanvas=document.getElementById("frankenTerrainCanvas");
+    const terrainPoint=document.getElementById("frankenTerrainPoint");
+    const terrainProposal=document.getElementById("frankenTerrainProposal");
+    const terrainBinding=document.getElementById("frankenTerrainBinding");
+    const terrainAccept=document.getElementById("frankenTerrainAccept");
     const performanceAudio=document.getElementById("syncAudio");
     const onePassApi=view?.OnePass||null;
     const ONE_PASS_KEYS=["a","s","d","j","k","l"];
@@ -447,6 +455,11 @@
     let onePassEcologyError=null;
     let onePassProgramBundle=null;
     let onePassProgramError=null;
+    let possibilityTerrain=null;
+    let possibilityTerrainError=null;
+    let activeTerrainEntryId=null;
+    let possibilityProposal=null;
+    let possibilityBinding=null;
     let playheadFrame=0;
     let snapEnabled=true;
     let timelineGestureActive=false;
@@ -1041,6 +1054,180 @@
       updatePreviewFrame();
     }
 
+    function resetPossibilityTerrain(){
+      possibilityTerrain=null;
+      possibilityTerrainError=null;
+      activeTerrainEntryId=null;
+      possibilityProposal=null;
+      possibilityBinding=null;
+      delete root.dataset.possibilityProposalHash;
+      delete root.dataset.possibilityBindingHash;
+    }
+
+    function activeTerrainEntry(){
+      const maps=possibilityTerrain?.terrain?.maps||[];
+      return maps.find(entry=>entry.terrainEntryId===activeTerrainEntryId)||maps[0]||null;
+    }
+
+    function terrainProjectionFor(entry){
+      return (possibilityTerrain?.projection?.maps||[]).find(item=>item.terrainEntryId===entry?.terrainEntryId)||null;
+    }
+
+    function inspectTerrainFrame(frame,point){
+      const exactFrame=Math.max(0,Math.round(Number(frame)||0));
+      setPlayhead(exactFrame,{seekAudio:false});
+      const exactSeconds=exactFrame/24;
+      for(const audio of [transportAudio,performanceAudio]){
+        if(!audio)continue;
+        const duration=Number(audio.duration);
+        const target=Number.isFinite(duration)&&duration>0?Math.min(duration,exactSeconds):exactSeconds;
+        try{audio.currentTime=Math.max(0,target);}catch(_error){}
+      }
+      if(terrainPoint&&point){
+        const kinds=(point.contributionKinds||[]).length?(point.contributionKinds||[]).join(" + "):"base energy only";
+        terrainPoint.textContent=`FRAME ${point.frame} · ENERGY ${point.energy} · Δ ${point.totalDelta} · ${kinds}`;
+        terrainPoint.title=point.transitionHash||"";
+      }
+    }
+
+    async function proposeTerrainPoint(frame){
+      const entry=activeTerrainEntry();
+      if(!entry||typeof bridge.proposePossibilityCrossing!=="function")return;
+      const point=(entry.map?.points||[]).find(item=>item.frame===Number(frame));
+      if(!point)return;
+      possibilityTerrainError=null;
+      try{
+        possibilityProposal=await bridge.proposePossibilityCrossing(entry.map,point.frame);
+        possibilityBinding=null;
+        root.dataset.possibilityProposalHash=possibilityProposal.proposalHash||"";
+        delete root.dataset.possibilityBindingHash;
+      }catch(error){
+        possibilityTerrainError=error?.message||String(error);
+      }
+      renderTerrain();
+    }
+
+    async function acceptTerrainProposal(){
+      if(!possibilityProposal||typeof bridge.acceptPossibilityCrossing!=="function")return;
+      possibilityTerrainError=null;
+      if(terrainAccept){
+        terrainAccept.disabled=true;
+        terrainAccept.textContent="ACCEPTING…";
+      }
+      try{
+        possibilityBinding=await bridge.acceptPossibilityCrossing(
+          possibilityProposal,
+          possibilityProposal.proposalHash,
+        );
+        root.dataset.possibilityBindingHash=possibilityBinding?.binding?.bindingHash||"";
+      }catch(error){
+        possibilityTerrainError=error?.message||String(error);
+      }
+      renderTerrain();
+    }
+
+    async function buildPossibilityTerrain(){
+      if(onePassSession?.status!=="finished"||!onePassProgramBundle||typeof bridge.derivePlayableTerrain!=="function")return;
+      possibilityTerrainError=null;
+      possibilityProposal=null;
+      possibilityBinding=null;
+      if(terrainBuild){
+        terrainBuild.disabled=true;
+        terrainBuild.textContent="BUILDING…";
+      }
+      try{
+        possibilityTerrain=await bridge.derivePlayableTerrain(onePassSession.receipt,{
+          maxSamples:64,
+          baseEnergy:.8,
+        });
+        activeTerrainEntryId=possibilityTerrain?.terrain?.maps?.[0]?.terrainEntryId||null;
+      }catch(error){
+        possibilityTerrain=null;
+        possibilityTerrainError=error?.message||String(error);
+      }
+      renderTerrain();
+    }
+
+    function renderTerrain(){
+      if(!terrainBuild||!terrainStatus||!terrainSelect||!terrainCanvas||!terrainPoint||!terrainProposal||!terrainBinding||!terrainAccept)return;
+      const canBuild=onePassSession?.status==="finished"&&Boolean(onePassProgramBundle)&&typeof bridge.derivePlayableTerrain==="function";
+      terrainBuild.disabled=!canBuild;
+      terrainBuild.textContent=possibilityTerrain?"REBUILD TERRAIN":"BUILD TERRAIN";
+      terrainSelect.replaceChildren();
+
+      if(possibilityTerrainError){
+        terrainStatus.textContent=`Terrain error · ${possibilityTerrainError}`;
+      }else if(!onePassProgramBundle){
+        terrainStatus.textContent="Compile a sealed ONE PASS take to expose its residue terrain.";
+      }else if(!possibilityTerrain){
+        terrainStatus.textContent="Program compiled · BUILD TERRAIN to map every residue scar.";
+      }else{
+        const maps=possibilityTerrain.terrain?.maps||[];
+        terrainStatus.textContent=maps.length
+          ?`Terrain ${String(possibilityTerrain.terrain.terrainHash||"").slice(0,12)} · ${maps.length} scar map${maps.length===1?"":"s"} · observation only`
+          :"Terrain contains no residue scars. Nothing is ranked or invented.";
+      }
+
+      const maps=possibilityTerrain?.terrain?.maps||[];
+      if(!maps.length){
+        const option=document.createElement("option");
+        option.value="";
+        option.textContent="No terrain";
+        terrainSelect.append(option);
+        terrainSelect.disabled=true;
+        terrainCanvas.replaceChildren();
+        terrainPoint.textContent="No point inspected";
+        terrainProposal.textContent="No crossing proposed";
+        terrainBinding.textContent="No crossing accepted";
+        terrainAccept.disabled=true;
+        terrainAccept.textContent="ACCEPT CROSSING";
+        return;
+      }
+
+      terrainSelect.disabled=false;
+      if(!maps.some(entry=>entry.terrainEntryId===activeTerrainEntryId))activeTerrainEntryId=maps[0].terrainEntryId;
+      for(const entry of maps){
+        const option=document.createElement("option");
+        option.value=entry.terrainEntryId;
+        option.textContent=`WAKE · ${entry.targetResidueId}`;
+        option.selected=entry.terrainEntryId===activeTerrainEntryId;
+        terrainSelect.append(option);
+      }
+
+      const entry=activeTerrainEntry();
+      const projection=terrainProjectionFor(entry);
+      terrainCanvas.innerHTML=projection?.svg||"";
+      const proposedFrame=possibilityProposal?.sourceMapHash===entry?.map?.mapHash?possibilityProposal.frame:null;
+      const acceptedFrame=possibilityBinding?.binding?.sourceMapHash===entry?.map?.mapHash?possibilityBinding.binding.frame:null;
+      for(const node of terrainCanvas.querySelectorAll(".possibility-point")){
+        const frame=Number(node.dataset.frame);
+        const point=(entry?.map?.points||[]).find(item=>item.frame===frame);
+        if(frame===proposedFrame)node.classList.add("is-proposed");
+        if(frame===acceptedFrame)node.classList.add("is-accepted");
+        node.addEventListener("pointerenter",()=>inspectTerrainFrame(frame,point));
+        node.addEventListener("focus",()=>inspectTerrainFrame(frame,point));
+        node.addEventListener("click",()=>{inspectTerrainFrame(frame,point);proposeTerrainPoint(frame);});
+      }
+
+      if(possibilityProposal?.sourceMapHash===entry?.map?.mapHash){
+        terrainProposal.textContent=`PROPOSAL · frame ${possibilityProposal.frame} · energy ${possibilityProposal.energy} · ${String(possibilityProposal.proposalHash||"").slice(0,16)}`;
+        terrainProposal.title=possibilityProposal.proposalHash||"";
+      }else{
+        terrainProposal.textContent="No crossing proposed";
+        terrainProposal.title="";
+      }
+
+      if(possibilityBinding?.binding){
+        terrainBinding.textContent=`ACCEPTED · frame ${possibilityBinding.binding.frame} · ${String(possibilityBinding.binding.bindingHash||"").slice(0,16)} · ${filename(possibilityBinding.path)}`;
+        terrainBinding.title=possibilityBinding.binding.bindingHash||"";
+      }else{
+        terrainBinding.textContent="No crossing accepted";
+        terrainBinding.title="";
+      }
+      terrainAccept.disabled=!possibilityProposal||possibilityProposal.sourceMapHash!==entry?.map?.mapHash||Boolean(possibilityBinding?.binding);
+      terrainAccept.textContent=possibilityBinding?.binding?"BOUND · NO EXECUTION":"ACCEPT CROSSING";
+    }
+
     function renderOnePass(){
       if(!onePassBegin||!onePassStatus||!onePassProgress||!onePassLanes||!onePassReceipt)return;
       const descendants=state.nextGen?.videoDigestion?.descendants||[];
@@ -1290,6 +1477,7 @@
       onePassEcologyError=null;
       onePassProgramBundle=null;
       onePassProgramError=null;
+      resetPossibilityTerrain();
       delete root.dataset.performanceProgramHash;
       onePassSession=onePassApi.beginOnePass(onePassApi.createOnePassSession({
         materials:descendants,
@@ -1395,6 +1583,7 @@
       syncControls();
       renderNextGen();
       renderOnePass();
+      renderTerrain();
       renderTimeline();
       renderPreview();
     }
@@ -1420,6 +1609,7 @@
         onePassEcologyError=null;
         onePassProgramBundle=null;
         onePassProgramError=null;
+        resetPossibilityTerrain();
         delete root.dataset.performanceProgramHash;
         root.classList.remove("one-pass-running");
         render();
@@ -1437,7 +1627,17 @@
     close?.addEventListener("click",()=>setOpen(false));
     nextGenLoad?.addEventListener("click",loadNextGen);
     onePassBegin?.addEventListener("click",()=>{beginOnePassTake().catch((error)=>{onePassStatus.textContent=error?.message||String(error);});});
-    onePassCompile?.addEventListener("click",()=>{compileOnePassTake().catch((error)=>{onePassProgramError=error?.message||String(error);renderOnePass();});});
+    onePassCompile?.addEventListener("click",()=>{compileOnePassTake().catch((error)=>{onePassProgramError=error?.message||String(error);renderOnePass();renderTerrain();});});
+    terrainBuild?.addEventListener("click",()=>{buildPossibilityTerrain().catch((error)=>{possibilityTerrainError=error?.message||String(error);renderTerrain();});});
+    terrainSelect?.addEventListener("change",()=>{
+      activeTerrainEntryId=terrainSelect.value||null;
+      possibilityProposal=null;
+      possibilityBinding=null;
+      delete root.dataset.possibilityProposalHash;
+      delete root.dataset.possibilityBindingHash;
+      renderTerrain();
+    });
+    terrainAccept?.addEventListener("click",()=>{acceptTerrainProposal().catch((error)=>{possibilityTerrainError=error?.message||String(error);renderTerrain();});});
     performanceAudio?.addEventListener("ended",()=>{
       finishOnePassTake((performanceAudio.currentTime||0)*1000).catch((error)=>{
         onePassPersistenceError=error?.message||String(error);

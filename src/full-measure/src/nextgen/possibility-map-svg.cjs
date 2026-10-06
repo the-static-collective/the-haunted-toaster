@@ -47,7 +47,7 @@ function renderPossibilityMapSvg(map,{width=960,height=320,padding=44}={}){
     const classes=["possibility-point"];
     if(minSet.has(point.frame))classes.push("minimum-observed");
     return [
-      `<circle class="${classes.join(" ")}" data-frame="${point.frame}" data-energy="${point.energy}" data-transition-hash="${point.transitionHash}" cx="${x(point.frame)}" cy="${y(point.energy)}" r="3.5">`,
+      `<circle class="${classes.join(" ")}" data-frame="${point.frame}" data-energy="${point.energy}" data-transition-hash="${point.transitionHash}" cx="${x(point.frame)}" cy="${y(point.energy)}" r="3.5" tabindex="0" role="button">`,
       `<title>frame ${point.frame} · energy ${point.energy}</title>`,
       "</circle>",
     ].join("");
