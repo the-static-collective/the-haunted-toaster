@@ -111,7 +111,7 @@ function frameFilters(program,globalFrame,localFrame,width,height){
   for(const action of active){
     const geometry=geometryForAction(action,globalFrame,width,height);
     const color=materialColor(action.sourceMaterialId,action.blend);
-    const alpha=clamp(Number(action.opacity)??1,0,1);
+    const opacity=Number(action.opacity);\n    const alpha=clamp(Number.isFinite(opacity)?opacity:1,0,1);
     const enable=`eq(n\\,${localFrame})`;
     filters.push(`drawbox=x=${geometry.x}:y=${geometry.y}:w=${geometry.boxWidth}:h=${geometry.boxHeight}:color=0x${color}@${alpha.toFixed(6)}:t=fill:enable='${enable}'`);
     filters.push(`drawbox=x=${geometry.markerX}:y=${geometry.markerY}:w=2:h=2:color=white@0.900000:t=fill:enable='${enable}'`);
