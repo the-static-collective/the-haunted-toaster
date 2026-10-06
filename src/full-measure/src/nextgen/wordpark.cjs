@@ -270,6 +270,71 @@ function dropLyric(session,{witnessId,moodLane,frame,x=null,y=null}={}){
   };
 }
 
+function dropLyricFromGuide(session,{entry,arrival}={}){
+  if(session?.schema!==WORDPARK_SCHEMA||session.status!=="running")throw new TypeError("WORDPARK session must be running.");
+  if(!entry||!arrival||entry.lineId!==arrival.lineId)throw new TypeError("WORDPARK guide arrival must match its queue entry.");
+  const lane=MOOD_LANES[arrival.moodLane];
+  if(!lane)throw new TypeError(`Unknown WORDPARK mood lane: ${arrival.moodLane}.`);
+  const dropFrame=Math.round(finite(arrival.actualFrame,"guide drop frame",0,session.totalFrames-1));
+  let witness=null;
+  if(entry.sourceWitnessId){
+    witness=findLyric(session,entry.sourceWitnessId);
+    if(witness.witnessId!==entry.sourceWitnessId)throw new TypeError("WORDPARK guide source witness mismatch.");
+  }else if(entry.state!=="CATCH"){
+    throw new TypeError("Only CATCH lyrics may enter WORDPARK without a timed ListeningField witness.");
+  }
+
+  const text=req(witness?.label||entry.text,"guide lyric text",500);
+  const geometry=geometryForLyric(text,arrival.moodLane,lane.entryX,lane.entryY);
+  const placementAuthority=arrival.timingSource==="human-punch"
+    ?"human-punched-performance-placement"
+    :arrival.timingSource==="human-anchor-scheduled"
+      ?"anchor-scheduled-performance-placement"
+      :"machine-scheduled-performance-placement";
+  const sourceAuthority=witness?.authority||"listener-unresolved";
+  const wordObject=canonicalize({
+    wordObjectId:`word:${session.dropSeq}:${entry.lineId}`,
+    sourceWitnessId:witness?.witnessId||null,
+    sourceLineId:entry.lineId,
+    sourceAuthority,
+    text,
+    cueStartFrame:witness?.startFrame??null,
+    cueEndFrame:witness?.endFrame??null,
+    scheduledFrame:arrival.scheduledFrame,
+    dropFrame,
+    timingSource:arrival.timingSource,
+    humanAnchorCreated:arrival.humanAnchorCreated===true,
+    moodLane:arrival.moodLane,
+    moodAuthority:lane.authority,
+    authority:placementAuthority,
+    geometry,
+  });
+  const construction=canonicalize({
+    seq:session.constructionTrace.length,
+    kind:"lyric-drop",
+    frame:dropFrame,
+    scheduledFrame:arrival.scheduledFrame,
+    timingSource:arrival.timingSource,
+    humanAnchorCreated:arrival.humanAnchorCreated===true,
+    wordObjectId:wordObject.wordObjectId,
+    sourceWitnessId:witness?.witnessId||null,
+    sourceLineId:entry.lineId,
+    sourceAuthority,
+    text,
+    moodLane:arrival.moodLane,
+    moodAuthority:lane.authority,
+    geometryKind:lane.geometryKind,
+    placementAuthority,
+    meaningClaim:null,
+  });
+  return {
+    ...session,
+    dropSeq:session.dropSeq+1,
+    wordObjects:[...session.wordObjects,wordObject],
+    constructionTrace:[...session.constructionTrace,construction],
+  };
+}
+
 function closestPointOnSegment(point,a,b){
   const abx=b.x-a.x,aby=b.y-a.y;
   const lengthSq=abx*abx+aby*aby;
@@ -469,6 +534,7 @@ module.exports={
   compileLyricVideoMap,
   createWordparkSession,
   dropLyric,
+  dropLyricFromGuide,
   geometryForLyric,
   sealWordparkPacket,
   stepWordpark,
