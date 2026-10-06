@@ -132,7 +132,7 @@ test("unmatched CATCH can be punched from alignment identity without a fake List
   assert.equal(arrival.humanAnchorCreated,true);
 });
 
-test("missed CATCH can remain unresolved while later scheduled lyrics continue",()=>{
+test("a missed CATCH falls behind when the next scheduled lyric arrives",()=>{
   const input=fixture();
   const queue=deriveLyricPerformanceQueue(input);
   let state=createLyricGuideState({queue,initialLane:"OPEN"});
@@ -140,16 +140,11 @@ test("missed CATCH can remain unresolved while later scheduled lyrics continue",
   state=advanceLyricGuide(state,queue.entries[0].proposedFrame);
   state=advanceLyricGuide(state,queue.entries[1].proposedFrame);
 
-  // line-3 is CATCH. Advancing beyond line-4 must not silently consume it.
-  state=advanceLyricGuide(state,queue.entries[3].proposedFrame+10);
-  assert.equal(state.cursor,2);
-  assert.deepEqual(state.arrivals.map(x=>x.lineId),["line-1","line-2"]);
-
-  // Explicit skip is lawful and does not create placement evidence.
-  const {skipCurrentLyric}=require("../src/nextgen/lyric-performance-queue.cjs");
-  state=skipCurrentLyric(state,{frame:queue.entries[3].proposedFrame,reason:"missed"});
-  assert.equal(state.cursor,3);
+  // line-3 is CATCH. It remains punchable until line-4 lawfully arrives.
   state=advanceLyricGuide(state,queue.entries[3].proposedFrame);
   assert.equal(state.arrivals.at(-1).lineId,"line-4");
+  assert.equal(state.misses.length,1);
   assert.equal(state.misses[0].lineId,"line-3");
+  assert.equal(state.misses[0].reason,"overtaken-by-scheduled-lyric");
+  assert.equal(state.cursor,4);
 });
