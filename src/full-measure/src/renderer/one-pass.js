@@ -45,6 +45,73 @@
     return value;
   }
 
+  function hash64(value,label){
+    const text=String(value||"").trim().toLowerCase();
+    if(!/^[a-f0-9]{64}$/.test(text))throw new TypeError(`${label} must be 64 lowercase hex characters.`);
+    return text;
+  }
+
+  function normalizeHistoryRef(value){
+    if(value===undefined||value===null)return null;
+    if(!value||typeof value!=="object"||Array.isArray(value))throw new TypeError("ONE PASS history ref must be an object.");
+    const allowed=new Set([
+      "authority","capsuleHash","generation","renderedMediaSha256","parentCapsuleHashes",
+      "lawFossilRef","worldLawCauseRef"
+    ]);
+    for(const key of Object.keys(value)){
+      if(!allowed.has(key))throw new TypeError(`ONE PASS history ref contains unsupported field: ${key}.`);
+    }
+    if(value.authority!=="provenance-only")throw new TypeError("ONE PASS history ref must remain provenance-only.");
+    const generation=Number(value.generation);
+    if(!Number.isSafeInteger(generation)||generation<1)throw new TypeError("ONE PASS history ref generation must be a positive integer.");
+    const parents=Array.isArray(value.parentCapsuleHashes)?value.parentCapsuleHashes:[];
+    if(parents.length>32)throw new TypeError("ONE PASS history ref parent list is too large.");
+    const ref={
+      authority:"provenance-only",
+      capsuleHash:hash64(value.capsuleHash,"ONE PASS history capsuleHash"),
+      generation,
+      renderedMediaSha256:hash64(value.renderedMediaSha256,"ONE PASS renderedMediaSha256"),
+      parentCapsuleHashes:parents.map((hash,index)=>hash64(hash,`ONE PASS parentCapsuleHashes[${index}]`)),
+    };
+    if(value.lawFossilRef!==undefined){
+      const fossil=value.lawFossilRef;
+      if(!fossil||typeof fossil!=="object"||Array.isArray(fossil)||fossil.schema!=="static-collective/law-fossil-ref/v0"||fossil.authority!=="provenance-only"){
+        throw new TypeError("ONE PASS history ref lawFossilRef is invalid.");
+      }
+      if(!Array.isArray(fossil.axes)||fossil.axes.length<1||fossil.axes.length>16)throw new TypeError("ONE PASS lawFossilRef axes are invalid.");
+      ref.lawFossilRef={
+        schema:fossil.schema,
+        authority:"provenance-only",
+        lawFossilHash:hash64(fossil.lawFossilHash,"ONE PASS lawFossilHash"),
+        weirdnessCompilationHash:hash64(fossil.weirdnessCompilationHash,"ONE PASS weirdnessCompilationHash"),
+        sourceProgramHash:hash64(fossil.sourceProgramHash,"ONE PASS fossil sourceProgramHash"),
+        compiledProgramHash:hash64(fossil.compiledProgramHash,"ONE PASS fossil compiledProgramHash"),
+        axes:fossil.axes.map((axis,index)=>{
+          const axisId=String(axis?.axisId||"").trim();
+          const amount=Number(axis?.amount);
+          if(!axisId||!Number.isFinite(amount)||amount<0||amount>1)throw new TypeError(`ONE PASS law fossil axis ${index} is invalid.`);
+          return {axisId,amount:Math.round(amount*1_000_000)/1_000_000};
+        }).sort((a,b)=>a.axisId.localeCompare(b.axisId)),
+        laws:["LAW FOSSIL REF != ACTIVE LAW","ANCESTRY != REACTIVATION"],
+      };
+    }
+    if(value.worldLawCauseRef!==undefined){
+      const cause=value.worldLawCauseRef;
+      if(!cause||typeof cause!=="object"||Array.isArray(cause)||cause.authority!=="provenance-only"){
+        throw new TypeError("ONE PASS history ref worldLawCauseRef is invalid.");
+      }
+      ref.worldLawCauseRef={
+        authority:"provenance-only",
+        causeHash:hash64(cause.causeHash,"ONE PASS causeHash"),
+        renderer:String(cause.renderer||"").trim(),
+        wholeRenderReceiptHash:hash64(cause.wholeRenderReceiptHash,"ONE PASS wholeRenderReceiptHash"),
+        frameGraphHash:hash64(cause.frameGraphHash,"ONE PASS frameGraphHash"),
+      };
+      if(!ref.worldLawCauseRef.renderer)throw new TypeError("ONE PASS worldLawCauseRef renderer is required.");
+    }
+    return ref;
+  }
+
   function normalizeMaterials(materials){
     if(!Array.isArray(materials)||materials.length!==6)throw new TypeError("ONE PASS requires exactly six admitted material lanes.");
     const seen=new Set();
@@ -54,12 +121,14 @@
       if(!materialId)throw new TypeError(`ONE PASS lane ${index+1} requires a materialId.`);
       if(seen.has(materialId))throw new TypeError("ONE PASS requires six distinct material lanes.");
       seen.add(materialId);
+      const historyRef=normalizeHistoryRef(material?.historyRef);
       return {
         lane:index,
         slot:Number(material?.slot)||index+1,
         roleId:String(material?.roleId||`lane-${index+1}`),
         materialId,
         sourceDurationFrames,
+        ...(historyRef?{historyRef}:{}),
       };
     });
   }
