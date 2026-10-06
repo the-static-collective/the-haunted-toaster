@@ -176,6 +176,7 @@ function createLyricGuideState({queue,initialLane="OPEN"}={}){
     laneChanges:[],
     arrivals:[],
     misses:[],
+    humanAnchors:[],
     lastFrame:0,
   }));
 }
@@ -269,12 +270,24 @@ function punchCurrentLyric(state,{frame}={}){
   const entry=state.queue.entries[state.cursor];
   if(!entry)throw new TypeError("No current lyric remains to punch.");
 
+  const anchor=canonicalize({
+    lineId:entry.lineId,
+    mediaTimeMs:Math.round((target/state.queue.formRef.fps)*1000),
+    source:"human-tap",
+    anchorVersion:"lyric-anchor/v1",
+    origin:"one-pass-punch",
+    authority:"human-timing-evidence",
+  });
   return deepFreeze(canonicalize({
     ...state,
     cursor:state.cursor+1,
     arrivals:[
       ...state.arrivals,
       arrivalFor(entry,target,state.laneLatch,"human-punch"),
+    ],
+    humanAnchors:[
+      ...state.humanAnchors.filter(existing=>existing.lineId!==entry.lineId),
+      anchor,
     ],
     lastFrame:target,
   }));
