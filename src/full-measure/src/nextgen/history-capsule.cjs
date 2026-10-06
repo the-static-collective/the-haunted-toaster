@@ -2,6 +2,7 @@
 
 const {canonicalize,deepFreeze,hashCanonical}=require("../generation/canonical.cjs");
 const {hashDomainForPlan}=require("../franken-composer/schema.cjs");
+const {lawFossilRef,validateLawFossil}=require("./law-fossil.cjs");
 
 const HISTORY_CAPSULE_SCHEMA="static-collective/rendered-history-capsule/v0";
 const HISTORY_CAPSULE_POLICY="render-authority-plus-context/v0";
@@ -64,6 +65,7 @@ function normalizeHistoricalContext(value={}){
   ]){
     if(value[key]!==undefined)out[key]=sha(value[key],`historicalContext.${key}`);
   }
+  if(value.lawFossil!==undefined)out.lawFossil=validateLawFossil(value.lawFossil);
   return canonicalize(out);
 }
 function normalizeParents(parents=[]){
@@ -136,6 +138,8 @@ function createRenderedHistoryCapsule({
       "SURROUNDING HISTORY != RENDER CAUSE",
       "PROVENANCE != BEHAVIOR",
       "PAST RELATION != FUTURE AUTHORITY",
+      "LAW FOSSIL != ACTIVE LAW",
+      "INHERITED WEIRDNESS != REACTIVATED WEIRDNESS",
       "RECURSION != DESTINY",
     ],
   });
@@ -154,6 +158,7 @@ function bindHistoryToVideo({historyCapsule,sourceSha256}={}){
     generation:capsule.generation,
     renderedMediaSha256:capsule.renderedMedia.sha256,
     parentCapsuleHashes:capsule.parents.map(parent=>parent.capsuleHash),
+    ...(capsule.historicalContext?.lawFossil?{lawFossilRef:lawFossilRef(capsule.historicalContext.lawFossil)}:{}),
   }));
 }
 
