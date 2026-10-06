@@ -531,6 +531,7 @@
       ){
         listeningField=null;
         updateListeningFieldStatus();
+        view?.dispatchEvent(new CustomEvent("full-measure:wordpark-context",{detail:null}));
         return null;
       }
       try{
