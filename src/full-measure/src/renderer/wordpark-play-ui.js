@@ -275,13 +275,13 @@
       raf=null;
     }
 
-    function sealRun(reason="complete"){
+    async function sealRun(reason="complete"){
       if(!running)return;
       running=false;
       cancelLoop();
       try{audio?.pause();}catch(_error){}
       try{
-        const sealed=bridge.wordparkSeal();
+        const sealed=await bridge.wordparkSeal();
         const hash=sealed?.packet?.performanceHash||"";
         status.textContent=`SEALED \u00b7 ${reason} \u00b7 ${hash?hash.slice(0,12):"witness held"}`;
       }catch(error){
@@ -293,13 +293,13 @@
 
     function runLoop(){
       cancelLoop();
-      const tick=()=>{
+      const tick=async()=>{
         if(!running||!snapshot?.active){raf=null;return;}
         try{
           const frame=currentFrame();
           if(frame>snapshot.frame){
             const vector=steering();
-            snapshot=bridge.wordparkAdvanceTo({frame,steerX:vector.x,steerY:vector.y});
+            snapshot=await bridge.wordparkAdvanceTo({frame,steerX:vector.x,steerY:vector.y});
           }
           updateHud();
           if(audio?.ended||snapshot.frame>=snapshot.totalFrames-1){
@@ -321,7 +321,7 @@
     async function beginRun(){
       if(!context||running)return;
       try{
-        snapshot=bridge.wordparkStart({
+        snapshot=await bridge.wordparkStart({
           fullSongForm:context.fullSongForm,
           listeningField:context.listeningField,
           alignment:context.alignment,
@@ -343,20 +343,20 @@
       }
     }
 
-    function setLane(nextLane){
+    async function setLane(nextLane){
       if(!LANES.includes(nextLane))return;
       lane=nextLane;
       if(running&&snapshot?.active){
-        try{snapshot=bridge.wordparkSetLane({moodLane:lane,frame:currentFrame()});}
+        try{snapshot=await bridge.wordparkSetLane({moodLane:lane,frame:currentFrame()});}
         catch(error){status.textContent=error?.message||String(error);}
       }
       updateHud();
     }
 
-    function punch(){
+    async function punch(){
       if(!running||!snapshot?.active)return;
       try{
-        snapshot=bridge.wordparkPunch({frame:currentFrame()});
+        snapshot=await bridge.wordparkPunch({frame:currentFrame()});
         updateHud();
       }catch(error){
         status.textContent=`NOW refused \u00b7 ${error?.message||error}`;
@@ -368,7 +368,7 @@
       running=false;
       cancelLoop();
       try{audio?.pause();}catch(_error){}
-      try{bridge.wordparkReset();}catch(_error){}
+      Promise.resolve(bridge.wordparkReset()).catch(()=>{});
       snapshot=null;
       if(audio&&context?.audio?.url)audio.src=context.audio.url;
       updateHud();
