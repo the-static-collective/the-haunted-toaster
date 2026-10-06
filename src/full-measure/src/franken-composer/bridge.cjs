@@ -11,7 +11,7 @@ const {composeFrankenProposal,applyFrankenEdits,proposalToComposition}=require("
 const {freezeFrankenComposition}=require("./freeze.cjs");
 const {fingerprint256,stableStringify}=require("../renderer/one-pass.js");
 const {compilePerformanceTrace}=require("../nextgen/performance-trace.cjs");
-const {compileResidueMemory}=require("../nextgen/residue-memory.cjs");
+const {compileResidueMemory}=require("../nextgen/residue-memory.cjs");\nconst {compilePerformanceBundle}=require("../nextgen/performance-program.cjs");
 
 const JSON_EXTENSIONS=new Set([".json"]);
 const VIDEO_EXTENSIONS=new Set([".mp4"]);
@@ -151,6 +151,38 @@ function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
         residueMemory,
       });
     },
+    async writePerformanceProgramBundle(receipt){
+      const validated=validateOnePassReceipt(receipt);
+      const {program,renderRegionPlan,executionReceipt}=compilePerformanceBundle(validated);
+      const dir=path.join(outputRoot,"performance-program",program.programHash);
+      const programPath=path.join(dir,"performance-program.json");
+      const renderRegionPlanPath=path.join(dir,"render-region-plan.json");
+      const executionReceiptPath=path.join(dir,"execution-receipt.json");
+      await fs.mkdir(dir,{recursive:true});
+      for(const [file,value] of [
+        [programPath,program],
+        [renderRegionPlanPath,renderRegionPlan],
+        [executionReceiptPath,executionReceipt],
+      ]){
+        const bytes=canonicalBytes(value);
+        try{
+          await fs.writeFile(file,bytes,{flag:"wx"});
+        }catch(error){
+          if(error?.code!=="EEXIST")throw error;
+          const existing=await fs.readFile(file);
+          if(!existing.equals(bytes))throw new Error("Existing PerformanceProgram artifact bytes do not match the compiled take.");
+        }
+      }
+      return {
+        directory:dir,
+        programPath,
+        renderRegionPlanPath,
+        executionReceiptPath,
+        programHash:program.programHash,
+        regionPlanHash:renderRegionPlan.regionPlanHash,
+        executionStateHash:executionReceipt.stateHash,
+      };
+    },
     async writeOnePassReceipt(receipt){
       const validated=validateOnePassReceipt(receipt);
       const dir=path.join(outputRoot,"one-pass");
@@ -182,7 +214,7 @@ function registerFrankenComposerIpc(ipcMain,{dialog,getWindow,rootDir,assertAvai
   ipcMain.handle("franken:compose",async(_event,config)=>{assertAvailable();return service.compose(config);});
   ipcMain.handle("franken:freeze",async(_event,config)=>{assertAvailable();const result=await service.freeze(config);return {plan:result.plan,planHash:result.planHash};});
   ipcMain.handle("franken:derive-performance-ecology",async(_event,receipt)=>{assertAvailable();return service.derivePerformanceEcology(receipt);});
-  ipcMain.handle("franken:write-one-pass-receipt",async(_event,receipt)=>{assertAvailable();return service.writeOnePassReceipt(receipt);});
+  ipcMain.handle("franken:write-performance-program-bundle",async(_event,receipt)=>{assertAvailable();return service.writePerformanceProgramBundle(receipt);});\n  ipcMain.handle("franken:write-one-pass-receipt",async(_event,receipt)=>{assertAvailable();return service.writeOnePassReceipt(receipt);});
   ipcMain.handle("franken:write-projection-bundle",async(_event,config)=>{assertAvailable();return service.writeProjectionBundle(config);});
   return service;
 }
