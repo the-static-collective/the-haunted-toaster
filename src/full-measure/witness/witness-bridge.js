@@ -314,6 +314,122 @@
     };
   }
 
+  let wordparkWitnessState = null;
+
+  function witnessWordparkSnapshot() {
+    if (!wordparkWitnessState) {
+      return { schema: "static-collective/wordpark-play-snapshot/v0", active: false };
+    }
+    return structuredClone({
+      schema: "static-collective/wordpark-play-snapshot/v0",
+      active: true,
+      authority: "view-snapshot-only",
+      queueHash: "9".repeat(64),
+      totalFrames: 720,
+      fps: 24,
+      frame: wordparkWitnessState.frame,
+      laneLatch: wordparkWitnessState.lane,
+      cursor: wordparkWitnessState.cursor,
+      lookahead: wordparkWitnessState.entries.slice(wordparkWitnessState.cursor, wordparkWitnessState.cursor + 3),
+      ball: wordparkWitnessState.ball,
+      wordObjects: wordparkWitnessState.wordObjects,
+      arrivalCount: wordparkWitnessState.wordObjects.length,
+      missCount: wordparkWitnessState.misses.length,
+      humanAnchorCount: wordparkWitnessState.humanAnchors,
+      misses: wordparkWitnessState.misses,
+    });
+  }
+
+  function startWitnessWordpark() {
+    wordparkWitnessState = {
+      frame: 0,
+      lane: "OPEN",
+      cursor: 0,
+      ball: { x: .28, y: .4, vx: .18, vy: 0, radius: .025 },
+      wordObjects: [],
+      misses: [],
+      humanAnchors: 0,
+      entries: [
+        { queueIndex: 0, lineId: "w1", text: "The house takes attendance", state: "READY", proposedFrame: 48, autoArrival: true },
+        { queueIndex: 1, lineId: "w2", text: "Wire heat in the orchard", state: "WATCH", proposedFrame: 120, autoArrival: true },
+        { queueIndex: 2, lineId: "w3", text: "One honest missing phrase", state: "CATCH", proposedFrame: null, autoArrival: false },
+        { queueIndex: 3, lineId: "w4", text: "Native color comes home", state: "ANCHORED", proposedFrame: 240, autoArrival: true },
+      ],
+    };
+    return witnessWordparkSnapshot();
+  }
+
+  function witnessWordObject(entry, frame, timingSource) {
+    const lane = wordparkWitnessState.lane;
+    const y = { OPEN: .2, TENDER: .4, STRANGE: .6, HARD: .8 }[lane] || .2;
+    const text = entry.text;
+    const chars = [...text];
+    const glyphs = chars.map((char, index) => ({
+      index,
+      char,
+      x: .55 + (index / Math.max(1, chars.length - 1)) * .35,
+      y,
+      rotationDegrees: lane === "STRANGE" ? -14 : lane === "HARD" ? 90 : 0,
+    }));
+    const path = [
+      { x: .54, y },
+      { x: .72, y: lane === "STRANGE" ? y + .07 : y },
+      { x: .9, y: lane === "STRANGE" ? y - .07 : y },
+    ];
+    return {
+      wordObjectId: `witness-word-${entry.lineId}`,
+      sourceWitnessId: entry.state === "CATCH" ? null : `lyric:${entry.lineId}`,
+      sourceLineId: entry.lineId,
+      text,
+      cueStartFrame: entry.proposedFrame,
+      cueEndFrame: entry.proposedFrame == null ? null : entry.proposedFrame + 36,
+      scheduledFrame: entry.proposedFrame,
+      dropFrame: frame,
+      timingSource,
+      humanAnchorCreated: timingSource === "human-punch",
+      moodLane: lane,
+      moodAuthority: "performance-choice",
+      authority: timingSource === "human-punch"
+        ? "human-punched-performance-placement"
+        : timingSource === "human-anchor-scheduled"
+          ? "anchor-scheduled-performance-placement"
+          : "machine-scheduled-performance-placement",
+      geometry: {
+        kind: { OPEN: "platform", TENDER: "bowl", STRANGE: "ramp", HARD: "wall" }[lane],
+        path,
+        glyphs,
+        collisionSegments: path.slice(0, -1).map((point, index) => ({ from: point, to: path[index + 1] })),
+      },
+    };
+  }
+
+  function advanceWitnessWordpark({ frame, steerX = 0, steerY = 0 } = {}) {
+    if (!wordparkWitnessState) throw new Error("Start WORDPARK first.");
+    const target = Math.max(wordparkWitnessState.frame, Math.min(719, Math.round(Number(frame) || 0)));
+    wordparkWitnessState.frame = target;
+    wordparkWitnessState.ball.x = Math.max(.03, Math.min(.97, wordparkWitnessState.ball.x + Number(steerX || 0) * .015));
+    wordparkWitnessState.ball.y = Math.max(.03, Math.min(.97, wordparkWitnessState.ball.y + Number(steerY || 0) * .015));
+
+    while (wordparkWitnessState.cursor < wordparkWitnessState.entries.length) {
+      const entry = wordparkWitnessState.entries[wordparkWitnessState.cursor];
+      if (entry.state === "CATCH") {
+        const later = wordparkWitnessState.entries.slice(wordparkWitnessState.cursor + 1)
+          .find((item) => item.autoArrival && item.proposedFrame != null);
+        if (later && later.proposedFrame <= target) {
+          wordparkWitnessState.misses.push({ lineId: entry.lineId, reason: "overtaken-by-scheduled-lyric" });
+          wordparkWitnessState.cursor += 1;
+          continue;
+        }
+        break;
+      }
+      if (entry.proposedFrame > target) break;
+      const timingSource = entry.state === "ANCHORED" ? "human-anchor-scheduled" : "machine-scheduled";
+      wordparkWitnessState.wordObjects.push(witnessWordObject(entry, entry.proposedFrame, timingSource));
+      wordparkWitnessState.cursor += 1;
+    }
+    return witnessWordparkSnapshot();
+  }
+
   window.fullMeasure = Object.freeze({
     chooseAudio: async () => "/witness/Dreamstate Divide.wav",
     chooseImage: async () => "/witness/native-color-specimen.png",
@@ -402,6 +518,40 @@
     chooseFrankenBlenderReceipt: async () => "/witness/franken/accepted-take.mp4.receipt.json",
     chooseFrankenBlenderVideo: async () => "/witness/franken/accepted-take.mp4",
     deriveFrankenFullSongForm: async (input = {}) => witnessFullSongForm(input),
+    wordparkStart: () => startWitnessWordpark(),
+    wordparkSetLane: ({ moodLane } = {}) => {
+      if (!wordparkWitnessState) throw new Error("Start WORDPARK first.");
+      wordparkWitnessState.lane = ["OPEN", "TENDER", "STRANGE", "HARD"].includes(moodLane) ? moodLane : wordparkWitnessState.lane;
+      return witnessWordparkSnapshot();
+    },
+    wordparkAdvanceTo: (input = {}) => advanceWitnessWordpark(input),
+    wordparkPunch: ({ frame } = {}) => {
+      if (!wordparkWitnessState) throw new Error("Start WORDPARK first.");
+      const entry = wordparkWitnessState.entries[wordparkWitnessState.cursor];
+      if (!entry) throw new Error("No lyric remains to punch.");
+      const target = Math.max(wordparkWitnessState.frame, Math.min(719, Math.round(Number(frame) || wordparkWitnessState.frame)));
+      wordparkWitnessState.frame = target;
+      wordparkWitnessState.wordObjects.push(witnessWordObject(entry, target, "human-punch"));
+      wordparkWitnessState.humanAnchors += 1;
+      wordparkWitnessState.cursor += 1;
+      return witnessWordparkSnapshot();
+    },
+    wordparkSnapshot: () => witnessWordparkSnapshot(),
+    wordparkSeal: () => ({
+      packet: {
+        schema: "static-collective/wordpark-performance/v0",
+        authority: "witness-only",
+        performanceHash: "8".repeat(64),
+      },
+      guide: {
+        queueHash: "9".repeat(64),
+        misses: structuredClone(wordparkWitnessState?.misses || []),
+      },
+    }),
+    wordparkReset: () => {
+      wordparkWitnessState = null;
+      return witnessWordparkSnapshot();
+    },
     composeFranken: async (config = {}) => {
       const base = witnessFrankenProposal(config.edits?.digestPlacements || []);
       const proposal = {
