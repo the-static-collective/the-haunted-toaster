@@ -24,8 +24,8 @@ function historyRef(){
       sourceProgramHash:"f".repeat(64),
       compiledProgramHash:"1".repeat(64),
       axes:[
-        {axisId:"experienced-time-agreement",amount:.45},
         {axisId:"coordinate-agreement",amount:.7},
+        {axisId:"experienced-time-agreement",amount:.45},
       ],
       laws:["LAW FOSSIL REF != ACTIVE LAW","ANCESTRY != REACTIVATION"],
     },
