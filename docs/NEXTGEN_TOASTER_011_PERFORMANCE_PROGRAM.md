@@ -150,7 +150,7 @@ ATTEMPT COUNT != COVERAGE
 DUPLICATE WORK != DOUBLE CREDIT
 ```
 
-After the exact missing set is completed, the aggregate deterministic output digest equals a clean one-pass execution of all 48 regions.
+After the exact missing set is completed, the aggregate deterministic simulation digest equals a clean one-pass execution of all 48 regions.
 
 That proves the local accounting seam.
 
@@ -200,7 +200,7 @@ REGION PLAN != COMPUTE AUTHORITY
 REGION ASSIGNMENT != COMPUTE CAPACITY AUTHORITY
 ATTEMPT COUNT != COVERAGE
 DUPLICATE WORK != DOUBLE CREDIT
-REGION OUTPUT WITNESS != RENDERED PIXEL PROOF
+REGION SIMULATION DIGEST != RENDERED PIXEL PROOF
 EXECUTION RECEIPT != ECONOMIC VALUE
 EXECUTION RECEIPT != OWNERSHIP
 EXECUTION RECEIPT != CONTINUATION AUTHORITY
