@@ -24,8 +24,6 @@ function validateOnePassReceipt(receipt){
   if(receipt.schema!=="static-collective/one-pass-performance-receipt/v0")throw new TypeError("Unsupported ONE PASS receipt schema.");
   if(receipt.authority!=="witness-only")throw new TypeError("ONE PASS receipt must remain witness-only.");
   if(!/^[a-f0-9]{64}$/.test(String(receipt.performanceHash||"")))throw new TypeError("ONE PASS performance hash must be 64 lowercase hex characters.");
-  const {performanceHash,...witness}=receipt;
-  if(fingerprint256(stableStringify(witness))!==performanceHash)throw new TypeError("ONE PASS receipt fingerprint mismatch.");
   if(!Array.isArray(receipt.events)||receipt.events.length>192)throw new TypeError("ONE PASS receipt events are outside the bounded performance envelope.");
   if(!Array.isArray(receipt.placements)||receipt.placements.length>96)throw new TypeError("ONE PASS receipt placements are outside the bounded performance envelope.");
   if(receipt.spatialSamples!==undefined&&!Array.isArray(receipt.spatialSamples))throw new TypeError("ONE PASS receipt spatial samples must be an array when present.");
@@ -33,6 +31,8 @@ function validateOnePassReceipt(receipt){
   if(spatialSamples.length>384)throw new TypeError("ONE PASS receipt spatial samples are outside the bounded performance envelope.");
   if(receipt.eventCount!==receipt.events.length||receipt.placementCount!==receipt.placements.length)throw new TypeError("ONE PASS receipt counts do not match its body.");
   if(receipt.spatialSampleCount!==undefined&&receipt.spatialSampleCount!==spatialSamples.length)throw new TypeError("ONE PASS receipt spatial sample count does not match its body.");
+  const {performanceHash,...witness}=receipt;
+  if(fingerprint256(stableStringify(witness))!==performanceHash)throw new TypeError("ONE PASS receipt fingerprint mismatch.");
   return canonicalize(receipt);
 }
 async function assertLocalFile(filePath,extensions,label){
