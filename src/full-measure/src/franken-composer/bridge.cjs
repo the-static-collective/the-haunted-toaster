@@ -285,6 +285,7 @@ function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
         result:executed.result,
         receiptCount:executed.receipts.length,
         receipts:executed.receipts,
+        outputs:executed.outputs||[],
         ...paths,
       };
     },
