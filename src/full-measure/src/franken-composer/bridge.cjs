@@ -11,7 +11,8 @@ const {composeFrankenProposal,applyFrankenEdits,proposalToComposition}=require("
 const {freezeFrankenComposition}=require("./freeze.cjs");
 const {fingerprint256,stableStringify}=require("../renderer/one-pass.js");
 const {compilePerformanceTrace}=require("../nextgen/performance-trace.cjs");
-const {compileResidueMemory}=require("../nextgen/residue-memory.cjs");\nconst {compilePerformanceBundle}=require("../nextgen/performance-program.cjs");
+const {compileResidueMemory}=require("../nextgen/residue-memory.cjs");
+const {compilePerformanceBundle}=require("../nextgen/performance-program.cjs");
 
 const JSON_EXTENSIONS=new Set([".json"]);
 const VIDEO_EXTENSIONS=new Set([".mp4"]);
@@ -214,7 +215,8 @@ function registerFrankenComposerIpc(ipcMain,{dialog,getWindow,rootDir,assertAvai
   ipcMain.handle("franken:compose",async(_event,config)=>{assertAvailable();return service.compose(config);});
   ipcMain.handle("franken:freeze",async(_event,config)=>{assertAvailable();const result=await service.freeze(config);return {plan:result.plan,planHash:result.planHash};});
   ipcMain.handle("franken:derive-performance-ecology",async(_event,receipt)=>{assertAvailable();return service.derivePerformanceEcology(receipt);});
-  ipcMain.handle("franken:write-performance-program-bundle",async(_event,receipt)=>{assertAvailable();return service.writePerformanceProgramBundle(receipt);});\n  ipcMain.handle("franken:write-one-pass-receipt",async(_event,receipt)=>{assertAvailable();return service.writeOnePassReceipt(receipt);});
+  ipcMain.handle("franken:write-performance-program-bundle",async(_event,receipt)=>{assertAvailable();return service.writePerformanceProgramBundle(receipt);});
+  ipcMain.handle("franken:write-one-pass-receipt",async(_event,receipt)=>{assertAvailable();return service.writeOnePassReceipt(receipt);});
   ipcMain.handle("franken:write-projection-bundle",async(_event,config)=>{assertAvailable();return service.writeProjectionBundle(config);});
   return service;
 }
