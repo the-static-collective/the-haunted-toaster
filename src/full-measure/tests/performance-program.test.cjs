@@ -165,6 +165,10 @@ test("tampered program and region receipts fail closed",()=>{
     ()=>validateRegionExecutionReceipt(program,{...valid,simulationDigest:"0".repeat(64)}),
     /simulation digest mismatch/i,
   );
+  assert.throws(
+    ()=>validateRegionExecutionReceipt(program,{...valid,executionKind:"real-render"}),
+    /kind mismatch/i,
+  );
 });
 
 test("Franken service writes the three 011 artifacts create-only and byte-stable",async()=>{
