@@ -133,12 +133,16 @@ body.franken-open{overflow:hidden}
 .franken-one-pass-meta{display:flex;justify-content:space-between;gap:12px;color:var(--muted,#999);font-size:8px}
 .franken-one-pass-meta kbd{display:inline-grid;place-items:center;min-width:19px;height:19px;margin-right:3px;border:1px solid rgba(255,255,255,.16);border-radius:4px;background:rgba(0,0,0,.35);color:#f5f1e8;font:inherit}
 .franken-one-pass code{display:block;margin-top:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#f4df9c;font-size:8px}
+.franken-one-pass-compile{display:grid;grid-template-columns:auto minmax(0,1fr);gap:9px;align-items:center;margin-top:9px}
+.franken-one-pass-compile button{min-height:34px;padding:0 12px;border:1px solid rgba(244,223,156,.42);border-radius:7px;background:rgba(244,223,156,.08);color:#f4df9c;font-weight:800;letter-spacing:.08em}
+.franken-one-pass-compile button:disabled{opacity:.32}
+.franken-one-pass-compile code{margin-top:0}
 .franken-composer-window.one-pass-running .franken-source-grid,
 .franken-composer-window.one-pass-running .franken-controls,
 .franken-composer-window.one-pass-running .franken-actions,
 .franken-composer-window.one-pass-running .franken-digestion-reservoir,
 .franken-composer-window.one-pass-running .franken-timeline-shell{pointer-events:none;opacity:.36}
-@media(max-width:980px){.franken-one-pass-lanes{grid-template-columns:repeat(3,1fr)}.franken-one-pass-heading,.franken-one-pass-meta{align-items:flex-start;flex-direction:column}}
+@media(max-width:980px){.franken-one-pass-lanes{grid-template-columns:repeat(3,1fr)}.franken-one-pass-heading,.franken-one-pass-meta{align-items:flex-start;flex-direction:column}.franken-one-pass-compile{grid-template-columns:1fr}}
 
 #frankenComposerWindow[data-one-pass-painting="true"] .franken-preview-viewport{outline:2px solid rgba(244,223,156,.72);outline-offset:2px;cursor:crosshair}
 #frankenComposerWindow[data-one-pass-painting="true"] .franken-preview-viewport::after{content:"PERFORMING PATH";position:absolute;right:6px;bottom:6px;padding:3px 5px;border:1px solid rgba(244,223,156,.35);background:rgba(11,11,16,.76);color:#f4df9c;font-size:7px;letter-spacing:.12em;pointer-events:none}

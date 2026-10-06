@@ -12,6 +12,7 @@ const {freezeFrankenComposition}=require("./freeze.cjs");
 const {fingerprint256,stableStringify}=require("../renderer/one-pass.js");
 const {compilePerformanceTrace}=require("../nextgen/performance-trace.cjs");
 const {compileResidueMemory}=require("../nextgen/residue-memory.cjs");
+const {compilePerformanceBundle}=require("../nextgen/performance-program.cjs");
 
 const JSON_EXTENSIONS=new Set([".json"]);
 const VIDEO_EXTENSIONS=new Set([".mp4"]);
@@ -23,8 +24,6 @@ function validateOnePassReceipt(receipt){
   if(receipt.schema!=="static-collective/one-pass-performance-receipt/v0")throw new TypeError("Unsupported ONE PASS receipt schema.");
   if(receipt.authority!=="witness-only")throw new TypeError("ONE PASS receipt must remain witness-only.");
   if(!/^[a-f0-9]{64}$/.test(String(receipt.performanceHash||"")))throw new TypeError("ONE PASS performance hash must be 64 lowercase hex characters.");
-  const {performanceHash,...witness}=receipt;
-  if(fingerprint256(stableStringify(witness))!==performanceHash)throw new TypeError("ONE PASS receipt fingerprint mismatch.");
   if(!Array.isArray(receipt.events)||receipt.events.length>192)throw new TypeError("ONE PASS receipt events are outside the bounded performance envelope.");
   if(!Array.isArray(receipt.placements)||receipt.placements.length>96)throw new TypeError("ONE PASS receipt placements are outside the bounded performance envelope.");
   if(receipt.spatialSamples!==undefined&&!Array.isArray(receipt.spatialSamples))throw new TypeError("ONE PASS receipt spatial samples must be an array when present.");
@@ -32,6 +31,8 @@ function validateOnePassReceipt(receipt){
   if(spatialSamples.length>384)throw new TypeError("ONE PASS receipt spatial samples are outside the bounded performance envelope.");
   if(receipt.eventCount!==receipt.events.length||receipt.placementCount!==receipt.placements.length)throw new TypeError("ONE PASS receipt counts do not match its body.");
   if(receipt.spatialSampleCount!==undefined&&receipt.spatialSampleCount!==spatialSamples.length)throw new TypeError("ONE PASS receipt spatial sample count does not match its body.");
+  const {performanceHash,...witness}=receipt;
+  if(fingerprint256(stableStringify(witness))!==performanceHash)throw new TypeError("ONE PASS receipt fingerprint mismatch.");
   return canonicalize(receipt);
 }
 async function assertLocalFile(filePath,extensions,label){
@@ -151,6 +152,38 @@ function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
         residueMemory,
       });
     },
+    async writePerformanceProgramBundle(receipt){
+      const validated=validateOnePassReceipt(receipt);
+      const {program,renderRegionPlan,executionReceipt}=compilePerformanceBundle(validated);
+      const dir=path.join(outputRoot,"performance-program",program.programHash);
+      const programPath=path.join(dir,"performance-program.json");
+      const renderRegionPlanPath=path.join(dir,"render-region-plan.json");
+      const executionReceiptPath=path.join(dir,"execution-receipt.json");
+      await fs.mkdir(dir,{recursive:true});
+      for(const [file,value] of [
+        [programPath,program],
+        [renderRegionPlanPath,renderRegionPlan],
+        [executionReceiptPath,executionReceipt],
+      ]){
+        const bytes=canonicalBytes(value);
+        try{
+          await fs.writeFile(file,bytes,{flag:"wx"});
+        }catch(error){
+          if(error?.code!=="EEXIST")throw error;
+          const existing=await fs.readFile(file);
+          if(!existing.equals(bytes))throw new Error("Existing PerformanceProgram artifact bytes do not match the compiled take.");
+        }
+      }
+      return {
+        directory:dir,
+        programPath,
+        renderRegionPlanPath,
+        executionReceiptPath,
+        programHash:program.programHash,
+        regionPlanHash:renderRegionPlan.regionPlanHash,
+        executionStateHash:executionReceipt.stateHash,
+      };
+    },
     async writeOnePassReceipt(receipt){
       const validated=validateOnePassReceipt(receipt);
       const dir=path.join(outputRoot,"one-pass");
@@ -182,6 +215,7 @@ function registerFrankenComposerIpc(ipcMain,{dialog,getWindow,rootDir,assertAvai
   ipcMain.handle("franken:compose",async(_event,config)=>{assertAvailable();return service.compose(config);});
   ipcMain.handle("franken:freeze",async(_event,config)=>{assertAvailable();const result=await service.freeze(config);return {plan:result.plan,planHash:result.planHash};});
   ipcMain.handle("franken:derive-performance-ecology",async(_event,receipt)=>{assertAvailable();return service.derivePerformanceEcology(receipt);});
+  ipcMain.handle("franken:write-performance-program-bundle",async(_event,receipt)=>{assertAvailable();return service.writePerformanceProgramBundle(receipt);});
   ipcMain.handle("franken:write-one-pass-receipt",async(_event,receipt)=>{assertAvailable();return service.writeOnePassReceipt(receipt);});
   ipcMain.handle("franken:write-projection-bundle",async(_event,config)=>{assertAvailable();return service.writeProjectionBundle(config);});
   return service;
