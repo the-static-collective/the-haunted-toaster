@@ -5,6 +5,8 @@ const crypto = require("node:crypto");
 const { canonicalSpecimenId, VIDEO_SOURCE_SCHEMA } = require("./schema.cjs");
 const { loadCatalog, saveCatalog, upsertSpecimen } = require("./catalog.cjs");
 const { probeVideo } = require("./probe.cjs");
+const { bindHistoryToVideo, validateRenderedHistoryCapsule } = require("../nextgen/history-capsule.cjs");
+const { historySidecarPath } = require("../nextgen/history-sidecar.cjs");
 
 const SUPPORTED_VIDEO_EXTENSIONS = new Set([".mp4", ".webm"]);
 
@@ -34,6 +36,32 @@ async function assertSupportedVideo(filePath) {
   return resolved;
 }
 
+async function discoverHistorySidecar(filePath,{sourceSha256,byteLength}={}){
+  const sidecarPath=historySidecarPath(filePath);
+  let raw;
+  try{
+    raw=await fsp.readFile(sidecarPath,"utf8");
+  }catch(error){
+    if(error?.code==="ENOENT")return null;
+    throw error;
+  }
+  let parsed;
+  try{
+    parsed=JSON.parse(raw);
+  }catch(error){
+    throw new TypeError(`History sidecar is not valid JSON: ${error?.message||error}`);
+  }
+  const historyCapsule=validateRenderedHistoryCapsule(parsed);
+  if(historyCapsule.renderedMedia.byteLength!==undefined&&historyCapsule.renderedMedia.byteLength!==Number(byteLength)){
+    throw new TypeError("History capsule byte length does not match the admitted video bytes.");
+  }
+  const historyRef=bindHistoryToVideo({
+    historyCapsule,
+    sourceSha256,
+  });
+  return {historyCapsule,historyRef,sidecarPath};
+}
+
 async function admitVideo(
   filePath,
   {
@@ -52,6 +80,7 @@ async function admitVideo(
   const specimenId = canonicalSpecimenId({ sha256, byteLength });
   const admittedAt = observedAt ? new Date(observedAt).toISOString() : new Date().toISOString();
   const filename = path.basename(resolved);
+  const history=await discoverHistorySidecar(resolved,{sourceSha256:sha256,byteLength});
   const binding = {
     schema: VIDEO_SOURCE_SCHEMA,
     specimenId,
@@ -61,6 +90,10 @@ async function admitVideo(
     filename,
     probe: structuredClone(probe),
     persisted: persist === true,
+    ...(history?{
+      historyRef:structuredClone(history.historyRef),
+      historyCapsule:structuredClone(history.historyCapsule),
+    }:{}),
   };
 
   if (persist !== true) {
@@ -77,6 +110,10 @@ async function admitVideo(
     paths: [resolved],
     probe: structuredClone(probe),
     analysis: { state: "pending", version: null },
+    ...(history?{
+      historyRef:structuredClone(history.historyRef),
+      historySidecarPath:history.sidecarPath,
+    }:{}),
     admittedAt,
   };
   const upserted = upsertSpecimen(catalog, specimen);
@@ -88,5 +125,6 @@ module.exports = {
   SUPPORTED_VIDEO_EXTENSIONS,
   admitVideo,
   assertSupportedVideo,
+  discoverHistorySidecar,
   hashFile,
 };
