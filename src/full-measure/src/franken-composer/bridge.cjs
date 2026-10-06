@@ -31,6 +31,12 @@ const {
   materializeCandidateReview,
   validateReviewMediaReceipt,
 }=require("../nextgen/artifact-adoption.cjs");
+const {
+  admitAdoptedArtifactImport,
+  createAdoptedArtifactImportProposal,
+  validateAdoptedArtifactImportProposal,
+  validateAdoptedMaterialAdmission,
+}=require("../nextgen/adopted-artifact-promotion.cjs");
 
 const JSON_EXTENSIONS=new Set([".json"]);
 const VIDEO_EXTENSIONS=new Set([".mp4"]);
@@ -121,7 +127,7 @@ function previewAssets(proposal,assetBindings={}){
       }]),
   ));
 }
-async function buildProposal(config,{getNextGenContext=null}={}){
+async function buildProposal(config,{getNextGenContext=null,promotedReservoir=null}={}){
   const {playdeck,sourcePaths}=await playdeckInputs(config?.deckPath,config?.worldRulePath,config?.playdeckAssetMapPath);
   const {blenderTake,videoPath}=await blenderInputs(config?.blenderAcceptancePath,config?.blenderReceiptPath,config?.blenderVideoPath);
   let nextGenContext=null;
@@ -141,6 +147,7 @@ async function buildProposal(config,{getNextGenContext=null}={}){
     blenderTake,
     seed:String(config?.seed||"franken-001"),
     nextGenContext,
+    promotedReservoir,
   });
   if(config?.edits)proposal=applyFrankenEdits(proposal,config.edits);
   const reservoir=nextGenContext?frankenVideoDigestionReservoir(nextGenContext):{bindings:{}};
@@ -150,14 +157,57 @@ async function buildProposal(config,{getNextGenContext=null}={}){
       ...sourcePaths,
       [blenderTake.material.materialId]:videoPath,
       ...reservoir.bindings,
+      ...(promotedReservoir?.bindings||{}),
     },
   };
 }
 function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
   const outputRoot=path.resolve(rootDir||path.join(process.cwd(),"FrankenComposer"));
+
+  async function adoptedArtifactReservoir(admissionPaths=[]){
+    if(admissionPaths==null)return {materials:[],bindings:{},records:[]};
+    if(!Array.isArray(admissionPaths)||admissionPaths.length>16)throw new TypeError("Adopted artifact admissions must be an array of at most sixteen package paths.");
+    const materials=[],bindings={},records=[];
+    const seenAdmissions=new Set(),seenMaterials=new Set();
+    for(const [index,rawPath] of admissionPaths.entries()){
+      const resolved=path.resolve(String(rawPath||""));
+      if(!inside(outputRoot,resolved))throw new TypeError(`Adopted artifact admission ${index} must stay inside FrankenComposer output custody.`);
+      const stat=await fs.stat(resolved);
+      if(!stat.isFile()||stat.size>2_000_000)throw new TypeError(`Adopted artifact admission ${index} is not a bounded JSON receipt.`);
+      const admission=validateAdoptedMaterialAdmission(JSON.parse(await fs.readFile(resolved,"utf8")));
+      if(seenAdmissions.has(admission.admissionHash))continue;
+      if(seenMaterials.has(admission.material.materialId))throw new TypeError(`Duplicate adopted material identity: ${admission.material.materialId}.`);
+      const materialPath=path.join(path.dirname(resolved),"material.mp4");
+      const mediaStat=await fs.stat(materialPath);
+      if(!mediaStat.isFile()||mediaStat.size!==admission.mediaByteLength)throw new TypeError("Adopted artifact package media byte length mismatch.");
+      const mediaBytes=await fs.readFile(materialPath);
+      if(sha256(mediaBytes)!==admission.mediaSha256)throw new TypeError("Adopted artifact package media bytes no longer match admission.");
+      seenAdmissions.add(admission.admissionHash);
+      seenMaterials.add(admission.material.materialId);
+      materials.push(admission.material);
+      bindings[admission.material.materialId]=materialPath;
+      records.push({
+        materialId:admission.material.materialId,
+        admissionHash:admission.admissionHash,
+        sourceDispositionHash:admission.sourceDispositionHash,
+        candidateGraphHash:admission.candidateGraphHash,
+        mediaSha256:admission.mediaSha256,
+      });
+    }
+    return {
+      materials:canonicalize(materials),
+      bindings,
+      records:canonicalize(records.sort((a,b)=>a.materialId.localeCompare(b.materialId))),
+    };
+  }
+
+  async function proposalInputs(config){
+    return adoptedArtifactReservoir(config?.adoptedArtifactAdmissionPaths||[]);
+  }
+
   return Object.freeze({
-    async compose(config){const {proposal,assetBindings}=await buildProposal(config,{getNextGenContext});return {proposalIdentity:proposalIdentity(proposal),proposal:publicProposal(proposal),previewAssets:previewAssets(proposal,assetBindings)};},
-    async freeze(config){const {proposal,assetBindings}=await buildProposal(config,{getNextGenContext});const identity=proposalIdentity(proposal);if(typeof config?.expectedProposalIdentity!=="string"||config.expectedProposalIdentity!==identity)throw new TypeError("Franken freeze refuses stale or unreviewed proposal identity.");const frozen=freezeFrankenComposition(proposalToComposition(proposal));return {...frozen,assetBindings};},
+    async compose(config){const promotedReservoir=await proposalInputs(config);const {proposal,assetBindings}=await buildProposal(config,{getNextGenContext,promotedReservoir});return {proposalIdentity:proposalIdentity(proposal),proposal:publicProposal(proposal),previewAssets:previewAssets(proposal,assetBindings)};},
+    async freeze(config){const promotedReservoir=await proposalInputs(config);const {proposal,assetBindings}=await buildProposal(config,{getNextGenContext,promotedReservoir});const identity=proposalIdentity(proposal);if(typeof config?.expectedProposalIdentity!=="string"||config.expectedProposalIdentity!==identity)throw new TypeError("Franken freeze refuses stale or unreviewed proposal identity.");const frozen=freezeFrankenComposition(proposalToComposition(proposal));return {...frozen,assetBindings};},
     async derivePerformanceEcology(receipt){
       const validated=validateOnePassReceipt(receipt);
       const trace=compilePerformanceTrace(validated);
@@ -367,6 +417,70 @@ function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
         return {disposition,path:dispositionPath,existing:true};
       }
     },
+    async proposeAdoptedArtifactImport(graph,reviewReceipt,disposition,mediaPath){
+      const resolved=await assertLocalFile(mediaPath,VIDEO_EXTENSIONS,"adopted review media");
+      if(!inside(outputRoot,resolved))throw new TypeError("Adopted review media must originate inside FrankenComposer output custody.");
+      const bytes=await fs.readFile(resolved);
+      const review=validateReviewMediaReceipt(reviewReceipt);
+      if(bytes.length!==review.mediaByteLength||sha256(bytes)!==review.mediaSha256)throw new TypeError("Adopted review media bytes do not match the reviewed artifact receipt.");
+      const proposal=createAdoptedArtifactImportProposal({
+        candidateGraph:graph,
+        reviewMediaReceipt:review,
+        disposition,
+      });
+      return {
+        proposal,
+        mediaPath:resolved,
+        mediaUrl:pathToFileURL(resolved).href,
+      };
+    },
+    async admitAdoptedArtifactImport(proposal,expectedImportProposalHash,mediaPath){
+      const source=validateAdoptedArtifactImportProposal(proposal);
+      const resolved=await assertLocalFile(mediaPath,VIDEO_EXTENSIONS,"adopted review media");
+      if(!inside(outputRoot,resolved))throw new TypeError("Adopted review media must remain inside FrankenComposer output custody.");
+      const bytes=await fs.readFile(resolved);
+      if(bytes.length!==source.mediaByteLength||sha256(bytes)!==source.mediaSha256)throw new TypeError("Adopted review media bytes changed before material admission.");
+      const admission=admitAdoptedArtifactImport(source,{
+        expectedImportProposalHash,
+        admittedBy:"human-ui",
+      });
+      const dir=path.join(outputRoot,"adopted-artifacts",admission.admissionHash);
+      await fs.mkdir(dir,{recursive:true});
+      const materialPath=path.join(dir,"material.mp4");
+      const admissionPath=path.join(dir,"admission.json");
+      try{
+        await fs.writeFile(materialPath,bytes,{flag:"wx"});
+      }catch(error){
+        if(error?.code!=="EEXIST")throw error;
+        const existing=await fs.readFile(materialPath);
+        if(!existing.equals(bytes))throw new Error("Existing adopted artifact media bytes conflict with admission.");
+      }
+      const admissionBytes=canonicalBytes(admission);
+      try{
+        await fs.writeFile(admissionPath,admissionBytes,{flag:"wx"});
+      }catch(error){
+        if(error?.code!=="EEXIST")throw error;
+        const existing=await fs.readFile(admissionPath);
+        if(!existing.equals(admissionBytes))throw new Error("Existing adopted artifact admission bytes conflict.");
+      }
+      return {
+        admission,
+        admissionPath,
+        materialPath,
+        materialUrl:pathToFileURL(materialPath).href,
+        descriptor:{
+          materialId:admission.material.materialId,
+          roleId:"adopted-world",
+          projectionClass:"adopted-artifact",
+          planHash:admission.admissionHash,
+          sourceDurationFrames:admission.material.derivation.sourceDurationFrames,
+          admissionHash:admission.admissionHash,
+          sourceDispositionHash:admission.sourceDispositionHash,
+          candidateGraphHash:admission.candidateGraphHash,
+          mediaSha256:admission.mediaSha256,
+        },
+      };
+    },
     async writePerformanceProgramBundle(receipt){
       const validated=validateOnePassReceipt(receipt);
       const {program,renderRegionPlan,executionReceipt}=compilePerformanceBundle(validated);
@@ -438,6 +552,8 @@ function registerFrankenComposerIpc(ipcMain,{dialog,getWindow,rootDir,assertAvai
   ipcMain.handle("franken:execute-approved-crossing",async(_event,receipt,binding,scopeProposal,scopeApproval,options)=>{assertAvailable();return service.executeApprovedCrossing(receipt,binding,scopeProposal,scopeApproval,options);});
   ipcMain.handle("franken:prepare-candidate-artifact-review",async(_event,receipt,binding,scopeProposal,scopeApproval,executionResult)=>{assertAvailable();return service.prepareCandidateArtifactReview(receipt,binding,scopeProposal,scopeApproval,executionResult);});
   ipcMain.handle("franken:decide-candidate-artifact",async(_event,graph,reviewReceipt,decision,expectedCandidateGraphHash)=>{assertAvailable();return service.decideCandidateArtifact(graph,reviewReceipt,decision,expectedCandidateGraphHash);});
+  ipcMain.handle("franken:propose-adopted-artifact-import",async(_event,graph,reviewReceipt,disposition,mediaPath)=>{assertAvailable();return service.proposeAdoptedArtifactImport(graph,reviewReceipt,disposition,mediaPath);});
+  ipcMain.handle("franken:admit-adopted-artifact-import",async(_event,proposal,expectedImportProposalHash,mediaPath)=>{assertAvailable();return service.admitAdoptedArtifactImport(proposal,expectedImportProposalHash,mediaPath);});
   ipcMain.handle("franken:write-performance-program-bundle",async(_event,receipt)=>{assertAvailable();return service.writePerformanceProgramBundle(receipt);});
   ipcMain.handle("franken:write-one-pass-receipt",async(_event,receipt)=>{assertAvailable();return service.writeOnePassReceipt(receipt);});
   ipcMain.handle("franken:write-projection-bundle",async(_event,config)=>{assertAvailable();return service.writeProjectionBundle(config);});

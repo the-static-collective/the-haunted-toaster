@@ -80,7 +80,7 @@ function stateFromDonors({ playdeck, blenderTake, seed, nextGenContext = null })
   return normalizeEdits(base, nextGenContext.frankenPressure.edits || {});
 }
 
-function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
+function buildProposal(playdeck, blenderTake, state, nextGenContext = null, promotedReservoir = null) {
   const cardsById = new Map(playdeck.cards.map((c) => [c.cardId, c]));
   if (state.cardOrder.some((id) => !cardsById.has(id))) {
     throw new TypeError("cardOrder references an unknown Playdeck card.");
@@ -105,12 +105,25 @@ function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
   const reservoir = nextGenContext
     ? frankenVideoDigestionReservoir(nextGenContext)
     : { materials: [], bindings: {} };
-
-  const reservoirById = new Map(reservoir.materials.map((material) => [material.materialId, material]));
+  const promoted = promotedReservoir && typeof promotedReservoir === "object"
+    ? {
+        materials:Array.isArray(promotedReservoir.materials)?promotedReservoir.materials:[],
+        bindings:promotedReservoir.bindings&&typeof promotedReservoir.bindings==="object"?promotedReservoir.bindings:{},
+        records:Array.isArray(promotedReservoir.records)?promotedReservoir.records:[],
+      }
+    : {materials:[],bindings:{},records:[]};
+  const reservoirMaterials=[...reservoir.materials,...promoted.materials];
+  const ids=new Set();
+  for(const material of reservoirMaterials){
+    if(ids.has(material.materialId))throw new TypeError(`Duplicate placeable reservoir material: ${material.materialId}.`);
+    ids.add(material.materialId);
+  }
+  const reservoirById = new Map(reservoirMaterials.map((material) => [material.materialId, material]));
+  const promotedIds=new Set(promoted.materials.map(material=>material.materialId));
   const digestPlacements = Array.isArray(state.digestPlacements) ? state.digestPlacements : [];
   for (const placement of digestPlacements) {
     const material = reservoirById.get(placement.materialId);
-    if (!material) throw new TypeError(`Unknown or stale digestion material placement: ${placement.materialId}.`);
+    if (!material) throw new TypeError(`Unknown or stale placeable video material: ${placement.materialId}.`);
     const maxFrames = Number(material.derivation?.sourceDurationFrames);
     if (!Number.isSafeInteger(maxFrames) || maxFrames < 1 || placement.sourceStartFrames + placement.durationFrames > maxFrames) {
       throw new RangeError(`Digestion placement ${placement.placementId} exceeds its admitted source duration.`);
@@ -140,6 +153,7 @@ function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
       admissionBasis: "franken-topology-v0",
     },
     ...reservoir.materials,
+    ...promoted.materials.filter(material=>digestPlacements.some(placement=>placement.materialId===material.materialId)),
   ];
 
   const scenes = Object.entries(SCENE_SPANS).map(
@@ -215,30 +229,40 @@ function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
         });
       }
 
-      const placedHere = digestPlacements.filter((placement) => placement.sceneId === sceneId);
+      const placementClip=(placement,prefix)=>({
+        clipId: `clip-${sceneId.toLowerCase()}-${prefix}-${placement.placementId.replace(/[^A-Za-z0-9_-]/g,"-")}`,
+        materialId: placement.materialId,
+        startFrame: startFrame + placement.startOffsetFrames,
+        durationFrames: placement.durationFrames,
+        sourceWindow: {
+          startSeconds: placement.sourceStartFrames / FPS,
+          endSeconds: (placement.sourceStartFrames + placement.durationFrames) / FPS,
+        },
+        transform: placement.transform,
+        transformKeyframes: placement.transformKeyframes || [],
+        crop: placement.crop,
+        opacity: placement.opacity,
+        blend: placement.blend,
+        stackOrder: placement.stackOrder,
+        entrance: "arrive",
+        transitionRelation: null,
+      });
+      const placedHere = digestPlacements.filter((placement) => placement.sceneId === sceneId && !promotedIds.has(placement.materialId));
       if (placedHere.length) {
         tracks.push({
           trackId: `${sceneId.toLowerCase()}-video-digestion`,
           layer: "background",
           role: "video-digestion-placement",
-          clips: placedHere.map((placement) => ({
-            clipId: `clip-${sceneId.toLowerCase()}-digest-${placement.placementId.replace(/[^A-Za-z0-9_-]/g,"-")}`,
-            materialId: placement.materialId,
-            startFrame: startFrame + placement.startOffsetFrames,
-            durationFrames: placement.durationFrames,
-            sourceWindow: {
-              startSeconds: placement.sourceStartFrames / FPS,
-              endSeconds: (placement.sourceStartFrames + placement.durationFrames) / FPS,
-            },
-            transform: placement.transform,
-            transformKeyframes: placement.transformKeyframes || [],
-            crop: placement.crop,
-            opacity: placement.opacity,
-            blend: placement.blend,
-            stackOrder: placement.stackOrder,
-            entrance: "arrive",
-            transitionRelation: null,
-          })),
+          clips: placedHere.map((placement) => placementClip(placement,"digest")),
+        });
+      }
+      const adoptedHere=digestPlacements.filter((placement)=>placement.sceneId===sceneId&&promotedIds.has(placement.materialId));
+      if(adoptedHere.length){
+        tracks.push({
+          trackId:`${sceneId.toLowerCase()}-adopted-artifacts`,
+          layer:"background",
+          role:"adopted-artifact-placement",
+          clips:adoptedHere.map((placement)=>placementClip(placement,"adopted")),
         });
       }
 
@@ -345,6 +369,20 @@ function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
           },
         }
       : {}),
+    ...(promoted.records.some(record=>digestPlacements.some(placement=>placement.materialId===record.materialId))
+      ? {
+          adoptedArtifacts: promoted.records
+            .filter(record=>digestPlacements.some(placement=>placement.materialId===record.materialId))
+            .map(record=>canonicalize({
+              admissionHash:record.admissionHash,
+              candidateGraphHash:record.candidateGraphHash,
+              materialId:record.materialId,
+              mediaSha256:record.mediaSha256,
+              sourceDispositionHash:record.sourceDispositionHash,
+            }))
+            .sort((a,b)=>a.materialId.localeCompare(b.materialId)),
+        }
+      : {}),
   };
 
   return canonicalize({
@@ -381,7 +419,7 @@ function buildProposal(playdeck, blenderTake, state, nextGenContext = null) {
         parameters: {},
       },
     ],
-    _donor: { playdeck, blenderTake, nextGenContext },
+    _donor: { playdeck, blenderTake, nextGenContext, promotedReservoir:promoted },
   });
 }
 
@@ -390,12 +428,14 @@ function composeFrankenProposal({
   blenderTake,
   seed,
   nextGenContext = null,
+  promotedReservoir = null,
 } = {}) {
   return buildProposal(
     playdeck,
     blenderTake,
     stateFromDonors({ playdeck, blenderTake, seed, nextGenContext }),
     nextGenContext,
+    promotedReservoir,
   );
 }
 
@@ -422,6 +462,7 @@ function applyFrankenEdits(proposal, edits = {}) {
     proposal._donor.blenderTake,
     state,
     proposal._donor.nextGenContext || null,
+    proposal._donor.promotedReservoir || null,
   );
 }
 

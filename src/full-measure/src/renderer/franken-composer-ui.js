@@ -140,6 +140,7 @@
         digestPlacements:[],
       },
       nextGen:null,
+      promotedMaterials:[],
       proposal:null,
       proposalIdentity:null,
       previewAssets:{},
@@ -216,7 +217,10 @@
   }
 
   function descendantFor(state,materialId){
-    return (state.nextGen?.videoDigestion?.descendants||[]).find((descendant)=>descendant.materialId===materialId)||null;
+    return [
+      ...(state.nextGen?.videoDigestion?.descendants||[]),
+      ...(state.promotedMaterials||[]).map(entry=>entry.descriptor),
+    ].find((descendant)=>descendant.materialId===materialId)||null;
   }
 
   function reduceBenchState(state,action){
@@ -307,6 +311,24 @@
               :placement),
           },
         });
+      case "promoted-material-admit":{
+        const value=action.value;
+        if(!value?.admissionPath||!value?.descriptor?.materialId)throw new Error("Adopted material admission requires a package path and descriptor.");
+        const existing=(state.promotedMaterials||[]).find(entry=>entry.descriptor.materialId===value.descriptor.materialId);
+        if(existing){
+          if(existing.admissionHash!==value.admissionHash)throw new Error("Adopted material identity collides with a different admission.");
+          return state;
+        }
+        const descriptor={
+          ...value.descriptor,
+          slot:7+(state.promotedMaterials||[]).length,
+          isAdoptedArtifact:true,
+        };
+        return {
+          ...state,
+          promotedMaterials:[...(state.promotedMaterials||[]),{...value,descriptor}],
+        };
+      }
       case "nextgen":
         return markDirty({
           ...state,
@@ -362,6 +384,7 @@
             albumContext:{},
           }
         :null,
+      adoptedArtifactAdmissionPaths:(state.promotedMaterials||[]).map(entry=>entry.admissionPath),
       edits:{
         cardOrder:state.edits.cardOrder||undefined,
         sceneRoles:Object.keys(state.edits.sceneRoles).length
@@ -457,6 +480,9 @@
     const candidateGraphReadout=document.getElementById("frankenCandidateGraph");
     const reviewMediaReadout=document.getElementById("frankenReviewMedia");
     const artifactDispositionReadout=document.getElementById("frankenArtifactDisposition");
+    const proposeArtifactImport=document.getElementById("frankenProposeArtifactImport");
+    const admitArtifactMaterial=document.getElementById("frankenAdmitArtifactMaterial");
+    const artifactImportStatus=document.getElementById("frankenArtifactImportStatus");
     const performanceAudio=document.getElementById("syncAudio");
     const onePassApi=view?.OnePass||null;
     const ONE_PASS_KEYS=["a","s","d","j","k","l"];
@@ -481,6 +507,9 @@
     let candidateArtifactReview=null;
     let artifactDisposition=null;
     let artifactReviewError=null;
+    let artifactImportProposal=null;
+    let artifactMaterialAdmission=null;
+    let artifactPromotionError=null;
     let playheadFrame=0;
     let snapEnabled=true;
     let timelineGestureActive=false;
@@ -532,90 +561,78 @@
     function renderNextGen(){
       if(!nextGenStatus||!pressureRoot||!reservoirRoot)return;
       const crossing=state.nextGen;
+      const promoted=(state.promotedMaterials||[]).map(entry=>entry.descriptor);
       pressureRoot.replaceChildren();
       reservoirRoot.replaceChildren();
       pressureRoot.hidden=!crossing;
-      reservoirRoot.hidden=!crossing;
+      reservoirRoot.hidden=!crossing&&!promoted.length;
 
-      if(!crossing){
+      if(!crossing&&!promoted.length){
         nextGenStatus.textContent="Not loaded. Human edits and FREEZE remain authoritative.";
         return;
       }
 
-      const pressure=crossing.frankenPressure;
-      const edits=pressure?.edits||{};
-      nextGenStatus.textContent=
-        `Loaded ${pressure?.dominantLens?.name||"Listening Eye"} pressure · crossing ${String(crossing.crossingIdentity||"").slice(0,12)} · RECOMPOSE required`;
+      if(crossing){
+        const pressure=crossing.frankenPressure;
+        const edits=pressure?.edits||{};
+        nextGenStatus.textContent=
+          `Loaded ${pressure?.dominantLens?.name||"Listening Eye"} pressure · crossing ${String(crossing.crossingIdentity||"").slice(0,12)} · RECOMPOSE required`;
 
-      const pressureItems=[
-        `LENS · ${pressure?.dominantLens?.name||"unknown"}`,
-        `MOVING TAKE · ${edits.movingTakeSceneId||"unchanged"}`,
-        `ARRIVE→CROSS · ${edits.transitions?.arriveCross||"unchanged"}`,
-        `CROSS→ASSEMBLE · ${edits.transitions?.crossAssemble||"unchanged"}`,
-        `VARIATION · ${Number.isSafeInteger(edits.variation)?edits.variation:"unchanged"}`,
-      ];
-      for(const text of pressureItems){
-        const item=document.createElement("span");
-        item.textContent=text;
-        pressureRoot.append(item);
+        const pressureItems=[
+          `LENS · ${pressure?.dominantLens?.name||"unknown"}`,
+          `MOVING TAKE · ${edits.movingTakeSceneId||"unchanged"}`,
+          `ARRIVE→CROSS · ${edits.transitions?.arriveCross||"unchanged"}`,
+          `CROSS→ASSEMBLE · ${edits.transitions?.crossAssemble||"unchanged"}`,
+          `VARIATION · ${Number.isSafeInteger(edits.variation)?edits.variation:"unchanged"}`,
+        ];
+        for(const text of pressureItems){
+          const item=document.createElement("span");
+          item.textContent=text;
+          pressureRoot.append(item);
+        }
+      }else{
+        nextGenStatus.textContent=`${promoted.length} adopted material${promoted.length===1?"":"s"} admitted · no placement yet · FREEZE remains authoritative`;
       }
 
-      const descendants=crossing.videoDigestion?.descendants||[];
+      const descendants=[
+        ...(crossing?.videoDigestion?.descendants||[]),
+        ...promoted,
+      ];
       if(!descendants.length){
         const item=document.createElement("span");
-        item.innerHTML="<b>VIDEO RESERVOIR SLEEPING</b><small>Admit one video and generate Six-Up, then reload live organs.</small>";
+        item.innerHTML="<b>VIDEO RESERVOIR SLEEPING</b><small>Admit one video and generate Six-Up, or ADOPT + ADMIT a reviewed world.</small>";
         reservoirRoot.append(item);
         return;
       }
+
       for(const descendant of descendants){
+        const adopted=descendant.isAdoptedArtifact===true;
         const item=document.createElement("span");
         item.className="franken-digest-card";
         item.draggable=true;
         item.dataset.materialId=descendant.materialId;
+        item.dataset.materialClass=adopted?"adopted-artifact":"video-digestion";
         item.addEventListener("dragstart",(event)=>{
           event.dataTransfer?.setData("text/x-franken-digest",descendant.materialId);
           if(event.dataTransfer)event.dataTransfer.effectAllowed="copy";
         });
 
         const title=document.createElement("b");
-        title.textContent=`#${descendant.slot} · ${descendant.roleId}`;
-        if(onePassEcology?.trace&&onePassEcology?.residueMemory){
-          const layer=document.createElement("div");
-          layer.className="franken-residue-layer";
-          layer.dataset.authority="proposal-preview-only";
-          const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
-          svg.setAttribute("viewBox","0 0 1000 1000");
-          svg.setAttribute("preserveAspectRatio","none");
-          const paintById=new Map((onePassEcology.trace.paintEvents||[]).map(event=>[event.paintEventId,event]));
-          for(const residue of onePassEcology.residueMemory.residues||[]){
-            const paint=paintById.get(residue.sourcePaintEventId);
-            if(!paint)continue;
-            let mark=null;
-            if(paint.brush?.kind==="performed-spatial-stroke"&&Array.isArray(paint.brush.path)&&paint.brush.path.length>=2){
-              mark=document.createElementNS("http://www.w3.org/2000/svg","polyline");
-              mark.setAttribute("points",residuePathPoints(paint.brush.path));
-              mark.setAttribute("fill","none");
-              mark.setAttribute("vector-effect","non-scaling-stroke");
-            }else{
-              mark=document.createElementNS("http://www.w3.org/2000/svg","circle");
-              mark.setAttribute("cx",String(Math.round((Number(paint.brush?.x)||.5)*1000)));
-              mark.setAttribute("cy",String(Math.round((Number(paint.brush?.y)||.5)*1000)));
-              mark.setAttribute("r",String(Math.max(10,Math.round((Number(paint.brush?.scale)||1)*28))));
-            }
-            mark.setAttribute("class","franken-residue-mark");
-            mark.dataset.residueId=residue.residueId;
-            mark.dataset.sourcePaintEventId=residue.sourcePaintEventId;
-            mark.style.opacity="0";
-            svg.append(mark);
-          }
-          const residueLabel=document.createElement("span");
-          residueLabel.className="franken-residue-label";
-          layer.append(svg,residueLabel);
-          viewport.append(layer);
+        title.textContent=adopted
+          ?`#${descendant.slot} · ADOPTED WORLD`
+          :`#${descendant.slot} · ${descendant.roleId}`;
+
+        if(!adopted&&onePassEcology?.trace&&onePassEcology?.residueMemory){
+          const residueNote=document.createElement("small");
+          residueNote.className="franken-residue-label";
+          residueNote.textContent=`${onePassEcology.residueMemory.residues?.length||0} witnessed residue memories available in live preview`;
+          item.append(residueNote);
         }
 
         const meta=document.createElement("small");
-        meta.textContent=`${descendant.projectionClass} · ${descendant.planHash.slice(0,10)} · ${descendant.sourceDurationFrames}f source`;
+        meta.textContent=adopted
+          ?`ADOPTED · ${String(descendant.admissionHash||descendant.planHash||"").slice(0,10)} · ${descendant.sourceDurationFrames}f source · placement authority NONE`
+          :`${descendant.projectionClass} · ${descendant.planHash.slice(0,10)} · ${descendant.sourceDurationFrames}f source`;
         const placements=placementsFor(state,descendant.materialId);
         if(placements.length)item.classList.add("is-placed");
 
@@ -1075,10 +1092,17 @@
       updatePreviewFrame();
     }
 
+    function resetArtifactPromotion(){
+      artifactImportProposal=null;
+      artifactMaterialAdmission=null;
+      artifactPromotionError=null;
+    }
+
     function resetArtifactReview(){
       candidateArtifactReview=null;
       artifactDisposition=null;
       artifactReviewError=null;
+      resetArtifactPromotion();
       delete root.dataset.candidateGraphHash;
       delete root.dataset.artifactDispositionHash;
       if(candidateReviewVideo){
@@ -1276,6 +1300,7 @@
           decision,
           candidateArtifactReview.graph.candidateGraphHash,
         );
+        resetArtifactPromotion();
         root.dataset.artifactDispositionHash=artifactDisposition?.disposition?.dispositionHash||"";
       }catch(error){
         artifactDisposition=null;
@@ -1284,7 +1309,81 @@
       renderArtifactReview();
     }
 
+    async function proposeCurrentArtifactImport(){
+      if(artifactDisposition?.disposition?.decision!=="ADOPT"||!candidateArtifactReview?.graph||!candidateArtifactReview?.reviewReceipt||!candidateArtifactReview?.mediaPath||typeof bridge.proposeAdoptedArtifactImport!=="function")return;
+      artifactPromotionError=null;
+      artifactMaterialAdmission=null;
+      try{
+        artifactImportProposal=await bridge.proposeAdoptedArtifactImport(
+          candidateArtifactReview.graph,
+          candidateArtifactReview.reviewReceipt,
+          artifactDisposition.disposition,
+          candidateArtifactReview.mediaPath,
+        );
+      }catch(error){
+        artifactImportProposal=null;
+        artifactPromotionError=error?.message||String(error);
+      }
+      renderArtifactPromotion();
+    }
+
+    async function admitCurrentArtifactMaterial(){
+      if(!artifactImportProposal?.proposal||!candidateArtifactReview?.mediaPath||typeof bridge.admitAdoptedArtifactImport!=="function")return;
+      artifactPromotionError=null;
+      try{
+        artifactMaterialAdmission=await bridge.admitAdoptedArtifactImport(
+          artifactImportProposal.proposal,
+          artifactImportProposal.proposal.importProposalHash,
+          candidateArtifactReview.mediaPath,
+        );
+        state=reduceBenchState(state,{
+          type:"promoted-material-admit",
+          value:{
+            admissionPath:artifactMaterialAdmission.admissionPath,
+            admissionHash:artifactMaterialAdmission.admission?.admissionHash,
+            descriptor:artifactMaterialAdmission.descriptor,
+            materialUrl:artifactMaterialAdmission.materialUrl,
+          },
+        });
+      }catch(error){
+        artifactMaterialAdmission=null;
+        artifactPromotionError=error?.message||String(error);
+      }
+      render();
+    }
+
+    function renderArtifactPromotion(){
+      if(!proposeArtifactImport||!admitArtifactMaterial||!artifactImportStatus)return;
+      const adopted=artifactDisposition?.disposition?.decision==="ADOPT";
+      proposeArtifactImport.disabled=!adopted||Boolean(artifactImportProposal?.proposal)||typeof bridge.proposeAdoptedArtifactImport!=="function";
+      admitArtifactMaterial.disabled=!artifactImportProposal?.proposal||Boolean(artifactMaterialAdmission?.admission)||typeof bridge.admitAdoptedArtifactImport!=="function";
+
+      if(artifactPromotionError){
+        artifactImportStatus.textContent=`PROMOTION ERROR · ${artifactPromotionError}`;
+        artifactImportStatus.title=artifactPromotionError;
+      }else if(artifactMaterialAdmission?.admission){
+        artifactImportStatus.textContent=`ADMITTED MATERIAL · ${artifactMaterialAdmission.descriptor?.materialId||""} · NO PLACEMENT YET · ${filename(artifactMaterialAdmission.admissionPath)}`;
+        artifactImportStatus.title=artifactMaterialAdmission.admission.admissionHash||"";
+      }else if(artifactImportProposal?.proposal){
+        artifactImportStatus.textContent=`IMPORT PROPOSAL · ${String(artifactImportProposal.proposal.importProposalHash||"").slice(0,16)} · material admission still required`;
+        artifactImportStatus.title=artifactImportProposal.proposal.importProposalHash||"";
+      }else if(adopted){
+        artifactImportStatus.textContent="ADOPTED · PROPOSE IMPORT to return this exact reviewed world as ordinary material.";
+        artifactImportStatus.title=artifactDisposition.disposition.dispositionHash||"";
+      }else if(artifactDisposition?.disposition?.decision==="REJECT"){
+        artifactImportStatus.textContent="REJECTED · import unavailable; evidence remains preserved.";
+        artifactImportStatus.title=artifactDisposition.disposition.dispositionHash||"";
+      }else{
+        artifactImportStatus.textContent="No material import proposed";
+        artifactImportStatus.title="";
+      }
+
+      proposeArtifactImport.textContent=artifactImportProposal?.proposal?"IMPORT PROPOSED":"PROPOSE IMPORT";
+      admitArtifactMaterial.textContent=artifactMaterialAdmission?.admission?"MATERIAL ADMITTED":"ADMIT AS MATERIAL";
+    }
+
     function renderArtifactReview(){
+      renderArtifactPromotion();
       if(!buildReview||!adoptReview||!rejectReview||!candidateReviewVideo||!candidateGraphReadout||!reviewMediaReadout||!artifactDispositionReadout)return;
       const executable=Boolean(crossingExecutionResult?.result);
       buildReview.disabled=!executable||typeof bridge.prepareCandidateArtifactReview!=="function";
@@ -1338,6 +1437,7 @@
         adoptReview.textContent="ADOPT";
         rejectReview.textContent="REJECT";
       }
+      renderArtifactPromotion();
     }
 
     function renderExecutionCustody(){
@@ -1911,6 +2011,8 @@
     buildReview?.addEventListener("click",()=>{buildCandidateReview().catch((error)=>{artifactReviewError=error?.message||String(error);renderArtifactReview();});});
     adoptReview?.addEventListener("click",()=>{decideArtifactReview("ADOPT").catch((error)=>{artifactReviewError=error?.message||String(error);renderArtifactReview();});});
     rejectReview?.addEventListener("click",()=>{decideArtifactReview("REJECT").catch((error)=>{artifactReviewError=error?.message||String(error);renderArtifactReview();});});
+    proposeArtifactImport?.addEventListener("click",()=>{proposeCurrentArtifactImport().catch((error)=>{artifactPromotionError=error?.message||String(error);renderArtifactPromotion();});});
+    admitArtifactMaterial?.addEventListener("click",()=>{admitCurrentArtifactMaterial().catch((error)=>{artifactPromotionError=error?.message||String(error);renderArtifactPromotion();});});
     performanceAudio?.addEventListener("ended",()=>{
       finishOnePassTake((performanceAudio.currentTime||0)*1000).catch((error)=>{
         onePassPersistenceError=error?.message||String(error);
