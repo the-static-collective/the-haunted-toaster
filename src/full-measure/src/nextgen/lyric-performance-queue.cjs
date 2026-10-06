@@ -231,7 +231,8 @@ function advanceLyricGuide(state,frame){
 
     if(entry.autoArrival){
       if(entry.proposedFrame===null||entry.proposedFrame>target)break;
-      arrivals.push(arrivalFor(entry,entry.proposedFrame,state.laneLatch,"machine-scheduled"));
+      const timingSource=entry.state==="ANCHORED"?"human-anchor-scheduled":"machine-scheduled";
+      arrivals.push(arrivalFor(entry,entry.proposedFrame,state.laneLatch,timingSource));
       cursor+=1;
       continue;
     }
