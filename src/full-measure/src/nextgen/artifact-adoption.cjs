@@ -222,6 +222,19 @@ async function materializeCandidateReview(graph,{
   return deepFreeze({directory,framesDirectory,mediaPath,receipt});
 }
 
+function validateReviewMediaReceipt(value){
+  if(!value||typeof value!=="object"||Array.isArray(value))throw new TypeError("Review-media receipt must be an object.");
+  if(value.schema!==REVIEW_MEDIA_SCHEMA||value.authority!=="review-projection-only")throw new TypeError("Unsupported review-media receipt.");
+  for(const key of ["candidateGraphHash","frameGraphHash","mediaSha256"])hash64(value[key],key);
+  if(!Number.isSafeInteger(value.frameCount)||value.frameCount<1)throw new TypeError("Review-media frameCount is invalid.");
+  if(!Number.isSafeInteger(value.fps)||value.fps<1||value.fps>240)throw new TypeError("Review-media fps is invalid.");
+  if(!Number.isSafeInteger(value.mediaByteLength)||value.mediaByteLength<1)throw new TypeError("Review-media byte length is invalid.");
+  const {reviewMediaReceiptHash,...body}=value;
+  if(hash64(reviewMediaReceiptHash,"reviewMediaReceiptHash")!==hashCanonical(canonicalize(body),"HauntedToaster-CandidateArtifactReviewMedia-v0")){
+    throw new TypeError("Review-media receipt hash mismatch.");
+  }
+  return value;
+}
 function decideCandidateArtifact(graph,{decision,expectedCandidateGraphHash,reviewMediaSha256,decidedBy}={}){
   const source=validateCandidateDerivedFrameGraph(graph);
   const expected=hash64(expectedCandidateGraphHash,"expectedCandidateGraphHash");
@@ -268,5 +281,6 @@ module.exports={
   decideCandidateArtifact,
   materializeCandidateReview,
   validateArtifactDisposition,
+  validateReviewMediaReceipt,
   validateCandidateDerivedFrameGraph,
 };
