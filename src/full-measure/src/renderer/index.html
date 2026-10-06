@@ -275,6 +275,20 @@
               </div>
               <button type="button" id="frankenTerrainAccept" disabled>ACCEPT CROSSING</button>
             </div>
+            <div class="franken-execution-custody">
+              <div class="franken-execution-heading">
+                <span>EXECUTION CUSTODY · ACCEPTANCE IS NOT COMPUTE</span>
+                <div>
+                  <button type="button" id="frankenPrepareScope" disabled>PREPARE SCOPE</button>
+                  <button type="button" id="frankenApproveScope" disabled>APPROVE SCOPE</button>
+                  <button type="button" id="frankenExecuteScope" disabled>AUTHORIZE LOCAL EXECUTION</button>
+                </div>
+              </div>
+              <code id="frankenScopeProposal">No affected-region proposal</code>
+              <div class="franken-scope-regions" id="frankenScopeRegions"></div>
+              <code id="frankenScopeApproval">No scope approval</code>
+              <code id="frankenExecutionResult">No execution authorized</code>
+            </div>
           </section>
           <div class="franken-source-grid">
             <button type="button" data-franken-choose="deckPath"><b>Playdeck deck</b><small data-franken-path-status="deckPath">Not chosen</small></button>

@@ -177,3 +177,14 @@ body.franken-open{overflow:hidden}
 .franken-terrain-inspector span{font-size:9px;color:#cfe7ff}
 .franken-terrain-inspector code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px;color:var(--muted,#999)}
 @media(max-width:980px){.franken-terrain-heading,.franken-terrain-controls,.franken-terrain-inspector{align-items:stretch;grid-template-columns:1fr;flex-direction:column}.franken-terrain-controls label{min-width:0;width:100%}}
+
+.franken-execution-custody{margin-top:12px;padding:10px;border:1px solid rgba(255,160,90,.24);border-radius:8px;background:rgba(255,160,90,.035);display:grid;gap:7px}
+.franken-execution-heading{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.franken-execution-heading>span{font-size:8px;letter-spacing:.13em;color:#ffd0a8}
+.franken-execution-heading>div{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.franken-execution-heading button{min-height:30px;padding:0 9px;border:1px solid rgba(255,160,90,.38);border-radius:6px;background:rgba(255,160,90,.07);color:#ffd0a8;font-size:8px;font-weight:800}
+.franken-execution-heading button:disabled{opacity:.3}
+.franken-execution-custody code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px;color:var(--muted,#999)}
+.franken-scope-regions{display:flex;gap:5px;flex-wrap:wrap}
+.franken-scope-regions span{padding:3px 5px;border:1px solid rgba(255,255,255,.09);border-radius:5px;font-size:7px;color:#ffd0a8}
+@media(max-width:980px){.franken-execution-heading{align-items:stretch;flex-direction:column}.franken-execution-heading>div{justify-content:flex-start}}

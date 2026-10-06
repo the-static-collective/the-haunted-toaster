@@ -33,6 +33,7 @@ function createPossibilityCrossingProposal(map,{frame}={}){
     sourceProgramHash:source.sourceProgramHash,
     sourceTransitionFieldHash:source.sourceTransitionFieldHash,
     sourceCandidateId:source.sourceCandidateId,
+    candidateSpec:source.candidateSpec,
     frame:point.frame,
     transitionHash:point.transitionHash,
     kind:point.kind,
@@ -63,6 +64,7 @@ function validatePossibilityCrossingProposal(value){
   hash64(value.sourceTransitionFieldHash,"proposal sourceTransitionFieldHash");
   hash64(value.transitionHash,"proposal transitionHash");
   req(value.sourceCandidateId,"proposal sourceCandidateId");
+  if(!value.candidateSpec||typeof value.candidateSpec!=="object"||Array.isArray(value.candidateSpec))throw new TypeError("Proposal candidateSpec is required.");
   whole(value.frame,"proposal frame");
   if(!Array.isArray(value.contributionKinds)||!Array.isArray(value.contributions))throw new TypeError("Proposal contribution ledger is invalid.");
   if(JSON.stringify(value.contributionKinds)!==JSON.stringify(value.contributions.map(item=>item.kind)))throw new TypeError("Proposal contribution inventory mismatch.");
@@ -84,6 +86,7 @@ function acceptPossibilityCrossing(proposal,{expectedProposalHash,acceptedBy}={}
     sourceProgramHash:source.sourceProgramHash,
     sourceTransitionFieldHash:source.sourceTransitionFieldHash,
     sourceCandidateId:source.sourceCandidateId,
+    candidateSpec:source.candidateSpec,
     frame:source.frame,
     transitionHash:source.transitionHash,
     kind:source.kind,
@@ -115,6 +118,7 @@ function validatePossibilityCrossingBinding(value){
     ["transitionHash","binding transitionHash"],
   ])hash64(value[key],label);
   req(value.sourceCandidateId,"binding sourceCandidateId");
+  if(!value.candidateSpec||typeof value.candidateSpec!=="object"||Array.isArray(value.candidateSpec))throw new TypeError("Binding candidateSpec is required.");
   req(value.acceptedBy,"binding acceptedBy");
   whole(value.frame,"binding frame");
   const {bindingHash,...body}=value;

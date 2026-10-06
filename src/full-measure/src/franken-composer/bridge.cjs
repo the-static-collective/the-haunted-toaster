@@ -15,6 +15,15 @@ const {compileResidueMemory}=require("../nextgen/residue-memory.cjs");
 const {compilePerformanceBundle,compilePerformanceProgram}=require("../nextgen/performance-program.cjs");
 const {compileResidueTerrain,projectResidueTerrain}=require("../nextgen/playable-terrain.cjs");
 const {acceptPossibilityCrossing,createPossibilityCrossingProposal}=require("../nextgen/possibility-interaction.cjs");
+const {
+  approveExecutionScope,
+  createCrossingExecutionProgram,
+  deriveAffectedRegionProposal,
+  executeApprovedSparseScope,
+  prepareSparseExecutionParcel,
+  validateAffectedRegionProposal,
+  validateExecutionScopeApproval,
+}=require("../nextgen/crossing-execution-custody.cjs");
 
 const JSON_EXTENSIONS=new Set([".json"]);
 const VIDEO_EXTENSIONS=new Set([".mp4"]);
@@ -186,6 +195,99 @@ function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
         return {binding,path:bindingPath,existing:true};
       }
     },
+    async prepareCrossingExecution(receipt,binding,options={}){
+      const validated=validateOnePassReceipt(receipt);
+      const sourceProgram=compilePerformanceProgram(validated);
+      const derivedProgram=createCrossingExecutionProgram(sourceProgram,binding,{
+        wakeStrength:options?.wakeStrength??1,
+      });
+      const scopeProposal=deriveAffectedRegionProposal(sourceProgram,derivedProgram,binding);
+      return canonicalize({
+        sourceProgramHash:sourceProgram.programHash,
+        derivedProgram,
+        scopeProposal,
+      });
+    },
+    async approveCrossingExecutionScope(receipt,binding,scopeProposal,expectedScopeProposalHash){
+      const validated=validateOnePassReceipt(receipt);
+      const sourceProgram=compilePerformanceProgram(validated);
+      const derivedProgram=createCrossingExecutionProgram(sourceProgram,binding,{
+        wakeStrength:scopeProposal?.wakeStrength,
+        decayPerFrame:scopeProposal?.decayPerFrame,
+      });
+      validateAffectedRegionProposal(sourceProgram,derivedProgram,binding,scopeProposal);
+      const approval=approveExecutionScope(scopeProposal,{
+        expectedScopeProposalHash,
+        approvedBy:"human-ui",
+      });
+      validateExecutionScopeApproval(scopeProposal,approval);
+      const dir=path.join(outputRoot,"crossing-scope-approvals");
+      const approvalPath=path.join(dir,`${approval.scopeApprovalHash}.json`);
+      await fs.mkdir(dir,{recursive:true});
+      const bytes=canonicalBytes(approval);
+      try{
+        await fs.writeFile(approvalPath,bytes,{flag:"wx"});
+        return {approval,path:approvalPath,existing:false};
+      }catch(error){
+        if(error?.code!=="EEXIST")throw error;
+        const existing=await fs.readFile(approvalPath);
+        if(!existing.equals(bytes))throw new Error("Existing scope approval bytes do not match approved execution scope.");
+        return {approval,path:approvalPath,existing:true};
+      }
+    },
+    async executeApprovedCrossing(receipt,binding,scopeProposal,scopeApproval,{localExecutionAuthorized=false}={}){
+      const validated=validateOnePassReceipt(receipt);
+      const sourceProgram=compilePerformanceProgram(validated);
+      const derivedProgram=createCrossingExecutionProgram(sourceProgram,binding,{
+        wakeStrength:scopeProposal?.wakeStrength,
+        decayPerFrame:scopeProposal?.decayPerFrame,
+      });
+      validateAffectedRegionProposal(sourceProgram,derivedProgram,binding,scopeProposal);
+      validateExecutionScopeApproval(scopeProposal,scopeApproval);
+      const parcel=prepareSparseExecutionParcel(derivedProgram,scopeProposal,scopeApproval,{
+        assignmentOwnerParticular:"toaster-owner:020",
+        workerParticular:"toaster-local-renderer:020",
+        issuanceCut:`scope:${scopeApproval.scopeApprovalHash}:open`,
+        expiryCut:`scope:${scopeApproval.scopeApprovalHash}:manual-close`,
+      });
+      const dir=path.join(outputRoot,"crossing-executions",binding.bindingHash,scopeApproval.scopeApprovalHash);
+      const pixelsDir=path.join(dir,"pixels");
+      const executed=await executeApprovedSparseScope(
+        derivedProgram,scopeProposal,scopeApproval,parcel,{
+          rootDir:pixelsDir,
+          localExecutionAuthorized,
+        },
+      );
+      await fs.mkdir(dir,{recursive:true});
+      const artifacts=[
+        ["derived-program.json",derivedProgram],
+        ["scope-proposal.json",scopeProposal],
+        ["scope-approval.json",scopeApproval],
+        ["sparse-parcel.json",parcel],
+        ["sparse-result.json",executed.result],
+      ];
+      const paths={directory:dir,pixelsDirectory:pixelsDir};
+      for(const [name,value] of artifacts){
+        const filePath=path.join(dir,name);
+        const bytes=canonicalBytes(value);
+        try{
+          await fs.writeFile(filePath,bytes,{flag:"wx"});
+        }catch(error){
+          if(error?.code!=="EEXIST")throw error;
+          const existing=await fs.readFile(filePath);
+          if(!existing.equals(bytes))throw new Error(`Existing crossing execution artifact changed: ${name}.`);
+        }
+        paths[name.replace(/\.json$/,"Path").replace(/-([a-z])/g,(_m,ch)=>ch.toUpperCase())]=filePath;
+      }
+      return {
+        derivedProgramHash:derivedProgram.programHash,
+        parcel,
+        result:executed.result,
+        receiptCount:executed.receipts.length,
+        receipts:executed.receipts,
+        ...paths,
+      };
+    },
     async writePerformanceProgramBundle(receipt){
       const validated=validateOnePassReceipt(receipt);
       const {program,renderRegionPlan,executionReceipt}=compilePerformanceBundle(validated);
@@ -252,6 +354,9 @@ function registerFrankenComposerIpc(ipcMain,{dialog,getWindow,rootDir,assertAvai
   ipcMain.handle("franken:derive-playable-terrain",async(_event,receipt,options)=>{assertAvailable();return service.derivePlayableTerrain(receipt,options);});
   ipcMain.handle("franken:propose-possibility-crossing",async(_event,map,frame)=>{assertAvailable();return service.proposePossibilityCrossing(map,frame);});
   ipcMain.handle("franken:accept-possibility-crossing",async(_event,proposal,expectedProposalHash)=>{assertAvailable();return service.acceptPossibilityCrossing(proposal,expectedProposalHash);});
+  ipcMain.handle("franken:prepare-crossing-execution",async(_event,receipt,binding,options)=>{assertAvailable();return service.prepareCrossingExecution(receipt,binding,options);});
+  ipcMain.handle("franken:approve-crossing-scope",async(_event,receipt,binding,scopeProposal,expectedScopeProposalHash)=>{assertAvailable();return service.approveCrossingExecutionScope(receipt,binding,scopeProposal,expectedScopeProposalHash);});
+  ipcMain.handle("franken:execute-approved-crossing",async(_event,receipt,binding,scopeProposal,scopeApproval,options)=>{assertAvailable();return service.executeApprovedCrossing(receipt,binding,scopeProposal,scopeApproval,options);});
   ipcMain.handle("franken:write-performance-program-bundle",async(_event,receipt)=>{assertAvailable();return service.writePerformanceProgramBundle(receipt);});
   ipcMain.handle("franken:write-one-pass-receipt",async(_event,receipt)=>{assertAvailable();return service.writeOnePassReceipt(receipt);});
   ipcMain.handle("franken:write-projection-bundle",async(_event,config)=>{assertAvailable();return service.writeProjectionBundle(config);});
