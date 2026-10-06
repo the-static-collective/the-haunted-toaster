@@ -189,7 +189,7 @@ function expectedRegionSimulationDigest(program,region){
     regionId:region.regionId,
     startFrame:region.startFrame,
     endFrameExclusive:region.endFrameExclusive,
-  }),"HauntedToaster-PerformanceProgram-RegionOutput-v0");
+  }),"HauntedToaster-PerformanceProgram-RegionSimulation-v0");
 }
 function executeRegion(program,regionId,{workerId,attemptId}={}){
   const source=validatePerformanceProgram(program);
@@ -198,6 +198,7 @@ function executeRegion(program,regionId,{workerId,attemptId}={}){
   const body=canonicalize({
     schema:REGION_EXECUTION_RECEIPT_SCHEMA,
     authority:"witness-only",
+    executionKind:"deterministic-orchestration-simulator",
     programHash:source.programHash,
     regionPlanHash:source.renderRegionPlan.regionPlanHash,
     regionId:region.regionId,
@@ -206,7 +207,7 @@ function executeRegion(program,regionId,{workerId,attemptId}={}){
     frameCount:region.frameCount,
     simulationDigest:expectedRegionSimulationDigest(source,region),
     claimLimits:[
-      "DETERMINISTIC REGION DIGEST != RENDERED PIXELS",
+      "DETERMINISTIC REGION SIMULATION DIGEST != RENDERED PIXELS",
       "EXECUTION RECEIPT != ECONOMIC VALUE",
       "EXECUTION RECEIPT != OWNERSHIP",
       "EXECUTION RECEIPT != CONTINUATION AUTHORITY",
@@ -268,11 +269,12 @@ function executionState(program,receipts=[]){
           regionId:region.regionId,
           simulationDigest:expectedRegionSimulationDigest(source,region),
         })),
-      }),"HauntedToaster-PerformanceProgram-AggregateOutput-v0")
+      }),"HauntedToaster-PerformanceProgram-AggregateSimulation-v0")
     :null;
   const body=canonicalize({
     schema:EXECUTION_STATE_SCHEMA,
     authority:"accounting-only",
+    executionKind:"deterministic-orchestration-simulator",
     programHash:source.programHash,
     regionPlanHash:source.renderRegionPlan.regionPlanHash,
     attemptCount:valid.length,
