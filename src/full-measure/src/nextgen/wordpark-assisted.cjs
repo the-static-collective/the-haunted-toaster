@@ -117,6 +117,7 @@ function sealAssistedWordpark(session){
       laneChanges:session.guide.laneChanges,
       arrivals:session.guide.arrivals,
       misses:session.guide.misses,
+      humanAnchors:session.guide.humanAnchors,
       unresolved:session.guide.queue.entries.slice(session.guide.cursor).map(entry=>({
         queueIndex:entry.queueIndex,
         lineId:entry.lineId,
