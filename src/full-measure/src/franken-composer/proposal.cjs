@@ -60,7 +60,7 @@ function normalizeDigestPlacements(value=[]){
     if(placementIds.has(placementId))throw new TypeError("Digestion placement ids must be unique.");
     placementIds.add(placementId);
     const materialId=String(placement.materialId||"").trim();
-    if(!materialId.startsWith("video-digest:"))throw new TypeError("Digestion placement materialId must name a video-digest material.");
+    if(!materialId.startsWith("video-digest:")&&!materialId.startsWith("adopted-artifact:"))throw new TypeError("Digestion placement materialId must name an admitted placeable video material.");
     const sceneId=String(placement.sceneId||"").trim();
     if(!SCENES.has(sceneId))throw new TypeError("Digestion placement scene must be ARRIVE, CROSS, or ASSEMBLE.");
     const blend=String(placement.blend||"screen").trim();
