@@ -65,3 +65,20 @@ test("UI witness build admits the WORDPARK JS and CSS into screenshot QA",()=>{
   assert.match(source,/"wordpark-play-ui\.js"/);
   assert.match(source,/"wordpark-play-ui\.css"/);
 });
+
+
+test("sandboxed preload crosses WORDPARK only through IPC",()=>{
+  const preload=fs.readFileSync(path.join(__dirname,"../src/preload.cjs"),"utf8");
+  assert.doesNotMatch(preload,/require\(["']\.\/nextgen\/wordpark-runtime\.cjs/);
+  for(const channel of [
+    "franken:wordpark-start",
+    "franken:wordpark-set-lane",
+    "franken:wordpark-advance",
+    "franken:wordpark-punch",
+    "franken:wordpark-snapshot",
+    "franken:wordpark-seal",
+    "franken:wordpark-reset",
+  ]){
+    assert.match(preload,new RegExp(channel));
+  }
+});
