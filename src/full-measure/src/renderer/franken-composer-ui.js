@@ -1059,7 +1059,7 @@
           onePassProgram.textContent=`PROGRAM ERROR · ${onePassProgramError}`;
           onePassProgram.title=onePassProgramError;
         }else if(onePassProgramBundle){
-          onePassProgram.textContent=`PROGRAM · ${String(onePassProgramBundle.programHash||"").slice(0,16)} · ${filename(onePassProgramBundle.programPath)}`;
+          onePassProgram.textContent=`PROGRAM · ${String(onePassProgramBundle.programHash||"").slice(0,16)}${onePassProgramBundle.mediaBindingSetHash?` · MEDIA ${String(onePassProgramBundle.mediaBindingSetHash).slice(0,12)}`:""} · ${filename(onePassProgramBundle.programPath)}`;
           onePassProgram.title=onePassProgramBundle.programHash||"";
         }else{
           onePassProgram.textContent="No program compiled";
