@@ -410,6 +410,7 @@
     createOnePassSession,
     finishOnePass,
     fingerprint256,
+    normalizeHistoryRef,
     frameAtMs,
     pressLane,
     releaseLane,

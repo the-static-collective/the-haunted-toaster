@@ -42,6 +42,8 @@ const {
   validateGenerationalEcology,
 }=require("../nextgen/generational-ecology.cjs");
 
+const {compileFamilyMutations,verifyMutationRecord}=require("../nextgen/mutation-record.cjs");
+
 const JSON_EXTENSIONS=new Set([".json"]);
 const VIDEO_EXTENSIONS=new Set([".mp4"]);
 const URI_SCHEME=/^[a-z][a-z0-9+.-]*:\/\//i;
@@ -211,6 +213,30 @@ function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
     return adoptedArtifactReservoir(config?.adoptedArtifactAdmissionPaths||[]);
   }
 
+  async function persistObservation(collection,hash,value,label){
+    const dir=path.join(outputRoot,collection);
+    const filePath=path.join(dir,`${hash}.json`);
+    const bytes=canonicalBytes(value);
+    await fs.mkdir(dir,{recursive:true});
+    let existing=false;
+    try{await fs.writeFile(filePath,bytes,{flag:"wx"});}
+    catch(error){
+      if(error?.code!=="EEXIST")throw error;
+      if(!(await fs.readFile(filePath)).equals(bytes))throw new Error(`Existing ${label} artifact bytes conflict.`);
+      existing=true;
+    }
+    return {path:filePath,existing};
+  }
+  async function mutationInputs(receipts,parentEvidencePaths=[]){
+    if(!Array.isArray(parentEvidencePaths)||parentEvidencePaths.length>32)throw new TypeError("Parent evidence must be at most 32 local JSON witness files.");
+    const parentEvidence=[];
+    for(const filePath of parentEvidencePaths){
+      const {value}=await readJson(filePath,"parent mutation witness");
+      parentEvidence.push(value);
+    }
+    return {performanceReceipts:Array.isArray(receipts)?receipts:[receipts],parentEvidence};
+  }
+
   return Object.freeze({
     async compose(config){const promotedReservoir=await proposalInputs(config);const {proposal,assetBindings}=await buildProposal(config,{getNextGenContext,promotedReservoir});return {proposalIdentity:proposalIdentity(proposal),proposal:publicProposal(proposal),previewAssets:previewAssets(proposal,assetBindings)};},
     async freeze(config){const promotedReservoir=await proposalInputs(config);const {proposal,assetBindings}=await buildProposal(config,{getNextGenContext,promotedReservoir});const identity=proposalIdentity(proposal);if(typeof config?.expectedProposalIdentity!=="string"||config.expectedProposalIdentity!==identity)throw new TypeError("Franken freeze refuses stale or unreviewed proposal identity.");const frozen=freezeFrankenComposition(proposalToComposition(proposal));return {...frozen,assetBindings};},
@@ -233,20 +259,23 @@ function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
         performanceReceipts:list,
         artifactAdmissions:promoted.admissions,
       }));
-      const dir=path.join(outputRoot,"generational-ecology");
-      const ecologyPath=path.join(dir,`${ecology.ecologyHash}.json`);
-      const bytes=canonicalBytes(ecology);
-      await fs.mkdir(dir,{recursive:true});
-      let existing=false;
-      try{
-        await fs.writeFile(ecologyPath,bytes,{flag:"wx"});
-      }catch(error){
-        if(error?.code!=="EEXIST")throw error;
-        const prior=await fs.readFile(ecologyPath);
-        if(!prior.equals(bytes))throw new Error("Existing generational ecology artifact bytes conflict.");
-        existing=true;
-      }
-      return {ecology,path:ecologyPath,existing};
+      const persisted=await persistObservation("generational-ecology",ecology.ecologyHash,ecology,"generational ecology");
+      return {ecology,...persisted};
+    },
+    async measureMutation(receipts,parentEvidencePaths=[]){
+      const inputs=await mutationInputs(receipts,parentEvidencePaths);
+      const records=compileFamilyMutations(inputs);
+      // Verify all records before writing any: stored scalar/edge claims are never trusted.
+      for(const record of records)verifyMutationRecord(record,inputs);
+      const results=[];
+      for(const record of records)results.push({record,...await persistObservation("mutation-records",record.mutationRecordHash,record,"mutation record")});
+      return results;
+    },
+    async verifyMutation(recordPath,receipts,parentEvidencePaths=[]){
+      const resolved=path.resolve(recordPath);
+      if(!inside(path.join(outputRoot,"mutation-records"),resolved))throw new TypeError("Mutation record verification must stay inside observation custody.");
+      const {value}=await readJson(resolved,"mutation record");
+      return verifyMutationRecord(value,await mutationInputs(receipts,parentEvidencePaths));
     },
     async derivePlayableTerrain(receipt,options={}){
       const validated=validateOnePassReceipt(receipt);
@@ -563,6 +592,9 @@ function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
 function registerFrankenComposerIpc(ipcMain,{dialog,getWindow,rootDir,assertAvailable=()=>{},getNextGenContext=null}={}){
   const service=createFrankenComposerService({rootDir,getNextGenContext});
   const choose=async(title,extensions)=>{assertAvailable();const result=await dialog.showOpenDialog(getWindow(),{title,properties:["openFile"],filters:[{name:title,extensions}]});return result.canceled?null:result.filePaths[0];};
+  ipcMain.handle("franken:choose-mutation-parent",()=>choose("Choose parent history capsule + ONE PASS witness JSON",["json"]));
+  ipcMain.handle("franken:measure-mutation",async(_event,receipts,paths)=>{assertAvailable();return service.measureMutation(receipts,paths);});
+  ipcMain.handle("franken:verify-mutation",async(_event,recordPath,receipts,paths)=>{assertAvailable();return service.verifyMutation(recordPath,receipts,paths);});
   ipcMain.handle("franken:choose-deck",()=>choose("Choose Playdeck deck JSON",["json"]));
   ipcMain.handle("franken:choose-world-rule",()=>choose("Choose Playdeck world-rule JSON",["json"]));
   ipcMain.handle("franken:choose-playdeck-asset-map",()=>choose("Choose Playdeck local asset map",["json"]));

@@ -1598,7 +1598,10 @@
       renderExecutionCustody();
     }
 
+    const mutationInspector=view?.MutationMap?.createMutationInspector({document,bridge});
+
     function renderGenerationalEcology(){
+      mutationInspector?.update({ecology:generationalEcology?.ecology||null,receipt:onePassSession?.receipt||null});
       if(!buildGenealogy||!genealogyReadout)return;
       const finished=onePassSession?.status==="finished";
       buildGenealogy.disabled=!finished||typeof bridge.deriveGenerationalEcology!=="function";

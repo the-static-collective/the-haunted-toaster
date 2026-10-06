@@ -705,3 +705,29 @@ test("NextGen 007 previews admitted media with synchronized song transport and t
     if(window.__frankenWitnessAudioUrl)URL.revokeObjectURL(window.__frankenWitnessAudioUrl);
   });
 });
+
+test("NEXTGEN 024 mutation map shows particulars for an explicit performed edge",async({page},testInfo)=>{
+  const {specimen}=require("./fixtures/mutation-specimen.cjs");
+  const {compileFamilyMutations}=require("../src/nextgen/mutation-record.cjs");
+  const {compileGenerationalEcology}=require("../src/nextgen/generational-ecology.cjs");
+  const inputs=specimen(c=>{c.placements[0].transform.x+=.1;});
+  const rows=compileFamilyMutations(inputs).map(record=>({record,path:`/witness/${record.mutationRecordHash}.json`}));
+  await page.goto("/?state=empty");
+  await expect(page.locator("html")).toHaveAttribute("data-witness-ready","true");
+  await page.evaluate(({ecology,receipt,rows})=>{
+    document.getElementById("frankenComposerWindow").hidden=false;
+    const inspector=window.MutationMap.createMutationInspector({document,bridge:{measureMutation:async()=>rows,verifyMutation:async()=>true}});
+    inspector.update({ecology,receipt});
+    window.__mutationInspector=inspector;
+  },{ecology:compileGenerationalEcology(inputs),receipt:inputs.performanceReceipts[0],rows});
+  await page.locator("#frankenMeasureMutation").click();
+  await expect(page.locator(".franken-mutation-dimension")).toHaveCount(5);
+  await expect(page.locator("#frankenMutationMap")).toContainText("geometry");
+  await expect(page.locator("#frankenMutationStatus")).toContainText("Index 1");
+  await expect(page.locator("#frankenMutationStatus")).toContainText("DISTANCE != VALUE");
+  await page.locator("#frankenVerifyMutation").click();
+  await expect(page.locator("#frankenMutationStatus")).toContainText("RE-VERIFIED");
+  await page.locator(".franken-mutation").scrollIntoViewIfNeeded();
+  await page.screenshot({path:testInfo.outputPath("mutation-map.png"),animations:"disabled"});
+  expect(await page.evaluate(()=>window.__consoleErrors)).toEqual([]);
+});
