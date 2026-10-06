@@ -3,6 +3,7 @@
 const {canonicalize,deepFreeze,hashCanonical}=require("../generation/canonical.cjs");
 const {compilePerformanceTrace,validatePerformanceReceipt}=require("./performance-trace.cjs");
 const {compileResidueMemory,validateTrace}=require("./residue-memory.cjs");
+const {validateCrossingExecution}=require("./crossing-execution-semantics.cjs");
 
 const PERFORMANCE_PROGRAM_SCHEMA="static-collective/performance-program/v0";
 const RENDER_REGION_PLAN_SCHEMA="static-collective/render-region-plan/v0";
@@ -184,6 +185,7 @@ function validatePerformanceProgram(program){
   if(memoryHash!==hashCanonical(canonicalize(memoryBody),"HauntedToaster-ResidueMemory-v0"))throw new TypeError("PerformanceProgram residue memory hash mismatch.");
   if(program.residueMemory?.sourcePerformanceHash!==program.sourcePerformanceHash)throw new TypeError("PerformanceProgram residue source mismatch.");
   if(program.residueMemory?.sourceTraceHash!==program.performanceTrace?.traceHash)throw new TypeError("PerformanceProgram residue/trace lineage mismatch.");
+  if(program.crossingExecution!==undefined)validateCrossingExecution(program);
   const {programHash,...body}=program;
   const expected=hashCanonical(canonicalize(body),"HauntedToaster-PerformanceProgram-v0");
   if(programHash!==expected)throw new TypeError("PerformanceProgram hash mismatch.");
