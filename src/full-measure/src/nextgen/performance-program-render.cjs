@@ -6,6 +6,7 @@ const path=require("node:path");
 const {canonicalize,deepFreeze,hashCanonical}=require("../generation/canonical.cjs");
 const {resolveFfmpeg,runProcess}=require("../render/tooling.cjs");
 const {strengthAtFrame}=require("./residue-memory.cjs");
+const {effectiveResidueStrength}=require("./crossing-execution-semantics.cjs");
 const {validatePerformanceProgram}=require("./performance-program.cjs");
 
 const PIXEL_REGION_RECEIPT_SCHEMA="static-collective/performance-program-pixel-region-receipt/v0";
@@ -137,7 +138,7 @@ function frameFilters(program,globalFrame,localFrame,width,height){
   }
   const residues=program.residueMemory?.residues||[];
   if(residues.length){
-    const total=residues.reduce((sum,residue)=>sum+strengthAtFrame(residue,globalFrame),0);
+    const total=residues.reduce((sum,residue)=>sum+effectiveResidueStrength(program,residue,globalFrame),0);
     const average=clamp(total/residues.length,0,1);
     const barWidth=Math.round(width*average);
     if(barWidth>0){
