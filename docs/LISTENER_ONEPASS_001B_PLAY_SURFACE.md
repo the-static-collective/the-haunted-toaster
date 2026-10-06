@@ -88,6 +88,18 @@ Four persistent lane buttons:
 
 One selection remains latched across future automatic arrivals until changed.
 
+Repeated automatic arrivals in one latched lane use deterministic staging slots so the operator is not forced to change lane merely to avoid immediate text pileup.
+
+The slot is explicitly recorded as:
+
+`authority: deterministic-staging-only`
+
+```text
+LANE CHOICE = HUMAN TREATMENT
+ENTRY SLOT = MACHINE STAGING
+ENTRY SLOT != HUMAN SPATIAL CHOICE
+```
+
 ### Timing exception
 
 One large action:
