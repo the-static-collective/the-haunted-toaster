@@ -26,6 +26,7 @@ function finiteFrame(value, totalFrames, label) {
 }
 
 function frameForSeconds(seconds, form) {
+  if (seconds === null || seconds === undefined || seconds === "") return null;
   const value = Number(seconds);
   if (!Number.isFinite(value) || value < 0) return null;
   return Math.max(
