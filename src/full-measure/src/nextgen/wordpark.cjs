@@ -270,6 +270,31 @@ function dropLyric(session,{witnessId,moodLane,frame,x=null,y=null}={}){
   };
 }
 
+function assistedLaneEntry(moodLane,queueIndex=0){
+  const lane=MOOD_LANES[moodLane];
+  if(!lane)throw new TypeError(`Unknown WORDPARK mood lane: ${moodLane}.`);
+  const slots=[
+    {dx:0,dy:0},
+    {dx:-.09,dy:-.045},
+    {dx:-.18,dy:.045},
+    {dx:-.27,dy:-.075},
+    {dx:-.36,dy:.075},
+    {dx:-.45,dy:0},
+  ];
+  const index=Math.max(0,Math.floor(Number(queueIndex)||0));
+  const slotIndex=index%slots.length;
+  const cycle=Math.floor(index/slots.length);
+  const slot=slots[slotIndex];
+  const cycleShift=(cycle%3)*.018;
+  return canonicalize({
+    x:clamp(lane.entryX+slot.dx-cycleShift,.3,.92),
+    y:clamp(lane.entryY+slot.dy,.1,.9),
+    slotIndex,
+    cycle,
+    authority:"deterministic-staging-only",
+  });
+}
+
 function dropLyricFromGuide(session,{entry,arrival}={}){
   if(session?.schema!==WORDPARK_SCHEMA||session.status!=="running")throw new TypeError("WORDPARK session must be running.");
   if(!entry||!arrival||entry.lineId!==arrival.lineId)throw new TypeError("WORDPARK guide arrival must match its queue entry.");
@@ -285,7 +310,8 @@ function dropLyricFromGuide(session,{entry,arrival}={}){
   }
 
   const text=req(witness?.label||entry.text,"guide lyric text",500);
-  const geometry=geometryForLyric(text,arrival.moodLane,lane.entryX,lane.entryY);
+  const entryPlacement=assistedLaneEntry(arrival.moodLane,entry.queueIndex);
+  const geometry=geometryForLyric(text,arrival.moodLane,entryPlacement.x,entryPlacement.y);
   const placementAuthority=arrival.timingSource==="human-punch"
     ?"human-punched-performance-placement"
     :arrival.timingSource==="human-anchor-scheduled"
@@ -306,6 +332,7 @@ function dropLyricFromGuide(session,{entry,arrival}={}){
     humanAnchorCreated:arrival.humanAnchorCreated===true,
     moodLane:arrival.moodLane,
     moodAuthority:lane.authority,
+    entryPlacement,
     authority:placementAuthority,
     geometry,
   });
@@ -323,6 +350,7 @@ function dropLyricFromGuide(session,{entry,arrival}={}){
     text,
     moodLane:arrival.moodLane,
     moodAuthority:lane.authority,
+    entryPlacement,
     geometryKind:lane.geometryKind,
     placementAuthority,
     meaningClaim:null,
@@ -534,6 +562,7 @@ module.exports={
   compileLyricVideoMap,
   createWordparkSession,
   dropLyric,
+  assistedLaneEntry,
   dropLyricFromGuide,
   geometryForLyric,
   sealWordparkPacket,
