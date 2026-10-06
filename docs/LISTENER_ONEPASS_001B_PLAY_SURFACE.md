@@ -25,7 +25,7 @@ The Game Studio architecture is therefore:
 WORDPARK deterministic simulation
         |
         v
-preload-owned play runtime
+privileged Franken IPC play runtime
         |
   bounded snapshots
         |
@@ -40,6 +40,7 @@ preload-owned play runtime
 SIMULATION != RENDERER
 CANVAS != PHYSICS AUTHORITY
 HUD != QUEUE AUTHORITY
+SANDBOXED PRELOAD != SIMULATION HOST
 AUDIO CLOCK = PERFORMANCE CLOCK
 ```
 
@@ -131,9 +132,9 @@ New module:
 
 `src/nextgen/wordpark-runtime.cjs`
 
-The runtime owns one assisted WORDPARK session.
+The privileged Franken service owns one assisted WORDPARK session. The sandboxed preload only forwards bounded IPC requests.
 
-Renderer-facing methods are deliberately narrow:
+Renderer-facing methods cross the sandboxed preload as asynchronous IPC calls and remain deliberately narrow:
 
 - start;
 - set lane;
