@@ -239,6 +239,27 @@ function publicCrossingView(context) {
   return deepFreeze(canonicalize(publicValue));
 }
 
+function frankenVideoDigestionMediaEntries(context) {
+  const family = context?._private?.videoDigestion;
+  if (!family) return deepFreeze([]);
+  return deepFreeze(family.descendants.map((descendant) => {
+    const materialId = digestionMaterialId(descendant);
+    return canonicalize({
+      materialId,
+      sourceSpecimenId: descendant.plan.sourceSpecimenId,
+      sourceSha256: descendant.plan.sourceSha256,
+      sourceByteLength: descendant.plan.sourceByteLength,
+      sourceIdentity: `video-digestion:${family.familyHash}:${descendant.roleId}:${descendant.planHash}`,
+      sourcePath: descendant.plan.sourcePath,
+      planHash: descendant.planHash,
+      roleId: descendant.roleId,
+      digestOperatorId: descendant.digestOperatorId,
+      samplingPolicyId: descendant.samplingPolicyId,
+      projectionClass: descendant.projectionClass,
+    });
+  }));
+}
+
 function frankenVideoDigestionReservoir(context) {
   const family = context?._private?.videoDigestion;
   if (!family) return deepFreeze({ materials: [], bindings: {} });
@@ -286,6 +307,7 @@ module.exports = {
   deriveSnapLandmarks,
   digestionMaterialId,
   frankenVideoDigestionReservoir,
+  frankenVideoDigestionMediaEntries,
   projectionTreatmentFor,
   publicCrossingView,
 };

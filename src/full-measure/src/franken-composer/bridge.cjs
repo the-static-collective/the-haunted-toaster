@@ -6,13 +6,14 @@ const {pathToFileURL}=require("node:url");
 const {canonicalBytes,canonicalize,hashCanonical}=require("../generation/canonical.cjs");
 const {adaptPlaydeck}=require("./adapters/playdeck.cjs");
 const {adaptAcceptedBlenderTake}=require("./adapters/blender-take.cjs");
-const {frankenVideoDigestionReservoir}=require("../nextgen/live-crossings.cjs");
+const {frankenVideoDigestionReservoir,frankenVideoDigestionMediaEntries}=require("../nextgen/live-crossings.cjs");
 const {composeFrankenProposal,applyFrankenEdits,proposalToComposition}=require("./compose.cjs");
 const {freezeFrankenComposition}=require("./freeze.cjs");
 const {fingerprint256,stableStringify}=require("../renderer/one-pass.js");
 const {compilePerformanceTrace}=require("../nextgen/performance-trace.cjs");
 const {compileResidueMemory}=require("../nextgen/residue-memory.cjs");
 const {compilePerformanceBundle}=require("../nextgen/performance-program.cjs");
+const {createPerformanceProgramMediaBindings,revalidateLocalMedia}=require("../nextgen/performance-program-media.cjs");
 
 const JSON_EXTENSIONS=new Set([".json"]);
 const VIDEO_EXTENSIONS=new Set([".mp4"]);
@@ -152,19 +153,40 @@ function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
         residueMemory,
       });
     },
-    async writePerformanceProgramBundle(receipt){
+    async writePerformanceProgramBundle(receipt,mediaConfig={}){
       const validated=validateOnePassReceipt(receipt);
       const {program,renderRegionPlan,executionReceipt}=compilePerformanceBundle(validated);
+      let mediaBindings=null;
+      if(mediaConfig?.enabled===true){
+        if(typeof getNextGenContext!=="function")throw new TypeError("PerformanceProgram media binding requires the privileged NextGen crossing.");
+        const context=await getNextGenContext({
+          rootSeed:String(mediaConfig.rootSeed||"franken-001"),
+          albumContext:structuredClone(mediaConfig.albumContext||{}),
+        });
+        const expected=String(mediaConfig.expectedCrossingIdentity||"").trim();
+        if(!expected||expected!==context.crossingIdentity)throw new TypeError("PerformanceProgram media binding refuses stale NextGen crossing identity.");
+        mediaBindings=createPerformanceProgramMediaBindings(program,{
+          entries:frankenVideoDigestionMediaEntries(context),
+        });
+        await revalidateLocalMedia(program,mediaBindings.witness,mediaBindings.localPaths);
+      }
       const dir=path.join(outputRoot,"performance-program",program.programHash);
       const programPath=path.join(dir,"performance-program.json");
       const renderRegionPlanPath=path.join(dir,"render-region-plan.json");
       const executionReceiptPath=path.join(dir,"execution-receipt.json");
+      const mediaBindingWitnessPath=mediaBindings?path.join(dir,"media-binding-witness.json"):null;
+      const localMediaPathsPath=mediaBindings?path.join(dir,"local-media-paths.json"):null;
       await fs.mkdir(dir,{recursive:true});
-      for(const [file,value] of [
+      const artifacts=[
         [programPath,program],
         [renderRegionPlanPath,renderRegionPlan],
         [executionReceiptPath,executionReceipt],
-      ]){
+        ...(mediaBindings?[
+          [mediaBindingWitnessPath,mediaBindings.witness],
+          [localMediaPathsPath,mediaBindings.localPaths],
+        ]:[]),
+      ];
+      for(const [file,value] of artifacts){
         const bytes=canonicalBytes(value);
         try{
           await fs.writeFile(file,bytes,{flag:"wx"});
@@ -179,9 +201,12 @@ function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
         programPath,
         renderRegionPlanPath,
         executionReceiptPath,
+        mediaBindingWitnessPath,
+        localMediaPathsPath,
         programHash:program.programHash,
         regionPlanHash:renderRegionPlan.regionPlanHash,
         executionStateHash:executionReceipt.stateHash,
+        mediaBindingSetHash:mediaBindings?.witness?.bindingSetHash||null,
       };
     },
     async writeOnePassReceipt(receipt){
@@ -215,7 +240,7 @@ function registerFrankenComposerIpc(ipcMain,{dialog,getWindow,rootDir,assertAvai
   ipcMain.handle("franken:compose",async(_event,config)=>{assertAvailable();return service.compose(config);});
   ipcMain.handle("franken:freeze",async(_event,config)=>{assertAvailable();const result=await service.freeze(config);return {plan:result.plan,planHash:result.planHash};});
   ipcMain.handle("franken:derive-performance-ecology",async(_event,receipt)=>{assertAvailable();return service.derivePerformanceEcology(receipt);});
-  ipcMain.handle("franken:write-performance-program-bundle",async(_event,receipt)=>{assertAvailable();return service.writePerformanceProgramBundle(receipt);});
+  ipcMain.handle("franken:write-performance-program-bundle",async(_event,receipt,mediaConfig)=>{assertAvailable();return service.writePerformanceProgramBundle(receipt,mediaConfig);});
   ipcMain.handle("franken:write-one-pass-receipt",async(_event,receipt)=>{assertAvailable();return service.writeOnePassReceipt(receipt);});
   ipcMain.handle("franken:write-projection-bundle",async(_event,config)=>{assertAvailable();return service.writeProjectionBundle(config);});
   return service;

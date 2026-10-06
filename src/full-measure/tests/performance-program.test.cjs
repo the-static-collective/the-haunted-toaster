@@ -204,7 +204,7 @@ test("COMPILE TAKE is wired from visible control through preload to renderer han
   assert.match(html,/id="frankenPerformanceProgram"/);
   assert.match(preload,/writePerformanceProgramBundle/);
   assert.match(uiSource,/async function compileOnePassTake\(\)/);
-  assert.match(uiSource,/bridge\.writePerformanceProgramBundle\(onePassSession\.receipt\)/);
+  assert.match(uiSource,/bridge\.writePerformanceProgramBundle\(onePassSession\.receipt,\{/);
 });
 
 test("bundle begins with an explicit missing-work execution receipt",()=>{
