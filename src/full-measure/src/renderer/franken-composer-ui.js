@@ -433,6 +433,8 @@
     const onePassProgress=document.getElementById("frankenOnePassProgress");
     const onePassLanes=document.getElementById("frankenOnePassLanes");
     const onePassReceipt=document.getElementById("frankenOnePassReceipt");
+    const onePassCompile=document.getElementById("frankenCompileTake");
+    const onePassProgram=document.getElementById("frankenPerformanceProgram");
     const performanceAudio=document.getElementById("syncAudio");
     const onePassApi=view?.OnePass||null;
     const ONE_PASS_KEYS=["a","s","d","j","k","l"];
@@ -443,6 +445,8 @@
     let onePassPersistenceError=null;
     let onePassEcology=null;
     let onePassEcologyError=null;
+    let onePassProgramBundle=null;
+    let onePassProgramError=null;
     let playheadFrame=0;
     let snapEnabled=true;
     let timelineGestureActive=false;
@@ -1046,6 +1050,22 @@
       const ready=Boolean(onePassApi)&&hasAudio&&descendants.length===6&&!onePassConsumed&&!running;
       onePassBegin.disabled=!ready;
       onePassBegin.textContent=running?"TAKE IN MOTION":(finished?"TAKE SEALED":"BEGIN THE TAKE");
+      if(onePassCompile){
+        onePassCompile.disabled=!finished||typeof bridge.writePerformanceProgramBundle!=="function";
+        onePassCompile.textContent=onePassProgramBundle?"PROGRAM COMPILED":"COMPILE TAKE";
+      }
+      if(onePassProgram){
+        if(onePassProgramError){
+          onePassProgram.textContent=`PROGRAM ERROR · ${onePassProgramError}`;
+          onePassProgram.title=onePassProgramError;
+        }else if(onePassProgramBundle){
+          onePassProgram.textContent=`PROGRAM · ${String(onePassProgramBundle.programHash||"").slice(0,16)} · ${filename(onePassProgramBundle.programPath)}`;
+          onePassProgram.title=onePassProgramBundle.programHash||"";
+        }else{
+          onePassProgram.textContent="No program compiled";
+          onePassProgram.title="";
+        }
+      }
       if(!running){
         onePassProgress.style.width=finished?"100%":"0%";
       }
@@ -1185,6 +1205,8 @@
       onePassPersistenceError=null;
       onePassEcology=null;
       onePassEcologyError=null;
+      onePassProgramBundle=null;
+      onePassProgramError=null;
       if(typeof bridge.derivePerformanceEcology==="function"){
         try{
           onePassEcology=await bridge.derivePerformanceEcology(onePassSession.receipt);
@@ -1203,6 +1225,29 @@
         onePassPersistenceError="receipt persistence bridge unavailable";
       }
       render();
+    }
+
+    async function compileOnePassTake(){
+      if(onePassSession?.status!=="finished")return;
+      if(typeof bridge.writePerformanceProgramBundle!=="function"){
+        onePassProgramError="PerformanceProgram bridge unavailable";
+        renderOnePass();
+        return;
+      }
+      onePassProgramBundle=null;
+      onePassProgramError=null;
+      if(onePassCompile){
+        onePassCompile.disabled=true;
+        onePassCompile.textContent="COMPILING…";
+      }
+      try{
+        onePassProgramBundle=await bridge.writePerformanceProgramBundle(onePassSession.receipt);
+        root.dataset.performanceProgramHash=onePassProgramBundle?.programHash||"";
+      }catch(error){
+        onePassProgramError=error?.message||String(error);
+        delete root.dataset.performanceProgramHash;
+      }
+      renderOnePass();
     }
 
     function tickOnePass(){
@@ -1243,6 +1288,9 @@
       }
       onePassEcology=null;
       onePassEcologyError=null;
+      onePassProgramBundle=null;
+      onePassProgramError=null;
+      delete root.dataset.performanceProgramHash;
       onePassSession=onePassApi.beginOnePass(onePassApi.createOnePassSession({
         materials:descendants,
         fps:24,
@@ -1370,6 +1418,9 @@
         onePassPersistenceError=null;
         onePassEcology=null;
         onePassEcologyError=null;
+        onePassProgramBundle=null;
+        onePassProgramError=null;
+        delete root.dataset.performanceProgramHash;
         root.classList.remove("one-pass-running");
         render();
       }catch(error){
@@ -1386,6 +1437,7 @@
     close?.addEventListener("click",()=>setOpen(false));
     nextGenLoad?.addEventListener("click",loadNextGen);
     onePassBegin?.addEventListener("click",()=>{beginOnePassTake().catch((error)=>{onePassStatus.textContent=error?.message||String(error);});});
+    onePassCompile?.addEventListener("click",()=>{compileOnePassTake().catch((error)=>{onePassProgramError=error?.message||String(error);renderOnePass();});});
     performanceAudio?.addEventListener("ended",()=>{
       finishOnePassTake((performanceAudio.currentTime||0)*1000).catch((error)=>{
         onePassPersistenceError=error?.message||String(error);
