@@ -3,13 +3,14 @@
 const test=require("node:test");
 const assert=require("node:assert/strict");
 const {freezeFrankenComposition}=require("../src/franken-composer/freeze.cjs");
+const {canonicalize,hashCanonical}=require("../src/generation/canonical.cjs");
 const {
   beginOnePass,createOnePassSession,finishOnePass,pressLane,releaseLane,sampleLanePosition,
 }=require("../src/renderer/one-pass.js");
 const {compilePerformanceProgram}=require("../src/nextgen/performance-program.cjs");
 const {AXIS_IDS,compileWeirdness}=require("../src/nextgen/weirdness-compiler.cjs");
 const {
-  createLawFossil,validateLawFossil,
+  createLawFossil,createWorldLawRenderCause,validateLawFossil,
 }=require("../src/nextgen/law-fossil.cjs");
 const {
   bindHistoryToVideo,createRenderedHistoryCapsule,
@@ -58,17 +59,59 @@ function frozen(){
   });
 }
 
+function wholeRenderReceipt(compilation){
+  const renderer="ffmpeg-performance-program-witness-raster/v0";
+  const frames=[
+    {frame:0,filename:"frame-000000.ppm",sha256:"4".repeat(64),sizeBytes:128},
+    {frame:1,filename:"frame-000001.ppm",sha256:"5".repeat(64),sizeBytes:128},
+    {frame:2,filename:"frame-000002.ppm",sha256:"6".repeat(64),sizeBytes:128},
+  ];
+  const frameGraphHash=hashCanonical(canonicalize({
+    programHash:compilation.compiledProgramHash,
+    renderer,
+    frames:frames.map(frame=>({frame:frame.frame,sha256:frame.sha256})),
+  }),"HauntedToaster-PerformanceProgram-FrameGraph-v0");
+  const body=canonicalize({
+    schema:"static-collective/performance-program-whole-render-receipt/v0",
+    authority:"witness-only",
+    renderer,
+    programHash:compilation.compiledProgramHash,
+    workerId:"law-fossil-test",
+    attemptId:"law-fossil-test",
+    frameCount:frames.length,
+    raster:{width:96,height:54,pixelFormat:"rgb24",container:"ppm-sequence"},
+    frames,
+    frameGraphHash,
+    claimLimits:[
+      "WHOLE RENDER RECEIPT != HUMAN PERFORMANCE",
+      "WITNESS RASTER != FINAL ARTISTIC PROJECTION",
+    ],
+  });
+  return canonicalize({
+    ...body,
+    receiptHash:hashCanonical(body,"HauntedToaster-PerformanceProgram-WholeRenderReceipt-v0"),
+  });
+}
+
 function capsule(){
   const compilation=weird();
   const fossil=createLawFossil(compilation);
+  const worldLawCause=createWorldLawRenderCause({
+    lawFossil:fossil,
+    weirdnessCompilation:compilation,
+    wholeRenderReceipt:wholeRenderReceipt(compilation),
+  });
   const f=frozen();
   return {
+    compilation,
     fossil,
+    worldLawCause,
     capsule:createRenderedHistoryCapsule({
       plan:f.plan,planHash:f.planHash,
       projection:{kind:"ffmpeg-performance-program-witness-raster/v0",projectionHash:"2".repeat(64)},
       renderedMedia:{sha256:"3".repeat(64),byteLength:1000},
       historicalContext:{lawFossil:fossil},
+      worldLawCause,
     }),
   };
 }
@@ -103,13 +146,30 @@ test("unchanged world does not mint a relaxed-law fossil",()=>{
   assert.throws(()=>createLawFossil(compileWeirdness(program(),{axes:[]})),/no relaxed assumptions/i);
 });
 
-test("render history binds a bounded law fossil ref to exact media bytes",()=>{
-  const {fossil,capsule:historyCapsule}=capsule();
+test("render history binds a bounded law fossil ref only with matching rendered-world cause",()=>{
+  const {fossil,worldLawCause,capsule:historyCapsule}=capsule();
   const ref=bindHistoryToVideo({historyCapsule,sourceSha256:"3".repeat(64)});
   assert.equal(ref.lawFossilRef.lawFossilHash,fossil.lawFossilHash);
   assert.equal(ref.lawFossilRef.weirdnessCompilationHash,fossil.weirdnessCompilationHash);
   assert.deepEqual(ref.lawFossilRef.axes,fossil.axes.map(({axisId,amount})=>({axisId,amount})));
   assert.equal(ref.lawFossilRef.authority,"provenance-only");
+  assert.equal(ref.worldLawCauseRef.causeHash,worldLawCause.causeHash);
+  assert.equal(ref.worldLawCauseRef.frameGraphHash,worldLawCause.frameGraphHash);
+});
+
+test("context-only law fossil does not propagate as inherited causal law history",()=>{
+  const compilation=weird();
+  const fossil=createLawFossil(compilation);
+  const f=frozen();
+  const historyCapsule=createRenderedHistoryCapsule({
+    plan:f.plan,planHash:f.planHash,
+    projection:{kind:"witness",projectionHash:"2".repeat(64)},
+    renderedMedia:{sha256:"3".repeat(64),byteLength:1000},
+    historicalContext:{lawFossil:fossil},
+  });
+  const ref=bindHistoryToVideo({historyCapsule,sourceSha256:"3".repeat(64)});
+  assert.equal(Object.prototype.hasOwnProperty.call(ref,"lawFossilRef"),false);
+  assert.equal(Object.prototype.hasOwnProperty.call(ref,"worldLawCauseRef"),false);
 });
 
 test("all six compost descendants inherit law fossil evidence but no active weirdness binding",()=>{
@@ -131,17 +191,25 @@ test("all six compost descendants inherit law fossil evidence but no active weir
 test("different relaxed-law histories produce distinct compost family identities for same bytes",()=>{
   const base=program();
   const make=(axisId)=>createLawFossil(compileWeirdness(base,{axes:[{axisId,amount:.8}]}));
-  const wrap=(fossil)=>{
+  const wrap=(axisId)=>{
+    const compilation=compileWeirdness(base,{axes:[{axisId,amount:.8}]});
+    const fossil=createLawFossil(compilation);
+    const worldLawCause=createWorldLawRenderCause({
+      lawFossil:fossil,
+      weirdnessCompilation:compilation,
+      wholeRenderReceipt:wholeRenderReceipt(compilation),
+    });
     const f=frozen();
     return createRenderedHistoryCapsule({
       plan:f.plan,planHash:f.planHash,
       projection:{kind:"witness",projectionHash:"2".repeat(64)},
       renderedMedia:{sha256:"3".repeat(64),byteLength:1000},
       historicalContext:{lawFossil:fossil},
+      worldLawCause,
     });
   };
-  const a=wrap(make(AXIS_IDS.COORDINATE_AGREEMENT));
-  const b=wrap(make(AXIS_IDS.HISTORY_DECAY_AGREEMENT));
+  const a=wrap(AXIS_IDS.COORDINATE_AGREEMENT);
+  const b=wrap(AXIS_IDS.HISTORY_DECAY_AGREEMENT);
   const fa=createVideoDigestionSix({
     videoBinding:binding(a),timeline:{durationTicks:240,timebase:24},analysisDurationSeconds:10,historyCapsule:a,
   });
