@@ -1241,7 +1241,12 @@
         onePassCompile.textContent="COMPILING…";
       }
       try{
-        onePassProgramBundle=await bridge.writePerformanceProgramBundle(onePassSession.receipt);
+        onePassProgramBundle=await bridge.writePerformanceProgramBundle(onePassSession.receipt,{
+          enabled:Boolean(state.nextGen?.videoDigestion),
+          expectedCrossingIdentity:state.nextGen?.crossingIdentity||null,
+          rootSeed:state.seed,
+          albumContext:{},
+        });
         root.dataset.performanceProgramHash=onePassProgramBundle?.programHash||"";
       }catch(error){
         onePassProgramError=error?.message||String(error);
