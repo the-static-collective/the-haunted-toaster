@@ -118,6 +118,27 @@ test("recurrence weather retains exact group and occurrence evidence",()=>{
   assert.equal(presence.sourceRecurrenceFieldHash,recurrence().recurrenceHash);
 });
 
+test("strong recurrence weather has zero physics effect without an explicit binding",()=>{
+  const p=program();
+  const weather=deriveCreativeWeatherV1({
+    listeningField:listening(),recurrenceField:recurrence(),
+    sampleFrames:[120],windowFrames:12,
+  });
+  const transition=compileTransitionField(p,{
+    creativeWeather:weather,
+    candidates:[{
+      candidateId:"unbound-return",
+      kind:"generic-relation",
+      frame:120,
+      fromState:"absent",
+      toState:"return",
+      baseEnergy:.8,
+    }],
+  }).transitions[0];
+  assert.equal(transition.energy,.8);
+  assert.equal(transition.contributions.some(item=>item.kind==="weather:recurrence-presence"),false);
+});
+
 test("explicit recurrence weather binding lowers transition energy only in recurrence weather",()=>{
   const p=program();
   const weather=deriveCreativeWeatherV1({
