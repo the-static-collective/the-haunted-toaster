@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="./listener-transport.css" />
     <link rel="stylesheet" href="./beta-home-ui.css" />
     <link rel="stylesheet" href="./franken-composer-ui.css" />
+    <link rel="stylesheet" href="./wordpark-play-ui.css" />
     <link rel="stylesheet" href="./nextgen-lab-ui.css" />
   </head>
   <body>
@@ -248,6 +249,43 @@
               <span>raw timing + spatial witness · no snap · no pause · silence is a move</span>
             </div>
             <code id="frankenOnePassReceipt">No take sealed</code>
+          </section>
+          <section class="wordpark-play-surface" id="wordparkPlaySurface" aria-labelledby="wordparkPlayHeading">
+            <header class="wordpark-play-head">
+              <div>
+                <span>WORDPARK · LISTENER ONE PASS</span>
+                <h4 id="wordparkPlayHeading">The words are the skatepark.</h4>
+              </div>
+              <div class="wordpark-play-actions">
+                <button id="wordparkBegin" type="button" disabled>BEGIN WORDPARK</button>
+                <button id="wordparkStop" type="button" disabled>SEAL TAKE</button>
+              </div>
+            </header>
+            <p id="wordparkStatus">Run the Listener first. WORDPARK needs lyric evidence.</p>
+            <div class="wordpark-game-shell">
+              <div class="wordpark-stage">
+                <canvas id="wordparkCanvas" aria-label="WORDPARK lyric playfield"></canvas>
+                <div class="wordpark-steer-pad" aria-label="Bird steering">
+                  <button type="button" data-wordpark-steer="KeyW" aria-label="Steer up">↑</button>
+                  <button type="button" data-wordpark-steer="KeyA" aria-label="Steer left">←</button>
+                  <button type="button" data-wordpark-steer="KeyS" aria-label="Steer down">↓</button>
+                  <button type="button" data-wordpark-steer="KeyD" aria-label="Steer right">→</button>
+                </div>
+              </div>
+              <aside class="wordpark-hud">
+                <div class="wordpark-lookahead" id="wordparkLookahead" aria-live="polite"></div>
+                <div class="wordpark-lanes" aria-label="Creative lyric treatment">
+                  <button type="button" data-wordpark-lane="OPEN" aria-pressed="true"><kbd>1</kbd>OPEN<small>platform</small></button>
+                  <button type="button" data-wordpark-lane="TENDER" aria-pressed="false"><kbd>2</kbd>TENDER<small>bowl</small></button>
+                  <button type="button" data-wordpark-lane="STRANGE" aria-pressed="false"><kbd>3</kbd>STRANGE<small>ramp</small></button>
+                  <button type="button" data-wordpark-lane="HARD" aria-pressed="false"><kbd>4</kbd>HARD<small>wall</small></button>
+                </div>
+                <button class="wordpark-now" id="wordparkNow" type="button" disabled>NOW</button>
+                <small class="wordpark-now-hint"><kbd>Space</kbd> punch timing · WASD / arrows steer</small>
+                <output id="wordparkStats">No performance armed</output>
+              </aside>
+            </div>
+            <audio id="wordparkAudio" preload="metadata"></audio>
           </section>
           <div class="franken-source-grid">
             <button type="button" data-franken-choose="deckPath"><b>Playdeck deck</b><small data-franken-path-status="deckPath">Not chosen</small></button>
@@ -594,6 +632,7 @@
     <script src="./candidate-ui.js"></script>
     <script src="./one-pass.js"></script>
     <script src="./franken-composer-ui.js"></script>
+    <script src="./wordpark-play-ui.js"></script>
     <script src="./nextgen-lab-ui.js"></script>
     <script src="./recent-toasts-ui.js"></script>
     <script src="./lyric-foundry-ui.js"></script>
