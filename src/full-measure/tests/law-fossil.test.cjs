@@ -42,19 +42,19 @@ function weird(){
 
 function frozen(){
   return freezeFrankenComposition({
-    schema:"static-collective/franken-composition/v1",
-    policy:"franken-composer/full-song-v1",
+    schema:"static-collective/franken-composition/v0",
+    policy:"franken-composer/v0",
     compositionId:"law-fossil-specimen",
     seed:"law-fossil-specimen",
-    fps:24,durationFrames:240,ancestry:{},
+    fps:24,durationFrames:1152,ancestry:{},
     materials:[{
       materialId:"text:one",kind:"text",sourceIdentity:"text:one:HELLO",
       digest:"1".repeat(64),rightsBasis:"local-test",admissionBasis:"local-test",
     }],
     scenes:[
-      {sceneId:"ARRIVE",startFrame:0,durationFrames:80,worldRule:"threshold",tracks:[]},
-      {sceneId:"CROSS",startFrame:80,durationFrames:80,worldRule:"threshold",tracks:[]},
-      {sceneId:"ASSEMBLE",startFrame:160,durationFrames:80,worldRule:"threshold",tracks:[]},
+      {sceneId:"ARRIVE",startFrame:0,durationFrames:384,worldRule:"threshold",tracks:[]},
+      {sceneId:"CROSS",startFrame:384,durationFrames:384,worldRule:"threshold",tracks:[]},
+      {sceneId:"ASSEMBLE",startFrame:768,durationFrames:384,worldRule:"threshold",tracks:[]},
     ],transitions:[],receipts:{},
   });
 }
