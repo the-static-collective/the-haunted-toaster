@@ -378,7 +378,7 @@
     const glyphs = chars.map((char, index) => ({
       index,
       char,
-      x: Math.max(.3, centerX - .27) + (index / Math.max(1, chars.length - 1)) * .46,
+      x: Math.min(.94, Math.max(.3, centerX - .27) + (index / Math.max(1, chars.length - 1)) * .46),
       y,
       rotationDegrees: lane === "STRANGE" ? -14 : lane === "HARD" ? 90 : 0,
     }));
