@@ -211,7 +211,10 @@ function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
     async approveCrossingExecutionScope(receipt,binding,scopeProposal,expectedScopeProposalHash){
       const validated=validateOnePassReceipt(receipt);
       const sourceProgram=compilePerformanceProgram(validated);
-      const derivedProgram=createCrossingExecutionProgram(sourceProgram,binding,{wakeStrength:1});
+      const derivedProgram=createCrossingExecutionProgram(sourceProgram,binding,{
+        wakeStrength:scopeProposal?.wakeStrength,
+        decayPerFrame:scopeProposal?.decayPerFrame,
+      });
       validateAffectedRegionProposal(sourceProgram,derivedProgram,binding,scopeProposal);
       const approval=approveExecutionScope(scopeProposal,{
         expectedScopeProposalHash,
@@ -235,7 +238,10 @@ function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
     async executeApprovedCrossing(receipt,binding,scopeProposal,scopeApproval,{localExecutionAuthorized=false}={}){
       const validated=validateOnePassReceipt(receipt);
       const sourceProgram=compilePerformanceProgram(validated);
-      const derivedProgram=createCrossingExecutionProgram(sourceProgram,binding,{wakeStrength:1});
+      const derivedProgram=createCrossingExecutionProgram(sourceProgram,binding,{
+        wakeStrength:scopeProposal?.wakeStrength,
+        decayPerFrame:scopeProposal?.decayPerFrame,
+      });
       validateAffectedRegionProposal(sourceProgram,derivedProgram,binding,scopeProposal);
       validateExecutionScopeApproval(scopeProposal,scopeApproval);
       const parcel=prepareSparseExecutionParcel(derivedProgram,scopeProposal,scopeApproval,{
