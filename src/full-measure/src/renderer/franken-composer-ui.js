@@ -140,6 +140,7 @@
         digestPlacements:[],
       },
       nextGen:null,
+      promotedMaterials:[],
       proposal:null,
       proposalIdentity:null,
       previewAssets:{},
@@ -216,7 +217,10 @@
   }
 
   function descendantFor(state,materialId){
-    return (state.nextGen?.videoDigestion?.descendants||[]).find((descendant)=>descendant.materialId===materialId)||null;
+    return [
+      ...(state.nextGen?.videoDigestion?.descendants||[]),
+      ...(state.promotedMaterials||[]).map(entry=>entry.descriptor),
+    ].find((descendant)=>descendant.materialId===materialId)||null;
   }
 
   function reduceBenchState(state,action){
@@ -307,6 +311,24 @@
               :placement),
           },
         });
+      case "promoted-material-admit":{
+        const value=action.value;
+        if(!value?.admissionPath||!value?.descriptor?.materialId)throw new Error("Adopted material admission requires a package path and descriptor.");
+        const existing=(state.promotedMaterials||[]).find(entry=>entry.descriptor.materialId===value.descriptor.materialId);
+        if(existing){
+          if(existing.admissionHash!==value.admissionHash)throw new Error("Adopted material identity collides with a different admission.");
+          return state;
+        }
+        const descriptor={
+          ...value.descriptor,
+          slot:7+(state.promotedMaterials||[]).length,
+          isAdoptedArtifact:true,
+        };
+        return {
+          ...state,
+          promotedMaterials:[...(state.promotedMaterials||[]),{...value,descriptor}],
+        };
+      }
       case "nextgen":
         return markDirty({
           ...state,
@@ -362,6 +384,7 @@
             albumContext:{},
           }
         :null,
+      adoptedArtifactAdmissionPaths:(state.promotedMaterials||[]).map(entry=>entry.admissionPath),
       edits:{
         cardOrder:state.edits.cardOrder||undefined,
         sceneRoles:Object.keys(state.edits.sceneRoles).length
