@@ -480,6 +480,9 @@
     const candidateGraphReadout=document.getElementById("frankenCandidateGraph");
     const reviewMediaReadout=document.getElementById("frankenReviewMedia");
     const artifactDispositionReadout=document.getElementById("frankenArtifactDisposition");
+    const proposeArtifactImport=document.getElementById("frankenProposeArtifactImport");
+    const admitArtifactMaterial=document.getElementById("frankenAdmitArtifactMaterial");
+    const artifactImportStatus=document.getElementById("frankenArtifactImportStatus");
     const performanceAudio=document.getElementById("syncAudio");
     const onePassApi=view?.OnePass||null;
     const ONE_PASS_KEYS=["a","s","d","j","k","l"];
@@ -504,6 +507,9 @@
     let candidateArtifactReview=null;
     let artifactDisposition=null;
     let artifactReviewError=null;
+    let artifactImportProposal=null;
+    let artifactMaterialAdmission=null;
+    let artifactPromotionError=null;
     let playheadFrame=0;
     let snapEnabled=true;
     let timelineGestureActive=false;
@@ -1098,10 +1104,17 @@
       updatePreviewFrame();
     }
 
+    function resetArtifactPromotion(){
+      artifactImportProposal=null;
+      artifactMaterialAdmission=null;
+      artifactPromotionError=null;
+    }
+
     function resetArtifactReview(){
       candidateArtifactReview=null;
       artifactDisposition=null;
       artifactReviewError=null;
+      resetArtifactPromotion();
       delete root.dataset.candidateGraphHash;
       delete root.dataset.artifactDispositionHash;
       if(candidateReviewVideo){
