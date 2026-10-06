@@ -121,12 +121,12 @@
     ctx.fillStyle=palette.HARD;
     ctx.beginPath();
     ctx.moveTo(radius*.92,-radius*.08);
-    ctx.LineTo(radius*1.45,radius*.12);
-     ctx.lineTo(radius*.88,radius.28);
+    ctx.lineTo(radius*1.45,radius*.12);
+     ctx.lineTo(radius*.88,radius*.28);
     ctx.closePath();
     ctx.fill();
 
-    ctx.StrokeStyle=palette.background;
+    ctx.strokeStyle=palette.background;
     ctx.lineWidth=Math.max(1.5,radius*.15);
     ctx.beginPath();
     ctx.arc(-radius*.12,radius*.05,radius*.5,-.8,1.3);
@@ -202,7 +202,7 @@
       if(!snapshot?.active)return 0;
       const fps=Math.max(1,Number(snapshot.fps)||24);
       if(audio&&Number.isFinite(audio.currentTime)){
-        return Math.max(0,Math.min(3napshot.totalFrames-1,Math.round(audio.currentTime*fps)));
+        return Math.max(0,Math.min(snapshot.totalFrames-1,Math.round(audio.currentTime*fps)));
       }
       return snapshot.frame||0;
     };
@@ -381,7 +381,7 @@
 
     const onKeyDown=(event)=>{
       if(!root||root.hidden)return;
-      const tag=document.activeElement?.tagNam;
+      const tag=document.activeElement?.tagName;
       if(["INPUT","TEXTAREA","SELECT"].includes(tag))return;
       const shortcut=laneFromShortcut(event.code);
       if(shortcut){
