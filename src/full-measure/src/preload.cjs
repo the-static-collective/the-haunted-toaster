@@ -1,8 +1,10 @@
 const { contextBridge, ipcRenderer, webUtils } = require("electron");
+const { createAssistedWordparkRuntime } = require("./nextgen/wordpark-runtime.cjs");
 
 const PRODUCT_NAME = "The Haunted Toaster";
 const MAX_LISTENER_EVIDENCE = 10_000;
 let pendingListenerEvidence = null;
+const wordparkRuntime = createAssistedWordparkRuntime();
 
 function installVideoSourceUiScript() {
   if (document.querySelector('script[data-haunted-video-source="v1"]')) return;
@@ -182,6 +184,13 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   chooseFrankenBlenderVideo: () => ipcRenderer.invoke("franken:choose-blender-video"),
   deriveFrankenFullSongForm: (input) => ipcRenderer.invoke("franken:derive-full-song-form", input),
   deriveFrankenListeningField: (input) => ipcRenderer.invoke("franken:derive-listening-field", input),
+  wordparkStart: (input) => wordparkRuntime.start(input),
+  wordparkSetLane: (input) => wordparkRuntime.setLane(input),
+  wordparkAdvanceTo: (input) => wordparkRuntime.advanceTo(input),
+  wordparkPunch: (input) => wordparkRuntime.punch(input),
+  wordparkSnapshot: () => wordparkRuntime.snapshot(),
+  wordparkSeal: () => wordparkRuntime.seal(),
+  wordparkReset: () => wordparkRuntime.reset(),
   composeFranken: (config) => ipcRenderer.invoke("franken:compose", config),
   freezeFranken: (config) => ipcRenderer.invoke("franken:freeze", config),
   derivePerformanceEcology: (receipt) => ipcRenderer.invoke("franken:derive-performance-ecology", receipt),
