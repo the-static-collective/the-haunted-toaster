@@ -191,6 +191,8 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   executeApprovedCrossing: (receipt, binding, scopeProposal, scopeApproval, options = {}) => ipcRenderer.invoke("franken:execute-approved-crossing", receipt, binding, scopeProposal, scopeApproval, options),
   prepareCandidateArtifactReview: (receipt, binding, scopeProposal, scopeApproval, executionResult) => ipcRenderer.invoke("franken:prepare-candidate-artifact-review", receipt, binding, scopeProposal, scopeApproval, executionResult),
   decideCandidateArtifact: (graph, reviewReceipt, decision, expectedCandidateGraphHash) => ipcRenderer.invoke("franken:decide-candidate-artifact", graph, reviewReceipt, decision, expectedCandidateGraphHash),
+  proposeAdoptedArtifactImport: (graph, reviewReceipt, disposition, mediaPath) => ipcRenderer.invoke("franken:propose-adopted-artifact-import", graph, reviewReceipt, disposition, mediaPath),
+  admitAdoptedArtifactImport: (proposal, expectedImportProposalHash, mediaPath) => ipcRenderer.invoke("franken:admit-adopted-artifact-import", proposal, expectedImportProposalHash, mediaPath),
   writePerformanceProgramBundle: (receipt) => ipcRenderer.invoke("franken:write-performance-program-bundle", receipt),
   writeOnePassReceipt: (receipt) => ipcRenderer.invoke("franken:write-one-pass-receipt", receipt),
   writeFrankenProjectionBundle: (config) => ipcRenderer.invoke("franken:write-projection-bundle", config),
