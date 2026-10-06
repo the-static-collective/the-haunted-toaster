@@ -5,16 +5,17 @@ const assert=require("node:assert/strict");
 const {
   renderPossibilityMapSvg,
 }=require("../src/nextgen/possibility-map-svg.cjs");
+const {canonicalize,hashCanonical}=require("../src/generation/canonical.cjs");
 
-function map(){
-  return {
+function map(sourceCandidateId="return-with-altered-clock"){
+  const body={
     schema:"static-collective/possibility-map/v0",
     policy:"one-crossing-over-song-time/v0",
     authority:"observational-only",
     sourceProgramHash:"a".repeat(64),
     sourcePerformanceHash:"b".repeat(64),
     sourceTransitionFieldHash:"c".repeat(64),
-    sourceCandidateId:"return-with-altered-clock",
+    sourceCandidateId,
     candidateSpec:{
       kind:"generic-relation",
       fromState:"absent",
@@ -26,11 +27,11 @@ function map(){
     creativeWeatherRef:null,
     pointCount:5,
     points:[
-      {frame:0,sourceCandidateId:"return-with-altered-clock",transitionHash:"1".repeat(64),kind:"generic-relation",fromState:"absent",toState:"return",baseEnergy:.8,totalDelta:0,energy:.8,contributionKinds:[],contributions:[]},
-      {frame:48,sourceCandidateId:"return-with-altered-clock",transitionHash:"2".repeat(64),kind:"generic-relation",fromState:"absent",toState:"return",baseEnergy:.8,totalDelta:-.2,energy:.6,contributionKinds:["weather:recurrence-entry"],contributions:[{kind:"weather:recurrence-entry",delta:-.2,evidence:{}}]},
-      {frame:96,sourceCandidateId:"return-with-altered-clock",transitionHash:"3".repeat(64),kind:"generic-relation",fromState:"absent",toState:"return",baseEnergy:.8,totalDelta:0,energy:.8,contributionKinds:[],contributions:[]},
-      {frame:144,sourceCandidateId:"return-with-altered-clock",transitionHash:"4".repeat(64),kind:"generic-relation",fromState:"absent",toState:"return",baseEnergy:.8,totalDelta:-.225,energy:.575,contributionKinds:["weather:recurrence-presence"],contributions:[{kind:"weather:recurrence-presence",delta:-.225,evidence:{}}]},
-      {frame:191,sourceCandidateId:"return-with-altered-clock",transitionHash:"5".repeat(64),kind:"generic-relation",fromState:"absent",toState:"return",baseEnergy:.8,totalDelta:0,energy:.8,contributionKinds:[],contributions:[]},
+      {frame:0,sourceCandidateId,transitionHash:"1".repeat(64),kind:"generic-relation",fromState:"absent",toState:"return",baseEnergy:.8,totalDelta:0,energy:.8,contributionKinds:[],contributions:[]},
+      {frame:48,sourceCandidateId,transitionHash:"2".repeat(64),kind:"generic-relation",fromState:"absent",toState:"return",baseEnergy:.8,totalDelta:-.2,energy:.6,contributionKinds:["weather:recurrence-entry"],contributions:[{kind:"weather:recurrence-entry",delta:-.2,evidence:{}}]},
+      {frame:96,sourceCandidateId,transitionHash:"3".repeat(64),kind:"generic-relation",fromState:"absent",toState:"return",baseEnergy:.8,totalDelta:0,energy:.8,contributionKinds:[],contributions:[]},
+      {frame:144,sourceCandidateId,transitionHash:"4".repeat(64),kind:"generic-relation",fromState:"absent",toState:"return",baseEnergy:.8,totalDelta:-.225,energy:.575,contributionKinds:["weather:recurrence-presence"],contributions:[{kind:"weather:recurrence-presence",delta:-.225,evidence:{}}]},
+      {frame:191,sourceCandidateId,transitionHash:"5".repeat(64),kind:"generic-relation",fromState:"absent",toState:"return",baseEnergy:.8,totalDelta:0,energy:.8,contributionKinds:[],contributions:[]},
     ],
     energyRange:{min:.575,max:.8},
     minimumObserved:{energy:.575,frames:[144]},
@@ -44,15 +45,18 @@ function map(){
       "ENERGY != VALUE",
       "ENERGY != PROBABILITY",
     ],
-    mapHash:"d".repeat(64),
   };
+  return canonicalize({
+    ...body,
+    mapHash:hashCanonical(body,"HauntedToaster-PossibilityMap-v0"),
+  });
 }
 
 test("SVG is deterministic and embeds map/candidate identity",()=>{
   const a=renderPossibilityMapSvg(map());
   const b=renderPossibilityMapSvg(map());
   assert.equal(a,b);
-  assert.match(a,/data-map-hash="[d]{64}"/);
+  assert.match(a,new RegExp(`data-map-hash="${map().mapHash}"`));
   assert.match(a,/data-candidate-id="return-with-altered-clock"/);
   assert.match(a,/data-authority="observational-only"/);
 });
@@ -78,9 +82,7 @@ test("SVG exposes contribution rails but never calls minima recommended or selec
 });
 
 test("SVG escapes human-facing labels",()=>{
-  const poisoned={...map(),sourceCandidateId:'<return & "wake">'};
-  poisoned.points=poisoned.points.map(point=>({...point,sourceCandidateId:poisoned.sourceCandidateId}));
-  const svg=renderPossibilityMapSvg(poisoned);
+  const svg=renderPossibilityMapSvg(map('<return & "wake">'));
   assert.equal(svg.includes('<return & "wake">'),false);
   assert.match(svg,/&lt;return &amp; &quot;wake&quot;&gt;/);
 });
