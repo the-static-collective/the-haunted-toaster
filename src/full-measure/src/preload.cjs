@@ -183,6 +183,7 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   composeFranken: (config) => ipcRenderer.invoke("franken:compose", config),
   freezeFranken: (config) => ipcRenderer.invoke("franken:freeze", config),
   derivePerformanceEcology: (receipt) => ipcRenderer.invoke("franken:derive-performance-ecology", receipt),
+  deriveGenerationalEcology: (receipts, admissionPaths) => ipcRenderer.invoke("franken:derive-generational-ecology", receipts, admissionPaths),
   derivePlayableTerrain: (receipt, options = {}) => ipcRenderer.invoke("franken:derive-playable-terrain", receipt, options),
   proposePossibilityCrossing: (map, frame) => ipcRenderer.invoke("franken:propose-possibility-crossing", map, frame),
   acceptPossibilityCrossing: (proposal, expectedProposalHash) => ipcRenderer.invoke("franken:accept-possibility-crossing", proposal, expectedProposalHash),
