@@ -1,0 +1,74 @@
+:root{
+  --wp-bg:#090a0f;
+  --wp-grid:rgba(255,255,255,.055);
+  --wp-text:#f5f1e8;
+  --wp-bird:#f4df9c;
+  --wp-open:#83d1bf;
+  --wp-tender:#d9a4c8;
+  --wp-strange:#aa9cff;
+  --wp-hard:#df7147;
+}
+.wordpark-play-surface{margin:16px 0 20px;padding:14px;border:1px solid rgba(131,209,191,.24);border-radius:14px;background:linear-gradient(180deg,rgba(131,209,191,.04),rgba(0,0,0,.2))}
+.wordpark-play-head{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.wordpark-play-head span{display:block;color:var(--wp-open);font-size:8px;letter-spacing:.16em}
+.wordpark-play-head h4{margin:3px 0 0;font-size:18px}
+.wordpark-play-actions{display:flex;gap:7px}
+.wordpark-play-actions button{min-height:38px;padding:0 13px;border:1px solid rgba(131,209,191,.35);border-radius:8px;background:rgba(131,209,191,.08);color:var(--wp-text);font-size:9px;font-weight:800;letter-spacing:.08em}
+.wordpark-play-actions button:disabled{opacity:.3}
+#wordparkStatus{margin:9px 0 11px;color:var(--muted,#aaa);font-size:10px}
+.wordpark-game-shell{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:12px;align-items:stretch}
+.wordpark-stage{position:relative;min-height:360px;border:1px solid rgba(255,255,255,.1);border-radius:12px;overflow:hidden;background:var(--wp-bg)}
+#wordparkCanvas{display:block;width:100%;height:100%;min-height:360px;touch-action:none}
+.wordpark-hud{display:grid;grid-template-rows:auto auto auto auto 1fr;gap:9px;padding:10px;border:1px solid rgba(255,255,255,.09);border-radius:12px;background:rgba(0,0,0,.2)}
+.wordpark-lookahead{display:grid;gap:7px}
+.wordpark-lookahead-card{display:grid;gap:3px;min-height:63px;padding:8px 9px;border:1px solid rgba(255,255,255,.09);border-radius:8px;background:rgba(255,255,255,.025)}
+.wordpark-lookahead-card>span{font-size:7px;letter-spacing:.14em;color:var(--muted,#aaa)}
+.wordpark-lookahead-card>strong{font-size:11px;line-height:1.25}
+.wordpark-lookahead-card>small{font-size:8px;color:var(--muted,#aaa)}
+.wordpark-lookahead-card[data-state="ANCHORED"]{border-color:rgba(255,255,255,.35)}
+.wordpark-lookahead-card[data-state="READY"]{border-color:color-mix(in srgb,var(--wp-open) 48%,transparent)}
+.wordpark-lookahead-card[data-state="WATCH"]{border-color:color-mix(in srgb,var(--wp-bird) 55%,transparent)}
+.wordpark-lookahead-card[data-state="CATCH"]{border-color:color-mix(in srgb,var(--wp-hard) 62%,transparent);background:rgba(223,113,71,.07)}
+.wordpark-lanes{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.wordpark-lanes button{display:grid;grid-template-columns:22px 1fr;align-items:center;gap:2px 6px;min-height:48px;padding:7px 8px;border:1px solid rgba(255,255,255,.1);border-radius:8px;background:rgba(255,255,255,.025);color:var(--wp-text);text-align:left;font-size:9px;font-weight:800}
+.wordpark-lanes button kbd{grid-row:1/3;display:grid;place-items:center;width:22px;height:22px;border:1px solid rgba(255,255,255,.14);border-radius:5px;background:rgba(0,0,0,.3);font:inherit}
+.wordpark-lanes button small{display:block;color:var(--muted,#999);font-size:7px;font-weight:500}
+.wordpark-lanes button[data-wordpark-lane="OPEN"].is-active{border-color:var(--wp-open);background:rgba(131,209,191,.1)}
+.wordpark-lanes button[data-wordpark-lane="TENDER"].is-active{border-color:var(--wp-tender);background:rgba(217,164,200,.1)}
+.wordpark-lanes button[data-wordpark-lane="STRANGE"].is-active{border-color:var(--wp-strange);background:rgba(170,156,255,.1)}
+.wordpark-lanes button[data-wordpark-lane="HARD"].is-active{border-color:var(--wp-hard);background:rgba(223,113,71,.1)}
+.wordpark-now{min-height:74px;border:1px solid rgba(244,223,156,.5);border-radius:10px;background:rgba(244,223,156,.14);color:var(--wp-text);font-size:17px;font-weight:900;letter-spacing:.08em}
+.wordpark-now:disabled{opacity:.3}
+.wordpark-now-hint{color:var(--muted,#999);font-size:8px;text-align:center}
+.wordpark-now-hint kbd{padding:2px 5px;border:1px solid rgba(255,255,255,.13);border-radius:4px;background:rgba(0,0,0,.3);color:var(--wp-text);font:inherit}
+#wordparkStats{align-self:end;color:var(--muted,#999);font-size:8px}
+#wordparkAudio{display:none}
+.wordpark-steer-pad{position:absolute;left:12px;bottom:12px;display:grid;grid-template-columns:repeat(3,38px);grid-template-rows:repeat(2,38px);gap:4px;opacity:.7}
+.wordpark-steer-pad button{border:1px solid rgba(255,255,255,.14);border-radius:8px;background:rgba(8,9,14,.72);color:var(--wp-text);font-size:15px;touch-action:none}
+.wordpark-steer-pad button[data-wordpark-steer="KeyW"]{grid-column:2;grid-row:1}
+.wordpark-steer-pad button[data-wordpark-steer="KeyA"]{grid-column:1;grid-row:2}
+.wordpark-steer-pad button[data-wordpark-steer="KeyS"]{grid-column:2;grid-row:2}
+.wordpark-steer-pad button[data-wordpark-steer="KeyD"]{grid-column:3;grid-row:2}
+.wordpark-play-surface.is-running .wordpark-play-head{opacity:.72}
+.wordpark-play-surface.is-running .wordpark-now{box-shadow:0 0 24px rgba(244,223,156,.08)}
+@media(max-width:980px){
+  .wordpark-game-shell{grid-template-columns:1fr}
+  .wordpark-hud{grid-template-columns:1fr 1fr;grid-template-rows:auto auto auto;align-items:start}
+  .wordpark-lookahead{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .wordpark-lanes{grid-column:1}
+  .wordpark-now{grid-column:2;grid-row:2;min-height:102px}
+  .wordpark-now-hint{grid-column:2;grid-row:3}
+  #wordparkStats{grid-column:1;grid-row:3}
+}
+@media(max-width:620px){
+  .wordpark-play-head{align-items:flex-start;flex-direction:column}
+  .wordpark-play-actions{width:100%}
+  .wordpark-play-actions button{flex:1}
+  .wordpark-stage,#wordparkCanvas{min-height:300px}
+  .wordpark-hud{display:grid;grid-template-columns:1fr}
+  .wordpark-lookahead{grid-column:1;grid-template-columns:1fr}
+  .wordpark-lanes,.wordpark-now,.wordpark-now-hint,#wordparkStats{grid-column:1;grid-row:auto}
+}
+@media(prefers-reduced-motion:reduce){
+  .wordpark-play-surface *{transition:none!important;animation:none!important}
+}
