@@ -4,6 +4,7 @@ const {canonicalize,deepFreeze,hashCanonical}=require("../generation/canonical.c
 const {strengthAtFrame}=require("./residue-memory.cjs");
 const {AXIS_IDS,validateWeirdnessCompilation}=require("./weirdness-compiler.cjs");
 const {validatePerformanceProgram}=require("./performance-program.cjs");
+const {CHANNEL_IDS,validateCreativeWeather,weatherSampleAt}=require("./creative-weather.cjs");
 
 const TRANSITION_FIELD_SCHEMA="static-collective/transition-energy-field/v0";
 const TRANSITION_FIELD_POLICY="explicit-creative-physics/v0";
@@ -14,6 +15,7 @@ const TRANSITION_KINDS=Object.freeze([
   "kinship-cross",
 ]);
 const AXIS_SET=new Set(Object.values(AXIS_IDS));
+const WEATHER_CHANNEL_SET=new Set(Object.values(CHANNEL_IDS));
 const WEIGHTS=Object.freeze({
   currentWorldLawResonance:.20,
   lawFossilResonance:.25,
@@ -74,11 +76,37 @@ function fossilAxes(material){
   if(!material?.historyRef?.worldLawCauseRef)throw new TypeError(`Material ${material.materialId} law fossil lacks a causal render witness.`);
   return Array.isArray(ref.axes)?ref.axes:[];
 }
+function normalizeWeatherBindings(value,candidateId){
+  if(value===undefined||value===null)return [];
+  if(!Array.isArray(value))throw new TypeError(`Weather bindings for ${candidateId} must be an array.`);
+  if(value.length>8)throw new TypeError(`Weather bindings for ${candidateId} are limited to eight channels.`);
+  const seenBindings=new Set();
+  const seenChannels=new Set();
+  return canonicalize(value.map((binding,index)=>{
+    if(!binding||typeof binding!=="object"||Array.isArray(binding))throw new TypeError(`Weather binding ${index} for ${candidateId} must be an object.`);
+    const allowed=new Set(["bindingId","channelId","direction","maxDelta"]);
+    for(const key of Object.keys(binding)){
+      if(!allowed.has(key))throw new TypeError(`Unsupported weather binding field: ${key}.`);
+    }
+    const bindingId=req(binding.bindingId,`weatherBindings[${index}].bindingId`);
+    const channelId=req(binding.channelId,`weatherBindings[${index}].channelId`);
+    const direction=req(binding.direction,`weatherBindings[${index}].direction`);
+    const maxDelta=q(finite(binding.maxDelta,`weatherBindings[${index}].maxDelta`,0,0.25));
+    if(!WEATHER_CHANNEL_SET.has(channelId))throw new TypeError(`Unsupported CreativeWeather channel: ${channelId}.`);
+    if(direction!=="lower"&&direction!=="raise")throw new TypeError(`Weather binding direction must be lower or raise.`);
+    if(seenBindings.has(bindingId))throw new TypeError(`Duplicate weather binding: ${bindingId}.`);
+    if(seenChannels.has(channelId))throw new TypeError(`Duplicate weather channel binding: ${channelId}.`);
+    seenBindings.add(bindingId);
+    seenChannels.add(channelId);
+    return {bindingId,channelId,direction,maxDelta};
+  }).sort((a,b)=>a.channelId.localeCompare(b.channelId)||a.bindingId.localeCompare(b.bindingId)));
+}
+
 function normalizeCandidate(program,candidate,index){
   if(!candidate||typeof candidate!=="object"||Array.isArray(candidate))throw new TypeError(`transition candidate ${index} must be an object.`);
   const allowed=new Set([
     "candidateId","kind","frame","fromState","toState","baseEnergy",
-    "materialId","targetAxisId","targetResidueId","fromMaterialId","toMaterialId",
+    "materialId","targetAxisId","targetResidueId","fromMaterialId","toMaterialId","weatherBindings",
   ]);
   for(const key of Object.keys(candidate)){
     if(!allowed.has(key))throw new TypeError(`Unsupported transition candidate field: ${key}.`);
@@ -107,6 +135,8 @@ function normalizeCandidate(program,candidate,index){
     out.toMaterialId=materialById(program,candidate.toMaterialId,`candidate[${index}].toMaterialId`).materialId;
     if(out.fromMaterialId===out.toMaterialId)throw new TypeError("Kinship crossing requires two different materials.");
   }
+  const weatherBindings=normalizeWeatherBindings(candidate.weatherBindings,out.candidateId);
+  if(weatherBindings.length)out.weatherBindings=weatherBindings;
   return canonicalize(out);
 }
 function contribution(kind,delta,evidence){
@@ -195,14 +225,57 @@ function kinshipContributions(program,candidate){
   }
   return [];
 }
-function contributionsFor(program,candidate){
-  if(candidate.kind==="law-return")return lawReturnContributions(program,candidate);
-  if(candidate.kind==="scar-wake")return scarWakeContributions(program,candidate);
-  if(candidate.kind==="kinship-cross")return kinshipContributions(program,candidate);
-  return [];
+function validateWeatherForProgram(program,weather){
+  if(weather===undefined||weather===null)return null;
+  const valid=validateCreativeWeather(weather);
+  if(Number(valid.formRef?.fps)!==Number(program.fps)||Number(valid.formRef?.totalFrames)!==Number(program.totalFrames)){
+    throw new TypeError("CreativeWeather clock/frame domain does not match PerformanceProgram.");
+  }
+  return valid;
 }
-function transitionRecord(program,candidate){
-  const contributions=contributionsFor(program,candidate)
+function weatherContributions(program,candidate,weather){
+  const bindings=candidate.weatherBindings||[];
+  if(!bindings.length)return [];
+  if(!weather)throw new TypeError(`Transition candidate ${candidate.candidateId} has weather bindings but no CreativeWeather field.`);
+  const sample=weatherSampleAt(weather,candidate.frame);
+  if(!sample)throw new TypeError(`CreativeWeather has no sample for candidate frame ${candidate.frame}.`);
+  const contributions=[];
+  for(const binding of bindings){
+    const channel=sample.channels.find(item=>item.channelId===binding.channelId);
+    if(!channel)throw new TypeError(`CreativeWeather sample lacks channel ${binding.channelId}.`);
+    const strength=finite(channel.strength,`${binding.channelId} strength`,0,1);
+    if(strength<=0||binding.maxDelta<=0)continue;
+    const magnitude=q(binding.maxDelta*strength);
+    const delta=binding.direction==="lower"?-magnitude:magnitude;
+    contributions.push(contribution(
+      `weather:${binding.channelId}`,
+      delta,
+      {
+        bindingId:binding.bindingId,
+        channelId:binding.channelId,
+        direction:binding.direction,
+        maxDelta:binding.maxDelta,
+        strength:q(strength),
+        frame:candidate.frame,
+        weatherHash:weather.weatherHash,
+        listeningFieldHash:weather.sourceListeningFieldHash,
+        witnessIds:channel.witnessIds,
+      },
+    ));
+  }
+  return contributions;
+}
+
+function contributionsFor(program,candidate,weather){
+  const base=[];
+  if(candidate.kind==="law-return")base.push(...lawReturnContributions(program,candidate));
+  else if(candidate.kind==="scar-wake")base.push(...scarWakeContributions(program,candidate));
+  else if(candidate.kind==="kinship-cross")base.push(...kinshipContributions(program,candidate));
+  base.push(...weatherContributions(program,candidate,weather));
+  return base;
+}
+function transitionRecord(program,candidate,weather){
+  const contributions=contributionsFor(program,candidate,weather)
     .sort((a,b)=>a.kind.localeCompare(b.kind)||JSON.stringify(a.evidence).localeCompare(JSON.stringify(b.evidence)));
   const delta=q(contributions.reduce((sum,item)=>sum+item.delta,0));
   const body=canonicalize({
@@ -222,8 +295,9 @@ function transitionRecord(program,candidate){
     transitionHash:hashCanonical(body,"HauntedToaster-TransitionEnergy-v0"),
   }));
 }
-function compileTransitionField(program,{candidates=[]}={}){
+function compileTransitionField(program,{candidates=[],creativeWeather=null}={}){
   const source=validatePerformanceProgram(program);
+  const weather=validateWeatherForProgram(source,creativeWeather);
   if(!Array.isArray(candidates))throw new TypeError("transition candidates must be an array.");
   if(candidates.length>256)throw new TypeError("transition field is limited to 256 candidates.");
   const normalized=candidates.map((candidate,index)=>normalizeCandidate(source,candidate,index));
@@ -233,7 +307,7 @@ function compileTransitionField(program,{candidates=[]}={}){
     seen.add(candidate.candidateId);
   }
   const transitions=normalized
-    .map(candidate=>transitionRecord(source,candidate))
+    .map(candidate=>transitionRecord(source,candidate,weather))
     .sort((a,b)=>a.candidateId.localeCompare(b.candidateId));
   const body=canonicalize({
     schema:TRANSITION_FIELD_SCHEMA,
@@ -241,6 +315,15 @@ function compileTransitionField(program,{candidates=[]}={}){
     authority:"descriptive-possibility-only",
     sourceProgramHash:source.programHash,
     sourcePerformanceHash:source.sourcePerformanceHash,
+    ...(weather?{creativeWeatherRef:{
+      authority:"testimony-derived-only",
+      weatherHash:weather.weatherHash,
+      sourceListeningFieldHash:weather.sourceListeningFieldHash,
+      formHash:weather.formRef.formHash,
+      fps:weather.formRef.fps,
+      totalFrames:weather.formRef.totalFrames,
+      windowFrames:weather.windowFrames,
+    }}:{}),
     weights:WEIGHTS,
     transitionCount:transitions.length,
     transitions,
@@ -252,6 +335,8 @@ function compileTransitionField(program,{candidates=[]}={}){
       "REACHABILITY != SELECTION",
       "FIELD != AUTHORITY",
       "EVIDENCE CONTRIBUTION != CAUSE OF ACCEPTANCE",
+      "WEATHER != COMMAND",
+      "WEATHER BINDING != ACCEPTANCE",
     ],
   });
   return deepFreeze(canonicalize({
@@ -266,6 +351,11 @@ function validateTransitionField(field){
   }
   hash64(field.sourceProgramHash,"TransitionEnergyField sourceProgramHash");
   hash64(field.sourcePerformanceHash,"TransitionEnergyField sourcePerformanceHash");
+  if(field.creativeWeatherRef!==undefined){
+    if(field.creativeWeatherRef.authority!=="testimony-derived-only")throw new TypeError("TransitionEnergyField CreativeWeather authority mismatch.");
+    hash64(field.creativeWeatherRef.weatherHash,"TransitionEnergyField weatherHash");
+    hash64(field.creativeWeatherRef.sourceListeningFieldHash,"TransitionEnergyField ListeningField hash");
+  }
   if(!Array.isArray(field.transitions)||field.transitions.length!==field.transitionCount)throw new TypeError("TransitionEnergyField transition count mismatch.");
   const ids=new Set();
   for(const transition of field.transitions){
@@ -296,5 +386,6 @@ module.exports={
   TRANSITION_KINDS,
   WEIGHTS,
   compileTransitionField,
+  normalizeWeatherBindings,
   validateTransitionField,
 };
