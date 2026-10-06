@@ -1300,6 +1300,7 @@
           decision,
           candidateArtifactReview.graph.candidateGraphHash,
         );
+        resetArtifactPromotion();
         root.dataset.artifactDispositionHash=artifactDisposition?.disposition?.dispositionHash||"";
       }catch(error){
         artifactDisposition=null;
@@ -1308,7 +1309,81 @@
       renderArtifactReview();
     }
 
+    async function proposeCurrentArtifactImport(){
+      if(artifactDisposition?.disposition?.decision!=="ADOPT"||!candidateArtifactReview?.graph||!candidateArtifactReview?.reviewReceipt||!candidateArtifactReview?.mediaPath||typeof bridge.proposeAdoptedArtifactImport!=="function")return;
+      artifactPromotionError=null;
+      artifactMaterialAdmission=null;
+      try{
+        artifactImportProposal=await bridge.proposeAdoptedArtifactImport(
+          candidateArtifactReview.graph,
+          candidateArtifactReview.reviewReceipt,
+          artifactDisposition.disposition,
+          candidateArtifactReview.mediaPath,
+        );
+      }catch(error){
+        artifactImportProposal=null;
+        artifactPromotionError=error?.message||String(error);
+      }
+      renderArtifactPromotion();
+    }
+
+    async function admitCurrentArtifactMaterial(){
+      if(!artifactImportProposal?.proposal||!candidateArtifactReview?.mediaPath||typeof bridge.admitAdoptedArtifactImport!=="function")return;
+      artifactPromotionError=null;
+      try{
+        artifactMaterialAdmission=await bridge.admitAdoptedArtifactImport(
+          artifactImportProposal.proposal,
+          artifactImportProposal.proposal.importProposalHash,
+          candidateArtifactReview.mediaPath,
+        );
+        state=reduceBenchState(state,{
+          type:"promoted-material-admit",
+          value:{
+            admissionPath:artifactMaterialAdmission.admissionPath,
+            admissionHash:artifactMaterialAdmission.admission?.admissionHash,
+            descriptor:artifactMaterialAdmission.descriptor,
+            materialUrl:artifactMaterialAdmission.materialUrl,
+          },
+        });
+      }catch(error){
+        artifactMaterialAdmission=null;
+        artifactPromotionError=error?.message||String(error);
+      }
+      render();
+    }
+
+    function renderArtifactPromotion(){
+      if(!proposeArtifactImport||!admitArtifactMaterial||!artifactImportStatus)return;
+      const adopted=artifactDisposition?.disposition?.decision==="ADOPT";
+      proposeArtifactImport.disabled=!adopted||Boolean(artifactImportProposal?.proposal)||typeof bridge.proposeAdoptedArtifactImport!=="function";
+      admitArtifactMaterial.disabled=!artifactImportProposal?.proposal||Boolean(artifactMaterialAdmission?.admission)||typeof bridge.admitAdoptedArtifactImport!=="function";
+
+      if(artifactPromotionError){
+        artifactImportStatus.textContent=`PROMOTION ERROR · ${artifactPromotionError}`;
+        artifactImportStatus.title=artifactPromotionError;
+      }else if(artifactMaterialAdmission?.admission){
+        artifactImportStatus.textContent=`ADMITTED MATERIAL · ${artifactMaterialAdmission.descriptor?.materialId||""} · NO PLACEMENT YET · ${filename(artifactMaterialAdmission.admissionPath)}`;
+        artifactImportStatus.title=artifactMaterialAdmission.admission.admissionHash||"";
+      }else if(artifactImportProposal?.proposal){
+        artifactImportStatus.textContent=`IMPORT PROPOSAL · ${String(artifactImportProposal.proposal.importProposalHash||"").slice(0,16)} · material admission still required`;
+        artifactImportStatus.title=artifactImportProposal.proposal.importProposalHash||"";
+      }else if(adopted){
+        artifactImportStatus.textContent="ADOPTED · PROPOSE IMPORT to return this exact reviewed world as ordinary material.";
+        artifactImportStatus.title=artifactDisposition.disposition.dispositionHash||"";
+      }else if(artifactDisposition?.disposition?.decision==="REJECT"){
+        artifactImportStatus.textContent="REJECTED · import unavailable; evidence remains preserved.";
+        artifactImportStatus.title=artifactDisposition.disposition.dispositionHash||"";
+      }else{
+        artifactImportStatus.textContent="No material import proposed";
+        artifactImportStatus.title="";
+      }
+
+      proposeArtifactImport.textContent=artifactImportProposal?.proposal?"IMPORT PROPOSED":"PROPOSE IMPORT";
+      admitArtifactMaterial.textContent=artifactMaterialAdmission?.admission?"MATERIAL ADMITTED":"ADMIT AS MATERIAL";
+    }
+
     function renderArtifactReview(){
+      renderArtifactPromotion();
       if(!buildReview||!adoptReview||!rejectReview||!candidateReviewVideo||!candidateGraphReadout||!reviewMediaReadout||!artifactDispositionReadout)return;
       const executable=Boolean(crossingExecutionResult?.result);
       buildReview.disabled=!executable||typeof bridge.prepareCandidateArtifactReview!=="function";
@@ -1362,6 +1437,7 @@
         adoptReview.textContent="ADOPT";
         rejectReview.textContent="REJECT";
       }
+      renderArtifactPromotion();
     }
 
     function renderExecutionCustody(){
@@ -1935,6 +2011,8 @@
     buildReview?.addEventListener("click",()=>{buildCandidateReview().catch((error)=>{artifactReviewError=error?.message||String(error);renderArtifactReview();});});
     adoptReview?.addEventListener("click",()=>{decideArtifactReview("ADOPT").catch((error)=>{artifactReviewError=error?.message||String(error);renderArtifactReview();});});
     rejectReview?.addEventListener("click",()=>{decideArtifactReview("REJECT").catch((error)=>{artifactReviewError=error?.message||String(error);renderArtifactReview();});});
+    proposeArtifactImport?.addEventListener("click",()=>{proposeCurrentArtifactImport().catch((error)=>{artifactPromotionError=error?.message||String(error);renderArtifactPromotion();});});
+    admitArtifactMaterial?.addEventListener("click",()=>{admitCurrentArtifactMaterial().catch((error)=>{artifactPromotionError=error?.message||String(error);renderArtifactPromotion();});});
     performanceAudio?.addEventListener("ended",()=>{
       finishOnePassTake((performanceAudio.currentTime||0)*1000).catch((error)=>{
         onePassPersistenceError=error?.message||String(error);
