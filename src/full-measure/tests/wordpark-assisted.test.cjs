@@ -117,7 +117,8 @@ test("missed CATCH falls behind and later human anchor auto-arrives",()=>{
   );
   assert.equal(session.guide.misses.length,1);
   assert.equal(session.guide.misses[0].lineId,"c");
-  assert.equal(session.wordpark.wordObjects.at(-1).authority,"machine-scheduled-performance-placement");
+  assert.equal(session.wordpark.wordObjects.at(-1).authority,"anchor-scheduled-performance-placement");
+  assert.equal(session.wordpark.wordObjects.at(-1).timingSource,"human-anchor-scheduled");
 });
 
 test("sealed assisted result keeps machine timing, human treatment, misses, and performance packet distinct",()=>{
