@@ -288,7 +288,9 @@ function dropLyricFromGuide(session,{entry,arrival}={}){
   const geometry=geometryForLyric(text,arrival.moodLane,lane.entryX,lane.entryY);
   const placementAuthority=arrival.timingSource==="human-punch"
     ?"human-punched-performance-placement"
-    :"machine-scheduled-performance-placement";
+    :arrival.timingSource==="human-anchor-scheduled"
+      ?"anchor-scheduled-performance-placement"
+      :"machine-scheduled-performance-placement";
   const sourceAuthority=witness?.authority||"listener-unresolved";
   const wordObject=canonicalize({
     wordObjectId:`word:${session.dropSeq}:${entry.lineId}`,
