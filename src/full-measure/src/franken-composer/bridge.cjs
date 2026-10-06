@@ -24,6 +24,12 @@ const {
   validateAffectedRegionProposal,
   validateExecutionScopeApproval,
 }=require("../nextgen/crossing-execution-custody.cjs");
+const {renderProgramWhole,validatePixelRegionReceipt}=require("../nextgen/performance-program-render.cjs");
+const {
+  composeCandidateDerivedFrameGraph,
+  decideCandidateArtifact,
+  materializeCandidateReview,
+}=require("../nextgen/artifact-adoption.cjs");
 
 const JSON_EXTENSIONS=new Set([".json"]);
 const VIDEO_EXTENSIONS=new Set([".mp4"]);
@@ -289,6 +295,76 @@ function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
         ...paths,
       };
     },
+    async prepareCandidateArtifactReview(receipt,binding,scopeProposal,scopeApproval,executionResult){
+      const validated=validateOnePassReceipt(receipt);
+      const sourceProgram=compilePerformanceProgram(validated);
+      const derivedProgram=createCrossingExecutionProgram(sourceProgram,binding,{
+        wakeStrength:scopeProposal?.wakeStrength,
+        decayPerFrame:scopeProposal?.decayPerFrame,
+      });
+      validateAffectedRegionProposal(sourceProgram,derivedProgram,binding,scopeProposal);
+      validateExecutionScopeApproval(scopeProposal,scopeApproval);
+      if(!executionResult||executionResult.result?.sourceScopeApprovalHash!==scopeApproval.scopeApprovalHash){
+        throw new TypeError("Candidate review execution-result/scope lineage mismatch.");
+      }
+      if(executionResult.result?.programHash!==derivedProgram.programHash){
+        throw new TypeError("Candidate review execution-result/program lineage mismatch.");
+      }
+      const receipts=(executionResult.receipts||[]).map(item=>validatePixelRegionReceipt(derivedProgram,item));
+      const consumed=executionResult.result?.consumedRegionIds||[];
+      if(JSON.stringify(consumed)!==JSON.stringify(scopeProposal.affectedRegionIds)){
+        throw new TypeError("Candidate review requires complete approved sparse execution.");
+      }
+      const sourceWhole=await renderProgramWhole(sourceProgram,{
+        rootDir:path.join(outputRoot,"crossing-reviews","source-world"),
+        workerId:"toaster-review-source:021",
+        attemptId:`source-${scopeApproval.scopeApprovalHash.slice(0,12)}`,
+      });
+      const graph=composeCandidateDerivedFrameGraph(
+        sourceProgram,derivedProgram,scopeProposal,scopeApproval,sourceWhole.receipt,receipts,
+      );
+      const outputsByHash=new Map((executionResult.outputs||[]).map(item=>[item.receiptHash,item]));
+      const derivedOutputs=receipts.map(receipt=>{
+        const output=outputsByHash.get(receipt.receiptHash);
+        if(!output?.directory)throw new TypeError(`Candidate review missing sparse output directory for ${receipt.receiptHash}.`);
+        return {directory:output.directory,receipt};
+      });
+      const review=await materializeCandidateReview(graph,{
+        sourceWholeOutput:sourceWhole,
+        derivedOutputs,
+        rootDir:path.join(outputRoot,"crossing-reviews",binding.bindingHash,scopeApproval.scopeApprovalHash),
+      });
+      return {
+        graph,
+        reviewReceipt:review.receipt,
+        directory:review.directory,
+        framesDirectory:review.framesDirectory,
+        mediaPath:review.mediaPath,
+        mediaUrl:pathToFileURL(review.mediaPath).href,
+      };
+    },
+    async decideCandidateArtifact(graph,reviewReceipt,decision,expectedCandidateGraphHash){
+      if(reviewReceipt?.candidateGraphHash!==graph?.candidateGraphHash)throw new TypeError("Artifact disposition review-media/candidate-graph mismatch.");
+      const disposition=decideCandidateArtifact(graph,{
+        decision,
+        expectedCandidateGraphHash,
+        reviewMediaSha256:reviewReceipt.mediaSha256,
+        decidedBy:"human-ui",
+      });
+      const dir=path.join(outputRoot,"artifact-dispositions",graph.candidateGraphHash);
+      await fs.mkdir(dir,{recursive:true});
+      const dispositionPath=path.join(dir,`${disposition.dispositionHash}.json`);
+      const bytes=canonicalBytes(disposition);
+      try{
+        await fs.writeFile(dispositionPath,bytes,{flag:"wx"});
+        return {disposition,path:dispositionPath,existing:false};
+      }catch(error){
+        if(error?.code!=="EEXIST")throw error;
+        const existing=await fs.readFile(dispositionPath);
+        if(!existing.equals(bytes))throw new Error("Existing artifact disposition bytes do not match reviewed candidate.");
+        return {disposition,path:dispositionPath,existing:true};
+      }
+    },
     async writePerformanceProgramBundle(receipt){
       const validated=validateOnePassReceipt(receipt);
       const {program,renderRegionPlan,executionReceipt}=compilePerformanceBundle(validated);
@@ -358,6 +434,8 @@ function registerFrankenComposerIpc(ipcMain,{dialog,getWindow,rootDir,assertAvai
   ipcMain.handle("franken:prepare-crossing-execution",async(_event,receipt,binding,options)=>{assertAvailable();return service.prepareCrossingExecution(receipt,binding,options);});
   ipcMain.handle("franken:approve-crossing-scope",async(_event,receipt,binding,scopeProposal,expectedScopeProposalHash)=>{assertAvailable();return service.approveCrossingExecutionScope(receipt,binding,scopeProposal,expectedScopeProposalHash);});
   ipcMain.handle("franken:execute-approved-crossing",async(_event,receipt,binding,scopeProposal,scopeApproval,options)=>{assertAvailable();return service.executeApprovedCrossing(receipt,binding,scopeProposal,scopeApproval,options);});
+  ipcMain.handle("franken:prepare-candidate-artifact-review",async(_event,receipt,binding,scopeProposal,scopeApproval,executionResult)=>{assertAvailable();return service.prepareCandidateArtifactReview(receipt,binding,scopeProposal,scopeApproval,executionResult);});
+  ipcMain.handle("franken:decide-candidate-artifact",async(_event,graph,reviewReceipt,decision,expectedCandidateGraphHash)=>{assertAvailable();return service.decideCandidateArtifact(graph,reviewReceipt,decision,expectedCandidateGraphHash);});
   ipcMain.handle("franken:write-performance-program-bundle",async(_event,receipt)=>{assertAvailable();return service.writePerformanceProgramBundle(receipt);});
   ipcMain.handle("franken:write-one-pass-receipt",async(_event,receipt)=>{assertAvailable();return service.writeOnePassReceipt(receipt);});
   ipcMain.handle("franken:write-projection-bundle",async(_event,config)=>{assertAvailable();return service.writeProjectionBundle(config);});
