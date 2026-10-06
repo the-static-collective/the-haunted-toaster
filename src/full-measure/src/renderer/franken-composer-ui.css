@@ -198,3 +198,13 @@ body.franken-open{overflow:hidden}
 .franken-artifact-review video{width:100%;max-height:320px;border:1px solid rgba(255,255,255,.08);border-radius:7px;background:#000}
 .franken-artifact-review code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px;color:var(--muted,#999)}
 @media(max-width:980px){.franken-artifact-review-heading{align-items:stretch;flex-direction:column}}
+
+.franken-artifact-promotion{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:4px;padding:8px;border:1px dashed rgba(160,255,180,.24);border-radius:7px}
+.franken-artifact-promotion>div:first-child{min-width:0;display:grid;gap:3px}
+.franken-artifact-promotion span{font-size:8px;letter-spacing:.12em;color:#c9ffd4}
+.franken-artifact-promotion code{font-size:8px;color:var(--muted,#999);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.franken-artifact-promotion>div:last-child{display:flex;gap:6px;flex-wrap:wrap}
+.franken-artifact-promotion button{min-height:30px;padding:0 10px;border:1px solid rgba(160,255,180,.38);border-radius:6px;background:rgba(160,255,180,.07);color:#c9ffd4;font-size:8px;font-weight:800}
+.franken-artifact-promotion button:disabled{opacity:.3}
+.franken-digest-card[data-material-class="adopted-artifact"]{border-style:double}
+@media(max-width:980px){.franken-artifact-promotion{align-items:stretch;flex-direction:column}}
