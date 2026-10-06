@@ -173,6 +173,19 @@ test("Franken service writes the three 011 artifacts create-only and byte-stable
   }
 });
 
+test("COMPILE TAKE is wired from visible control through preload to renderer handler",async()=>{
+  const [html,preload,uiSource]=await Promise.all([
+    fs.readFile(path.join(__dirname,"../src/renderer/index.html"),"utf8"),
+    fs.readFile(path.join(__dirname,"../src/preload.cjs"),"utf8"),
+    fs.readFile(path.join(__dirname,"../src/renderer/franken-composer-ui.js"),"utf8"),
+  ]);
+  assert.match(html,/id="frankenCompileTake"/);
+  assert.match(html,/id="frankenPerformanceProgram"/);
+  assert.match(preload,/writePerformanceProgramBundle/);
+  assert.match(uiSource,/async function compileOnePassTake\(\)/);
+  assert.match(uiSource,/bridge\.writePerformanceProgramBundle\(onePassSession\.receipt\)/);
+});
+
 test("bundle begins with an explicit missing-work execution receipt",()=>{
   const bundle=compilePerformanceBundle(performed());
   assert.equal(bundle.executionReceipt.complete,false);
