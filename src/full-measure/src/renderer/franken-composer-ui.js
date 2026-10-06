@@ -531,6 +531,7 @@
       ){
         listeningField=null;
         updateListeningFieldStatus();
+        view?.dispatchEvent(new CustomEvent("full-measure:wordpark-context",{detail:null}));
         return null;
       }
       try{
@@ -548,6 +549,20 @@
         listeningFieldError=error?.message||String(error);
       }
       updateListeningFieldStatus();
+      view?.dispatchEvent(new CustomEvent("full-measure:wordpark-context",{
+        detail:listeningField&&fullSongForm&&listeningEvidence&&transportMeta
+          ?{
+              fullSongForm,
+              listeningField,
+              alignment:listeningEvidence,
+              audio:{
+                url:transportMeta.url,
+                duration:transportMeta.duration,
+                filename:transportMeta.filename,
+              },
+            }
+          :null,
+      }));
       return listeningField;
     }
 

@@ -1,0 +1,57 @@
+name: WORDPARK Game Studio playtest
+
+on:
+  pull_request:
+    paths:
+      - "src/full-measure/src/nextgen/wordpark-runtime.cjs"
+      - "src/full-measure/src/preload.cjs"
+      - "src/full-measure/src/renderer/wordpark-play-ui.js"
+      - "src/full-measure/src/renderer/wordpark-play-ui.css"
+      - "src/full-measure/src/renderer/index.html"
+      - "src/full-measure/src/renderer/franken-composer-ui.js"
+      - "src/full-measure/witness/witness-bridge.js"
+      - "src/full-measure/scripts/build-ui-witness.cjs"
+      - "src/full-measure/tests/wordpark-runtime.test.cjs"
+      - "src/full-measure/tests/wordpark-play-ui.test.cjs"
+      - "src/full-measure/tests/ui-witness.spec.cjs"
+      - ".github/workflows/wordpark-game-studio-playtest.yml"
+
+jobs:
+  wordpark-playtest:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/full-measure
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/full-measure/package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run focused WORDPARK unit proofs
+        run: node --test tests/wordpark-runtime.test.cjs tests/wordpark-play-ui.test.cjs
+
+      - name: Build UI witness
+        run: npm run witness:build
+
+      - name: Playtest WORDPARK in Chromium
+        run: npx playwright test --config=tests/ui-witness.playwright.config.cjs --grep "WORDPARK one-pass surface"
+
+      - name: Upload playtest evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wordpark-game-studio-playtest
+          path: src/full-measure/tests/ui-witness-results/
+          if-no-files-found: ignore

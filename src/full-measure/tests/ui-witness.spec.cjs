@@ -705,3 +705,81 @@ test("NextGen 007 previews admitted media with synchronized song transport and t
     if(window.__frankenWitnessAudioUrl)URL.revokeObjectURL(window.__frankenWitnessAudioUrl);
   });
 });
+
+
+test("WORDPARK one-pass surface keeps the playfield dominant and punches CATCH without pausing", async ({ page }, testInfo) => {
+  await page.goto("/?state=empty&franken=1");
+  await expect(page.locator("html")).toHaveAttribute("data-witness-ready", "true");
+  expect(await page.evaluate(() => window.__consoleErrors)).toEqual([]);
+
+  await page.evaluate(() => {
+    HTMLMediaElement.prototype.play = function play() { return Promise.resolve(); };
+    HTMLMediaElement.prototype.pause = function pause() {};
+    window.dispatchEvent(new CustomEvent("full-measure:wordpark-context", {
+      detail: {
+        fullSongForm: {
+          schema: "static-collective/full-song-form/v0",
+          formHash: "f".repeat(64),
+          fps: 24,
+          totalFrames: 720,
+          durationSeconds: 30,
+        },
+        listeningField: {
+          schema: "static-collective/listening-field/v0",
+          authority: "testimony-only",
+          fieldHash: "e".repeat(64),
+        },
+        alignment: {
+          schema: "full-measure.lyric-alignment.v1",
+          cues: [
+            { lineId: "w1", text: "The house takes attendance", start: 2, status: "high", confidence: .95 },
+            { lineId: "w2", text: "Wire heat in the orchard", start: 5, status: "medium", confidence: .7 },
+            { lineId: "w3", text: "One honest missing phrase", start: null, status: "unmatched", confidence: 0 },
+            { lineId: "w4", text: "Native color comes home", start: 10, status: "human", confidence: 1, humanCorrected: true },
+          ],
+        },
+        audio: { url: "data:audio/wav;base64,", duration: 30, filename: "WORDPARK witness.wav" },
+      },
+    }));
+  });
+
+  const surface=page.locator("#wordparkPlaySurface");
+  await expect(surface).toBeVisible();
+  await expect(page.locator("#wordparkLookahead .wordpark-lookahead-card")).toHaveCount(0);
+  await expect(page.locator("#wordparkBegin")).toBeEnabled();
+
+  const shell=page.locator(".wordpark-game-shell");
+  const stage=page.locator(".wordpark-stage");
+  const hud=page.locator(".wordpark-hud");
+  const shellBox=await shell.boundingBox();
+  const stageBox=await stage.boundingBox();
+  const hudBox=await hud.boundingBox();
+  expect(stageBox.width).toBeGreaterThan(hudBox.width * 2);
+  expect(stageBox.width / shellBox.width).toBeGreaterThan(.68);
+
+  await page.locator('[data-wordpark-lane="STRANGE"]').click();
+  await expect(page.locator('[data-wordpark-lane="STRANGE"]')).toHaveClass(/is-active/);
+  await page.locator("#wordparkBegin").click();
+  await expect(page.locator("#wordparkLookahead .wordpark-lookahead-card")).toHaveCount(3);
+  await expect(page.locator("#wordparkStatus")).toContainText("STRANGE latched");
+
+  await page.evaluate(() => {
+    const audio=document.querySelector("#wordparkAudio");
+    Object.defineProperty(audio, "currentTime", { configurable: true, writable: true, value: 5.1 });
+  });
+  await page.waitForTimeout(100);
+  await expect(page.locator("#wordparkStats")).toContainText("2 placed");
+  await expect(page.locator("#wordparkNow")).toContainText("CATCH");
+
+  await page.locator("#wordparkNow").click();
+  await expect(page.locator("#wordparkStats")).toContainText("1 punched anchors");
+  await expect(page.locator("#wordparkLookahead .wordpark-lookahead-card").first()).toContainText("Native color comes home");
+
+  await surface.screenshot({
+    animations:"disabled",
+    caret:"hide",
+    path:testInfo.outputPath("wordpark-listener-onepass-playable.png"),
+  });
+
+  expect(await page.evaluate(() => window.__consoleErrors)).toEqual([]);
+});

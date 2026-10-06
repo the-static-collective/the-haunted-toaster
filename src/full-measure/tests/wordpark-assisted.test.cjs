@@ -64,6 +64,15 @@ test("assisted WORDPARK auto-arrives heard lyrics under one persistent creative 
     session.wordpark.wordObjects.map(word=>word.timingSource),
     ["machine-scheduled","machine-scheduled"],
   );
+  assert.notDeepEqual(
+    session.wordpark.wordObjects[0].entryPlacement,
+    session.wordpark.wordObjects[1].entryPlacement,
+  );
+  assert.equal(session.wordpark.wordObjects[0].entryPlacement.authority,"deterministic-staging-only");
+  assert.notDeepEqual(
+    session.wordpark.wordObjects[0].geometry.path,
+    session.wordpark.wordObjects[1].geometry.path,
+  );
 });
 
 test("NOW punch turns an unresolved lyric into explicit human timing without inventing a hearing witness",()=>{
