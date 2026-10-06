@@ -59,6 +59,23 @@ test("PerformanceProgram deterministically compiles a sealed take into replay de
   assert.ok(a.laws.includes("REPLAY != RE-PERFORMANCE"));
 });
 
+test("PerformanceProgram preserves the full ONE PASS placement envelope needed for replay",()=>{
+  const receipt=performed();
+  const program=compilePerformanceProgram(receipt);
+  const source=receipt.placements[0];
+  const action=program.timelineActions[0];
+  assert.equal(action.sourcePlacementId,source.placementId);
+  assert.equal(action.sourceMaterialId,source.materialId);
+  assert.equal(action.sourceStartFrames,source.sourceStartFrames);
+  assert.deepEqual(action.transform,source.transform);
+  assert.deepEqual(action.crop,source.crop);
+  assert.equal(action.opacity,source.opacity);
+  assert.equal(action.blend,source.blend);
+  assert.equal(action.stackOrder,source.stackOrder);
+  assert.deepEqual(action.transformKeyframes,source.transformKeyframes);
+  assert.deepEqual(program.materials,receipt.materials);
+});
+
 test("render regions exactly cover the carrier without gaps or overlaps",()=>{
   const program=compilePerformanceProgram(performed());
   let cursor=0;
