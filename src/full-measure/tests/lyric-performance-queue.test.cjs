@@ -104,6 +104,11 @@ test("CATCH never auto-arrives and one punch resolves the current catch without 
   assert.equal(state.arrivals.at(-1).lineId,"line-3");
   assert.equal(state.arrivals.at(-1).timingSource,"human-punch");
   assert.equal(state.arrivals.at(-1).humanAnchorCreated,true);
+  assert.equal(state.humanAnchors.length,1);
+  assert.equal(state.humanAnchors[0].lineId,"line-3");
+  assert.equal(state.humanAnchors[0].source,"human-tap");
+  assert.equal(state.humanAnchors[0].origin,"one-pass-punch");
+  assert.equal(state.humanAnchors[0].anchorVersion,"lyric-anchor/v1");
   assert.equal(state.cursor,3);
 });
 
