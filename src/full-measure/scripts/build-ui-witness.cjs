@@ -16,6 +16,8 @@ const RENDERER_FILES = Object.freeze([
   "app.js",
   "candidate-move-deck.js",
   "candidate-ui.js",
+  "one-pass.js",
+  "mutation-map.js",
   "franken-composer-ui.js",
   "nextgen-lab-ui.js",
   "recent-toasts-ui.js",

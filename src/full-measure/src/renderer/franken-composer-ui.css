@@ -211,3 +211,17 @@ body.franken-open{overflow:hidden}
 
 .franken-generation-control{margin-top:6px;border-top:1px dashed rgba(255,255,255,.12);padding-top:7px}
 .franken-generation-control code{white-space:normal;line-height:1.35}
+
+.franken-mutation{margin:14px 0;padding:14px;border:1px solid rgba(255,255,255,.15);border-radius:12px;background:rgba(0,0,0,.15)}
+.franken-mutation h4{margin:0;font-size:16px}
+.franken-mutation p,.franken-mutation label{font-size:10px;color:var(--muted,#aaa);line-height:1.6}
+.franken-mutation-controls{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.franken-mutation button,.franken-mutation select{min-height:34px;padding:6px 10px;border:1px solid rgba(255,255,255,.25);border-radius:6px;background:#16161c;color:#dedee5;font-size:10px}
+.franken-mutation select{display:block;width:100%;margin:5px 0}
+.franken-mutation button:disabled,.franken-mutation select:disabled{opacity:.4}
+.franken-mutation-dimension{margin:7px 0;border-top:1px solid rgba(255,255,255,.1);padding-top:7px}
+.franken-mutation-dimension summary{display:grid;grid-template-columns:90px 1fr minmax(100px,1fr);gap:10px;align-items:center;cursor:pointer;font-size:10px}
+.franken-mutation-bar{display:block;height:6px;background:linear-gradient(to right,#9e9eac calc(var(--mutation-fraction,0)*100%),rgba(255,255,255,.08) 0)}
+.franken-mutation-dimension pre{max-height:240px;overflow:auto;font-size:10px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;color:#d7d7e0;background:rgba(0,0,0,.2);padding:10px}
+#frankenMutationMap code{display:block;overflow-wrap:anywhere;white-space:normal;font-size:9px}
+@media(max-width:700px){.franken-mutation-dimension summary{grid-template-columns:80px 1fr}.franken-mutation-dimension summary>span:last-child{grid-column:1/-1}}
