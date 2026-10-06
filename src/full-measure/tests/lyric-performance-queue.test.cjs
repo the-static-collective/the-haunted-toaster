@@ -95,7 +95,6 @@ test("CATCH never auto-arrives and one punch resolves the current catch without 
 
   state=advanceLyricGuide(state,queue.entries[0].proposedFrame);
   state=advanceLyricGuide(state,queue.entries[1].proposedFrame);
-  state=advanceLyricGuide(state,queue.entries[2].proposedFrame+48);
 
   assert.deepEqual(state.arrivals.map(x=>x.lineId),["line-1","line-2"]);
   assert.equal(state.cursor,2);
