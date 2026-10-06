@@ -188,3 +188,13 @@ body.franken-open{overflow:hidden}
 .franken-scope-regions{display:flex;gap:5px;flex-wrap:wrap}
 .franken-scope-regions span{padding:3px 5px;border:1px solid rgba(255,255,255,.09);border-radius:5px;font-size:7px;color:#ffd0a8}
 @media(max-width:980px){.franken-execution-heading{align-items:stretch;flex-direction:column}.franken-execution-heading>div{justify-content:flex-start}}
+
+.franken-artifact-review{margin-top:12px;padding:10px;border:1px solid rgba(160,255,180,.24);border-radius:8px;background:rgba(160,255,180,.035);display:grid;gap:8px}
+.franken-artifact-review-heading{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.franken-artifact-review-heading>span{font-size:8px;letter-spacing:.13em;color:#c9ffd4}
+.franken-artifact-review-heading>div{display:flex;gap:6px;flex-wrap:wrap}
+.franken-artifact-review-heading button{min-height:30px;padding:0 10px;border:1px solid rgba(160,255,180,.38);border-radius:6px;background:rgba(160,255,180,.07);color:#c9ffd4;font-size:8px;font-weight:800}
+.franken-artifact-review-heading button:disabled{opacity:.3}
+.franken-artifact-review video{width:100%;max-height:320px;border:1px solid rgba(255,255,255,.08);border-radius:7px;background:#000}
+.franken-artifact-review code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:8px;color:var(--muted,#999)}
+@media(max-width:980px){.franken-artifact-review-heading{align-items:stretch;flex-direction:column}}
