@@ -289,6 +289,20 @@
               <code id="frankenScopeApproval">No scope approval</code>
               <code id="frankenExecutionResult">No execution authorized</code>
             </div>
+            <div class="franken-artifact-review">
+              <div class="franken-artifact-review-heading">
+                <span>ARTIFACT ADOPTION · REVIEW PIXELS BEFORE DISPOSITION</span>
+                <div>
+                  <button type="button" id="frankenBuildReview" disabled>BUILD REVIEW</button>
+                  <button type="button" id="frankenAdoptReview" disabled>ADOPT</button>
+                  <button type="button" id="frankenRejectReview" disabled>REJECT</button>
+                </div>
+              </div>
+              <video id="frankenCandidateReviewVideo" controls playsinline preload="metadata"></video>
+              <code id="frankenCandidateGraph">No candidate derived frame graph</code>
+              <code id="frankenReviewMedia">No review media</code>
+              <code id="frankenArtifactDisposition">No artifact disposition</code>
+            </div>
           </section>
           <div class="franken-source-grid">
             <button type="button" data-franken-choose="deckPath"><b>Playdeck deck</b><small data-franken-path-status="deckPath">Not chosen</small></button>

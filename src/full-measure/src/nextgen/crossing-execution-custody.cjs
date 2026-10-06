@@ -341,6 +341,7 @@ async function executeApprovedSparseScope(program,scopeProposal,scopeApproval,pa
   const assigned=new Set(work.assignedRegionIds);
   for(const id of selected)if(!assigned.has(id))throw new TypeError(`Sparse execution attempted an unapproved region: ${id}.`);
   const receipts=[];
+  const outputs=[];
   for(const [index,regionId] of selected.entries()){
     const rendered=await renderProgramRegion(source,regionId,{
       rootDir,
@@ -350,9 +351,15 @@ async function executeApprovedSparseScope(program,scopeProposal,scopeApproval,pa
       height,
     });
     receipts.push(rendered.receipt);
+    outputs.push(canonicalize({
+      regionId,
+      directory:rendered.directory,
+      receiptHash:rendered.receipt.receiptHash,
+    }));
   }
   return deepFreeze({
     receipts,
+    outputs,
     result:sparseResult(source,work,receipts),
   });
 }

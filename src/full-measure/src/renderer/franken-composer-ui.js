@@ -450,6 +450,13 @@
     const scopeRegions=document.getElementById("frankenScopeRegions");
     const scopeApprovalReadout=document.getElementById("frankenScopeApproval");
     const executionResultReadout=document.getElementById("frankenExecutionResult");
+    const buildReview=document.getElementById("frankenBuildReview");
+    const adoptReview=document.getElementById("frankenAdoptReview");
+    const rejectReview=document.getElementById("frankenRejectReview");
+    const candidateReviewVideo=document.getElementById("frankenCandidateReviewVideo");
+    const candidateGraphReadout=document.getElementById("frankenCandidateGraph");
+    const reviewMediaReadout=document.getElementById("frankenReviewMedia");
+    const artifactDispositionReadout=document.getElementById("frankenArtifactDisposition");
     const performanceAudio=document.getElementById("syncAudio");
     const onePassApi=view?.OnePass||null;
     const ONE_PASS_KEYS=["a","s","d","j","k","l"];
@@ -471,6 +478,9 @@
     let crossingScopeApproval=null;
     let crossingExecutionResult=null;
     let executionCustodyError=null;
+    let candidateArtifactReview=null;
+    let artifactDisposition=null;
+    let artifactReviewError=null;
     let playheadFrame=0;
     let snapEnabled=true;
     let timelineGestureActive=false;
@@ -1065,11 +1075,25 @@
       updatePreviewFrame();
     }
 
+    function resetArtifactReview(){
+      candidateArtifactReview=null;
+      artifactDisposition=null;
+      artifactReviewError=null;
+      delete root.dataset.candidateGraphHash;
+      delete root.dataset.artifactDispositionHash;
+      if(candidateReviewVideo){
+        candidateReviewVideo.pause?.();
+        candidateReviewVideo.removeAttribute("src");
+        candidateReviewVideo.load?.();
+      }
+    }
+
     function resetExecutionCustody(){
       crossingExecutionScope=null;
       crossingScopeApproval=null;
       crossingExecutionResult=null;
       executionCustodyError=null;
+      resetArtifactReview();
       delete root.dataset.crossingScopeProposalHash;
       delete root.dataset.crossingScopeApprovalHash;
       delete root.dataset.crossingExecutionResultHash;
@@ -1155,6 +1179,7 @@
       executionCustodyError=null;
       crossingScopeApproval=null;
       crossingExecutionResult=null;
+      resetArtifactReview();
       try{
         crossingExecutionScope=await bridge.prepareCrossingExecution(
           onePassSession.receipt,
@@ -1175,6 +1200,7 @@
       if(!crossingExecutionScope?.scopeProposal||!possibilityBinding?.binding||typeof bridge.approveCrossingExecutionScope!=="function")return;
       executionCustodyError=null;
       crossingExecutionResult=null;
+      resetArtifactReview();
       try{
         crossingScopeApproval=await bridge.approveCrossingExecutionScope(
           onePassSession.receipt,
@@ -1194,6 +1220,7 @@
     async function executeAcceptedCrossingScope(){
       if(!crossingExecutionScope?.scopeProposal||!crossingScopeApproval?.approval||!possibilityBinding?.binding||typeof bridge.executeApprovedCrossing!=="function")return;
       executionCustodyError=null;
+      resetArtifactReview();
       if(executeScope){
         executeScope.disabled=true;
         executeScope.textContent="EXECUTING…";
@@ -1214,7 +1241,107 @@
       renderExecutionCustody();
     }
 
+    async function buildCandidateReview(){
+      if(!crossingExecutionResult?.result||!crossingExecutionScope?.scopeProposal||!crossingScopeApproval?.approval||!possibilityBinding?.binding||typeof bridge.prepareCandidateArtifactReview!=="function")return;
+      artifactReviewError=null;
+      artifactDisposition=null;
+      if(buildReview){
+        buildReview.disabled=true;
+        buildReview.textContent="BUILDING REVIEW…";
+      }
+      try{
+        candidateArtifactReview=await bridge.prepareCandidateArtifactReview(
+          onePassSession.receipt,
+          possibilityBinding.binding,
+          crossingExecutionScope.scopeProposal,
+          crossingScopeApproval.approval,
+          crossingExecutionResult,
+        );
+        root.dataset.candidateGraphHash=candidateArtifactReview?.graph?.candidateGraphHash||"";
+        delete root.dataset.artifactDispositionHash;
+      }catch(error){
+        candidateArtifactReview=null;
+        artifactReviewError=error?.message||String(error);
+      }
+      renderArtifactReview();
+    }
+
+    async function decideArtifactReview(decision){
+      if(!candidateArtifactReview?.graph||!candidateArtifactReview?.reviewReceipt||typeof bridge.decideCandidateArtifact!=="function")return;
+      artifactReviewError=null;
+      try{
+        artifactDisposition=await bridge.decideCandidateArtifact(
+          candidateArtifactReview.graph,
+          candidateArtifactReview.reviewReceipt,
+          decision,
+          candidateArtifactReview.graph.candidateGraphHash,
+        );
+        root.dataset.artifactDispositionHash=artifactDisposition?.disposition?.dispositionHash||"";
+      }catch(error){
+        artifactDisposition=null;
+        artifactReviewError=error?.message||String(error);
+      }
+      renderArtifactReview();
+    }
+
+    function renderArtifactReview(){
+      if(!buildReview||!adoptReview||!rejectReview||!candidateReviewVideo||!candidateGraphReadout||!reviewMediaReadout||!artifactDispositionReadout)return;
+      const executable=Boolean(crossingExecutionResult?.result);
+      buildReview.disabled=!executable||typeof bridge.prepareCandidateArtifactReview!=="function";
+      buildReview.textContent=candidateArtifactReview?"REBUILD REVIEW":"BUILD REVIEW";
+      const reviewReady=Boolean(candidateArtifactReview?.graph&&candidateArtifactReview?.reviewReceipt);
+      const decided=Boolean(artifactDisposition?.disposition);
+      adoptReview.disabled=!reviewReady||decided;
+      rejectReview.disabled=!reviewReady||decided;
+
+      if(artifactReviewError){
+        candidateGraphReadout.textContent=`REVIEW ERROR · ${artifactReviewError}`;
+        candidateGraphReadout.title=artifactReviewError;
+      }else if(candidateArtifactReview?.graph){
+        const graph=candidateArtifactReview.graph;
+        candidateGraphReadout.textContent=`CANDIDATE GRAPH · ${graph.changedFrameCount} derived frames / ${graph.frameCount} total · ${String(graph.candidateGraphHash||"").slice(0,16)}`;
+        candidateGraphReadout.title=graph.candidateGraphHash||"";
+      }else{
+        candidateGraphReadout.textContent=executable
+          ?"Execution witnessed · BUILD REVIEW to assemble exact source + derived pixels."
+          :"No candidate derived frame graph";
+        candidateGraphReadout.title="";
+      }
+
+      if(candidateArtifactReview?.reviewReceipt){
+        const receipt=candidateArtifactReview.reviewReceipt;
+        reviewMediaReadout.textContent=`REVIEW MP4 · ${receipt.mediaByteLength} bytes · sha256 ${String(receipt.mediaSha256||"").slice(0,16)}`;
+        reviewMediaReadout.title=receipt.mediaSha256||"";
+        if(candidateReviewVideo.src!==candidateArtifactReview.mediaUrl){
+          candidateReviewVideo.src=candidateArtifactReview.mediaUrl||"";
+          candidateReviewVideo.load?.();
+        }
+      }else{
+        reviewMediaReadout.textContent="No review media";
+        reviewMediaReadout.title="";
+        if(candidateReviewVideo.getAttribute("src")){
+          candidateReviewVideo.pause?.();
+          candidateReviewVideo.removeAttribute("src");
+          candidateReviewVideo.load?.();
+        }
+      }
+
+      if(artifactDisposition?.disposition){
+        const disposition=artifactDisposition.disposition;
+        artifactDispositionReadout.textContent=`${disposition.decision} · ${String(disposition.dispositionHash||"").slice(0,16)} · ${filename(artifactDisposition.path)}`;
+        artifactDispositionReadout.title=disposition.dispositionHash||"";
+        adoptReview.textContent=disposition.decision==="ADOPT"?"ADOPTED":"ADOPT";
+        rejectReview.textContent=disposition.decision==="REJECT"?"REJECTED":"REJECT";
+      }else{
+        artifactDispositionReadout.textContent="No artifact disposition";
+        artifactDispositionReadout.title="";
+        adoptReview.textContent="ADOPT";
+        rejectReview.textContent="REJECT";
+      }
+    }
+
     function renderExecutionCustody(){
+      renderArtifactReview();
       if(!prepareScope||!approveScope||!executeScope||!scopeProposalReadout||!scopeRegions||!scopeApprovalReadout||!executionResultReadout)return;
       const accepted=possibilityBinding?.binding||null;
       prepareScope.disabled=!accepted||typeof bridge.prepareCrossingExecution!=="function";
@@ -1781,6 +1908,9 @@
     prepareScope?.addEventListener("click",()=>{prepareAcceptedCrossingScope().catch((error)=>{executionCustodyError=error?.message||String(error);renderExecutionCustody();});});
     approveScope?.addEventListener("click",()=>{approveAcceptedCrossingScope().catch((error)=>{executionCustodyError=error?.message||String(error);renderExecutionCustody();});});
     executeScope?.addEventListener("click",()=>{executeAcceptedCrossingScope().catch((error)=>{executionCustodyError=error?.message||String(error);renderExecutionCustody();});});
+    buildReview?.addEventListener("click",()=>{buildCandidateReview().catch((error)=>{artifactReviewError=error?.message||String(error);renderArtifactReview();});});
+    adoptReview?.addEventListener("click",()=>{decideArtifactReview("ADOPT").catch((error)=>{artifactReviewError=error?.message||String(error);renderArtifactReview();});});
+    rejectReview?.addEventListener("click",()=>{decideArtifactReview("REJECT").catch((error)=>{artifactReviewError=error?.message||String(error);renderArtifactReview();});});
     performanceAudio?.addEventListener("ended",()=>{
       finishOnePassTake((performanceAudio.currentTime||0)*1000).catch((error)=>{
         onePassPersistenceError=error?.message||String(error);

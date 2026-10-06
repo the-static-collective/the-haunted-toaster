@@ -104,11 +104,12 @@ function lyricWitnesses(alignment, form) {
   const witnesses = [];
 
   alignment.cues.forEach((cue, index) => {
+    const status = boundedString(cue?.status || "unknown", 32);
+    if (status === "unmatched") return;
     const startFrame = frameForSeconds(cue?.start, form);
     if (startFrame === null) return;
     const endFrame = endFrameForSeconds(cue?.end, startFrame, form);
     const lineId = boundedString(cue?.lineId || `line-${index + 1}`, 96);
-    const status = boundedString(cue?.status || "unknown", 32);
     const confidenceValue = Number(cue?.confidence);
     const confidence = Number.isFinite(confidenceValue)
       ? Math.max(0, Math.min(1, confidenceValue))

@@ -54,7 +54,7 @@ function normalizeSampleFrames(frames,totalFrames){
 }
 function normalizeCandidate(candidate){
   if(!candidate||typeof candidate!=="object"||Array.isArray(candidate))throw new TypeError("PossibilityMap candidate must be an object.");
-  if(Object.prototype.hasOwnProperty.call(candidate,"frame"))throw new TypeError("PossibilityMap owns candidate frame; candidate frame must not be supplied.");
+  if(Object.prototype.hasOwnProperty.call(candidate,"frame"))throw new TypeError("Candidate frame belongs to PossibilityMap and must not be supplied.");
   const sourceCandidateId=req(candidate.candidateId,"PossibilityMap candidateId");
   const spec=canonicalize({...candidate});
   delete spec.candidateId;
@@ -172,9 +172,9 @@ function validatePossibilityMap(map){
     }
   }
   const observed=observedRange(map.points);
-  if(JSON.stringify(observed.energyRange)!==JSON.stringify(map.energyRange))throw new TypeError("PossibilityMap energy range mismatch.");
-  if(JSON.stringify(observed.minimumObserved)!==JSON.stringify(map.minimumObserved))throw new TypeError("PossibilityMap minimum observation mismatch.");
-  if(JSON.stringify(observed.maximumObserved)!==JSON.stringify(map.maximumObserved))throw new TypeError("PossibilityMap maximum observation mismatch.");
+  if(JSON.stringify(canonicalize(observed.energyRange))!==JSON.stringify(canonicalize(map.energyRange)))throw new TypeError("PossibilityMap energy range mismatch.");
+  if(JSON.stringify(canonicalize(observed.minimumObserved))!==JSON.stringify(canonicalize(map.minimumObserved)))throw new TypeError("PossibilityMap minimum observation mismatch.");
+  if(JSON.stringify(canonicalize(observed.maximumObserved))!==JSON.stringify(canonicalize(map.maximumObserved)))throw new TypeError("PossibilityMap maximum observation mismatch.");
   if(map.creativeWeatherRef!==null){
     if(!map.creativeWeatherRef||map.creativeWeatherRef.authority!=="testimony-derived-only")throw new TypeError("PossibilityMap CreativeWeather ref is invalid.");
     hash64(map.creativeWeatherRef.weatherHash,"PossibilityMap weatherHash");
