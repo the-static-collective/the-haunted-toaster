@@ -7,6 +7,7 @@ const {canonicalize,deepFreeze,hashCanonical}=require("../generation/canonical.c
 const {resolveFfmpeg,runProcess}=require("../render/tooling.cjs");
 const {strengthAtFrame}=require("./residue-memory.cjs");
 const {validatePerformanceProgram}=require("./performance-program.cjs");
+const {revalidateLocalMedia,validateMediaBindingSet}=require("./performance-program-media.cjs");
 
 const PIXEL_REGION_RECEIPT_SCHEMA="static-collective/performance-program-pixel-region-receipt/v0";
 const PIXEL_EXECUTION_STATE_SCHEMA="static-collective/performance-program-pixel-execution-state/v0";
@@ -41,6 +42,122 @@ function materialColor(materialId,blend="normal"){
     .map(value=>value.toString(16).padStart(2,"0"))
     .join("");
 }
+function rgbHex(r,g,b){
+  return [r,g,b].map(value=>clamp(Math.round(Number(value)||0),0,255).toString(16).padStart(2,"0")).join("");
+}
+function programMaterialMap(program){
+  return new Map((program.materials||[]).map(material=>[material.materialId,material]));
+}
+async function prepareMediaSamples(program,{mediaBindingSet,localMediaPaths,directory}={}){
+  if(!mediaBindingSet&&!localMediaPaths)return null;
+  if(!mediaBindingSet||!localMediaPaths)throw new TypeError("Bound-media rendering requires both mediaBindingSet and localMediaPaths.");
+  const source=validatePerformanceProgram(program);
+  const witness=validateMediaBindingSet(source,mediaBindingSet);
+  const verified=await revalidateLocalMedia(source,witness,localMediaPaths);
+  const verifiedByMaterial=new Map(verified.map(item=>[item.materialId,item]));
+  const materialById=programMaterialMap(source);
+  const witnessByMaterial=new Map(witness.bindings.map(item=>[item.materialId,item]));
+  const sourceJobs=new Map();
+  for(const binding of witness.bindings){
+    const material=materialById.get(binding.materialId);
+    const verifiedEntry=verifiedByMaterial.get(binding.materialId);
+    if(!material||!verifiedEntry)throw new TypeError(`Bound-media renderer cannot resolve ${binding.materialId}.`);
+    const requestedFrames=Math.max(1,Number.isSafeInteger(material.sourceDurationFrames)?material.sourceDurationFrames:source.fps);
+    const key=binding.sourceSpecimenId;
+    const existing=sourceJobs.get(key);
+    if(existing){
+      existing.requestedFrames=Math.max(existing.requestedFrames,requestedFrames);
+      existing.materialIds.push(binding.materialId);
+    }else{
+      sourceJobs.set(key,{
+        sourceSpecimenId:key,
+        sourceSha256:binding.sourceSha256,
+        path:verifiedEntry.path,
+        requestedFrames,
+        materialIds:[binding.materialId],
+      });
+    }
+  }
+  const decodedBySpecimen=new Map();
+  const evidence=[];
+  for(const job of sourceJobs.values()){
+    const rawPath=path.join(directory,`media-${safeName(job.sourceSpecimenId)}.rgb`);
+    await runProcess(resolveFfmpeg(),[
+      "-y",
+      "-hide_banner",
+      "-loglevel","error",
+      "-i",job.path,
+      "-an",
+      "-vf",`fps=${source.fps},scale=1:1:flags=area,format=rgb24`,
+      "-frames:v",String(job.requestedFrames),
+      "-pix_fmt","rgb24",
+      "-f","rawvideo",
+      rawPath,
+    ],{cwd:directory});
+    const raw=await fs.readFile(rawPath);
+    const sampleCount=Math.floor(raw.length/3);
+    if(sampleCount<1)throw new Error(`Admitted media produced no decodable witness samples: ${job.sourceSpecimenId}.`);
+    const samples=[];
+    for(let index=0;index<sampleCount;index++){
+      samples.push([raw[index*3],raw[(index*3)+1],raw[(index*3)+2]]);
+    }
+    decodedBySpecimen.set(job.sourceSpecimenId,samples);
+    evidence.push(canonicalize({
+      sourceSpecimenId:job.sourceSpecimenId,
+      sourceSha256:job.sourceSha256,
+      sampleRate:source.fps,
+      sampleCount,
+      sampleBytesSha256:sha256(raw),
+    }));
+  }
+  const byMaterial=new Map();
+  for(const binding of witness.bindings){
+    const material=materialById.get(binding.materialId);
+    byMaterial.set(binding.materialId,{
+      binding:witnessByMaterial.get(binding.materialId),
+      material,
+      samples:decodedBySpecimen.get(binding.sourceSpecimenId),
+    });
+  }
+  return deepFreeze({
+    bindingSetHash:witness.bindingSetHash,
+    byMaterial,
+    evidence:canonicalize(evidence.sort((a,b)=>a.sourceSpecimenId.localeCompare(b.sourceSpecimenId))),
+  });
+}
+function mediaColorForAction(mediaSamples,action,globalFrame){
+  const record=mediaSamples?.byMaterial?.get(action.sourceMaterialId);
+  if(!record||!Array.isArray(record.samples)||!record.samples.length)return null;
+  const material=record.material||{};
+  const offset=Math.max(0,globalFrame-action.startFrame);
+  const sourceStart=Math.max(0,Number(action.sourceStartFrames)||0);
+  const sampleCount=record.samples.length;
+  let index=sourceStart+offset;
+  const policy=String(material.samplingPolicyId||"loop-source-clip-v1");
+  if(policy==="play-source-once-v1"&&index>=sampleCount)return null;
+  if(policy==="stretch-source-clip-v1"){
+    const span=Math.max(1,Number(action.durationFrames)||1);
+    index=Math.floor((offset/Math.max(1,span-1))*Math.max(0,sampleCount-1));
+  }else{
+    index=((index%sampleCount)+sampleCount)%sampleCount;
+  }
+  const current=record.samples[clamp(index,0,sampleCount-1)];
+  const operator=String(material.digestOperatorId||"clip-luma-texture-v1");
+  if(operator==="clip-luma-mask-v1"){
+    const luma=Math.round((current[0]*.2126)+(current[1]*.7152)+(current[2]*.0722));
+    return rgbHex(luma,luma,luma);
+  }
+  if(operator==="clip-motion-mask-v1"){
+    const previous=record.samples[Math.max(0,clamp(index,0,sampleCount-1)-1)];
+    return rgbHex(
+      Math.abs(current[0]-previous[0]),
+      Math.abs(current[1]-previous[1]),
+      Math.abs(current[2]-previous[2]),
+    );
+  }
+  return rgbHex(current[0],current[1],current[2]);
+}
+
 function interpolateTransform(action,offsetFrame){
   const base=action?.transform||{x:.5,y:.5,scale:1,rotationDegrees:0};
   const points=[{offsetFrames:0,transform:base},...(Array.isArray(action?.transformKeyframes)?action.transformKeyframes:[])]
@@ -103,14 +220,14 @@ function geometryForAction(action,globalFrame,width,height){
   const sourceMarkerX=clamp(x+sourcePhase,0,width-1);
   return {x,y,boxWidth,boxHeight,markerX,markerY,sourceMarkerX};
 }
-function frameFilters(program,globalFrame,localFrame,width,height){
+function frameFilters(program,globalFrame,localFrame,width,height,mediaSamples=null){
   const filters=[];
   const active=(program.timelineActions||[])
     .filter(action=>globalFrame>=action.startFrame&&globalFrame<action.endFrameExclusive)
     .sort((a,b)=>(Number(a.stackOrder)||0)-(Number(b.stackOrder)||0)||String(a.actionId).localeCompare(String(b.actionId)));
   for(const action of active){
     const geometry=geometryForAction(action,globalFrame,width,height);
-    const color=materialColor(action.sourceMaterialId,action.blend);
+    const color=mediaColorForAction(mediaSamples,action,globalFrame)||materialColor(action.sourceMaterialId,action.blend);
     const opacity=Number(action.opacity);
     const alpha=clamp(Number.isFinite(opacity)?opacity:1,0,1);
     const enable=`eq(n\\,${localFrame})`;
@@ -130,7 +247,7 @@ function frameFilters(program,globalFrame,localFrame,width,height){
   }
   return filters;
 }
-function compileWitnessFilter(program,{startFrame,endFrameExclusive,width,height}){
+function compileWitnessFilter(program,{startFrame,endFrameExclusive,width,height,mediaSamples=null}){
   const source=validatePerformanceProgram(program);
   const start=whole(startFrame,"startFrame",0,source.totalFrames-1);
   const end=whole(endFrameExclusive,"endFrameExclusive",start+1,source.totalFrames);
@@ -138,7 +255,7 @@ function compileWitnessFilter(program,{startFrame,endFrameExclusive,width,height
   const h=whole(height,"height",16,4096);
   const filters=["format=rgb24"];
   for(let globalFrame=start;globalFrame<end;globalFrame++){
-    filters.push(...frameFilters(source,globalFrame,globalFrame-start,w,h));
+    filters.push(...frameFilters(source,globalFrame,globalFrame-start,w,h,mediaSamples));
   }
   return filters.join(",");
 }
@@ -164,6 +281,8 @@ async function renderFrames(program,{
   width=96,
   height=54,
   label,
+  mediaBindingSet=null,
+  localMediaPaths=null,
 }={}){
   const source=validatePerformanceProgram(program);
   const root=path.resolve(req(rootDir,"rootDir"));
@@ -175,7 +294,8 @@ async function renderFrames(program,{
   const directory=path.join(root,safeName(source.programHash),safeName(label));
   await fs.rm(directory,{recursive:true,force:true});
   await fs.mkdir(directory,{recursive:true});
-  const filter=compileWitnessFilter(source,{startFrame:start,endFrameExclusive:end,width:w,height:h});
+  const mediaSamples=await prepareMediaSamples(source,{mediaBindingSet,localMediaPaths,directory});
+  const filter=compileWitnessFilter(source,{startFrame:start,endFrameExclusive:end,width:w,height:h,mediaSamples});
   const outputPattern=path.join(directory,"frame-%06d.ppm");
   await runProcess(resolveFfmpeg(),[
     "-y",
@@ -194,13 +314,14 @@ async function renderFrames(program,{
   ],{cwd:directory});
   const frames=await readFrameRecords(directory,start,end);
   if(frames.length!==frameCount)throw new Error("Witness raster frame count mismatch.");
-  return {directory,width:w,height:h,frames};
+  return {directory,width:w,height:h,frames,mediaEvidence:mediaSamples?{bindingSetHash:mediaSamples.bindingSetHash,sources:mediaSamples.evidence}:null};
 }
-function regionPixelHash(program,region,frames){
+function regionPixelHash(program,region,frames,mediaBindingSetHash=null){
   return hashCanonical(canonicalize({
     programHash:program.programHash,
     regionPlanHash:program.renderRegionPlan.regionPlanHash,
     regionId:region.regionId,
+    mediaBindingSetHash:mediaBindingSetHash||null,
     frames:frames.map(frame=>({frame:frame.frame,sha256:frame.sha256})),
   }),"HauntedToaster-PerformanceProgram-RegionPixels-v0");
 }
@@ -210,6 +331,8 @@ async function renderProgramRegion(program,regionId,{
   attemptId,
   width=96,
   height=54,
+  mediaBindingSet=null,
+  localMediaPaths=null,
 }={}){
   const source=validatePerformanceProgram(program);
   const region=source.renderRegionPlan.regions.find(item=>item.regionId===regionId);
@@ -223,6 +346,8 @@ async function renderProgramRegion(program,regionId,{
     width,
     height,
     label:`${safeName(region.regionId)}--${safeName(attempt)}`,
+    mediaBindingSet,
+    localMediaPaths,
   });
   const body=canonicalize({
     schema:PIXEL_REGION_RECEIPT_SCHEMA,
@@ -236,9 +361,11 @@ async function renderProgramRegion(program,regionId,{
     startFrame:region.startFrame,
     endFrameExclusive:region.endFrameExclusive,
     frameCount:region.frameCount,
+    mediaBindingSetHash:rendered.mediaEvidence?.bindingSetHash||null,
+    mediaSampleEvidence:rendered.mediaEvidence?.sources||[],
     raster:{width:rendered.width,height:rendered.height,pixelFormat:"rgb24",container:"ppm-sequence"},
     frames:rendered.frames,
-    regionPixelHash:regionPixelHash(source,region,rendered.frames),
+    regionPixelHash:regionPixelHash(source,region,rendered.frames,rendered.mediaEvidence?.bindingSetHash||null),
     claimLimits:[
       "PIXEL RECEIPT != HUMAN PERFORMANCE",
       "WITNESS RASTER != FINAL ARTISTIC PROJECTION",
@@ -267,7 +394,8 @@ function validatePixelRegionReceipt(program,receipt){
     if(frame.frame!==region.startFrame+index)throw new TypeError("Pixel region receipt contains a non-contiguous frame inventory.");
     if(!/^[a-f0-9]{64}$/.test(String(frame.sha256||"")))throw new TypeError("Pixel region receipt contains an invalid frame hash.");
   }
-  const expectedRegionHash=regionPixelHash(source,region,receipt.frames);
+  if(receipt.mediaBindingSetHash!==null&&receipt.mediaBindingSetHash!==undefined&&!/^[a-f0-9]{64}$/.test(String(receipt.mediaBindingSetHash)))throw new TypeError("Pixel region receipt contains an invalid media binding hash.");
+  const expectedRegionHash=regionPixelHash(source,region,receipt.frames,receipt.mediaBindingSetHash||null);
   if(receipt.regionPixelHash!==expectedRegionHash)throw new TypeError("Pixel region receipt pixel hash mismatch.");
   const {receiptHash,...body}=receipt;
   if(receiptHash!==hashCanonical(canonicalize(body),"HauntedToaster-PerformanceProgram-PixelRegionReceipt-v0"))throw new TypeError("Pixel region receipt hash mismatch.");
@@ -297,6 +425,8 @@ function pixelExecutionState(program,receipts=[]){
     if(attempts.length>1)duplicateRegionIds.push(region.regionId);
     if(new Set(attempts.map(item=>item.regionPixelHash)).size>1)conflictingRegionIds.push(region.regionId);
   }
+  const mediaBindingHashes=[...new Set(valid.map(item=>item.mediaBindingSetHash||null))];
+  const mediaBindingConflict=mediaBindingHashes.length>1;
   const body=canonicalize({
     schema:PIXEL_EXECUTION_STATE_SCHEMA,
     authority:"accounting-only",
@@ -309,7 +439,9 @@ function pixelExecutionState(program,receipts=[]){
     duplicateRegionIds,
     conflictingRegionIds,
     duplicateAttemptCount:valid.length-coveredRegionIds.length,
-    complete:missingRegionIds.length===0&&conflictingRegionIds.length===0,
+    mediaBindingSetHash:mediaBindingConflict?null:(mediaBindingHashes[0]||null),
+    mediaBindingConflict,
+    complete:missingRegionIds.length===0&&conflictingRegionIds.length===0&&!mediaBindingConflict,
     laws:[
       "PIXEL ATTEMPT COUNT != PIXEL COVERAGE",
       "DUPLICATE PIXELS != DOUBLE CREDIT",
@@ -322,10 +454,11 @@ function pixelExecutionState(program,receipts=[]){
     stateHash:hashCanonical(body,"HauntedToaster-PerformanceProgram-PixelExecutionState-v0"),
   }));
 }
-function frameGraphHash(program,frames){
+function frameGraphHash(program,frames,mediaBindingSetHash=null){
   return hashCanonical(canonicalize({
     programHash:program.programHash,
     renderer:RENDERER_ID,
+    mediaBindingSetHash:mediaBindingSetHash||null,
     frames:frames.map(frame=>({frame:frame.frame,sha256:frame.sha256})),
   }),"HauntedToaster-PerformanceProgram-FrameGraph-v0");
 }
@@ -356,9 +489,10 @@ function composePixelArtifactGraph(program,receipts=[]){
     programHash:source.programHash,
     regionPlanHash:source.renderRegionPlan.regionPlanHash,
     frameCount:frames.length,
+    mediaBindingSetHash:state.mediaBindingSetHash||null,
     regionPixels,
     frames,
-    frameGraphHash:frameGraphHash(source,frames),
+    frameGraphHash:frameGraphHash(source,frames,state.mediaBindingSetHash||null),
   });
   return deepFreeze(canonicalize({
     ...body,
@@ -371,6 +505,8 @@ async function renderProgramWhole(program,{
   attemptId="clean-whole",
   width=96,
   height=54,
+  mediaBindingSet=null,
+  localMediaPaths=null,
 }={}){
   const source=validatePerformanceProgram(program);
   const rendered=await renderFrames(source,{
@@ -380,6 +516,8 @@ async function renderProgramWhole(program,{
     width,
     height,
     label:`whole--${safeName(attemptId)}`,
+    mediaBindingSet,
+    localMediaPaths,
   });
   const body=canonicalize({
     schema:WHOLE_RENDER_RECEIPT_SCHEMA,
@@ -389,9 +527,11 @@ async function renderProgramWhole(program,{
     workerId:req(workerId,"workerId"),
     attemptId:req(attemptId,"attemptId"),
     frameCount:rendered.frames.length,
+    mediaBindingSetHash:rendered.mediaEvidence?.bindingSetHash||null,
+    mediaSampleEvidence:rendered.mediaEvidence?.sources||[],
     raster:{width:rendered.width,height:rendered.height,pixelFormat:"rgb24",container:"ppm-sequence"},
     frames:rendered.frames,
-    frameGraphHash:frameGraphHash(source,rendered.frames),
+    frameGraphHash:frameGraphHash(source,rendered.frames,rendered.mediaEvidence?.bindingSetHash||null),
     claimLimits:[
       "WHOLE RENDER RECEIPT != HUMAN PERFORMANCE",
       "WITNESS RASTER != FINAL ARTISTIC PROJECTION",
