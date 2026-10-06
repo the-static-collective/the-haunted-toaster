@@ -183,6 +183,7 @@ contextBridge.exposeInMainWorld("fullMeasure", {
   composeFranken: (config) => ipcRenderer.invoke("franken:compose", config),
   freezeFranken: (config) => ipcRenderer.invoke("franken:freeze", config),
   derivePerformanceEcology: (receipt) => ipcRenderer.invoke("franken:derive-performance-ecology", receipt),
+  writePerformanceProgramBundle: (receipt) => ipcRenderer.invoke("franken:write-performance-program-bundle", receipt),
   writeOnePassReceipt: (receipt) => ipcRenderer.invoke("franken:write-one-pass-receipt", receipt),
   writeFrankenProjectionBundle: (config) => ipcRenderer.invoke("franken:write-projection-bundle", config),
   chooseLyrics: () => ipcRenderer.invoke("dialog:choose-lyrics"),
