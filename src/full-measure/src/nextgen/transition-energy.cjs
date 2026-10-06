@@ -5,6 +5,7 @@ const {strengthAtFrame}=require("./residue-memory.cjs");
 const {AXIS_IDS,validateWeirdnessCompilation}=require("./weirdness-compiler.cjs");
 const {validatePerformanceProgram}=require("./performance-program.cjs");
 const {CHANNEL_IDS,validateCreativeWeather,weatherSampleAt}=require("./creative-weather.cjs");
+const {RECURRENCE_CHANNEL_IDS,validateCreativeWeatherV1,weatherSampleAtV1}=require("./creative-weather-v1.cjs");
 
 const TRANSITION_FIELD_SCHEMA="static-collective/transition-energy-field/v0";
 const TRANSITION_FIELD_POLICY="explicit-creative-physics/v0";
@@ -15,7 +16,7 @@ const TRANSITION_KINDS=Object.freeze([
   "kinship-cross",
 ]);
 const AXIS_SET=new Set(Object.values(AXIS_IDS));
-const WEATHER_CHANNEL_SET=new Set(Object.values(CHANNEL_IDS));
+const WEATHER_CHANNEL_SET=new Set([...Object.values(CHANNEL_IDS),...Object.values(RECURRENCE_CHANNEL_IDS)]);
 const WEIGHTS=Object.freeze({
   currentWorldLawResonance:.20,
   lawFossilResonance:.25,
@@ -227,17 +228,24 @@ function kinshipContributions(program,candidate){
 }
 function validateWeatherForProgram(program,weather){
   if(weather===undefined||weather===null)return null;
-  const valid=validateCreativeWeather(weather);
+  const valid=weather?.schema==="static-collective/creative-weather/v1"
+    ?validateCreativeWeatherV1(weather)
+    :validateCreativeWeather(weather);
   if(Number(valid.formRef?.fps)!==Number(program.fps)||Number(valid.formRef?.totalFrames)!==Number(program.totalFrames)){
     throw new TypeError("CreativeWeather clock/frame domain does not match PerformanceProgram.");
   }
   return valid;
 }
+function weatherSample(weather,frame){
+  return weather?.schema==="static-collective/creative-weather/v1"
+    ?weatherSampleAtV1(weather,frame)
+    :weatherSampleAt(weather,frame);
+}
 function weatherContributions(program,candidate,weather){
   const bindings=candidate.weatherBindings||[];
   if(!bindings.length)return [];
   if(!weather)throw new TypeError(`Transition candidate ${candidate.candidateId} has weather bindings but no CreativeWeather field.`);
-  const sample=weatherSampleAt(weather,candidate.frame);
+  const sample=weatherSample(weather,candidate.frame);
   if(!sample)throw new TypeError(`CreativeWeather has no sample for candidate frame ${candidate.frame}.`);
   const contributions=[];
   for(const binding of bindings){
@@ -260,6 +268,9 @@ function weatherContributions(program,candidate,weather){
         weatherHash:weather.weatherHash,
         listeningFieldHash:weather.sourceListeningFieldHash,
         witnessIds:channel.witnessIds,
+        ...(weather.sourceRecurrenceFieldHash?{recurrenceFieldHash:weather.sourceRecurrenceFieldHash}:{}),
+        ...(Array.isArray(channel.recurrenceGroupIds)?{recurrenceGroupIds:channel.recurrenceGroupIds}:{}),
+        ...(Array.isArray(channel.recurrenceOccurrenceIds)?{recurrenceOccurrenceIds:channel.recurrenceOccurrenceIds}:{}),
       },
     ));
   }
@@ -319,6 +330,7 @@ function compileTransitionField(program,{candidates=[],creativeWeather=null}={})
       authority:"testimony-derived-only",
       weatherHash:weather.weatherHash,
       sourceListeningFieldHash:weather.sourceListeningFieldHash,
+      ...(weather.sourceRecurrenceFieldHash?{sourceRecurrenceFieldHash:weather.sourceRecurrenceFieldHash}:{}),
       formHash:weather.formRef.formHash,
       fps:weather.formRef.fps,
       totalFrames:weather.formRef.totalFrames,
@@ -355,6 +367,7 @@ function validateTransitionField(field){
     if(field.creativeWeatherRef.authority!=="testimony-derived-only")throw new TypeError("TransitionEnergyField CreativeWeather authority mismatch.");
     hash64(field.creativeWeatherRef.weatherHash,"TransitionEnergyField weatherHash");
     hash64(field.creativeWeatherRef.sourceListeningFieldHash,"TransitionEnergyField ListeningField hash");
+    if(field.creativeWeatherRef.sourceRecurrenceFieldHash!==undefined)hash64(field.creativeWeatherRef.sourceRecurrenceFieldHash,"TransitionEnergyField RecurrenceField hash");
   }
   if(!Array.isArray(field.transitions)||field.transitions.length!==field.transitionCount)throw new TypeError("TransitionEnergyField transition count mismatch.");
   const ids=new Set();
