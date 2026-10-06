@@ -361,20 +361,31 @@
 
   function witnessWordObject(entry, frame, timingSource) {
     const lane = wordparkWitnessState.lane;
-    const y = { OPEN: .2, TENDER: .4, STRANGE: .6, HARD: .8 }[lane] || .2;
+    const baseY = { OPEN: .2, TENDER: .4, STRANGE: .6, HARD: .8 }[lane] || .2;
+    const slots = [
+      { dx: 0, dy: 0 },
+      { dx: -.09, dy: -.045 },
+      { dx: -.18, dy: .045 },
+      { dx: -.27, dy: -.075 },
+      { dx: -.36, dy: .075 },
+      { dx: -.45, dy: 0 },
+    ];
+    const slot = slots[entry.queueIndex % slots.length];
+    const centerX = .82 + slot.dx;
+    const y = baseY + slot.dy;
     const text = entry.text;
     const chars = [...text];
     const glyphs = chars.map((char, index) => ({
       index,
       char,
-      x: .55 + (index / Math.max(1, chars.length - 1)) * .35,
+      x: Math.max(.3, centerX - .27) + (index / Math.max(1, chars.length - 1)) * .46,
       y,
       rotationDegrees: lane === "STRANGE" ? -14 : lane === "HARD" ? 90 : 0,
     }));
     const path = [
-      { x: .54, y },
-      { x: .72, y: lane === "STRANGE" ? y + .07 : y },
-      { x: .9, y: lane === "STRANGE" ? y - .07 : y },
+      { x: Math.max(.3, centerX - .28), y },
+      { x: Math.max(.3, centerX - .1), y: lane === "STRANGE" ? y + .07 : y },
+      { x: Math.min(.94, centerX + .08), y: lane === "STRANGE" ? y - .07 : y },
     ];
     return {
       wordObjectId: `witness-word-${entry.lineId}`,
