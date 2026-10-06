@@ -3,7 +3,7 @@
 const {canonicalize,deepFreeze,hashCanonical}=require("../generation/canonical.cjs");
 const {validatePerformanceProgram}=require("./performance-program.cjs");
 const {validatePixelRegionReceipt,frameGraphHash,RENDERER_ID}=require("./performance-program-render.cjs");
-const {validateAffectedRegionProposal,validateExecutionScopeApproval}=require("./crossing-execution-custody.cjs");
+const {validateExecutionScopeApproval}=require("./crossing-execution-custody.cjs");
 
 const CANDIDATE_GRAPH_SCHEMA="static-collective/candidate-derived-frame-graph/v0";
 const DISPOSITION_SCHEMA="static-collective/candidate-artifact-disposition/v0";
@@ -41,11 +41,16 @@ function validateWholeReceipt(program,receipt){
 function composeCandidateDerivedFrameGraph(sourceProgram,derivedProgram,scopeProposal,scopeApproval,sourceWholeReceipt,derivedRegionReceipts=[]){
   const source=validatePerformanceProgram(sourceProgram);
   const derived=validatePerformanceProgram(derivedProgram);
-  validateAffectedRegionProposal(source,derived,{...scopeApproval,
-    schema:"static-collective/possibility-crossing-binding/v0",
-  },scopeProposal);
-  // Full binding validation is performed before custody; here scope+program lineage is authoritative.
   validateExecutionScopeApproval(scopeProposal,scopeApproval);
+  if(scopeProposal.sourceProgramHash!==source.programHash||scopeProposal.derivedProgramHash!==derived.programHash){
+    throw new TypeError("Candidate graph scope/program lineage mismatch.");
+  }
+  if(scopeApproval.sourceProgramHash!==source.programHash||scopeApproval.derivedProgramHash!==derived.programHash){
+    throw new TypeError("Candidate graph approval/program lineage mismatch.");
+  }
+  if(source.renderRegionPlan.regionPlanHash!==derived.renderRegionPlan.regionPlanHash||scopeProposal.regionPlanHash!==derived.renderRegionPlan.regionPlanHash){
+    throw new TypeError("Candidate graph requires stable approved render-region geometry.");
+  }
   const sourceWhole=validateWholeReceipt(source,sourceWholeReceipt);
   if(!Array.isArray(derivedRegionReceipts))throw new TypeError("Derived region receipts must be an array.");
   const valid=derivedRegionReceipts.map(item=>validatePixelRegionReceipt(derived,item));
