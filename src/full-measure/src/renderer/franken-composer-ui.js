@@ -458,6 +458,8 @@
     const onePassReceipt=document.getElementById("frankenOnePassReceipt");
     const onePassCompile=document.getElementById("frankenCompileTake");
     const onePassProgram=document.getElementById("frankenPerformanceProgram");
+    const buildGenealogy=document.getElementById("frankenBuildGenealogy");
+    const genealogyReadout=document.getElementById("frankenGenerationalEcology");
     const terrainBuild=document.getElementById("frankenTerrainBuild");
     const terrainStatus=document.getElementById("frankenTerrainStatus");
     const terrainSelect=document.getElementById("frankenTerrainSelect");
@@ -495,6 +497,8 @@
     let onePassEcologyError=null;
     let onePassProgramBundle=null;
     let onePassProgramError=null;
+    let generationalEcology=null;
+    let generationalEcologyError=null;
     let possibilityTerrain=null;
     let possibilityTerrainError=null;
     let activeTerrainEntryId=null;
@@ -1594,7 +1598,50 @@
       renderExecutionCustody();
     }
 
+    function renderGenerationalEcology(){
+      if(!buildGenealogy||!genealogyReadout)return;
+      const finished=onePassSession?.status==="finished";
+      buildGenealogy.disabled=!finished||typeof bridge.deriveGenerationalEcology!=="function";
+      buildGenealogy.textContent=generationalEcology?.ecology?"FAMILY TREE BUILT":"BUILD FAMILY TREE";
+      if(generationalEcologyError){
+        genealogyReadout.textContent=`GENEALOGY ERROR · ${generationalEcologyError}`;
+        genealogyReadout.title=generationalEcologyError;
+        return;
+      }
+      const ecology=generationalEcology?.ecology;
+      if(!ecology){
+        genealogyReadout.textContent=finished
+          ?"Sealed take ready · genealogy reads only performed history."
+          :"No generational ecology compiled";
+        genealogyReadout.title="";
+        return;
+      }
+      const current=ecology.performances?.find(item=>item.performanceHash===onePassSession?.receipt?.performanceHash)||ecology.performances?.[0];
+      const fossils=ecology.lawFossils?.length||0;
+      const adoptions=ecology.adoptionEvidence?.length||0;
+      const unresolved=(ecology.adoptionEvidence||[]).filter(item=>item.matchBasis!=="exact-media-sha256").length;
+      genealogyReadout.textContent=
+        `GEN ${current?.generation||"?"} · ${current?.directParentCount||0} performed parent${current?.directParentCount===1?"":"s"} · ${ecology.historyNodeCount||0} history nodes · ${fossils} law fossil${fossils===1?"":"s"} · ${adoptions} adoption evidence${unresolved?` (${unresolved} unresolved)`:""} · ${filename(generationalEcology.path)}`;
+      genealogyReadout.title=ecology.ecologyHash||"";
+    }
+
+    async function buildCurrentGenerationalEcology(){
+      if(onePassSession?.status!=="finished"||typeof bridge.deriveGenerationalEcology!=="function")return;
+      generationalEcologyError=null;
+      try{
+        generationalEcology=await bridge.deriveGenerationalEcology(
+          [onePassSession.receipt],
+          (state.promotedMaterials||[]).map(entry=>entry.admissionPath),
+        );
+      }catch(error){
+        generationalEcology=null;
+        generationalEcologyError=error?.message||String(error);
+      }
+      renderGenerationalEcology();
+    }
+
     function renderOnePass(){
+      renderGenerationalEcology();
       if(!onePassBegin||!onePassStatus||!onePassProgress||!onePassLanes||!onePassReceipt)return;
       const descendants=state.nextGen?.videoDigestion?.descendants||[];
       const running=onePassSession?.status==="running";
@@ -1760,6 +1807,8 @@
       onePassEcologyError=null;
       onePassProgramBundle=null;
       onePassProgramError=null;
+      generationalEcology=null;
+      generationalEcologyError=null;
       if(typeof bridge.derivePerformanceEcology==="function"){
         try{
           onePassEcology=await bridge.derivePerformanceEcology(onePassSession.receipt);
@@ -1975,6 +2024,8 @@
         onePassEcologyError=null;
         onePassProgramBundle=null;
         onePassProgramError=null;
+        generationalEcology=null;
+        generationalEcologyError=null;
         resetPossibilityTerrain();
         delete root.dataset.performanceProgramHash;
         root.classList.remove("one-pass-running");
@@ -1994,6 +2045,7 @@
     nextGenLoad?.addEventListener("click",loadNextGen);
     onePassBegin?.addEventListener("click",()=>{beginOnePassTake().catch((error)=>{onePassStatus.textContent=error?.message||String(error);});});
     onePassCompile?.addEventListener("click",()=>{compileOnePassTake().catch((error)=>{onePassProgramError=error?.message||String(error);renderOnePass();renderTerrain();});});
+    buildGenealogy?.addEventListener("click",()=>{buildCurrentGenerationalEcology().catch((error)=>{generationalEcologyError=error?.message||String(error);renderGenerationalEcology();});});
     terrainBuild?.addEventListener("click",()=>{buildPossibilityTerrain().catch((error)=>{possibilityTerrainError=error?.message||String(error);renderTerrain();});});
     terrainSelect?.addEventListener("change",()=>{
       activeTerrainEntryId=terrainSelect.value||null;
