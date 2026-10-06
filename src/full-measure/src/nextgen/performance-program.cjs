@@ -92,7 +92,7 @@ function compileRenderRegionPlan({sourcePerformanceHash,totalFrames,regionFrames
     laws:[
       "REGION PLAN != EXECUTION",
       "REGION ASSIGNMENT != COMPUTE CAPACITY AUTHORITY",
-      "REGION OUTPUT WITNESS != RENDERED PIXEL PROOF",
+      "REGION SIMULATION DIGEST != RENDERED PIXEL PROOF",
     ],
   });
   return deepFreeze(canonicalize({
@@ -230,6 +230,7 @@ function validateRegionExecutionReceipt(program,receipt){
   if(!receipt||typeof receipt!=="object"||Array.isArray(receipt))throw new TypeError("Region execution receipt must be an object.");
   if(receipt.schema!==REGION_EXECUTION_RECEIPT_SCHEMA)throw new TypeError("Unsupported region execution receipt schema.");
   if(receipt.authority!=="witness-only")throw new TypeError("Region execution receipt must remain witness-only.");
+  if(receipt.executionKind!=="deterministic-orchestration-simulator")throw new TypeError("Region execution receipt kind mismatch.");
   if(receipt.programHash!==source.programHash||receipt.regionPlanHash!==source.renderRegionPlan.regionPlanHash)throw new TypeError("Region execution receipt lineage mismatch.");
   const region=source.renderRegionPlan.regions.find(item=>item.regionId===receipt.regionId);
   if(!region)throw new TypeError("Region execution receipt names an unknown region.");
