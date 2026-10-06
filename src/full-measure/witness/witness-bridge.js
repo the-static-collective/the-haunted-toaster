@@ -375,17 +375,22 @@
     const y = baseY + slot.dy;
     const text = entry.text;
     const chars = [...text];
-    const glyphs = chars.map((char, index) => ({
-      index,
-      char,
-      x: Math.min(.94, Math.max(.3, centerX - .27) + (index / Math.max(1, chars.length - 1)) * .46),
-      y,
-      rotationDegrees: lane === "STRANGE" ? -14 : lane === "HARD" ? 90 : 0,
-    }));
+    const glyphStart = Math.max(.3, centerX - .42);
+    const glyphEnd = Math.min(.94, centerX + .1);
+    const glyphs = chars.map((char, index) => {
+      const fraction = chars.length <= 1 ? .5 : index / (chars.length - 1);
+      return {
+        index,
+        char,
+        x: glyphStart + fraction * (glyphEnd - glyphStart),
+        y,
+        rotationDegrees: lane === "STRANGE" ? -14 : lane === "HARD" ? 90 : 0,
+      };
+    });
     const path = [
-      { x: Math.max(.3, centerX - .28), y },
-      { x: Math.max(.3, centerX - .1), y: lane === "STRANGE" ? y + .07 : y },
-      { x: Math.min(.94, centerX + .08), y: lane === "STRANGE" ? y - .07 : y },
+      { x: glyphStart, y },
+      { x: (glyphStart + glyphEnd) / 2, y: lane === "STRANGE" ? y + .07 : y },
+      { x: glyphEnd, y: lane === "STRANGE" ? y - .07 : y },
     ];
     return {
       wordObjectId: `witness-word-${entry.lineId}`,
