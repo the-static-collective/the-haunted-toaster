@@ -66,6 +66,9 @@ function orderedRegionIds(program,ids,label){
 }
 function createCrossingExecutionProgram(program,binding,{wakeStrength=1,decayPerFrame=null}={}){
   const source=validatePerformanceProgram(program);
+  if(binding&&typeof binding==="object"&&!Array.isArray(binding)&&binding.sourceProgramHash!==undefined&&binding.sourceProgramHash!==source.programHash){
+    throw new TypeError("Accepted crossing/program lineage mismatch.");
+  }
   const accepted=validatePossibilityCrossingBinding(binding);
   if(accepted.sourceProgramHash!==source.programHash)throw new TypeError("Accepted crossing/program lineage mismatch.");
   if(accepted.kind!=="scar-wake"||accepted.candidateSpec?.kind!=="scar-wake"){
