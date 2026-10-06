@@ -41,6 +41,22 @@ function materialColor(materialId,blend="normal"){
     .map(value=>value.toString(16).padStart(2,"0"))
     .join("");
 }
+function experiencedOffsetForAction(action,offsetFrame){
+  const raw=Math.max(0,Number(offsetFrame)||0);
+  const map=action?.experiencedTime;
+  if(!map)return raw;
+  if(map.schema!=="static-collective/experienced-time-map/v0"||map.authority!=="compiled-relation-only"){
+    throw new TypeError("Unsupported experienced-time contract.");
+  }
+  if(map.law!=="ease-in-power")throw new TypeError(`Unsupported experienced-time law: ${String(map.law||"(missing)")}.`);
+  const exponent=Number(map.exponent);
+  if(!Number.isFinite(exponent)||exponent<1||exponent>8)throw new TypeError("Experienced-time exponent is outside the supported range.");
+  const span=Math.max(0,Number(action?.durationFrames||0)-1);
+  if(span<=0)return 0;
+  const normalized=clamp(raw/span,0,1);
+  return Math.pow(normalized,exponent)*span;
+}
+
 function interpolateTransform(action,offsetFrame){
   const base=action?.transform||{x:.5,y:.5,scale:1,rotationDegrees:0};
   const points=[{offsetFrames:0,transform:base},...(Array.isArray(action?.transformKeyframes)?action.transformKeyframes:[])]
@@ -79,7 +95,8 @@ function interpolateTransform(action,offsetFrame){
   };
 }
 function geometryForAction(action,globalFrame,width,height){
-  const offset=globalFrame-action.startFrame;
+  const rawOffset=globalFrame-action.startFrame;
+  const offset=experiencedOffsetForAction(action,rawOffset);
   const transform=interpolateTransform(action,offset);
   const crop=action.crop&&typeof action.crop==="object"?action.crop:null;
   const scale=clamp(Number(transform.scale)||1,0.05,16);
@@ -414,6 +431,7 @@ module.exports={
   WHOLE_RENDER_RECEIPT_SCHEMA,
   compileWitnessFilter,
   composePixelArtifactGraph,
+  experiencedOffsetForAction,
   frameGraphHash,
   interpolateTransform,
   pixelExecutionState,
