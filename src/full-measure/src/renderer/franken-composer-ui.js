@@ -443,6 +443,13 @@
     const terrainProposal=document.getElementById("frankenTerrainProposal");
     const terrainBinding=document.getElementById("frankenTerrainBinding");
     const terrainAccept=document.getElementById("frankenTerrainAccept");
+    const prepareScope=document.getElementById("frankenPrepareScope");
+    const approveScope=document.getElementById("frankenApproveScope");
+    const executeScope=document.getElementById("frankenExecuteScope");
+    const scopeProposalReadout=document.getElementById("frankenScopeProposal");
+    const scopeRegions=document.getElementById("frankenScopeRegions");
+    const scopeApprovalReadout=document.getElementById("frankenScopeApproval");
+    const executionResultReadout=document.getElementById("frankenExecutionResult");
     const performanceAudio=document.getElementById("syncAudio");
     const onePassApi=view?.OnePass||null;
     const ONE_PASS_KEYS=["a","s","d","j","k","l"];
@@ -460,6 +467,10 @@
     let activeTerrainEntryId=null;
     let possibilityProposal=null;
     let possibilityBinding=null;
+    let crossingExecutionScope=null;
+    let crossingScopeApproval=null;
+    let crossingExecutionResult=null;
+    let executionCustodyError=null;
     let playheadFrame=0;
     let snapEnabled=true;
     let timelineGestureActive=false;
@@ -1054,12 +1065,23 @@
       updatePreviewFrame();
     }
 
+    function resetExecutionCustody(){
+      crossingExecutionScope=null;
+      crossingScopeApproval=null;
+      crossingExecutionResult=null;
+      executionCustodyError=null;
+      delete root.dataset.crossingScopeProposalHash;
+      delete root.dataset.crossingScopeApprovalHash;
+      delete root.dataset.crossingExecutionResultHash;
+    }
+
     function resetPossibilityTerrain(){
       possibilityTerrain=null;
       possibilityTerrainError=null;
       activeTerrainEntryId=null;
       possibilityProposal=null;
       possibilityBinding=null;
+      resetExecutionCustody();
       delete root.dataset.possibilityProposalHash;
       delete root.dataset.possibilityBindingHash;
     }
@@ -1099,6 +1121,7 @@
       try{
         possibilityProposal=await bridge.proposePossibilityCrossing(entry.map,point.frame);
         possibilityBinding=null;
+        resetExecutionCustody();
         root.dataset.possibilityProposalHash=possibilityProposal.proposalHash||"";
         delete root.dataset.possibilityBindingHash;
       }catch(error){
@@ -1119,6 +1142,7 @@
           possibilityProposal,
           possibilityProposal.proposalHash,
         );
+        resetExecutionCustody();
         root.dataset.possibilityBindingHash=possibilityBinding?.binding?.bindingHash||"";
       }catch(error){
         possibilityTerrainError=error?.message||String(error);
@@ -1126,11 +1150,123 @@
       renderTerrain();
     }
 
+    async function prepareAcceptedCrossingScope(){
+      if(!possibilityBinding?.binding||onePassSession?.status!=="finished"||typeof bridge.prepareCrossingExecution!=="function")return;
+      executionCustodyError=null;
+      crossingScopeApproval=null;
+      crossingExecutionResult=null;
+      try{
+        crossingExecutionScope=await bridge.prepareCrossingExecution(
+          onePassSession.receipt,
+          possibilityBinding.binding,
+          {wakeStrength:1},
+        );
+        root.dataset.crossingScopeProposalHash=crossingExecutionScope?.scopeProposal?.scopeProposalHash||"";
+        delete root.dataset.crossingScopeApprovalHash;
+        delete root.dataset.crossingExecutionResultHash;
+      }catch(error){
+        crossingExecutionScope=null;
+        executionCustodyError=error?.message||String(error);
+      }
+      renderExecutionCustody();
+    }
+
+    async function approveAcceptedCrossingScope(){
+      if(!crossingExecutionScope?.scopeProposal||!possibilityBinding?.binding||typeof bridge.approveCrossingExecutionScope!=="function")return;
+      executionCustodyError=null;
+      crossingExecutionResult=null;
+      try{
+        crossingScopeApproval=await bridge.approveCrossingExecutionScope(
+          onePassSession.receipt,
+          possibilityBinding.binding,
+          crossingExecutionScope.scopeProposal,
+          crossingExecutionScope.scopeProposal.scopeProposalHash,
+        );
+        root.dataset.crossingScopeApprovalHash=crossingScopeApproval?.approval?.scopeApprovalHash||"";
+        delete root.dataset.crossingExecutionResultHash;
+      }catch(error){
+        crossingScopeApproval=null;
+        executionCustodyError=error?.message||String(error);
+      }
+      renderExecutionCustody();
+    }
+
+    async function executeAcceptedCrossingScope(){
+      if(!crossingExecutionScope?.scopeProposal||!crossingScopeApproval?.approval||!possibilityBinding?.binding||typeof bridge.executeApprovedCrossing!=="function")return;
+      executionCustodyError=null;
+      if(executeScope){
+        executeScope.disabled=true;
+        executeScope.textContent="EXECUTING…";
+      }
+      try{
+        crossingExecutionResult=await bridge.executeApprovedCrossing(
+          onePassSession.receipt,
+          possibilityBinding.binding,
+          crossingExecutionScope.scopeProposal,
+          crossingScopeApproval.approval,
+          {localExecutionAuthorized:true},
+        );
+        root.dataset.crossingExecutionResultHash=crossingExecutionResult?.result?.resultHash||"";
+      }catch(error){
+        crossingExecutionResult=null;
+        executionCustodyError=error?.message||String(error);
+      }
+      renderExecutionCustody();
+    }
+
+    function renderExecutionCustody(){
+      if(!prepareScope||!approveScope||!executeScope||!scopeProposalReadout||!scopeRegions||!scopeApprovalReadout||!executionResultReadout)return;
+      const accepted=possibilityBinding?.binding||null;
+      prepareScope.disabled=!accepted||typeof bridge.prepareCrossingExecution!=="function";
+      prepareScope.textContent=crossingExecutionScope?"SCOPE PREPARED":"PREPARE SCOPE";
+      approveScope.disabled=!crossingExecutionScope?.scopeProposal||Boolean(crossingScopeApproval?.approval)||typeof bridge.approveCrossingExecutionScope!=="function";
+      approveScope.textContent=crossingScopeApproval?.approval?"SCOPE APPROVED":"APPROVE SCOPE";
+      executeScope.disabled=!crossingScopeApproval?.approval||Boolean(crossingExecutionResult?.result)||typeof bridge.executeApprovedCrossing!=="function";
+      executeScope.textContent=crossingExecutionResult?.result?"EXECUTED · WITNESS ONLY":"AUTHORIZE LOCAL EXECUTION";
+
+      scopeRegions.replaceChildren();
+      if(executionCustodyError){
+        scopeProposalReadout.textContent=`CUSTODY ERROR · ${executionCustodyError}`;
+        scopeProposalReadout.title=executionCustodyError;
+      }else if(crossingExecutionScope?.scopeProposal){
+        const scope=crossingExecutionScope.scopeProposal;
+        scopeProposalReadout.textContent=`SCOPE PROPOSAL · ${scope.changedFrameCount} changed frames · ${scope.affectedRegionCount} exact regions · ${String(scope.scopeProposalHash||"").slice(0,16)}`;
+        scopeProposalReadout.title=scope.scopeProposalHash||"";
+        for(const region of scope.affectedRegions||[]){
+          const item=document.createElement("span");
+          item.textContent=`${region.regionId} · ${region.startFrame}–${region.endFrameExclusive-1}`;
+          scopeRegions.append(item);
+        }
+      }else{
+        scopeProposalReadout.textContent=accepted
+          ?"Accepted relation · PREPARE SCOPE to derive exact changed regions."
+          :"No affected-region proposal";
+        scopeProposalReadout.title="";
+      }
+
+      if(crossingScopeApproval?.approval){
+        scopeApprovalReadout.textContent=`SCOPE APPROVED · ${crossingScopeApproval.approval.approvedRegionIds.length} regions · ${String(crossingScopeApproval.approval.scopeApprovalHash||"").slice(0,16)} · ${filename(crossingScopeApproval.path)}`;
+        scopeApprovalReadout.title=crossingScopeApproval.approval.scopeApprovalHash||"";
+      }else{
+        scopeApprovalReadout.textContent="No scope approval";
+        scopeApprovalReadout.title="";
+      }
+
+      if(crossingExecutionResult?.result){
+        executionResultReadout.textContent=`EXECUTION WITNESS · ${crossingExecutionResult.receiptCount} regions · parcel ${String(crossingExecutionResult.parcel?.parcelHash||"").slice(0,12)} · result ${String(crossingExecutionResult.result.resultHash||"").slice(0,12)} · ${crossingExecutionResult.directory||""}`;
+        executionResultReadout.title=crossingExecutionResult.result.resultHash||"";
+      }else{
+        executionResultReadout.textContent="No execution authorized";
+        executionResultReadout.title="";
+      }
+    }
+
     async function buildPossibilityTerrain(){
       if(onePassSession?.status!=="finished"||!onePassProgramBundle||typeof bridge.derivePlayableTerrain!=="function")return;
       possibilityTerrainError=null;
       possibilityProposal=null;
       possibilityBinding=null;
+      resetExecutionCustody();
       if(terrainBuild){
         terrainBuild.disabled=true;
         terrainBuild.textContent="BUILDING…";
@@ -1150,6 +1286,7 @@
 
     function renderTerrain(){
       if(!terrainBuild||!terrainStatus||!terrainSelect||!terrainCanvas||!terrainPoint||!terrainProposal||!terrainBinding||!terrainAccept)return;
+      renderExecutionCustody();
       const canBuild=onePassSession?.status==="finished"&&Boolean(onePassProgramBundle)&&typeof bridge.derivePlayableTerrain==="function";
       terrainBuild.disabled=!canBuild;
       terrainBuild.textContent=possibilityTerrain?"REBUILD TERRAIN":"BUILD TERRAIN";
@@ -1181,6 +1318,7 @@
         terrainBinding.textContent="No crossing accepted";
         terrainAccept.disabled=true;
         terrainAccept.textContent="ACCEPT CROSSING";
+        renderExecutionCustody();
         return;
       }
 
@@ -1225,7 +1363,8 @@
         terrainBinding.title="";
       }
       terrainAccept.disabled=!possibilityProposal||possibilityProposal.sourceMapHash!==entry?.map?.mapHash||Boolean(possibilityBinding?.binding);
-      terrainAccept.textContent=possibilityBinding?.binding?"BOUND · NO EXECUTION":"ACCEPT CROSSING";
+      terrainAccept.textContent=possibilityBinding?.binding?"BOUND · SCOPE REQUIRED":"ACCEPT CROSSING";
+      renderExecutionCustody();
     }
 
     function renderOnePass(){
@@ -1633,11 +1772,15 @@
       activeTerrainEntryId=terrainSelect.value||null;
       possibilityProposal=null;
       possibilityBinding=null;
+      resetExecutionCustody();
       delete root.dataset.possibilityProposalHash;
       delete root.dataset.possibilityBindingHash;
       renderTerrain();
     });
     terrainAccept?.addEventListener("click",()=>{acceptTerrainProposal().catch((error)=>{possibilityTerrainError=error?.message||String(error);renderTerrain();});});
+    prepareScope?.addEventListener("click",()=>{prepareAcceptedCrossingScope().catch((error)=>{executionCustodyError=error?.message||String(error);renderExecutionCustody();});});
+    approveScope?.addEventListener("click",()=>{approveAcceptedCrossingScope().catch((error)=>{executionCustodyError=error?.message||String(error);renderExecutionCustody();});});
+    executeScope?.addEventListener("click",()=>{executeAcceptedCrossingScope().catch((error)=>{executionCustodyError=error?.message||String(error);renderExecutionCustody();});});
     performanceAudio?.addEventListener("ended",()=>{
       finishOnePassTake((performanceAudio.currentTime||0)*1000).catch((error)=>{
         onePassPersistenceError=error?.message||String(error);
