@@ -29,6 +29,7 @@ const {
   composeCandidateDerivedFrameGraph,
   decideCandidateArtifact,
   materializeCandidateReview,
+  validateReviewMediaReceipt,
 }=require("../nextgen/artifact-adoption.cjs");
 
 const JSON_EXTENSIONS=new Set([".json"]);
@@ -344,16 +345,17 @@ function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
       };
     },
     async decideCandidateArtifact(graph,reviewReceipt,decision,expectedCandidateGraphHash){
-      if(reviewReceipt?.candidateGraphHash!==graph?.candidateGraphHash)throw new TypeError("Artifact disposition review-media/candidate-graph mismatch.");
+      const validatedReview=validateReviewMediaReceipt(reviewReceipt);
+      if(validatedReview.candidateGraphHash!==graph?.candidateGraphHash)throw new TypeError("Artifact disposition review-media/candidate-graph mismatch.");
       const disposition=decideCandidateArtifact(graph,{
         decision,
         expectedCandidateGraphHash,
-        reviewMediaSha256:reviewReceipt.mediaSha256,
+        reviewMediaSha256:validatedReview.mediaSha256,
         decidedBy:"human-ui",
       });
       const dir=path.join(outputRoot,"artifact-dispositions",graph.candidateGraphHash);
       await fs.mkdir(dir,{recursive:true});
-      const dispositionPath=path.join(dir,`${disposition.dispositionHash}.json`);
+      const dispositionPath=path.join(dir,"disposition.json");
       const bytes=canonicalBytes(disposition);
       try{
         await fs.writeFile(dispositionPath,bytes,{flag:"wx"});
@@ -361,7 +363,7 @@ function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
       }catch(error){
         if(error?.code!=="EEXIST")throw error;
         const existing=await fs.readFile(dispositionPath);
-        if(!existing.equals(bytes))throw new Error("Existing artifact disposition bytes do not match reviewed candidate.");
+        if(!existing.equals(bytes))throw new Error("Candidate graph already has a different artifact disposition; refusing contradictory ADOPT/REJECT.");
         return {disposition,path:dispositionPath,existing:true};
       }
     },
