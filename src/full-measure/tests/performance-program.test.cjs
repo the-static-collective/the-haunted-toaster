@@ -119,7 +119,7 @@ test("overlapping worker attempts do not double-count and converge to the clean 
     attemptId:`clean-${index}`,
   })));
   assert.equal(clean.complete,true);
-  assert.equal(resumed.aggregateOutputHash,clean.aggregateOutputHash);
+  assert.equal(resumed.aggregateSimulationDigest,clean.aggregateSimulationDigest);
   assert.equal(resumed.creditedCoverageFrames,program.totalFrames);
   assert.ok(resumed.observedAttemptFrames>resumed.creditedCoverageFrames);
 });
@@ -145,8 +145,8 @@ test("tampered program and region receipts fail closed",()=>{
   const valid=executeRegion(program,region.regionId,{workerId:"node",attemptId:"one"});
   validateRegionExecutionReceipt(program,valid);
   assert.throws(
-    ()=>validateRegionExecutionReceipt(program,{...valid,outputHash:"0".repeat(64)}),
-    /output hash mismatch/i,
+    ()=>validateRegionExecutionReceipt(program,{...valid,simulationDigest:"0".repeat(64)}),
+    /simulation digest mismatch/i,
   );
 });
 
@@ -179,5 +179,5 @@ test("bundle begins with an explicit missing-work execution receipt",()=>{
   assert.equal(bundle.executionReceipt.attemptCount,0);
   assert.equal(bundle.executionReceipt.coveredRegionIds.length,0);
   assert.equal(bundle.executionReceipt.missingRegionIds.length,bundle.renderRegionPlan.regionCount);
-  assert.equal(bundle.executionReceipt.aggregateOutputHash,null);
+  assert.equal(bundle.executionReceipt.aggregateSimulationDigest,null);
 });
