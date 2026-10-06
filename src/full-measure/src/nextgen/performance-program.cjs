@@ -46,9 +46,11 @@ function timelineAction(placement,index,totalFrames,sourcePerformanceHash){
     sourcePlacementId:req(placement?.placementId,`placement[${index}].placementId`),
     sourceGestureSeq:Number.isSafeInteger(placement?.gestureSeq)?placement.gestureSeq:null,
     sourceMaterialId:req(placement?.materialId,`placement[${index}].materialId`),
+    lane:Number.isSafeInteger(placement?.lane)?placement.lane:null,
     sceneId:req(placement?.sceneId,`placement[${index}].sceneId`),
     startFrame,
     endFrameExclusive,
+    sourceStartFrames:whole(placement?.sourceStartFrames??0,`placement[${index}].sourceStartFrames`),
     durationFrames:endFrameExclusive-startFrame,
     transform:{
       x:finite(transform.x??0.5,`placement[${index}].transform.x`,-4,4),
@@ -56,7 +58,11 @@ function timelineAction(placement,index,totalFrames,sourcePerformanceHash){
       scale:finite(transform.scale??1,`placement[${index}].transform.scale`,0.01,16),
       rotationDegrees:finite(transform.rotationDegrees??0,`placement[${index}].transform.rotationDegrees`,-3600,3600),
     },
-    keyframes:Array.isArray(placement?.keyframes)?canonicalize(placement.keyframes):[],
+    crop:placement?.crop===null||placement?.crop===undefined?null:canonicalize(placement.crop),
+    opacity:finite(placement?.opacity??1,`placement[${index}].opacity`,0,1),
+    blend:req(placement?.blend??"normal",`placement[${index}].blend`),
+    stackOrder:whole(placement?.stackOrder??0,`placement[${index}].stackOrder`,0,1_000_000),
+    transformKeyframes:Array.isArray(placement?.transformKeyframes)?canonicalize(placement.transformKeyframes):[],
   });
 }
 function compileRenderRegionPlan({sourcePerformanceHash,totalFrames,regionFrames=24}={}){
@@ -140,6 +146,7 @@ function compilePerformanceProgram(receipt,{
     sourcePerformanceHash:source.performanceHash,
     fps:source.fps,
     totalFrames:source.totalFrames,
+    materials:Array.isArray(source.materials)?canonicalize(source.materials):[],
     timelineActions,
     performanceTrace:trace,
     residueMemory,
