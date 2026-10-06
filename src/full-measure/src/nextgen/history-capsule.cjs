@@ -54,6 +54,19 @@ function normalizeProjection(value){
 function normalizeHistoricalContext(value={}){
   if(value==null)return canonicalize({authority:"context-reference-only"});
   if(typeof value!=="object"||Array.isArray(value))throw new TypeError("historicalContext must be an object.");
+  const allowed=new Set([
+    "authority",
+    "performanceHash",
+    "traceHash",
+    "residueMemoryHash",
+    "listeningFieldHash",
+    "fullSongFormHash",
+    "admittedSongSha256",
+    "lawFossil",
+  ]);
+  for(const key of Object.keys(value)){
+    if(!allowed.has(key))throw new TypeError(`Unsupported historicalContext field: ${key}.`);
+  }
   const out={authority:"context-reference-only"};
   for(const key of [
     "performanceHash",
