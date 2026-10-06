@@ -2,7 +2,7 @@
 
 const {canonicalize,deepFreeze,hashCanonical}=require("../generation/canonical.cjs");
 const {hashDomainForPlan}=require("../franken-composer/schema.cjs");
-const {lawFossilRef,validateLawFossil}=require("./law-fossil.cjs");
+const {lawFossilRef,validateLawFossil,validateWorldLawRenderCause}=require("./law-fossil.cjs");
 
 const HISTORY_CAPSULE_SCHEMA="static-collective/rendered-history-capsule/v0";
 const HISTORY_CAPSULE_POLICY="render-authority-plus-context/v0";
@@ -110,7 +110,10 @@ function validateRenderedHistoryCapsule(value){
     projectionHash:value.renderAuthority?.projectionHash,
   });
   if(value.renderAuthority?.authority!=="render-cause-reference")throw new TypeError("renderAuthority must remain render-cause-reference.");
-  normalizeHistoricalContext(value.historicalContext);
+  const worldLawCause=value.renderAuthority?.worldLawCause===undefined?null:validateWorldLawRenderCause(value.renderAuthority.worldLawCause);
+  const historicalContext=normalizeHistoricalContext(value.historicalContext);
+  if(worldLawCause&&historicalContext.lawFossil&&worldLawCause.lawFossilHash!==historicalContext.lawFossil.lawFossilHash)throw new TypeError("WorldLawRenderCause does not match historical LawFossil.");
+  if(worldLawCause&&!historicalContext.lawFossil)throw new TypeError("WorldLawRenderCause requires its LawFossil in historical context.");
   if(value.historicalContext?.authority!=="context-reference-only")throw new TypeError("historicalContext must remain context-reference-only.");
   const parents=normalizeParents(value.parents||[]);
   const expectedGeneration=parents.length?Math.max(...parents.map(parent=>parent.generation))+1:1;
@@ -126,6 +129,7 @@ function createRenderedHistoryCapsule({
   projection,
   renderedMedia,
   historicalContext={},
+  worldLawCause=null,
   parents=[],
 }={}){
   const planRef=validatePlanIdentity(plan,planHash);
@@ -142,6 +146,7 @@ function createRenderedHistoryCapsule({
       authority:"render-cause-reference",
       ...planRef,
       ...projectionRef,
+      ...(worldLawCause?{worldLawCause:validateWorldLawRenderCause(worldLawCause)}:{}),
     },
     historicalContext:normalizeHistoricalContext(historicalContext),
     parents:parentRefs,
@@ -152,6 +157,7 @@ function createRenderedHistoryCapsule({
       "PROVENANCE != BEHAVIOR",
       "PAST RELATION != FUTURE AUTHORITY",
       "LAW FOSSIL != ACTIVE LAW",
+      "RELAXED LAW CAUSE != FUTURE LAW",
       "INHERITED WEIRDNESS != REACTIVATED WEIRDNESS",
       "RECURSION != DESTINY",
     ],
@@ -165,13 +171,25 @@ function bindHistoryToVideo({historyCapsule,sourceSha256}={}){
   const capsule=validateRenderedHistoryCapsule(historyCapsule);
   const source=sha(sourceSha256,"sourceSha256");
   if(source!==capsule.renderedMedia.sha256)throw new TypeError("History capsule bytes do not match the admitted video bytes.");
+  const fossil=capsule.historicalContext?.lawFossil||null;
+  const cause=capsule.renderAuthority?.worldLawCause||null;
+  const causalLawHistory=fossil&&cause&&cause.lawFossilHash===fossil.lawFossilHash;
   return deepFreeze(canonicalize({
     authority:"provenance-only",
     capsuleHash:capsule.capsuleHash,
     generation:capsule.generation,
     renderedMediaSha256:capsule.renderedMedia.sha256,
     parentCapsuleHashes:capsule.parents.map(parent=>parent.capsuleHash),
-    ...(capsule.historicalContext?.lawFossil?{lawFossilRef:lawFossilRef(capsule.historicalContext.lawFossil)}:{}),
+    ...(causalLawHistory?{
+      lawFossilRef:lawFossilRef(fossil),
+      worldLawCauseRef:{
+        authority:"provenance-only",
+        causeHash:cause.causeHash,
+        renderer:cause.renderer,
+        wholeRenderReceiptHash:cause.wholeRenderReceiptHash,
+        frameGraphHash:cause.frameGraphHash,
+      },
+    }:{}),
   }));
 }
 
