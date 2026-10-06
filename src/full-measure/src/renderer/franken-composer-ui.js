@@ -561,90 +561,78 @@
     function renderNextGen(){
       if(!nextGenStatus||!pressureRoot||!reservoirRoot)return;
       const crossing=state.nextGen;
+      const promoted=(state.promotedMaterials||[]).map(entry=>entry.descriptor);
       pressureRoot.replaceChildren();
       reservoirRoot.replaceChildren();
       pressureRoot.hidden=!crossing;
-      reservoirRoot.hidden=!crossing;
+      reservoirRoot.hidden=!crossing&&!promoted.length;
 
-      if(!crossing){
+      if(!crossing&&!promoted.length){
         nextGenStatus.textContent="Not loaded. Human edits and FREEZE remain authoritative.";
         return;
       }
 
-      const pressure=crossing.frankenPressure;
-      const edits=pressure?.edits||{};
-      nextGenStatus.textContent=
-        `Loaded ${pressure?.dominantLens?.name||"Listening Eye"} pressure · crossing ${String(crossing.crossingIdentity||"").slice(0,12)} · RECOMPOSE required`;
+      if(crossing){
+        const pressure=crossing.frankenPressure;
+        const edits=pressure?.edits||{};
+        nextGenStatus.textContent=
+          `Loaded ${pressure?.dominantLens?.name||"Listening Eye"} pressure · crossing ${String(crossing.crossingIdentity||"").slice(0,12)} · RECOMPOSE required`;
 
-      const pressureItems=[
-        `LENS · ${pressure?.dominantLens?.name||"unknown"}`,
-        `MOVING TAKE · ${edits.movingTakeSceneId||"unchanged"}`,
-        `ARRIVE→CROSS · ${edits.transitions?.arriveCross||"unchanged"}`,
-        `CROSS→ASSEMBLE · ${edits.transitions?.crossAssemble||"unchanged"}`,
-        `VARIATION · ${Number.isSafeInteger(edits.variation)?edits.variation:"unchanged"}`,
-      ];
-      for(const text of pressureItems){
-        const item=document.createElement("span");
-        item.textContent=text;
-        pressureRoot.append(item);
+        const pressureItems=[
+          `LENS · ${pressure?.dominantLens?.name||"unknown"}`,
+          `MOVING TAKE · ${edits.movingTakeSceneId||"unchanged"}`,
+          `ARRIVE→CROSS · ${edits.transitions?.arriveCross||"unchanged"}`,
+          `CROSS→ASSEMBLE · ${edits.transitions?.crossAssemble||"unchanged"}`,
+          `VARIATION · ${Number.isSafeInteger(edits.variation)?edits.variation:"unchanged"}`,
+        ];
+        for(const text of pressureItems){
+          const item=document.createElement("span");
+          item.textContent=text;
+          pressureRoot.append(item);
+        }
+      }else{
+        nextGenStatus.textContent=`${promoted.length} adopted material${promoted.length===1?"":"s"} admitted · no placement yet · FREEZE remains authoritative`;
       }
 
-      const descendants=crossing.videoDigestion?.descendants||[];
+      const descendants=[
+        ...(crossing?.videoDigestion?.descendants||[]),
+        ...promoted,
+      ];
       if(!descendants.length){
         const item=document.createElement("span");
-        item.innerHTML="<b>VIDEO RESERVOIR SLEEPING</b><small>Admit one video and generate Six-Up, then reload live organs.</small>";
+        item.innerHTML="<b>VIDEO RESERVOIR SLEEPING</b><small>Admit one video and generate Six-Up, or ADOPT + ADMIT a reviewed world.</small>";
         reservoirRoot.append(item);
         return;
       }
+
       for(const descendant of descendants){
+        const adopted=descendant.isAdoptedArtifact===true;
         const item=document.createElement("span");
         item.className="franken-digest-card";
         item.draggable=true;
         item.dataset.materialId=descendant.materialId;
+        item.dataset.materialClass=adopted?"adopted-artifact":"video-digestion";
         item.addEventListener("dragstart",(event)=>{
           event.dataTransfer?.setData("text/x-franken-digest",descendant.materialId);
           if(event.dataTransfer)event.dataTransfer.effectAllowed="copy";
         });
 
         const title=document.createElement("b");
-        title.textContent=`#${descendant.slot} · ${descendant.roleId}`;
-        if(onePassEcology?.trace&&onePassEcology?.residueMemory){
-          const layer=document.createElement("div");
-          layer.className="franken-residue-layer";
-          layer.dataset.authority="proposal-preview-only";
-          const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
-          svg.setAttribute("viewBox","0 0 1000 1000");
-          svg.setAttribute("preserveAspectRatio","none");
-          const paintById=new Map((onePassEcology.trace.paintEvents||[]).map(event=>[event.paintEventId,event]));
-          for(const residue of onePassEcology.residueMemory.residues||[]){
-            const paint=paintById.get(residue.sourcePaintEventId);
-            if(!paint)continue;
-            let mark=null;
-            if(paint.brush?.kind==="performed-spatial-stroke"&&Array.isArray(paint.brush.path)&&paint.brush.path.length>=2){
-              mark=document.createElementNS("http://www.w3.org/2000/svg","polyline");
-              mark.setAttribute("points",residuePathPoints(paint.brush.path));
-              mark.setAttribute("fill","none");
-              mark.setAttribute("vector-effect","non-scaling-stroke");
-            }else{
-              mark=document.createElementNS("http://www.w3.org/2000/svg","circle");
-              mark.setAttribute("cx",String(Math.round((Number(paint.brush?.x)||.5)*1000)));
-              mark.setAttribute("cy",String(Math.round((Number(paint.brush?.y)||.5)*1000)));
-              mark.setAttribute("r",String(Math.max(10,Math.round((Number(paint.brush?.scale)||1)*28))));
-            }
-            mark.setAttribute("class","franken-residue-mark");
-            mark.dataset.residueId=residue.residueId;
-            mark.dataset.sourcePaintEventId=residue.sourcePaintEventId;
-            mark.style.opacity="0";
-            svg.append(mark);
-          }
-          const residueLabel=document.createElement("span");
-          residueLabel.className="franken-residue-label";
-          layer.append(svg,residueLabel);
-          viewport.append(layer);
+        title.textContent=adopted
+          ?`#${descendant.slot} · ADOPTED WORLD`
+          :`#${descendant.slot} · ${descendant.roleId}`;
+
+        if(!adopted&&onePassEcology?.trace&&onePassEcology?.residueMemory){
+          const residueNote=document.createElement("small");
+          residueNote.className="franken-residue-label";
+          residueNote.textContent=`${onePassEcology.residueMemory.residues?.length||0} witnessed residue memories available in live preview`;
+          item.append(residueNote);
         }
 
         const meta=document.createElement("small");
-        meta.textContent=`${descendant.projectionClass} · ${descendant.planHash.slice(0,10)} · ${descendant.sourceDurationFrames}f source`;
+        meta.textContent=adopted
+          ?`ADOPTED · ${String(descendant.admissionHash||descendant.planHash||"").slice(0,10)} · ${descendant.sourceDurationFrames}f source · placement authority NONE`
+          :`${descendant.projectionClass} · ${descendant.planHash.slice(0,10)} · ${descendant.sourceDurationFrames}f source`;
         const placements=placementsFor(state,descendant.materialId);
         if(placements.length)item.classList.add("is-placed");
 
