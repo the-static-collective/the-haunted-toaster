@@ -91,6 +91,8 @@ test("NOW punch turns an unresolved lyric into explicit human timing without inv
   assert.equal(word.timingSource,"human-punch");
   assert.equal(word.humanAnchorCreated,true);
   assert.equal(word.dropFrame,173);
+  assert.equal(session.guide.humanAnchors.length,1);
+  assert.equal(session.guide.humanAnchors[0].lineId,"c");
 });
 
 test("look-ahead rail exposes at most three queue items",()=>{
@@ -131,6 +133,7 @@ test("sealed assisted result keeps machine timing, human treatment, misses, and 
   assert.equal(sealed.packet.wordObjects[0].timingSource,"machine-scheduled");
   assert.equal(sealed.guide.queueHash,session.guide.queueHash);
   assert.equal(sealed.guide.laneChanges[0].moodLane,"HARD");
+  assert.deepEqual(sealed.guide.humanAnchors,[]);
 });
 
 test("assisted mode is additive: original explicit-drop WORDPARK semantics remain available",()=>{
