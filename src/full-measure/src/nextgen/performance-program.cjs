@@ -2,7 +2,7 @@
 
 const {canonicalize,deepFreeze,hashCanonical}=require("../generation/canonical.cjs");
 const {compilePerformanceTrace,validatePerformanceReceipt}=require("./performance-trace.cjs");
-const {compileResidueMemory}=require("./residue-memory.cjs");
+const {compileResidueMemory,validateTrace}=require("./residue-memory.cjs");
 
 const PERFORMANCE_PROGRAM_SCHEMA="static-collective/performance-program/v0";
 const RENDER_REGION_PLAN_SCHEMA="static-collective/render-region-plan/v0";
@@ -169,7 +169,12 @@ function validatePerformanceProgram(program){
   validateHash(program.sourcePerformanceHash,"PerformanceProgram sourcePerformanceHash");
   validateRenderRegionPlan(program.renderRegionPlan);
   if(program.renderRegionPlan.sourcePerformanceHash!==program.sourcePerformanceHash)throw new TypeError("PerformanceProgram region plan source mismatch.");
+  validateTrace(program.performanceTrace);
   if(program.performanceTrace?.sourcePerformanceHash!==program.sourcePerformanceHash)throw new TypeError("PerformanceProgram trace source mismatch.");
+  if(!program.residueMemory||typeof program.residueMemory!=="object"||Array.isArray(program.residueMemory))throw new TypeError("PerformanceProgram residue memory must be an object.");
+  if(program.residueMemory.schema!=="static-collective/residue-memory/v0"||program.residueMemory.authority!=="proposal-only")throw new TypeError("PerformanceProgram residue memory contract mismatch.");
+  const {memoryHash,...memoryBody}=program.residueMemory;
+  if(memoryHash!==hashCanonical(canonicalize(memoryBody),"HauntedToaster-ResidueMemory-v0"))throw new TypeError("PerformanceProgram residue memory hash mismatch.");
   if(program.residueMemory?.sourcePerformanceHash!==program.sourcePerformanceHash)throw new TypeError("PerformanceProgram residue source mismatch.");
   if(program.residueMemory?.sourceTraceHash!==program.performanceTrace?.traceHash)throw new TypeError("PerformanceProgram residue/trace lineage mismatch.");
   const {programHash,...body}=program;
@@ -177,7 +182,7 @@ function validatePerformanceProgram(program){
   if(programHash!==expected)throw new TypeError("PerformanceProgram hash mismatch.");
   return program;
 }
-function expectedRegionOutputHash(program,region){
+function expectedRegionSimulationDigest(program,region){
   return hashCanonical(canonicalize({
     programHash:program.programHash,
     regionPlanHash:program.renderRegionPlan.regionPlanHash,
@@ -199,7 +204,7 @@ function executeRegion(program,regionId,{workerId,attemptId}={}){
     workerId:req(workerId,"workerId"),
     attemptId:req(attemptId,"attemptId"),
     frameCount:region.frameCount,
-    outputHash:expectedRegionOutputHash(source,region),
+    simulationDigest:expectedRegionSimulationDigest(source,region),
     claimLimits:[
       "DETERMINISTIC REGION DIGEST != RENDERED PIXELS",
       "EXECUTION RECEIPT != ECONOMIC VALUE",
@@ -221,7 +226,7 @@ function validateRegionExecutionReceipt(program,receipt){
   const region=source.renderRegionPlan.regions.find(item=>item.regionId===receipt.regionId);
   if(!region)throw new TypeError("Region execution receipt names an unknown region.");
   if(receipt.frameCount!==region.frameCount)throw new TypeError("Region execution receipt frame count mismatch.");
-  if(receipt.outputHash!==expectedRegionOutputHash(source,region))throw new TypeError("Region execution output hash mismatch.");
+  if(receipt.simulationDigest!==expectedRegionSimulationDigest(source,region))throw new TypeError("Region execution simulation digest mismatch.");
   const {receiptHash,...body}=receipt;
   const expected=hashCanonical(canonicalize(body),"HauntedToaster-PerformanceProgram-RegionReceipt-v0");
   if(receiptHash!==expected)throw new TypeError("Region execution receipt hash mismatch.");
@@ -255,13 +260,13 @@ function executionState(program,receipts=[]){
     if(attempts.length>1)duplicateRegionIds.push(region.regionId);
   }
   const complete=missingRegionIds.length===0;
-  const aggregateOutputHash=complete
+  const aggregateSimulationDigest=complete
     ?hashCanonical(canonicalize({
         programHash:source.programHash,
         regionPlanHash:source.renderRegionPlan.regionPlanHash,
         outputs:source.renderRegionPlan.regions.map(region=>({
           regionId:region.regionId,
-          outputHash:expectedRegionOutputHash(source,region),
+          simulationDigest:expectedRegionSimulationDigest(source,region),
         })),
       }),"HauntedToaster-PerformanceProgram-AggregateOutput-v0")
     :null;
@@ -279,7 +284,7 @@ function executionState(program,receipts=[]){
     observedAttemptFrames,
     redundantWorkFrames:observedAttemptFrames-creditedCoverageFrames,
     complete,
-    aggregateOutputHash,
+    aggregateSimulationDigest,
     laws:[
       "ATTEMPT COUNT != COVERAGE",
       "DUPLICATE WORK != DOUBLE CREDIT",
@@ -312,7 +317,7 @@ module.exports={
   compileRenderRegionPlan,
   executeRegion,
   executionState,
-  expectedRegionOutputHash,
+  expectedRegionSimulationDigest,
   validatePerformanceProgram,
   validateRegionExecutionReceipt,
   validateRenderRegionPlan,
