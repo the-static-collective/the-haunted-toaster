@@ -37,6 +37,10 @@ const {
   validateAdoptedArtifactImportProposal,
   validateAdoptedMaterialAdmission,
 }=require("../nextgen/adopted-artifact-promotion.cjs");
+const {
+  compileGenerationalEcology,
+  validateGenerationalEcology,
+}=require("../nextgen/generational-ecology.cjs");
 
 const JSON_EXTENSIONS=new Set([".json"]);
 const VIDEO_EXTENSIONS=new Set([".mp4"]);
@@ -165,9 +169,9 @@ function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
   const outputRoot=path.resolve(rootDir||path.join(process.cwd(),"FrankenComposer"));
 
   async function adoptedArtifactReservoir(admissionPaths=[]){
-    if(admissionPaths==null)return {materials:[],bindings:{},records:[]};
+    if(admissionPaths==null)return {materials:[],bindings:{},records:[],admissions:[]};
     if(!Array.isArray(admissionPaths)||admissionPaths.length>16)throw new TypeError("Adopted artifact admissions must be an array of at most sixteen package paths.");
-    const materials=[],bindings={},records=[];
+    const materials=[],bindings={},records=[],admissions=[];
     const seenAdmissions=new Set(),seenMaterials=new Set();
     for(const [index,rawPath] of admissionPaths.entries()){
       const resolved=path.resolve(String(rawPath||""));
@@ -185,6 +189,7 @@ function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
       seenAdmissions.add(admission.admissionHash);
       seenMaterials.add(admission.material.materialId);
       materials.push(admission.material);
+      admissions.push(admission);
       bindings[admission.material.materialId]=materialPath;
       records.push({
         materialId:admission.material.materialId,
@@ -198,6 +203,7 @@ function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
       materials:canonicalize(materials),
       bindings,
       records:canonicalize(records.sort((a,b)=>a.materialId.localeCompare(b.materialId))),
+      admissions:canonicalize(admissions.sort((a,b)=>a.admissionHash.localeCompare(b.admissionHash))),
     };
   }
 
@@ -219,6 +225,28 @@ function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
         trace,
         residueMemory,
       });
+    },
+    async deriveGenerationalEcology(receipts,admissionPaths=[]){
+      const list=Array.isArray(receipts)?receipts:[receipts];
+      const promoted=await adoptedArtifactReservoir(admissionPaths||[]);
+      const ecology=validateGenerationalEcology(compileGenerationalEcology({
+        performanceReceipts:list,
+        artifactAdmissions:promoted.admissions,
+      }));
+      const dir=path.join(outputRoot,"generational-ecology");
+      const ecologyPath=path.join(dir,`${ecology.ecologyHash}.json`);
+      const bytes=canonicalBytes(ecology);
+      await fs.mkdir(dir,{recursive:true});
+      let existing=false;
+      try{
+        await fs.writeFile(ecologyPath,bytes,{flag:"wx"});
+      }catch(error){
+        if(error?.code!=="EEXIST")throw error;
+        const prior=await fs.readFile(ecologyPath);
+        if(!prior.equals(bytes))throw new Error("Existing generational ecology artifact bytes conflict.");
+        existing=true;
+      }
+      return {ecology,path:ecologyPath,existing};
     },
     async derivePlayableTerrain(receipt,options={}){
       const validated=validateOnePassReceipt(receipt);
@@ -544,6 +572,7 @@ function registerFrankenComposerIpc(ipcMain,{dialog,getWindow,rootDir,assertAvai
   ipcMain.handle("franken:compose",async(_event,config)=>{assertAvailable();return service.compose(config);});
   ipcMain.handle("franken:freeze",async(_event,config)=>{assertAvailable();const result=await service.freeze(config);return {plan:result.plan,planHash:result.planHash};});
   ipcMain.handle("franken:derive-performance-ecology",async(_event,receipt)=>{assertAvailable();return service.derivePerformanceEcology(receipt);});
+  ipcMain.handle("franken:derive-generational-ecology",async(_event,receipts,admissionPaths)=>{assertAvailable();return service.deriveGenerationalEcology(receipts,admissionPaths);});
   ipcMain.handle("franken:derive-playable-terrain",async(_event,receipt,options)=>{assertAvailable();return service.derivePlayableTerrain(receipt,options);});
   ipcMain.handle("franken:propose-possibility-crossing",async(_event,map,frame)=>{assertAvailable();return service.proposePossibilityCrossing(map,frame);});
   ipcMain.handle("franken:accept-possibility-crossing",async(_event,proposal,expectedProposalHash)=>{assertAvailable();return service.acceptPossibilityCrossing(proposal,expectedProposalHash);});
