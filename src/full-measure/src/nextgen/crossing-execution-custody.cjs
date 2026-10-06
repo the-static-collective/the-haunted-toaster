@@ -143,6 +143,8 @@ function deriveAffectedRegionProposal(sourceProgram,derivedProgram,binding){
     crossingKind:execution.kind,
     targetResidueId:execution.targetResidueId,
     activationFrame:execution.activationFrame,
+    wakeStrength:execution.wakeStrength,
+    decayPerFrame:execution.decayPerFrame,
     changedFrameCount:changedFrames.length,
     changedFrameSpans:changedSpans,
     affectedRegionCount:affectedRegionIds.length,
