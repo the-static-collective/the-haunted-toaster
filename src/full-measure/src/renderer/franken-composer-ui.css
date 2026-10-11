@@ -225,3 +225,24 @@ body.franken-open{overflow:hidden}
 .franken-mutation-dimension pre{max-height:240px;overflow:auto;font-size:10px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;color:#d7d7e0;background:rgba(0,0,0,.2);padding:10px}
 #frankenMutationMap code{display:block;overflow-wrap:anywhere;white-space:normal;font-size:9px}
 @media(max-width:700px){.franken-mutation-dimension summary{grid-template-columns:80px 1fr}.franken-mutation-dimension summary>span:last-child{grid-column:1/-1}}
+
+/* 026: performed endpoints only. The controls cannot alter a sealed performance. */
+.franken-correspondence{margin:14px 0;padding:14px;border:1px solid rgba(151,200,177,.32);border-radius:12px;background:linear-gradient(180deg,rgba(112,170,144,.09),rgba(0,0,0,.18))}
+.franken-correspondence-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.franken-correspondence-heading span{font-size:8px;letter-spacing:.13em;color:#a1d2bb}
+.franken-correspondence h4{font-size:17px;margin:4px 0}
+.franken-correspondence p,.franken-correspondence label{font-size:10px;color:var(--muted,#bbc0bc);line-height:1.55}
+.franken-correspondence-buttons{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.franken-correspondence button,.franken-correspondence select,.franken-correspondence input[type="text"]{min-height:34px;padding:7px 10px;border:1px solid rgba(171,212,191,.32);border-radius:7px;color:#e2f3e9;background:#16201c;font:inherit;font-size:10px}
+.franken-correspondence button:focus-visible,.franken-correspondence select:focus-visible,.franken-correspondence input:focus-visible{outline:2px solid #a1d2bb;outline-offset:2px}
+.franken-correspondence button:disabled,.franken-correspondence input:disabled,.franken-correspondence select:disabled{opacity:.4}
+.franken-correspondence-sides{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}
+.franken-correspondence fieldset{min-width:0;max-height:240px;overflow:auto;padding:10px;border:1px solid rgba(171,212,191,.2);border-radius:8px}
+.franken-correspondence legend{padding:0 4px;font-size:11px;color:#bde2cc}
+.franken-correspondence-placement{display:flex;align-items:flex-start;gap:7px;margin:5px 0;cursor:pointer;overflow-wrap:anywhere}
+.franken-correspondence-placement input{margin-top:2px;accent-color:#a1d2bb}
+.franken-correspondence-author{display:grid;grid-template-columns:minmax(130px,1fr) minmax(180px,2fr) auto;align-items:end;gap:10px}
+.franken-correspondence-author label{display:flex;flex-direction:column;gap:4px}
+.franken-correspondence ol{max-height:180px;overflow:auto;padding-left:19px;font-size:10px;overflow-wrap:anywhere}
+.franken-correspondence code{display:block;font-size:9px;white-space:normal;overflow-wrap:anywhere}
+@media(max-width:800px){.franken-correspondence-sides{grid-template-columns:1fr}.franken-correspondence-author{grid-template-columns:1fr}}
