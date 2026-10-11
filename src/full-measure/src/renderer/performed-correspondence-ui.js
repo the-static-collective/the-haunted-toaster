@@ -96,6 +96,7 @@
       const newHash=receipt?.performanceHash||null;
       if(child?.performanceHash!==newHash){
         child=receipt||null;
+        busy=false; // A departed take cannot hold controls locked after an obsolete IPC response.
         selected.parent.clear();selected.child.clear();claims=[];saved=null;verified=false;error=null;
         epoch+=1; // Invalidate async dialog or pending record results for the departed take.
       }else child=receipt||null;
