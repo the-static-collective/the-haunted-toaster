@@ -43,6 +43,21 @@ const {
 }=require("../nextgen/generational-ecology.cjs");
 
 const {compileFamilyMutations,verifyMutationRecord}=require("../nextgen/mutation-record.cjs");
+const {compilePerformedCorrespondence,verifyPerformedCorrespondence}=require("../nextgen/performed-correspondence.cjs");
+
+// Identity adapter only: the actual sealed ONE PASS contract calls this "placementId".
+// Preserve all witnessed placement fields, not a guessed visual similarity or synthetic parent.
+function correspondenceOperand(receipt){
+  const validated=validateOnePassReceipt(receipt);
+  return {
+    performanceHash:validated.performanceHash,
+    placements:validated.placements.map(placement=>({
+      ...placement,
+      id:placement.placementId,
+    })),
+  };
+}
+
 
 const JSON_EXTENSIONS=new Set([".json"]);
 const VIDEO_EXTENSIONS=new Set([".mp4"]);
@@ -276,6 +291,59 @@ function createFrankenComposerService({rootDir,getNextGenContext=null}={}){
       if(!inside(path.join(outputRoot,"mutation-records"),resolved))throw new TypeError("Mutation record verification must stay inside observation custody.");
       const {value}=await readJson(resolved,"mutation record");
       return verifyMutationRecord(value,await mutationInputs(receipts,parentEvidencePaths));
+    },
+    async inspectCorrespondenceParent(parentPath){
+      const {value}=await readJson(parentPath,"ONE PASS parent performance");
+      const receipt=validateOnePassReceipt(value);
+      return {
+        performanceHash:receipt.performanceHash,
+        placements:receipt.placements.map(p=>({
+          id:p.placementId,materialId:p.materialId,lane:p.lane,
+          sceneId:p.sceneId,startOffsetFrames:p.startOffsetFrames,durationFrames:p.durationFrames,
+        })),
+      };
+    },
+    async sealPerformedCorrespondence(parentPath,childReceipt,declarations,expectedParentHash){
+      const {value}=await readJson(parentPath,"ONE PASS parent performance");
+      const parent=validateOnePassReceipt(value);
+      const child=validateOnePassReceipt(childReceipt);
+      if(!expectedParentHash||parent.performanceHash!==expectedParentHash)throw new TypeError("Selected parent performance changed since inspection.");
+      if(parent.performanceHash===child.performanceHash)throw new TypeError("A performance cannot be its own correspondence parent.");
+      if(!Array.isArray(declarations)||!declarations.length)throw new TypeError("An explicit relation declaration is required.");
+      const operands={
+        parentWitness:correspondenceOperand(parent),
+        childWitness:correspondenceOperand(child),
+        declarations,
+      };
+      const record=compilePerformedCorrespondence(operands);
+      verifyPerformedCorrespondence(record,operands);
+      // Retain both exact validated source snapshots before their observation.
+      const parentWitness=await persistObservation("correspondence-witnesses",record.parent.witnessSha256,parent,"correspondence parent witness");
+      const childWitness=await persistObservation("correspondence-witnesses",record.child.witnessSha256,child,"correspondence child witness");
+      const saved=await persistObservation("performed-correspondence",record.correspondenceSha256,record,"performed correspondence");
+      return {record,...saved,parentWitnessPath:parentWitness.path,childWitnessPath:childWitness.path};
+    },
+    async verifyPerformedCorrespondenceRecord(recordPath){
+      const resolved=path.resolve(recordPath);
+      if(!inside(path.join(outputRoot,"performed-correspondence"),resolved))
+        throw new TypeError("Correspondence record verification must stay within local evidence custody.");
+      const {value:record}=await readJson(resolved,"performed correspondence record");
+      if(!/^[a-f0-9]{64}$/.test(String(record?.correspondenceSha256||""))||
+         path.basename(resolved)!==`${record.correspondenceSha256}.json`)
+        throw new TypeError("Correspondence record filename and identity disagree.");
+      if(!/^[a-f0-9]{64}$/.test(String(record?.parent?.witnessSha256||""))||
+         !/^[a-f0-9]{64}$/.test(String(record?.child?.witnessSha256||"")))
+        throw new TypeError("Correspondence witness identities must be SHA-256.");
+      const parentFile=path.join(outputRoot,"correspondence-witnesses",`${record.parent.witnessSha256}.json`);
+      const childFile=path.join(outputRoot,"correspondence-witnesses",`${record.child.witnessSha256}.json`);
+      const parent=validateOnePassReceipt((await readJson(parentFile,"retained parent performance")).value);
+      const child=validateOnePassReceipt((await readJson(childFile,"retained child performance")).value);
+      const operands={
+        parentWitness:correspondenceOperand(parent),
+        childWitness:correspondenceOperand(child),
+        declarations:record.claims,
+      };
+      return verifyPerformedCorrespondence(record,operands);
     },
     async derivePlayableTerrain(receipt,options={}){
       const validated=validateOnePassReceipt(receipt);
@@ -593,6 +661,10 @@ function registerFrankenComposerIpc(ipcMain,{dialog,getWindow,rootDir,assertAvai
   const service=createFrankenComposerService({rootDir,getNextGenContext});
   const choose=async(title,extensions)=>{assertAvailable();const result=await dialog.showOpenDialog(getWindow(),{title,properties:["openFile"],filters:[{name:title,extensions}]});return result.canceled?null:result.filePaths[0];};
   ipcMain.handle("franken:choose-mutation-parent",()=>choose("Choose parent history capsule + ONE PASS witness JSON",["json"]));
+  ipcMain.handle("franken:choose-correspondence-parent",()=>choose("Choose an earlier sealed ONE PASS receipt",["json"]));
+  ipcMain.handle("franken:inspect-correspondence-parent",async(_event,parentPath)=>{assertAvailable();return service.inspectCorrespondenceParent(parentPath);});
+  ipcMain.handle("franken:seal-correspondence",async(_event,parentPath,childReceipt,declarations,expectedParentHash)=>{assertAvailable();return service.sealPerformedCorrespondence(parentPath,childReceipt,declarations,expectedParentHash);});
+  ipcMain.handle("franken:verify-correspondence",async(_event,recordPath)=>{assertAvailable();return service.verifyPerformedCorrespondenceRecord(recordPath);});
   ipcMain.handle("franken:measure-mutation",async(_event,receipts,paths)=>{assertAvailable();return service.measureMutation(receipts,paths);});
   ipcMain.handle("franken:verify-mutation",async(_event,recordPath,receipts,paths)=>{assertAvailable();return service.verifyMutation(recordPath,receipts,paths);});
   ipcMain.handle("franken:choose-deck",()=>choose("Choose Playdeck deck JSON",["json"]));
@@ -620,4 +692,4 @@ function registerFrankenComposerIpc(ipcMain,{dialog,getWindow,rootDir,assertAvai
   ipcMain.handle("franken:write-projection-bundle",async(_event,config)=>{assertAvailable();return service.writeProjectionBundle(config);});
   return service;
 }
-module.exports={JSON_EXTENSIONS,VIDEO_EXTENSIONS,assertLocalFile,createFrankenComposerService,previewAssets,proposalIdentity,registerFrankenComposerIpc,validateOnePassReceipt};
+module.exports={JSON_EXTENSIONS,VIDEO_EXTENSIONS,assertLocalFile,createFrankenComposerService,previewAssets,proposalIdentity,registerFrankenComposerIpc,validateOnePassReceipt,correspondenceOperand};
