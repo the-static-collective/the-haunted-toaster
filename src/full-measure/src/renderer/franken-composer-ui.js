@@ -1599,6 +1599,7 @@
     }
 
     const mutationInspector=view?.MutationMap?.createMutationInspector({document,bridge});
+    const correspondenceBench=view?.PerformedCorrespondenceUI?.createCorrespondenceBench({document,bridge});
 
     function renderGenerationalEcology(){
       mutationInspector?.update({ecology:generationalEcology?.ecology||null,receipt:onePassSession?.receipt||null});
@@ -1644,6 +1645,7 @@
     }
 
     function renderOnePass(){
+      correspondenceBench?.update({receipt:onePassSession?.status==="finished"?onePassSession.receipt:null});
       renderGenerationalEcology();
       if(!onePassBegin||!onePassStatus||!onePassProgress||!onePassLanes||!onePassReceipt)return;
       const descendants=state.nextGen?.videoDigestion?.descendants||[];
