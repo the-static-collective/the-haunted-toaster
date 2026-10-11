@@ -51,6 +51,9 @@ Performance hashes are carried from supplied witnesses; they are not misrepresen
 ## Proof
 
 ```bash
+node src/full-measure/scripts/performed-correspondence.cjs --specimen
+node src/full-measure/scripts/performed-correspondence.cjs --input correspondence-input.json
+node src/full-measure/scripts/performed-correspondence.cjs --verify correspondence-record-and-input.json
 node --test src/full-measure/tests/performed-correspondence.test.cjs
 npm run verify
 ```
