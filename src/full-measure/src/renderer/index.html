@@ -271,7 +271,44 @@
             <p id="frankenMutationStatus" role="status" aria-live="polite">Build the family tree to inspect performed edges.</p>
             <div id="frankenMutationMap"></div>
           </section>
-          <section class="franken-terrain" id="frankenTerrain" aria-labelledby="frankenTerrainHeading">
+          <section class="franken-correspondence" id="frankenCorrespondence" aria-labelledby="frankenCorrespondenceHeading">
+             <div class="franken-correspondence-heading">
+               <div><span>NEXTGEN 026 · EXPLICIT PERFORMED CORRESPONDENCE</span><h4 id="frankenCorrespondenceHeading">Fission / Joining Bench</h4></div>
+               <div class="franken-correspondence-buttons">
+                 <button type="button" id="frankenCorrespondenceChoose">LOAD EARLIER TAKE</button>
+                 <button type="button" id="frankenCorrespondenceClear">CLEAR</button>
+               </div>
+             </div>
+             <p>Choose exact performed placements from an earlier sealed take and this sealed take. The two performances never change. A split is declared, not inferred. Joining does not prove reunion.</p>
+             <div class="franken-correspondence-sides">
+               <fieldset><legend>Earlier performed placements</legend><div id="frankenCorrespondenceParentPlacements"></div></fieldset>
+               <fieldset><legend>Current sealed placements</legend><div id="frankenCorrespondenceChildPlacements"></div></fieldset>
+             </div>
+             <div class="franken-correspondence-author">
+               <label for="frankenCorrespondenceKind">Declared relation
+                 <select id="frankenCorrespondenceKind">
+                   <option value="continue">CONTINUE · 1 → 1</option>
+                   <option value="split">SPLIT · 1 → MANY</option>
+                   <option value="join">JOIN · MANY → 1</option>
+                   <option value="release">RELEASE · MANY → NONE</option>
+                   <option value="emerge">EMERGE · NONE → MANY</option>
+                 </select>
+               </label>
+               <label for="frankenCorrespondenceAttestation">Your explicit attestation ID
+                 <input id="frankenCorrespondenceAttestation" type="text" maxlength="1024" placeholder="Describe the operator's witnessed link" autocomplete="off" />
+               </label>
+               <button type="button" id="frankenCorrespondenceStage">STAGE RELATION</button>
+             </div>
+             <ol id="frankenCorrespondenceStaged" aria-label="Explicit staged relations"></ol>
+             <div class="franken-correspondence-buttons">
+               <button type="button" id="frankenCorrespondenceUndo">REMOVE LAST</button>
+               <button type="button" id="frankenCorrespondenceSeal">RECORD CORRESPONDENCE</button>
+               <button type="button" id="frankenCorrespondenceVerify">VERIFY RECORD</button>
+             </div>
+             <p id="frankenCorrespondenceStatus" role="status" aria-live="polite">Seal a ONE PASS child take.</p>
+             <code id="frankenCorrespondenceReceipt">No correspondence recorded</code>
+           </section>
+           <section class="franken-terrain" id="frankenTerrain" aria-labelledby="frankenTerrainHeading">
             <div class="franken-terrain-heading">
               <div>
                 <span>POSSIBILITY MAP · OBSERVATION → PROPOSAL → ACCEPT</span>
@@ -677,6 +714,7 @@
     <script src="./candidate-ui.js"></script>
     <script src="./one-pass.js"></script>
     <script src="./mutation-map.js"></script>
+          <script src="./performed-correspondence-ui.js"></script>
     <script src="./franken-composer-ui.js"></script>
     <script src="./nextgen-lab-ui.js"></script>
     <script src="./recent-toasts-ui.js"></script>
