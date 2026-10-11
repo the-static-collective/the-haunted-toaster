@@ -110,7 +110,7 @@ function compilePerformedCorrespondence({parentWitness, childWitness, declaratio
       attestationId: nonempty(item.attestationId, 'attestationId'),
     });
   });
-  claims.sort((a, b) => canonical(a).localeCompare(canonical(b), 'en'));
+  claims.sort((a, b) => { const x = canonical(a), y = canonical(b); return x < y ? -1 : x > y ? 1 : 0; });
   const record = {
     schema: SCHEMA,
     policy: POLICY,
