@@ -94,6 +94,7 @@
     }
     function update({receipt}){
       const newHash=receipt?.performanceHash||null;
+      if((child?.performanceHash||null)===newHash)return; // Do not rebuild endpoint controls on every transport frame.
       if(child?.performanceHash!==newHash){
         child=receipt||null;
         busy=false; // A departed take cannot hold controls locked after an obsolete IPC response.
