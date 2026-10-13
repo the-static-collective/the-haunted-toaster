@@ -49,6 +49,17 @@ jobs:
             assert 'sha256:'+hashlib.sha256(raw).hexdigest()==p['previewSha256']
           print('PASS: six original Toaster candidates; NO KEEP, NO final video')
           PY
+      - name: Verify report addresses its persisted JSON body
+        run: |
+          node - <<'JS'
+          const fs=require('fs'),crypto=require('crypto');
+          const v=JSON.parse(fs.readFileSync('/tmp/relay001-output-parent/native-six/six-up.json','utf8'));
+          const {reportSha256,...body}=v;
+          const canonical=x=>x===null||typeof x!=='object'?JSON.stringify(x):Array.isArray(x)?'['+x.map(canonical).join(',')+']':'{'+Object.keys(x).sort().map(k=>JSON.stringify(k)+':'+canonical(x[k])).join(',')+'}';
+          const expected='sha256:'+crypto.createHash('sha256').update(canonical(body)).digest('hex');
+          if(expected!==reportSha256)throw new Error('PERSISTED_JSON_IDENTITY_MISMATCH');
+          console.log('PASS: persisted report identity');
+          JS
       - name: Package exact source for user-local original song
         run: |
           tar -czf relay001-toaster-source.tar.gz \
