@@ -1,0 +1,83 @@
+name: RELAY-001 eighth organ six-up
+on:
+  push:
+    branches: [experiment/relay001-blue-night-six-up]
+  pull_request:
+    paths:
+      - 'src/full-measure/scripts/relay001-candidates.cjs'
+      - '.github/workflows/relay001-eight.yml'
+      - 'docs/RELAY001-TOASTER-CANDIDATES.md'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-six-up:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install native media tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          command -v ffprobe
+      - name: Generate synthetic audio (no user music on GitHub)
+        run: |
+          ffmpeg -hide_banner -nostdin -loglevel error -f lavfi \
+            -i sine=frequency=221:duration=6:sample_rate=48000 \
+            -c:a pcm_s16le relay001-synthetic.wav
+      - name: Execute actual Toaster candidate session without KEEP
+        run: |
+          mkdir -p /tmp/relay001-output-parent
+          RELAY_TOASTER_SOURCE_REF="$GITHUB_SHA" \
+          node src/full-measure/scripts/relay001-candidates.cjs \
+            --audio relay001-synthetic.wav \
+            --out /tmp/relay001-output-parent/native-six
+          python3 - <<'PY'
+          import json,pathlib,hashlib
+          root=pathlib.Path('/tmp/relay001-output-parent/native-six')
+          v=json.loads((root/'six-up.json').read_text())
+          assert v['schema']=='static-relay/haunted-toaster-six-up/v0'
+          assert v['producedCount']==6 and len(v['candidates'])==6
+          assert v['humanDecision'] is None and v['renderAuthorized'] is False
+          assert v['finalRenderPerformed'] is False and v['published'] is False
+          for p in v['candidates']:
+            raw=(root/p['preview']).read_bytes()
+            assert raw[:8]==bytes.fromhex('89504e470d0a1a0a')
+            assert 'sha256:'+hashlib.sha256(raw).hexdigest()==p['previewSha256']
+          print('PASS: six original Toaster candidates; NO KEEP, NO final video')
+          PY
+      - name: Verify report addresses its persisted JSON body
+        run: |
+          node - <<'JS'
+          const fs=require('fs'),crypto=require('crypto');
+          const v=JSON.parse(fs.readFileSync('/tmp/relay001-output-parent/native-six/six-up.json','utf8'));
+          const {reportSha256,...body}=v;
+          const canonical=x=>x===null||typeof x!=='object'?JSON.stringify(x):Array.isArray(x)?'['+x.map(canonical).join(',')+']':'{'+Object.keys(x).sort().map(k=>JSON.stringify(k)+':'+canonical(x[k])).join(',')+'}';
+          const expected='sha256:'+crypto.createHash('sha256').update(canonical(body)).digest('hex');
+          if(expected!==reportSha256)throw new Error('PERSISTED_JSON_IDENTITY_MISMATCH');
+          console.log('PASS: persisted report identity');
+          JS
+      - name: Package exact source for user-local original song
+        run: |
+          tar -czf relay001-toaster-source.tar.gz \
+            src/full-measure/src \
+            src/full-measure/constraints \
+            src/full-measure/profiles \
+            src/full-measure/scripts/relay001-candidates.cjs \
+            src/full-measure/package.json
+          mkdir -p synthetic-evidence
+          cp /tmp/relay001-output-parent/native-six/six-up.json synthetic-evidence/
+          cp /tmp/relay001-output-parent/native-six/*.png synthetic-evidence/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: relay001-toaster-source-carrier
+          path: relay001-toaster-source.tar.gz
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: relay001-toaster-synthetic-six-up
+          path: synthetic-evidence/
+          if-no-files-found: error
