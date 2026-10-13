@@ -84,7 +84,7 @@ async function produce(a){
     humanDecision:null,renderAuthorized:false,finalRenderPerformed:false,
     canonAdmitted:false,published:false,rightsTransferred:false,
     verificationScope:"actual native candidate session and PNG previews; no KEEP/SCRAPE, no final render"};
-  const result={...body,reportSha256:"sha256:"+sha(Buffer.from(canonical(body)))};
+  // Hash exactly the JSON-serializable representation that will be written.\n  // Native optional undefined fields must not silently change the signed address.\n  const serialized=JSON.parse(JSON.stringify(body));\n  const result={...serialized,reportSha256:"sha256:"+sha(Buffer.from(canonical(serialized)))};
   await fsp.writeFile(path.join(out,"six-up.json"),JSON.stringify(result,null,2)+"\n",{flag:"wx"});
   console.log(JSON.stringify({result:"SIX_NATIVE_CANDIDATES_HELD",familyHash:family.familyHash,
     sourceSha256:sourceHash,candidates:candidates.map(x=>({index:x.index,role:x.role,score:x.scoreAddress,
