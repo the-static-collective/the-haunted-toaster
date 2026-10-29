@@ -6,7 +6,7 @@ const {execFileSync}=require("node:child_process");
 
 const JARVIS_PIN="0bba5fa3381fe7475b021cd35e56309ae5817aa2";
 const JARVIS_REPOSITORY="https://github.com/the-static-collective/JAR-VIS";
-const FILES=["src/cabaret/slots.mjs","src/cabaret/toaster-offer.mjs","tools/toaster-offer.mjs"];
+const FILES=["src/cabaret/slots.mjs","src/cabaret/toaster-offer.mjs","src/cabaret/creature-audio.mjs","tools/toaster-offer.mjs","tools/creature-audio.mjs"];
 const sha=bytes=>crypto.createHash("sha256").update(bytes).digest("hex");
 function refuse(reason){throw Error("HOLD_"+reason)}
 function sourceGit(root,...args){
