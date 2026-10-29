@@ -83,5 +83,7 @@ jobs:
           name: fictional-stranger-native-toaster-005
           path: |
             ${{ runner.temp }}/preview
-            ${{ runner.temp }}/render\n            ${{ runner.temp }}/ghost-song.wav\n            ${{ runner.temp }}/ghost-song.wav.receipt.json
+            ${{ runner.temp }}/render
+            ${{ runner.temp }}/ghost-song.wav
+            ${{ runner.temp }}/ghost-song.wav.receipt.json
           retention-days: 14
