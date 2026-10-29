@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: the-static-collective/JAR-VIS
-          ref: b3c1ffeb77c5362aa735eb60b57dbe1e220ef904
+          ref: 0bba5fa3381fe7475b021cd35e56309ae5817aa2
           path: jarvis
           fetch-depth: 0
           persist-credentials: false
