@@ -6,7 +6,7 @@ const path=require("node:path");
 const os=require("node:os");
 const {execFileSync}=require("node:child_process");
 const bridge=require("../src/bridge/jarvis-native.cjs");
-const pin="b3c1ffeb77c5362aa735eb60b57dbe1e220ef904";
+const pin="0bba5fa3381fe7475b021cd35e56309ae5817aa2";
 const p={jarvis:"/tmp/jarvis",offer:"/tmp/offer.json",audio:"/tmp/tone.wav",out:"/tmp/output"};
 test("source owner receiver pins an immutable original JAR;VIS source, not main",()=>{
  assert.equal(bridge.JARVIS_PIN,pin);
