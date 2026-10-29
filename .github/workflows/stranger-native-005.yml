@@ -1,0 +1,89 @@
+name: Toaster Stranger Native 005
+on:
+  push:
+    branches:
+      - experiment/stranger-native-005
+  pull_request:
+    paths:
+      - src/full-measure/src/bridge/**
+      - src/full-measure/scripts/stranger-native.cjs
+      - src/full-measure/tests/stranger-native-bridge.test.cjs
+permissions:
+  contents: read
+jobs:
+  native-crossing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: toaster
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: the-static-collective/JAR-VIS
+          ref: 0bba5fa3381fe7475b021cd35e56309ae5817aa2
+          path: jarvis
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install exact Toaster production dependencies
+        run: npm ci
+        working-directory: toaster/src/full-measure
+      - name: Check actual original-source import and boundary tests
+        env:
+          JARVIS_ROOT: ${{ github.workspace }}/jarvis
+        run: node --test tests/stranger-native-bridge.test.cjs
+        working-directory: toaster/src/full-measure
+      - name: Produce actual original JAR;VIS creature music and exact kept offer
+        env:
+          JARVIS_ROOT: ${{ github.workspace }}/jarvis
+          FIXTURE: ${{ runner.temp }}/ghost-song.wav
+          OFFER: ${{ runner.temp }}/ghost-offer.json
+        run: |
+          node --input-type=module -e '
+            import {pathToFileURL} from "node:url";
+            import {writeFileSync} from "node:fs";
+            const base=pathToFileURL(process.env.JARVIS_ROOT+"/src/cabaret/slots.mjs");
+            const offerPath=pathToFileURL(process.env.JARVIS_ROOT+"/src/cabaret/toaster-offer.mjs");
+            const {replaySlots}=await import(base);
+            const {createOffer}=await import(offerPath);
+            const answer="A local fictional answer, not a real event.";
+            let selected=null;
+            for(let n=0;n<40&&!selected;n++){
+              const question="Can our ghost cowboy create an original music video number "+n+"?";
+              const deck=replaySlots({question,answer});
+              const creature=deck.family.creatures.find(x=>x.renderer==="radio");
+              if(creature)selected=createOffer({question,answer,intents:[{kind:"KEEP",candidateId:creature.id}]});
+            }
+            if(!selected)throw Error("NO_NATIVE_RADIO_CREATURE");
+            writeFileSync(process.env.OFFER,JSON.stringify(selected));
+          '
+          node "$JARVIS_ROOT/tools/toaster-offer.mjs" verify-file "$OFFER"
+          node "$JARVIS_ROOT/tools/creature-audio.mjs" render-wav --offer "$OFFER" --out "$FIXTURE"
+          test -s "$FIXTURE"
+        working-directory: toaster/src/full-measure
+      - name: Run actual original Toaster native six-up and explicit native KEEP to MP4
+        env:
+          JARVIS_ROOT: ${{ github.workspace }}/jarvis
+          FIXTURE: ${{ runner.temp }}/ghost-song.wav
+          OFFER: ${{ runner.temp }}/ghost-offer.json
+          ROOT: ${{ runner.temp }}
+        run: |
+          node scripts/stranger-native.cjs inspect --jarvis "$JARVIS_ROOT" --offer "$OFFER"
+          node scripts/stranger-native.cjs preview --jarvis "$JARVIS_ROOT" --offer "$OFFER" --audio "$FIXTURE" --out "$ROOT/preview"
+          node scripts/stranger-native.cjs render --jarvis "$JARVIS_ROOT" --offer "$OFFER" --audio "$FIXTURE" --out "$ROOT/render" --native-keep-index 2 --authorize I_KEEP_THIS_NATIVE_TOASTER_CANDIDATE
+          test -s "$ROOT/render/native-kept.mp4"
+          node -e 'const x=require(process.env.ROOT+"/render/crossing-receipt.json");const song=require(process.env.FIXTURE+".receipt.json");if(!x.nativeKeep||!x.rendered||x.sourceRightsVerified||x.permissionToPublish!==false||x.audioSha256!==song.audioSha256)process.exit(1)'
+        working-directory: toaster/src/full-measure
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fictional-stranger-native-toaster-005
+          path: |
+            ${{ runner.temp }}/preview
+            ${{ runner.temp }}/render
+            ${{ runner.temp }}/ghost-song.wav
+            ${{ runner.temp }}/ghost-song.wav.receipt.json
+          retention-days: 14
