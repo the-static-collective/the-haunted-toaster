@@ -4,7 +4,7 @@ const fs=require("node:fs");
 const path=require("node:path");
 const {execFileSync}=require("node:child_process");
 
-const JARVIS_PIN="b3c1ffeb77c5362aa735eb60b57dbe1e220ef904";
+const JARVIS_PIN="0bba5fa3381fe7475b021cd35e56309ae5817aa2";
 const JARVIS_REPOSITORY="https://github.com/the-static-collective/JAR-VIS";
 const FILES=["src/cabaret/slots.mjs","src/cabaret/toaster-offer.mjs","tools/toaster-offer.mjs"];
 const sha=bytes=>crypto.createHash("sha256").update(bytes).digest("hex");
