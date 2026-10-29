@@ -115,9 +115,9 @@ async function execute(options){
  const audio=inputMedia(flags["--audio"]);
  // Native Toaster is responsible for VisualScore, timeline and render.
  // JAR;VIS seed only suggests a deterministic creative neighborhood.
- const {createCandidateSession}=require("../src/candidate-session.cjs");
- const {inspectAudio}=require("../src/render/analyze.cjs");
- const {renderVideo}=require("../src/render/render.cjs");
+ const {createCandidateSession}=require("../candidate-session.cjs");
+ const {inspectAudio}=require("../render/analyze.cjs");
+ const {renderVideo}=require("../render/render.cjs");
  const analysis=await inspectAudio(audio.path);
  const session=createCandidateSession();
  session.noteAudio(audio.path,analysis);
