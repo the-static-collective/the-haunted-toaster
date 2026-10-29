@@ -1,0 +1,94 @@
+name: MADDCL0WN 006 Six Native Films
+on:
+  push:
+    branches:
+      - experiment/maddclown-six-films-006
+  pull_request:
+    paths:
+      - src/full-measure/src/bridge/maddclown-film-festival.cjs
+      - src/full-measure/scripts/maddclown-six-films.cjs
+      - src/full-measure/tests/maddclown-six-films.test.cjs
+      - src/full-measure/cinema/**
+permissions:
+  contents: read
+jobs:
+  six-movies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 23
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: toaster
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: the-static-collective/JAR-VIS
+          ref: 0bba5fa3381fe7475b021cd35e56309ae5817aa2
+          path: jarvis
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install original native Toaster dependencies
+        run: npm ci
+        working-directory: toaster/src/full-measure
+      - name: Run actual original-source boundaries and new six-film refusal tests
+        env:
+          JARVIS_ROOT: ${{ github.workspace }}/jarvis
+        run: |
+          node --check src/bridge/maddclown-film-festival.cjs
+          node --check cinema/cinema.js
+          node --test tests/stranger-native-bridge.test.cjs tests/maddclown-six-films.test.cjs
+        working-directory: toaster/src/full-measure
+      - name: Choose an actual original JAR;VIS radio creature and synthesize its music
+        env:
+          JARVIS_ROOT: ${{ github.workspace }}/jarvis
+          OFFER: ${{ runner.temp }}/madd-offer.json
+          AUDIO: ${{ runner.temp }}/madd-ghost-song.wav
+        run: |
+          node --input-type=module -e '
+            import {pathToFileURL} from "node:url";
+            import {writeFileSync} from "node:fs";
+            const slots=await import(pathToFileURL(process.env.JARVIS_ROOT+"/src/cabaret/slots.mjs"));
+            const original=await import(pathToFileURL(process.env.JARVIS_ROOT+"/src/cabaret/toaster-offer.mjs"));
+            const answer="A local fictional answer. This test claims no human outcome.";
+            let kept=null;
+            for(let n=0;n<64&&!kept;n++){
+              const question="What if the ghost cowboy built six peculiar movies for a little festival "+n+"?";
+              const initial=slots.replaySlots({question,answer});
+              const radio=initial.family.creatures.find(x=>x.renderer==="radio");
+              if(radio)kept=original.createOffer({question,answer,intents:[{kind:"KEEP",candidateId:radio.id}]});
+            }
+            if(!kept)throw Error("HOLD_NO_RADIO_CREATURE");
+            writeFileSync(process.env.OFFER,JSON.stringify(kept));
+          '
+          node "$JARVIS_ROOT/tools/toaster-offer.mjs" verify-file "$OFFER"
+          node "$JARVIS_ROOT/tools/creature-audio.mjs" render-wav --offer "$OFFER" --out "$AUDIO"
+          test -s "$AUDIO"
+        working-directory: toaster/src/full-measure
+      - name: Perform actual original Haunted Toaster six native VisualScores and render six MP4s
+        env:
+          JARVIS_ROOT: ${{ github.workspace }}/jarvis
+          OFFER: ${{ runner.temp }}/madd-offer.json
+          AUDIO: ${{ runner.temp }}/madd-ghost-song.wav
+          OUTPUT: ${{ runner.temp }}/maddclown-cinema
+        run: |
+          node scripts/maddclown-six-films.cjs festival --jarvis "$JARVIS_ROOT" --offer "$OFFER" --audio "$AUDIO" --out "$OUTPUT" --fixture-keeps SYNTHETIC_SIX_KEEP_TEST_NOT_A_HUMAN
+          for n in 0 1 2 3 4 5; do test -s "$OUTPUT/film-$n.mp4"; test -s "$OUTPUT/native-$n.png"; test -s "$OUTPUT/film-$n.receipt.json"; done
+          test -s "$OUTPUT/six-unborn-movies.mp4"
+          test -s "$OUTPUT/index.html"
+          node -e 'const fs=require("fs"),c=require("crypto"),p=process.env.OUTPUT,m=require(p+"/manifest.json");if(m.films.length!==6||new Set(m.films.map(f=>f.scoreAddress)).size!==6||new Set(m.films.map(f=>f.timelineHash)).size!==6||m.publicationAuthorized||!m.userConsentNotAuthenticated)throw Error("UNVERIFIED_SIX");for(const f of m.films){const h="sha256:"+c.createHash("sha256").update(fs.readFileSync(p+"/"+f.file)).digest("hex");if(h!==f.sha256)throw Error("MISMATCH")}if(m.reel.sha256!=="sha256:"+c.createHash("sha256").update(fs.readFileSync(p+"/"+m.reel.file)).digest("hex"))throw Error("REEL_MISMATCH")'
+        working-directory: toaster/src/full-measure
+      - name: Keep original soundtrack and source receipt with the show
+        env:
+          OUTPUT: ${{ runner.temp }}/maddclown-cinema
+          AUDIO: ${{ runner.temp }}/madd-ghost-song.wav
+        run: |
+          cp "$AUDIO" "$OUTPUT/original-ghost-song.wav"
+          cp "$AUDIO.receipt.json" "$OUTPUT/original-ghost-song.wav.receipt.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: maddclown-six-native-films-006
+          path: ${{ runner.temp }}/maddclown-cinema
+          retention-days: 14
