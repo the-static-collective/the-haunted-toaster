@@ -25,6 +25,10 @@ jobs:
         run: |
           cd src/full-measure
           node --test tests/witness-window.test.cjs tests/dogram-trace.test.cjs tests/render.test.cjs
+      - name: Install source-independent FFmpeg regression prerequisite
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
       - name: Real FFmpeg full-range input normalized before yuv420p output
         run: |
           ffmpeg -hide_banner -loglevel error -y -f lavfi -i "color=c=white:s=64x64:r=8:d=1" \
