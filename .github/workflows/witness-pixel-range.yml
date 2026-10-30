@@ -1,0 +1,34 @@
+name: GHOT Witness Window full-range video source regression
+on:
+  push:
+    branches: [fix/foreign-video-limited-range-witness-001]
+  pull_request:
+    paths:
+      - src/full-measure/src/render/witness-window.cjs
+      - src/full-measure/tests/witness-window.test.cjs
+      - .github/workflows/witness-pixel-range.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-range-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Original witness seam and native Dogram tests
+        run: |
+          cd src/full-measure
+          node --test tests/witness-window.test.cjs tests/dogram-trace.test.cjs tests/render.test.cjs
+      - name: Real FFmpeg full-range input normalized before yuv420p output
+        run: |
+          ffmpeg -hide_banner -loglevel error -y -f lavfi -i "color=c=white:s=64x64:r=8:d=1" \
+            -vf "scale=in_range=auto:out_range=tv,format=yuv420p" \
+            -c:v libx264 -pix_fmt yuv420p -frames:v 8 -an "$RUNNER_TEMP/range-normalized.mp4"
+          ffprobe -v error -select_streams v:0 -show_entries stream=pix_fmt -of default=noprint_wrappers=1 "$RUNNER_TEMP/range-normalized.mp4" > "$RUNNER_TEMP/range.txt"
+          grep -qx 'pix_fmt=yuv420p' "$RUNNER_TEMP/range.txt"
