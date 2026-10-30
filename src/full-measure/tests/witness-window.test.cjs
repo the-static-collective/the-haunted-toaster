@@ -19,7 +19,7 @@ test("resolved production exposes an explicit Witness Window compiler boundary",
   assert.match(result.graph, /\[cadencedField\]ass=.*\[preWitnessWindow\]/);
   assert.match(
     result.graph,
-    /\[preWitnessWindow\]setsar=1,format=yuv420p\[witnessWindow\]$/,
+    /\[preWitnessWindow\]setsar=1,scale=in_range=auto:out_range=tv,format=yuv420p\[witnessWindow\]$/,
   );
   assert.equal(result.outputLabel, "witnessWindow");
   assert.deepEqual(result.evidence, {
