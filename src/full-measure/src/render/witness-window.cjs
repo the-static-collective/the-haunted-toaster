@@ -31,7 +31,12 @@ function applyWitnessWindowToGraph(graph, options = {}) {
   const height = positiveDimension(options.height, "Witness Window height");
   const pixelFormat = pixelFormatToken(options.pixelFormat);
   const projected = source.replace(seam, `[${PRE_WITNESS_LABEL}]`);
-  const witnessGraph = `${projected};\n[${PRE_WITNESS_LABEL}]setsar=1,format=${pixelFormat}[${WITNESS_OUTPUT_LABEL}]`;
+  // Foreign full-range video material must not leak a full-range flag into a
+  // yuv420p transport. The historical Witness Window flattened pixel FORMAT
+  // without normalizing RANGE; ffprobe then sees yuvj420p and the original
+  // renderer correctly rejects its own result. Scale's out_range=tv binds
+  // the observable transport to the owner's declared limited-range profile.
+  const witnessGraph = `${projected};\n[${PRE_WITNESS_LABEL}]setsar=1,scale=in_range=auto:out_range=tv,format=${pixelFormat}[${WITNESS_OUTPUT_LABEL}]`;
   const evidence = Object.freeze({
     policyVersion: WITNESS_WINDOW_POLICY,
     width,
